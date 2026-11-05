@@ -1,6 +1,6 @@
 import {
   CELL, COLS, ROWS, BOARDS, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
-  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, waveHpScale, buildOffer, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
+  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
   type Alliance, type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId, type ModDef,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
 } from "./rules.ts";
@@ -135,6 +135,8 @@ export interface Hud {
   left: number;
   waveSize: number;
   best: number;
+  /** Most waves cleared in an endless run. */
+  endlessBest: number;
   hero: HeroId | null;
   branch: UpgradeId | null;
   map: MapId;
@@ -148,6 +150,7 @@ export interface Hud {
   night: NightId;
 }
 const BEST_KEY = "melongeddon-best-wave";
+const ENDLESS_BEST_KEY = "melongeddon-endless-best";
 const DOOR_KEY = "melongeddon-door";
 
 export function readDoor(): Alliance {
@@ -179,17 +182,17 @@ export function doorMemory(alliance: Alliance): string {
 }
 const STACKS = buildBoard(BOARDS.stacks.corners);
 
-function readBest(): number {
+function readBest(key = BEST_KEY): number {
   try {
-    return Number(localStorage.getItem(BEST_KEY) ?? 0) || 0;
+    return Number(localStorage.getItem(key) ?? 0) || 0;
   } catch {
     return 0;
   }
 }
 
-function writeBest(n: number) {
+function writeBest(n: number, key = BEST_KEY) {
   try {
-    localStorage.setItem(BEST_KEY, String(n));
+    localStorage.setItem(key, String(n));
   } catch {
     /* ignore */
   }
@@ -272,6 +275,7 @@ export function createWorld(onChange: () => void): {
       left: 0,
       waveSize: 0,
       best: 0,
+      endlessBest: 0,
       hero: null,
       branch: null,
       map: "stacks",
@@ -315,12 +319,20 @@ export function createWorld(onChange: () => void): {
 
   if (typeof window !== "undefined") {
     world.hud.best = readBest();
+    world.hud.endlessBest = readBest(ENDLESS_BEST_KEY);
     world.reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   }
 
   const notify = () => onChange();
 
   const bumpBest = () => {
+    if (world.hud.night === "endless") {
+      if (cleared > world.hud.endlessBest) {
+        world.hud.endlessBest = cleared;
+        writeBest(cleared, ENDLESS_BEST_KEY);
+      }
+      return;
+    }
     if (cleared > world.hud.best) {
       world.hud.best = cleared;
       writeBest(cleared);
@@ -423,7 +435,7 @@ export function createWorld(onChange: () => void): {
   const spill = (parent: Enemy) => {
     const st = STATS.melon;
     const tuned = tune();
-    const hp = Math.round(st.hp * 0.55 * tuned.hp * waveHpScale(cleared));
+    const hp = Math.round(st.hp * 0.55 * tuned.hp * hpScaleFor(world.hud.night, cleared));
     const offsets = [
       [-14, -10],
       [14, -10],
@@ -668,12 +680,13 @@ export function createWorld(onChange: () => void): {
   const endWave = () => {
     cleared += 1;
     bumpBest();
-    world.hud.wave = Math.min(WAVE_COUNT, cleared + 1);
+    const endless = world.hud.night === "endless";
+    world.hud.wave = endless ? cleared + 1 : Math.min(WAVE_COUNT, cleared + 1);
     world.enemies = [];
     world.shots = [];
     if (world.hud.lives <= 0) return;
     const beat = nextBeat(cleared, world.hud.alliance, world.hud.night);
-    const upcoming = waveAt(Math.min(cleared, WAVE_COUNT - 1), world.hud.alliance, world.hud.night);
+    const upcoming = waveAt(endless ? cleared : Math.min(cleared, WAVE_COUNT - 1), world.hud.alliance, world.hud.night);
     if (beat !== "victory") cue("clear");
     if (beat === "victory") {
       cue("victory");
@@ -696,12 +709,15 @@ export function createWorld(onChange: () => void): {
       notify();
       return;
     }
-    if (beat === "upgrade") {
-      const step = cleared === 6 ? 3 : cleared === 1 ? 1 : 2;
-      world.hud.offer = buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, world.hud.alliance);
+    const step = cleared === 1 ? 1 : cleared === 2 ? 2 : 3;
+    const offer = beat === "upgrade" ? buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, world.hud.alliance) : [];
+    if (beat === "upgrade" && offer.length) {
+      world.hud.offer = offer;
       world.hud.phase = "upgrade";
       world.hud.log =
-        step === 3
+        endless && cleared > 6
+          ? "Another shelf opens. The carpet keeps going."
+          : step === 3
           ? world.hud.night === "overflow"
             ? "One more shelf. Then the meter starts spending."
             : "One more shelf. Then the door you chose comes due."
@@ -738,7 +754,7 @@ export function createWorld(onChange: () => void): {
   };
 
   const tickCombat = (dt: number) => {
-    const scale = waveHpScale(cleared);
+    const scale = hpScaleFor(world.hud.night, cleared);
     spawnClock += dt;
     while (queueCursor < queue.length && spawnClock >= queue[queueCursor].t) {
       spawnEnemy(queue[queueCursor].kind, scale * queue[queueCursor].tough, queue[queueCursor].guard, {
@@ -1244,6 +1260,7 @@ export function createWorld(onChange: () => void): {
     chooseNight(night: NightId) {
       if (world.hud.phase !== "select") return;
       world.hud.night = night;
+      world.hud.waveCount = night === "endless" ? 0 : WAVE_COUNT;
       if (night === "overflow") {
         applyBoard("overflow");
         world.hud.alliance = readDoor();
@@ -1254,7 +1271,10 @@ export function createWorld(onChange: () => void): {
       } else {
         if (world.hud.map === "overflow") applyBoard("stacks");
         world.hud.alliance = "none";
-        world.hud.log = "Choose who holds the stacks.";
+        world.hud.log =
+          night === "endless"
+            ? `No knight, no last wave. Best so far: ${world.hud.endlessBest} waves.`
+            : "Choose who holds the stacks.";
       }
       notify();
     },
@@ -1332,6 +1352,7 @@ export function createWorld(onChange: () => void): {
         paused: false,
         night: "midnight",
         map: "stacks",
+        waveCount: WAVE_COUNT,
       };
       notify();
     },

@@ -9,6 +9,8 @@ import {
   WAVE_COUNT,
   buildBoard,
   createWorld,
+  endlessWave,
+  hpScaleFor,
   nextBeat,
   sellValue,
   shopPrice,
@@ -105,6 +107,36 @@ test("betraying the knight trades the act-two upgrade for Bouncing Melons", () =
   assert.equal(nextBeat(6, "betray"), "prep");
   // Overflow keeps its pick: the betrayal there happened on night one.
   assert.equal(nextBeat(6, "betray", "overflow"), "upgrade");
+});
+
+test("endless never ends and keeps generating valid, growing waves", () => {
+  let lastSize = 0;
+  for (let i = 0; i < 60; i++) {
+    assert.notEqual(nextBeat(i + 1, "none", "endless"), "victory");
+    const wave = endlessWave(i);
+    assert.ok(wave.spawns.length > 0, `endless wave ${i + 1} is empty`);
+    for (const s of wave.spawns) {
+      assert.ok(s.kind in STATS, `unknown enemy ${s.kind}`);
+      assert.ok(s.count > 0 && s.every > 0);
+    }
+    if (i >= 6 && (i + 1) % 5 === 0) assert.ok(wave.spawns.some((s) => s.kind === "karl"), `wave ${i + 1} should bring Karl`);
+    // Compare same-theme waves four apart: they only get bigger.
+    if (i >= 10 && (i - 6) % 4 === 0) {
+      const size = wave.spawns.reduce((n, s) => (s.kind === "karl" ? n : n + s.count), 0);
+      assert.ok(size >= lastSize, `wave ${i + 1} shrank`);
+      lastSize = size;
+    }
+  }
+  assert.ok(hpScaleFor("endless", 20) > hpScaleFor("endless", 15));
+  assert.equal(hpScaleFor("endless", 5), hpScaleFor("midnight", 5));
+});
+
+test("endless offers a pick every fifth wave after act one", () => {
+  assert.equal(nextBeat(6, "none", "endless"), "upgrade");
+  assert.equal(nextBeat(11, "none", "endless"), "upgrade");
+  assert.equal(nextBeat(16, "none", "endless"), "upgrade");
+  assert.equal(nextBeat(12, "none", "endless"), "prep");
+  assert.equal(nextBeat(4, "none", "endless"), "prep");
 });
 
 test("simulated runs reach an ending on every night and knight choice", () => {

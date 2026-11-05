@@ -164,7 +164,7 @@ export function MelonGame() {
                     : hud.hero === "mynxi"
                       ? "Mynxi"
                       : "Midnight Library"}
-              {hud.hero ? ` · ${BOARDS[hud.map].name}` : ""}
+              {hud.hero ? ` · ${BOARDS[hud.map].name}${hud.night === "endless" ? " · Endless" : ""}` : ""}
             </p>
           </div>
         </div>
@@ -281,7 +281,7 @@ export function MelonGame() {
               <div className="flex h-12 flex-col justify-center">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-display text-lg leading-none font-semibold">
-                    Wave {Math.min(hud.wave, hud.waveCount)}/{hud.waveCount}
+                    {hud.waveCount ? `Wave ${Math.min(hud.wave, hud.waveCount)}/${hud.waveCount}` : `Wave ${hud.wave}`}
                   </p>
                   <p className="min-w-0 truncate text-sm text-muted">{hud.waveName}</p>
                   <p className="shrink-0 text-sm">{hud.left} remaining</p>
@@ -524,7 +524,7 @@ function TitleScreen({
         {view === "library" ? (
           <MenuCard title="The shelves" onBack={() => setView("menu")}>
             <p>Mynxi keeps the long shots. Vaelithra slows whatever is on the carpet. Sir Michael hits harder, and one cannon is already down.</p>
-            <p className="mt-2">The Stacks are the first room. The Annex folds. The Overflow is the wet night under the chute.</p>
+            <p className="mt-2">The Stacks are the first room. The Annex folds. The Overflow is the wet night under the chute. Endless never stops: survive as long as you can.</p>
           </MenuCard>
         ) : null}
         {view === "settings" ? (
@@ -727,7 +727,9 @@ function SelectScreen({
         <p className="mt-4 max-w-xl text-lg">
           {hud.night === "overflow"
             ? "The first night is over. The returns came back."
-            : "Pick the room. Pick the keeper. The carpet does not care."}
+            : hud.night === "endless"
+              ? `No knight, no last wave. Your best: ${hud.endlessBest} wave${hud.endlessBest === 1 ? "" : "s"}.`
+              : "Pick the room. Pick the keeper. The carpet does not care."}
         </p>
         <p className="mt-1 mb-6 max-w-xl text-sm text-muted">
           {hud.night === "overflow"
@@ -738,11 +740,12 @@ function SelectScreen({
         <div className="mb-5 grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-[10px] tracking-[0.22em] text-gold uppercase">Night</p>
-            <div className="mt-1.5 grid grid-cols-2 overflow-hidden rounded-lg border border-line/70" role="radiogroup" aria-label="Night">
+            <div className="mt-1.5 grid grid-cols-3 overflow-hidden rounded-lg border border-line/70" role="radiogroup" aria-label="Night">
               {(
                 [
                   ["midnight", "Midnight"],
                   ["overflow", "The Overflow"],
+                  ["endless", "Endless"],
                 ] as const
               ).map(([id, label]) => {
                 const on = hud.night === id;
@@ -1149,7 +1152,11 @@ function Overlay({
         {hudPhase === "defeat" ? (
           <EndCard
             title="The carpet won."
-            body={`You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. The produce does not send condolences.`}
+            body={
+              hud.night === "endless"
+                ? `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your endless best is ${hud.endlessBest}. The produce does not send condolences.`
+                : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. The produce does not send condolences.`
+            }
             action="Try again"
             onAction={() => {
               onGesture();

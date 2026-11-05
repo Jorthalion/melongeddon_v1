@@ -27,7 +27,7 @@ export interface RunConfig {
   strategy: Strategy;
   night: NightId;
   map: MapId;
-  /** Knight choice. Midnight: picked at the door after wave 4. Overflow: how night one ended. */
+  /** Knight choice. Midnight: picked at the door after wave 4. Overflow: how night one ended. Ignored in endless. */
   door: Exclude<Alliance, "none">;
   seed: number;
   /** Optional cap on player towers (for "how few towers can win?" probes). */
@@ -48,7 +48,7 @@ export interface RunResult {
 }
 
 const DT = 1 / 60;
-const MAX_SIM_SECONDS = 60 * 60;
+const MAX_SIM_SECONDS = 60 * 60 * 3;
 const BUILD_EVERY = 1; // seconds between bot build checks during combat
 const ROTATION: TowerKind[] = ["melon", "mortar", "melon", "freeze", "fire", "still"];
 
@@ -85,6 +85,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     api.chooseNight("overflow");
     api.setDoor(config.door);
   } else {
+    api.chooseNight(config.night);
     api.chooseMap(config.map);
   }
   api.chooseHero(config.hero);

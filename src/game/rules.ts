@@ -277,7 +277,7 @@ export function rollMods(kind: TowerKind, owned: ModId[]) {
   return pool.slice(0, 3);
 }
 export type MapId = "stacks" | "annex" | "overflow";
-export type NightId = "midnight" | "overflow";
+export type NightId = "midnight" | "overflow" | "endless";
 
 export interface Board {
   id: MapId;
@@ -555,9 +555,82 @@ export const OVERFLOW: Array<{ name: string; blurb: string; spawns: SpawnSpec[] 
 
 export const WAVE_COUNT = 10;
 
+// ---------- endless ----------
+
+export const ENDLESS_PICK_EVERY = 5;
+
+const ENDLESS_NAMES = [
+  ["Late returns", "Everything that was checked out is coming back at once."],
+  ["Overdue", "The fines are not the scary part anymore."],
+  ["Reshelving", "Someone sorted the produce by size. Large first."],
+  ["Night shift", "The candles are short. The queue is not."],
+  ["Inventory", "Count what is left of the carpet. Then count again."],
+  ["Clearance", "Everything must go. Through you, ideally not."],
+  ["Restock", "The cellar refilled while you were reloading."],
+  ["Closing time", "The library closed hours ago. Nobody told the harvest."],
+] as const;
+
+/**
+ * Endless waves: act one as written, then generated waves that cycle four themes
+ * and grow by count and armour. Karl comes every fifth wave, and brings company later.
+ * Deterministic: wave N is always the same, so runs are comparable.
+ */
+export function endlessWave(index: number): { name: string; blurb: string; spawns: SpawnSpec[] } {
+  if (index < WAVES.length) return WAVES[index];
+  const n = index + 1; // wave number shown to the player
+  const k = index - WAVES.length; // 0 on wave 7
+  const grow = Math.floor(k / 2);
+  const armour = k >= 6; // guards from wave 13
+  const theme = k % 4;
+  const spawns: SpawnSpec[] = [];
+  if (theme === 0) {
+    spawns.push(
+      { kind: "corn", count: 10 + grow * 2, every: 0.3 },
+      { kind: "corn", count: 2 + grow, every: 0.36, guard: armour ? "husk" : undefined },
+      { kind: "melon", count: 4 + grow, every: 0.45 },
+    );
+  } else if (theme === 1) {
+    spawns.push(
+      { kind: "melon", count: 8 + grow * 2, every: 0.42, guard: "rind" },
+      { kind: "pumpkin", count: 2 + Math.floor(grow / 2), every: 0.9 },
+    );
+  } else if (theme === 2) {
+    spawns.push(
+      { kind: "pumpkin", count: 4 + grow, every: 0.75, tough: 1.15 },
+      { kind: "pumpkin", count: 2 + Math.floor(grow / 2), every: 1, split: true },
+      { kind: "pumpkin", count: armour ? 2 + Math.floor(grow / 2) : 0, every: 1, guard: "damp" },
+    );
+  } else {
+    spawns.push(
+      { kind: "corn", count: 6 + grow, every: 0.34 },
+      { kind: "melon", count: 5 + grow, every: 0.44, guard: armour ? "rind" : undefined },
+      { kind: "pumpkin", count: 3 + Math.floor(grow / 2), every: 0.8, raw: armour },
+    );
+  }
+  if (n % 5 === 0) spawns.push({ kind: "karl", count: 1 + Math.floor(n / 20), every: 3 });
+  const [name, blurb] = ENDLESS_NAMES[k % ENDLESS_NAMES.length];
+  return {
+    name: n % 5 === 0 ? `${name}, with Karl` : name,
+    blurb: n % 5 === 0 ? `${blurb} Karl is back. Karl is always back.` : blurb,
+    spawns: spawns.filter((sp) => sp.count > 0),
+  };
+}
+
+/** Enemy health multiplier. Endless follows the normal curve to wave 10, then grows by a steady rate. */
+export function hpScaleFor(night: NightId, cleared: number) {
+  if (night !== "endless" || cleared <= 9) return waveHpScale(cleared);
+  return waveHpScale(9) * BALANCE.endlessGrowth ** (cleared - 9);
+}
+
 export type Beat = "upgrade" | "alliance" | "betrayal" | "consequence" | "memory" | "victory" | "prep";
 
 export function nextBeat(cleared: number, alliance: Alliance, night: NightId = "midnight"): Beat {
+  if (night === "endless") {
+    // No story and no last wave: a pick after waves 1, 2 and 6, then every fifth wave.
+    if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
+    if (cleared > 6 && (cleared - 6) % ENDLESS_PICK_EVERY === 0) return "upgrade";
+    return "prep";
+  }
   if (cleared >= WAVE_COUNT) return "victory";
   if (night === "overflow") {
     if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
@@ -580,6 +653,7 @@ export function waveAt(
   night: NightId = "midnight",
 ): { name: string; blurb: string; spawns: SpawnSpec[] } {
   if (night === "overflow") return OVERFLOW[Math.min(index, OVERFLOW.length - 1)];
+  if (night === "endless") return endlessWave(index);
   if (index < WAVES.length) return WAVES[index];
   const act = index - WAVES.length;
   if (alliance === "betray") {
@@ -722,6 +796,8 @@ export const BALANCE = {
   killGold: 1,
   pulpEvery: 2.5,
   slowPower: 1,
+  /** Endless only: enemy health growth per wave after wave 10 (1.15 = +15% a wave). */
+  endlessGrowth: 1.15,
   betraySeeds: 55,
   michaelSeeds: 110,
   michaelLives: 10,
