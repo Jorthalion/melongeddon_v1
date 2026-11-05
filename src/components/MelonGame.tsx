@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair } from "lucide-react";
+import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Music } from "lucide-react";
 import {
   BOARDS,
   DIFFICULTIES,
@@ -25,7 +25,9 @@ import {
   stacksWord,
 } from "@/game/engine";
 import { drawWorld } from "@/game/draw";
-import { isMuted, setMuted, tone, unlockAudio } from "@/game/audio";
+import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
+import { useHotkeys } from "@/components/hotkeys";
+import { TutorialHint } from "@/components/TutorialHint";
 
 /** Largest uniform scale that fits the board in a w×h box, plus the offset that centers it (CSS px). */
 function fitBoard(w: number, h: number) {
@@ -38,7 +40,8 @@ export function MelonGame() {
   const worldRef = useRef<ReturnType<typeof createWorld> | null>(null);
   const notifyRef = useRef<() => void>(() => {});
   const [, setTick] = useState(0);
-  const [muted, setMutedUi] = useState(false);
+  const [muted, setMutedUi] = useState(isMuted);
+  const [music, setMusicUi] = useState(isMusicOn);
   const leftSeen = useRef(-1);
 
   if (!worldRef.current) {
@@ -70,6 +73,12 @@ export function MelonGame() {
           steps += 1;
         }
       }
+      const sfx = api.world.sfx;
+      if (sfx.length) {
+        for (const cue of sfx) playSfx(cue);
+        sfx.length = 0;
+      }
+      setMusicMode(api.world.hud.phase === "combat" ? "combat" : "calm");
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const rect = canvas.getBoundingClientRect();
       const bw = Math.max(1, Math.round(rect.width * dpr));
@@ -117,6 +126,21 @@ export function MelonGame() {
     tone(180, 0.05, "triangle", 0.03);
   };
 
+  const toggleMute = () => {
+    const next = !isMuted();
+    setMuted(next);
+    setMutedUi(next);
+    if (!next) gesture();
+  };
+  const toggleMusic = () => {
+    gesture();
+    const next = !isMusicOn();
+    setMusicOn(next);
+    setMusicUi(next);
+  };
+
+  useHotkeys(api, { onGesture: gesture, onMute: toggleMute });
+
   const phase = hud.phase;
   const showPlace = phase === "prep" || phase === "combat";
   const selected = hud.selected == null ? null : (api.world.towers.find((t) => t.id === hud.selected) ?? null);
@@ -124,10 +148,10 @@ export function MelonGame() {
 
   return (
     <main className="relative flex h-dvh flex-col bg-ink text-parchment">
-      <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+      <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <div className="flex items-center gap-2">
           <BookOpen className="size-5 text-gold" aria-hidden="true" />
-          <div>
+          <div className={hud.hero ? "hidden sm:block" : ""}>
             <p className="font-display text-lg leading-none font-semibold">Melongeddon</p>
             <p className="text-xs text-muted">
               {phase === "coldopen"
@@ -143,7 +167,7 @@ export function MelonGame() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
+        <div className="flex items-center justify-end gap-1.5 text-sm sm:gap-2">
           {hud.hero ? (
             <>
               <span className="flex items-center gap-1.5">
@@ -162,7 +186,7 @@ export function MelonGame() {
                   type="button"
                   aria-label="Slow down"
                   disabled={hud.speed <= 0.5}
-                  className="grid size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
+                  className="grid size-9 sm:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
                   onClick={() => {
                     gesture();
                     api.nudgeSpeed(-1);
@@ -173,7 +197,7 @@ export function MelonGame() {
                 <button
                   type="button"
                   aria-label={hud.paused ? "Resume" : "Pause"}
-                  className="grid size-11 place-items-center rounded-lg border border-line/70"
+                  className="grid size-9 sm:size-11 place-items-center rounded-lg border border-line/70"
                   onClick={() => {
                     gesture();
                     api.togglePause();
@@ -185,7 +209,7 @@ export function MelonGame() {
                   type="button"
                   aria-label="Speed up"
                   disabled={hud.speed >= 3}
-                  className="grid size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
+                  className="grid size-9 sm:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
                   onClick={() => {
                     gesture();
                     api.nudgeSpeed(1);
@@ -193,7 +217,7 @@ export function MelonGame() {
                 >
                   +
                 </button>
-                <span className="w-8 text-center text-xs text-muted">{hud.paused ? "||" : `${hud.speed}×`}</span>
+                <span className="hidden w-8 text-center text-xs text-muted sm:inline">{hud.paused ? "||" : `${hud.speed}×`}</span>
               </div>
             </>
           ) : phase === "select" ? (
@@ -201,24 +225,30 @@ export function MelonGame() {
           ) : null}
           <button
             type="button"
-            className="grid size-11 place-items-center rounded-xl border border-line bg-panel"
+            className="grid size-9 sm:size-11 place-items-center rounded-xl border border-line bg-panel"
             aria-label={muted ? "Unmute" : "Mute"}
-            onClick={() => {
-              const next = !isMuted();
-              setMuted(next);
-              setMutedUi(next);
-              if (!next) gesture();
-            }}
+            onClick={toggleMute}
+            title="Sound (M)"
           >
             {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+          </button>
+          <button
+            type="button"
+            className={`hidden size-11 place-items-center rounded-xl border border-line bg-panel sm:grid ${music ? "" : "opacity-45"}`}
+            aria-label={music ? "Music off" : "Music on"}
+            aria-pressed={music}
+            title="Music"
+            onClick={toggleMusic}
+          >
+            <Music className="size-4" />
           </button>
         </div>
       </header>
 
-      <div className="relative min-h-0 flex-1 px-3">
+      <div className="relative min-h-0 flex-1 sm:px-3">
         <canvas
           ref={canvasRef}
-          className="h-full w-full touch-none rounded-xl border border-line bg-ink"
+          className="h-full w-full touch-none bg-ink sm:rounded-xl sm:border sm:border-line"
           onPointerMove={(e) => {
             const p = toWorld(e.clientX, e.clientY);
             api.pointer(p.x, p.y, "move");
@@ -235,6 +265,7 @@ export function MelonGame() {
             <p className="rounded-xl border border-line bg-ink/80 px-4 py-2 font-display text-xl">Paused</p>
           </div>
         ) : null}
+        {phase === "prep" || phase === "combat" ? <TutorialHint api={api} /> : null}
         {phase === "select" ? <SelectScreen api={api} onGesture={gesture} /> : null}
         {phase !== "combat" && phase !== "prep" && phase !== "select" && phase !== "coldopen" && phase !== "poster" ? (
           <Overlay hudPhase={phase} api={api} onGesture={gesture} />
@@ -242,11 +273,11 @@ export function MelonGame() {
       </div>
 
       {phase === "coldopen" || phase === "poster" || phase === "select" ? null : (
-      <footer className="flex flex-col gap-2 border-t border-line px-4 py-3">
+      <footer className="flex shrink-0 flex-col gap-2 border-t border-line px-3 py-2.5 sm:px-4 sm:py-3">
         {showPlace ? (
           <>
             {phase === "combat" ? (
-              <div>
+              <div className="flex h-12 flex-col justify-center">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-display text-lg leading-none font-semibold">
                     Wave {Math.min(hud.wave, hud.waveCount)}/{hud.waveCount}
@@ -272,11 +303,10 @@ export function MelonGame() {
                 }}
               >
                 Start wave {hud.wave}
+                <span className="ml-2 hidden text-xs font-normal opacity-70 sm:inline">Space</span>
               </button>
             )}
-            {hud.upgrades.length ? (
-              <p className="text-xs text-muted">{hud.upgrades.map((id) => UPGRADES[id].name).join(" · ")}</p>
-            ) : null}
+            <p className="h-4 truncate text-xs text-muted">{hud.upgrades.map((id) => UPGRADES[id].name).join(" · ")}</p>
             {selected ? (
               <TowerInspector
                 api={api}
@@ -285,7 +315,7 @@ export function MelonGame() {
                 phase={phase}
               />
             ) : (
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid h-[5.5rem] grid-cols-5 gap-2">
                 {(Object.keys(TOWERS) as TowerKind[]).map((id) => {
                   const placed = api.world.towers.filter((t) => !t.ally).length;
                   const cost = buildCost(hud.hero, placed, id);
@@ -294,25 +324,28 @@ export function MelonGame() {
                     <button
                       key={id}
                       type="button"
-                      className={`min-h-11 rounded-lg border px-1.5 py-2 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"}`}
+                      title={`${TOWERS[id].name} (${(Object.keys(TOWERS) as TowerKind[]).indexOf(id) + 1})`}
+                      className={`relative h-full min-w-0 rounded-lg border px-1 py-1.5 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost ? "opacity-55" : ""}`}
                       onClick={() => {
                         gesture();
                         api.chooseBuild(id);
                       }}
                     >
-                      <img src={TOWER_ART[id]} alt="" className="mx-auto h-10 w-full object-contain" />
+                      <span className="absolute top-1 left-1.5 hidden text-[10px] text-muted sm:block">{(Object.keys(TOWERS) as TowerKind[]).indexOf(id) + 1}</span>
+                      <img src={TOWER_ART[id]} alt="" className="mx-auto h-9 w-full object-contain" />
                       <span className="mt-1 block text-xs font-semibold">
                         {id === "mortar" ? "Mortar" : TOWERS[id].name.replace(" cannon", "")}
                       </span>
-                      <span className="block text-[11px] text-muted">
-                        {cost} · {TOWERS[id].role}
+                      <span className="block truncate text-[11px] text-muted">
+                        {cost}
+                        <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                       </span>
                     </button>
                   );
                 })}
               </div>
             )}
-            <p className="text-xs text-muted">{hud.log}</p>
+            <p className="line-clamp-2 h-8 text-xs text-muted">{hud.log}</p>
           </>
         ) : (
           <p className="text-sm text-muted">{hud.log}</p>
@@ -322,6 +355,8 @@ export function MelonGame() {
       {phase === "coldopen" ? (
         <TitleScreen
           muted={muted}
+          music={music}
+          onMusic={toggleMusic}
           onStart={() => {
             gesture();
             tone(220, 0.08, "triangle", 0.04);
@@ -355,7 +390,7 @@ export function MelonGame() {
           />
         ) : (
           <RoomScreen
-            src={hud.map === "annex" ? "/sprites/screen-annex.jpg" : "/sprites/screen-stacks.jpg"}
+            src={hud.map === "annex" ? "/sprites/screen-annex.webp" : "/sprites/screen-stacks.webp"}
             kicker={hud.hero === "michael" ? "Pumpkin Knight" : hud.hero === "vael" ? "Potions division" : "Head librarian"}
             title={hud.map === "annex" ? "The Annex" : "The Stacks"}
             joke={
@@ -377,11 +412,11 @@ export function MelonGame() {
 }
 
 const TOWER_ART: Record<TowerKind, string> = {
-  melon: "/sprites/cannon-barrel.png",
-  mortar: "/sprites/pumpkin-barrel.png",
-  still: "/sprites/still.png",
-  fire: "/sprites/fire-barrel.png",
-  freeze: "/sprites/freeze-barrel.png",
+  melon: "/sprites/cannon-barrel.webp",
+  mortar: "/sprites/pumpkin-barrel.webp",
+  still: "/sprites/still.webp",
+  fire: "/sprites/fire-barrel.webp",
+  freeze: "/sprites/freeze-barrel.webp",
 };
 
 function TowerInspector({
@@ -400,24 +435,23 @@ function TowerInspector({
   if (!tower) return null;
   const read = towerReadout(hud.hero, tower.kind, tower.mods, hud.upgrades);
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-[#c6a15a]/60 bg-[#241418] px-3 py-2">
-      <img src={TOWER_ART[tower.kind]} alt="" className="h-12 w-14 shrink-0 object-contain" />
+    <div className="relative flex h-[5.5rem] items-center gap-3 rounded-lg border border-[#c6a15a]/60 bg-[#241418] py-1.5 pr-9 pl-3">
+      <img src={TOWER_ART[tower.kind]} alt="" className="h-12 w-12 shrink-0 object-contain" />
       <div className="min-w-0 flex-1">
-        <p className="font-display text-lg leading-none font-semibold">{TOWERS[tower.kind].name}</p>
-        <p className="mt-1 text-[10px] tracking-[0.16em] text-gold uppercase">{TOWERS[tower.kind].role}</p>
-        <p className="mt-1 text-sm text-muted">
+        <p className="truncate font-display text-lg leading-none font-semibold">{TOWERS[tower.kind].name}</p>
+        <p className="mt-1 truncate text-[10px] tracking-[0.16em] text-gold uppercase">{TOWERS[tower.kind].role}</p>
+        <p className="mt-1 truncate text-xs text-muted sm:text-sm">
           {tower.kind === "still" ? "No shot" : `DMG ${read.dmg}`} · {(read.range / 48).toFixed(1)} tiles · {read.interval.toFixed(1)}s
         </p>
-        {tower.mods.length ? (
-          <p className="mt-1 text-xs text-gold">{tower.mods.map((id) => MODS.find((m) => m.id === id)?.name).join(" · ")}</p>
-        ) : null}
+        <p className="mt-0.5 h-4 truncate text-xs text-gold">{tower.mods.map((id) => MODS.find((m) => m.id === id)?.name).join(" · ")}</p>
       </div>
       <div className="flex shrink-0 flex-col gap-1.5">
         {phase === "prep" && tower.mods.length < 2 ? (
           <button
             type="button"
+            title="Back room (B)"
             disabled={hud.seeds < roomPrice}
-            className="min-h-11 rounded-lg border border-[#c6a15a] px-3 text-sm disabled:opacity-40"
+            className="h-9 rounded-lg border border-[#c6a15a] px-3 text-sm disabled:opacity-40"
             onClick={() => {
               onGesture();
               tone(200, 0.06, "triangle", 0.03);
@@ -429,36 +463,43 @@ function TowerInspector({
         ) : null}
         <button
           type="button"
-          className="min-h-11 rounded-lg border border-flesh px-3 text-sm text-flesh"
+          title="Sell (S)"
+          className="h-9 rounded-lg border border-flesh px-3 text-sm text-flesh"
           onClick={() => {
             onGesture();
             api.sellSelected();
           }}
         >
-          Sell {tower ? sellValue(tower.paid) : 0}
-        </button>
-        <button
-          type="button"
-          className="min-h-11 rounded-lg px-3 text-xs text-muted"
-          onClick={() => {
-            onGesture();
-            api.dismissSelection();
-          }}
-        >
-          Build
+          Sell {sellValue(tower.paid)}
         </button>
       </div>
+      <button
+        type="button"
+        aria-label="Close (Esc)"
+        title="Close (Esc)"
+        className="absolute top-0 right-0 grid size-9 place-items-center text-muted"
+        onClick={() => {
+          onGesture();
+          api.dismissSelection();
+        }}
+      >
+        <X className="size-4" />
+      </button>
     </div>
   );
 }
 
 function TitleScreen({
   muted,
+  music,
+  onMusic,
   onStart,
   onKeeper,
   onMute,
 }: {
   muted: boolean;
+  music: boolean;
+  onMusic: () => void;
   onStart: () => void;
   onKeeper: () => void;
   onMute: (next: boolean) => void;
@@ -466,7 +507,7 @@ function TitleScreen({
   const [view, setView] = useState<"menu" | "library" | "settings" | "quit">("menu");
   return (
     <div className="absolute inset-0 z-20 bg-black">
-      <img src="/sprites/screen-title.jpg" alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+      <img src="/sprites/screen-title.webp" alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
       <div className="absolute top-[43%] left-1/2 w-[min(20.5rem,74vw)] -translate-x-1/2">
         {view === "menu" ? (
           <div className="flex flex-col gap-2.5">
@@ -488,7 +529,11 @@ function TitleScreen({
         {view === "settings" ? (
           <MenuCard title="The hall" onBack={() => setView("menu")}>
             <p>The candles stay. The noise does not have to.</p>
-            <MenuButton onClick={() => onMute(!muted)}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
+            <div className="flex flex-col gap-2">
+              <MenuButton onClick={() => onMute(!muted)}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
+              <MenuButton onClick={onMusic}>{music ? "Music is on" : "Music is off"}</MenuButton>
+            </div>
+            <p className="mt-3 text-xs text-muted">Keys: 1–5 build · Space wave · S sell · B back room · Esc close · +/− speed · M sound</p>
           </MenuCard>
         ) : null}
         {view === "quit" ? (
@@ -618,7 +663,7 @@ const KEEPERS: Array<{
     role: "Head librarian",
     flavor: "She files the disaster while it is still happening.",
     toneHz: 300,
-    portrait: "/sprites/portrait-mynxi.jpg",
+    portrait: "/sprites/portrait-mynxi.webp",
     filter: "sepia(0.22) saturate(0.82) contrast(1.05)",
     traits: [
       { icon: "coins", text: "First build is 40 seeds" },
@@ -632,7 +677,7 @@ const KEEPERS: Array<{
     role: "Potions division",
     flavor: "The formula slows them. It does not apologize.",
     toneHz: 250,
-    portrait: "/sprites/portrait-vael.jpg",
+    portrait: "/sprites/portrait-vael.webp",
     filter: "sepia(0.48) saturate(0.72) brightness(0.92) hue-rotate(-10deg)",
     traits: [
       { icon: "aim", text: "Shots slow the line" },
@@ -646,7 +691,7 @@ const KEEPERS: Array<{
     role: "Pumpkin Knight",
     flavor: "His cannon is already on the floor. So is the grudge.",
     toneHz: 220,
-    portrait: "/sprites/portrait-michael.jpg",
+    portrait: "/sprites/portrait-michael.webp",
     filter: "sepia(0.28) saturate(0.78) brightness(0.96)",
     traits: [
       { icon: "aim", text: "One cannon already set" },
@@ -795,7 +840,7 @@ function SelectScreen({
                     }}
                   >
                     <img
-                      src={id === "annex" ? "/sprites/screen-annex.jpg" : "/sprites/screen-stacks.jpg"}
+                      src={id === "annex" ? "/sprites/screen-annex.webp" : "/sprites/screen-stacks.webp"}
                       alt=""
                       className="h-24 w-full object-cover"
                     />
@@ -968,7 +1013,7 @@ function Overlay({
           <>
             <div className="flex items-start gap-3">
               <img
-                src="/sprites/portrait-michael.jpg"
+                src="/sprites/portrait-michael.webp"
                 alt=""
                 className="size-16 shrink-0 rounded-xl object-cover"
               />
@@ -1022,7 +1067,7 @@ function Overlay({
           <>
             <div className="flex items-start gap-3">
               <img
-                src="/sprites/portrait-michael.jpg"
+                src="/sprites/portrait-michael.webp"
                 alt=""
                 className="size-16 shrink-0 rounded-xl object-cover"
               />

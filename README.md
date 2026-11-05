@@ -12,6 +12,12 @@ npm test         # engine tests
 npm run sim      # balance simulator -> sim-results/report.md (add -- --seeds 10 for more runs)
 ```
 
+## Controls
+
+Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade and back-room screens), `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close, `+`/`-` speed, `M` sound. Music has its own toggle in Settings and the header.
+
+All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `world.sfx` and the UI plays them.
+
 ## Layout
 
 - `src/game/rules.ts` – towers, upgrades, mods, maps, waves, enemy stats (pure data)

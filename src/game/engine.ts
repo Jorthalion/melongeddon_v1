@@ -195,8 +195,16 @@ function writeBest(n: number) {
   }
 }
 
+/** Sound cues the engine raises; the UI drains and plays them. Ignored headless. */
+export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "turn" | "boss";
+export interface Sfx {
+  kind: SfxKind;
+  tower?: TowerKind;
+}
+
 export interface World {
   hud: Hud;
+  sfx: Sfx[];
   hover: { c: number; r: number } | null;
   anim: number;
   enemies: Enemy[];
@@ -290,6 +298,11 @@ export function createWorld(onChange: () => void): {
     points: STACKS.points,
     turns: STACKS.turns,
     reduced: false,
+    sfx: [],
+  };
+
+  const cue = (kind: SfxKind, tower?: TowerKind) => {
+    if (world.sfx.length < 48) world.sfx.push({ kind, tower });
   };
 
   let cleared = 0;
@@ -502,7 +515,9 @@ export function createWorld(onChange: () => void): {
     world.hud.lives = Math.max(0, world.hud.lives - n);
     world.shake = world.reduced ? 0 : 8;
     float(x, y, n > 1 ? `−${n} stacks` : "Leak", "#e23b4a");
+    cue("leak");
     if (world.hud.lives <= 0) {
+      cue("defeat");
       world.hud.phase = "defeat";
       world.hud.log = "The stacks are pulp. Mynxi is not speaking to you.";
       bumpBest();
@@ -528,6 +543,7 @@ export function createWorld(onChange: () => void): {
     world.hud.seeds += e.gold + (has("fines") ? 5 : 0);
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
     burst(e.x, e.y, e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : "#e23b4a", e.boss ? 28 : 10);
+    cue(e.boss ? "bossPop" : "pop");
     if (e.split) spill(e);
     if (e.boss) {
       const second = karlReward;
@@ -658,7 +674,9 @@ export function createWorld(onChange: () => void): {
     if (world.hud.lives <= 0) return;
     const beat = nextBeat(cleared, world.hud.alliance, world.hud.night);
     const upcoming = waveAt(Math.min(cleared, WAVE_COUNT - 1), world.hud.alliance, world.hud.night);
+    if (beat !== "victory") cue("clear");
     if (beat === "victory") {
+      cue("victory");
       world.hud.phase = "victory";
       world.hud.blurb =
         world.hud.night === "overflow"
@@ -833,6 +851,7 @@ export function createWorld(onChange: () => void): {
         (tower.pulpCd ?? 0) <= 0 &&
         (has("juicy") || has("sticky") || has("vial") || has("distill"));
       if (pulp) tower.pulpCd = BALANCE.pulpEvery;
+      if (!tower.ally) cue("fire", tower.kind);
       world.shots.push({
         id: id(),
         x: tower.x,
@@ -958,6 +977,7 @@ export function createWorld(onChange: () => void): {
         paid: world.hud.towerCost,
       };
       world.towers.push(tower);
+      cue("build", buildKind);
       world.hud.seeds -= world.hud.towerCost;
       world.hud.selected = tower.id;
       world.hud.log = `${TOWERS[buildKind].name} set.`;
@@ -969,6 +989,7 @@ export function createWorld(onChange: () => void): {
         removeAllies();
         const cut = world.hud.hero === "michael" ? BALANCE.michaelTurnCut : 2;
         world.hud.lives = Math.max(0, world.hud.lives - cut);
+        cue("turn");
         world.shake = world.reduced ? 0 : 12;
         world.hud.log =
           world.hud.hero === "michael"
@@ -998,6 +1019,7 @@ export function createWorld(onChange: () => void): {
       world.hud.waveSize = queue.length;
       world.hud.left = queue.length;
       world.hud.phase = "combat";
+      cue(queue.some((q) => q.kind === "karl") ? "boss" : "wave");
       world.hud.wave = cleared + 1;
       world.hud.waveName = spec.name;
       world.hud.blurb = spec.blurb;
@@ -1055,6 +1077,7 @@ export function createWorld(onChange: () => void): {
       if (!tower) return;
       world.towers = world.towers.filter((t) => t.id !== sel);
       const refund = sellValue(tower.paid);
+      cue("sell");
       world.hud.seeds += refund;
       world.hud.selected = null;
       world.hud.log = tower.mods.length
