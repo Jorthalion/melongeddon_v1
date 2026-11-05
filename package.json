@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "sim": "node --disable-warning=ExperimentalWarning scripts/sim.ts",
-    "test": "node --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\""
+    "test": "node --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\"",
+    "package": "npm run build && node --disable-warning=ExperimentalWarning scripts/package-itch.ts"
   },
   "dependencies": {
     "lucide-react": "^0.510.0",

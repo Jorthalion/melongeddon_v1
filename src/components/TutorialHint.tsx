@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { createWorld } from "@/game/engine";
 import { HOTKEY_HELP } from "@/components/hotkeys";
+import { load, save } from "@/lib/storage";
 
 const KEY = "melongeddon:tutorial";
-const store = typeof localStorage === "undefined" ? null : localStorage;
 
 /** Hints for a player's first two waves. Reads game state each render; dismiss once and it stays gone. */
 export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
-  const [done, setDone] = useState(() => store?.getItem(KEY) === "done");
+  const [done, setDone] = useState(() => load(KEY) === "done");
   if (done) return null;
 
   const { hud, towers } = api.world;
   const built = towers.filter((t) => !t.ally).length;
   const finish = () => {
-    store?.setItem(KEY, "done");
+    save(KEY, "done");
     setDone(true);
   };
 
@@ -33,7 +33,7 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
     body = `Mortars splash crowds, freeze holds, fire burns, the still slows. Keys: ${HOTKEY_HELP}.`;
   } else if (hud.wave >= 2) {
     // Past the basics: retire the hints for good.
-    store?.setItem(KEY, "done");
+    save(KEY, "done");
     return null;
   } else {
     return null;

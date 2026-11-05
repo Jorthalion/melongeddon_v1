@@ -5,6 +5,7 @@
  * - setMusicMode(): a quiet procedural harpsichord loop; "combat" adds a bass pulse.
  */
 import type { Sfx, TowerKind } from "./engine.ts";
+import { load, save } from "../lib/storage.ts";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -12,9 +13,8 @@ let sfxBus: GainNode | null = null;
 let musicBus: GainNode | null = null;
 let noise: AudioBuffer | null = null;
 
-const store = typeof localStorage === "undefined" ? null : localStorage;
-let muted = store?.getItem("melongeddon:muted") === "1";
-let musicOn = store?.getItem("melongeddon:music") !== "0";
+let muted = load("melongeddon:muted") === "1";
+let musicOn = load("melongeddon:music") !== "0";
 
 export function isMuted() {
   return muted;
@@ -22,7 +22,7 @@ export function isMuted() {
 
 export function setMuted(next: boolean) {
   muted = next;
-  store?.setItem("melongeddon:muted", next ? "1" : "0");
+  save("melongeddon:muted", next ? "1" : "0");
   if (master && ctx) master.gain.setTargetAtTime(next ? 0 : 1, ctx.currentTime, 0.03);
 }
 
@@ -32,7 +32,7 @@ export function isMusicOn() {
 
 export function setMusicOn(next: boolean) {
   musicOn = next;
-  store?.setItem("melongeddon:music", next ? "1" : "0");
+  save("melongeddon:music", next ? "1" : "0");
   if (musicBus && ctx) musicBus.gain.setTargetAtTime(next ? MUSIC_LEVEL : 0, ctx.currentTime, 0.2);
 }
 

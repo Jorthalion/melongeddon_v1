@@ -1,3 +1,4 @@
+import { asset } from "@/lib/asset";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Music } from "lucide-react";
 import {
@@ -390,7 +391,7 @@ export function MelonGame() {
           />
         ) : (
           <RoomScreen
-            src={hud.map === "annex" ? "/sprites/screen-annex.webp" : "/sprites/screen-stacks.webp"}
+            src={hud.map === "annex" ? asset("sprites/screen-annex.webp") : asset("sprites/screen-stacks.webp")}
             kicker={hud.hero === "michael" ? "Pumpkin Knight" : hud.hero === "vael" ? "Potions division" : "Head librarian"}
             title={hud.map === "annex" ? "The Annex" : "The Stacks"}
             joke={
@@ -412,11 +413,11 @@ export function MelonGame() {
 }
 
 const TOWER_ART: Record<TowerKind, string> = {
-  melon: "/sprites/cannon-barrel.webp",
-  mortar: "/sprites/pumpkin-barrel.webp",
-  still: "/sprites/still.webp",
-  fire: "/sprites/fire-barrel.webp",
-  freeze: "/sprites/freeze-barrel.webp",
+  melon: asset("sprites/cannon-barrel.webp"),
+  mortar: asset("sprites/pumpkin-barrel.webp"),
+  still: asset("sprites/still.webp"),
+  fire: asset("sprites/fire-barrel.webp"),
+  freeze: asset("sprites/freeze-barrel.webp"),
 };
 
 function TowerInspector({
@@ -507,7 +508,7 @@ function TitleScreen({
   const [view, setView] = useState<"menu" | "library" | "settings" | "quit">("menu");
   return (
     <div className="absolute inset-0 z-20 bg-black">
-      <img src="/sprites/screen-title.webp" alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+      <img src={asset("sprites/screen-title.webp")} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
       <div className="absolute top-[43%] left-1/2 w-[min(20.5rem,74vw)] -translate-x-1/2">
         {view === "menu" ? (
           <div className="flex flex-col gap-2.5">
@@ -663,7 +664,7 @@ const KEEPERS: Array<{
     role: "Head librarian",
     flavor: "She files the disaster while it is still happening.",
     toneHz: 300,
-    portrait: "/sprites/portrait-mynxi.webp",
+    portrait: asset("sprites/portrait-mynxi.webp"),
     filter: "sepia(0.22) saturate(0.82) contrast(1.05)",
     traits: [
       { icon: "coins", text: "First build is 40 seeds" },
@@ -677,7 +678,7 @@ const KEEPERS: Array<{
     role: "Potions division",
     flavor: "The formula slows them. It does not apologize.",
     toneHz: 250,
-    portrait: "/sprites/portrait-vael.webp",
+    portrait: asset("sprites/portrait-vael.webp"),
     filter: "sepia(0.48) saturate(0.72) brightness(0.92) hue-rotate(-10deg)",
     traits: [
       { icon: "aim", text: "Shots slow the line" },
@@ -691,7 +692,7 @@ const KEEPERS: Array<{
     role: "Pumpkin Knight",
     flavor: "His cannon is already on the floor. So is the grudge.",
     toneHz: 220,
-    portrait: "/sprites/portrait-michael.webp",
+    portrait: asset("sprites/portrait-michael.webp"),
     filter: "sepia(0.28) saturate(0.78) brightness(0.96)",
     traits: [
       { icon: "aim", text: "One cannon already set" },
@@ -840,7 +841,7 @@ function SelectScreen({
                     }}
                   >
                     <img
-                      src={id === "annex" ? "/sprites/screen-annex.webp" : "/sprites/screen-stacks.webp"}
+                      src={id === "annex" ? asset("sprites/screen-annex.webp") : asset("sprites/screen-stacks.webp")}
                       alt=""
                       className="h-24 w-full object-cover"
                     />
@@ -1013,7 +1014,7 @@ function Overlay({
           <>
             <div className="flex items-start gap-3">
               <img
-                src="/sprites/portrait-michael.webp"
+                src={asset("sprites/portrait-michael.webp")}
                 alt=""
                 className="size-16 shrink-0 rounded-xl object-cover"
               />
@@ -1067,7 +1068,7 @@ function Overlay({
           <>
             <div className="flex items-start gap-3">
               <img
-                src="/sprites/portrait-michael.webp"
+                src={asset("sprites/portrait-michael.webp")}
                 alt=""
                 className="size-16 shrink-0 rounded-xl object-cover"
               />
