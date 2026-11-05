@@ -21,6 +21,8 @@ import {
   type TowerKind,
   type UpgradeId,
   type World,
+  BALANCE,
+  stacksWord,
 } from "@/game/engine";
 import { drawWorld } from "@/game/draw";
 import { isMuted, setMuted, tone, unlockAudio } from "@/game/audio";
@@ -649,7 +651,7 @@ const KEEPERS: Array<{
     traits: [
       { icon: "aim", text: "One cannon already set" },
       { icon: "coins", text: "Shots hit harder" },
-      { icon: "heart", text: "9 stacks" },
+      { icon: "heart", text: `${BALANCE.michaelLives} stacks, ${BALANCE.michaelSeeds} seeds` },
     ],
   },
 ];
@@ -1028,7 +1030,7 @@ function Overlay({
             </div>
             <p className="mt-3 text-sm text-muted">
               {hud.hero === "michael"
-                ? "The allied cannons are scrap. Four stacks go with them."
+                ? `The allied cannons are scrap. ${stacksWord(BALANCE.michaelTurnCut)} stacks go with them.`
                 : "The allied cannons are scrap. Two stacks go with them, and his pumpkins are already on the carpet."}
             </p>
             <button

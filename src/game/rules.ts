@@ -203,7 +203,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   if (mods.includes("haste")) pace *= 0.85;
   let interval = ((upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1)) * pace;
   if (kind === "still") interval = mods.includes("drip") ? 1 : 1.45;
-  let dmg = hero === "michael" ? 20 : 14;
+  let dmg = hero === "michael" ? BALANCE.michaelShot : 14;
   if (upgrades.includes("caliber")) dmg += 8;
   if (kind === "mortar") dmg = Math.round(dmg * 0.8);
   if (kind === "fire") dmg = Math.round(dmg * 0.65);
@@ -565,7 +565,9 @@ export function nextBeat(cleared: number, alliance: Alliance, night: NightId = "
     if (cleared === 9) return "consequence";
     return "prep";
   }
-  if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
+  if (cleared === 1 || cleared === 2) return "upgrade";
+  // Betraying the knight pays out early (Bouncing Melons) instead of this pick.
+  if (cleared === 6) return alliance === "betray" ? "prep" : "upgrade";
   if (cleared === 4) return "alliance";
   if (cleared === 5 && alliance === "accept") return "betrayal";
   if (cleared === 9) return "consequence";
@@ -603,9 +605,9 @@ export function waveAt(
         name: "No more courtesy",
         blurb: "He stopped pretending this was a visit.",
         spawns: [
-          { kind: "pumpkin" as const, count: 4, every: 0.8 },
+          { kind: "pumpkin" as const, count: 4, every: 0.8, tough: 1.2 },
           { kind: "pumpkin" as const, count: 2, every: 1.1, split: true },
-          { kind: "corn" as const, count: 6, every: 0.35 },
+          { kind: "corn" as const, count: 6, every: 0.35, guard: "husk" as const },
         ],
       },
       {
@@ -613,8 +615,8 @@ export function waveAt(
         blurb: "You shot first. He sent the grudge instead of a household.",
         spawns: [
           { kind: "corn" as const, count: 12, every: 0.32 },
-          { kind: "pumpkin" as const, count: 5, every: 0.8 },
-          { kind: "melon" as const, count: 6, every: 0.45 },
+          { kind: "pumpkin" as const, count: 6, every: 0.75, tough: 1.3 },
+          { kind: "melon" as const, count: 6, every: 0.45, guard: "rind" as const },
         ],
       },
     ];
@@ -709,6 +711,9 @@ export function waveAt(
  * killGold:  multiplier on seeds paid per kill.
  * pulpEvery: seconds between pulp puddles from one melon cannon (pulp upgrades).
  * slowPower: strength of puddle and chill slows (1 = as written, 0.5 = half as strong). Freeze is separate.
+ * betraySeeds:    seeds for shooting the knight if you already have Bouncing Melons (otherwise you get them).
+ * michaelSeeds / michaelLives: Sir Michael's starting seeds and stacks.
+ * michaelTurnCut: stacks Sir Michael loses when his own men turn (other heroes lose 2).
  */
 export const BALANCE = {
   enemyHp: 1,
@@ -717,7 +722,19 @@ export const BALANCE = {
   killGold: 1,
   pulpEvery: 2.5,
   slowPower: 1,
+  betraySeeds: 55,
+  michaelSeeds: 110,
+  michaelLives: 10,
+  michaelTurnCut: 3,
+  /** Sir Michael's base shot damage (everyone else: 14). */
+  michaelShot: 28,
 };
+
+const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
+/** "Four", "Nine"... for story text that quotes a tuned number. */
+export function stacksWord(n: number) {
+  return NUMBER_WORDS[n] ?? String(n);
+}
 
 /** Apply slowPower to a speed multiplier (0.45 = crawl at 45% speed). */
 export function softenSlow(speed: number) {

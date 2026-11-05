@@ -27,6 +27,6 @@ npm run sim      # balance simulator -> sim-results/report.md (add -- --seeds 10
 
 ## Tuning
 
-The main knobs are in `BALANCE` in `src/game/rules.ts` (enemy health curve, kill rewards, pulp puddle rate, slow strength), plus `DIFFICULTIES` in the same file. After changing them, run `npm run sim` and compare against `docs/balance-current.md`.
+The main knobs are in `BALANCE` in `src/game/rules.ts` (enemy health curve, kill rewards, pulp puddle rate, slow strength, Sir Michael's start, the betrayal payout), plus `DIFFICULTIES` in the same file. After changing them, run `npm run sim` and compare against `docs/balance-current.md`.
 
 Targets used for the current numbers: a cautious player (2 towers per wave) wins ~90% on Story, ~60–70% on Stacks, ~35–45% on Melongeddon; a player who builds whenever they can wins ~90% on Stacks and ~50% on Melongeddon.

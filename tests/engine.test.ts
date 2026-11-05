@@ -9,6 +9,7 @@ import {
   WAVE_COUNT,
   buildBoard,
   createWorld,
+  nextBeat,
   sellValue,
   shopPrice,
   waveAt,
@@ -96,6 +97,14 @@ test("every wave in every branch is defined and uses known enemies", () => {
         assert.ok(wave.spawns.length > 0, `${night}/${door} wave ${i + 1} is empty`);
         for (const s of wave.spawns) assert.ok(s.kind in STATS, `unknown enemy ${s.kind}`);
       }
+});
+
+test("betraying the knight trades the act-two upgrade for Bouncing Melons", () => {
+  assert.equal(nextBeat(6, "accept"), "upgrade");
+  assert.equal(nextBeat(6, "reject"), "upgrade");
+  assert.equal(nextBeat(6, "betray"), "prep");
+  // Overflow keeps its pick: the betrayal there happened on night one.
+  assert.equal(nextBeat(6, "betray", "overflow"), "upgrade");
 });
 
 test("simulated runs reach an ending on every night and knight choice", () => {

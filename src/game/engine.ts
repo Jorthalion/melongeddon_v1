@@ -1,6 +1,6 @@
 import {
   CELL, COLS, ROWS, BOARDS, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
-  BALANCE, softenSlow, buildBoard, buildCost, killReward, waveHpScale, buildOffer, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
+  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, waveHpScale, buildOffer, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
   type Alliance, type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId, type ModDef,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
 } from "./rules.ts";
@@ -967,12 +967,12 @@ export function createWorld(onChange: () => void): {
     startWave() {
       if (world.hud.phase === "betrayal") {
         removeAllies();
-        const cut = world.hud.hero === "michael" ? 4 : 2;
+        const cut = world.hud.hero === "michael" ? BALANCE.michaelTurnCut : 2;
         world.hud.lives = Math.max(0, world.hud.lives - cut);
         world.shake = world.reduced ? 0 : 12;
         world.hud.log =
-          cut === 4
-            ? "They were his. They still turned. Four stacks are paste."
+          world.hud.hero === "michael"
+            ? `They were his. They still turned. ${stacksWord(cut)} stacks are paste.`
             : "He turned. Two stacks are paste. His pumpkins are already moving.";
         if (world.hud.lives <= 0) {
           world.hud.phase = "defeat";
@@ -1031,10 +1031,14 @@ export function createWorld(onChange: () => void): {
           : "He'll cover the shelves. Mynxi does not like the look of his helmet.";
         world.hud.blurb = "Allied pumpkin cannons will join the next wave. Do not get comfortable.";
       } else if (choice === "betray") {
-        const alreadyBounce = has("bounce");
-        if (!alreadyBounce) world.hud.upgrades = [...world.hud.upgrades, "bounce"];
-        world.hud.seeds += alreadyBounce ? 40 : 55;
-        world.hud.log = "You shot first. Bouncing melons, extra seeds, and a grudge.";
+        // The prize comes early and replaces the act-two upgrade pick (see nextBeat).
+        if (has("bounce")) {
+          world.hud.seeds += BALANCE.betraySeeds;
+          world.hud.log = `You shot first. You already bounce, so he paid in seeds: +${BALANCE.betraySeeds}. No prize after wave 6.`;
+        } else {
+          world.hud.upgrades = [...world.hud.upgrades, "bounce"];
+          world.hud.log = "You shot first. Bouncing melons now, no prize after wave 6, and a grudge.";
+        }
         world.hud.blurb = "He is already loading the catapults. The next wave will be personal.";
       } else {
         world.hud.log = "You sent him away. The door shuts. The war stays ordinary, briefly.";
@@ -1104,9 +1108,9 @@ export function createWorld(onChange: () => void): {
           ? "Her shots still slow the line. The wet does not care."
           : "Her shots slow the line. They do not hit harder.";
       } else {
-        world.hud.seeds = 90;
-        world.hud.lives = 9;
-        world.hud.maxLives = 9;
+        world.hud.seeds = BALANCE.michaelSeeds;
+        world.hud.lives = BALANCE.michaelLives;
+        world.hud.maxLives = BALANCE.michaelLives;
         const [kc, kr] = BOARDS[world.hud.map].knight;
         const p = cellCenter(kc, kr);
         world.towers.push({
@@ -1125,8 +1129,8 @@ export function createWorld(onChange: () => void): {
           paid: 50,
         });
         world.hud.log = overflow
-          ? "His cannon is already set. Nine stacks, and the chute is not his door."
-          : "His cannon is already set. Nine stacks, and the shots hit harder.";
+          ? `His cannon is already set. ${stacksWord(BALANCE.michaelLives)} stacks, and the chute is not his door.`
+          : `His cannon is already set. ${stacksWord(BALANCE.michaelLives)} stacks, and the shots hit harder.`;
       }
       if (overflow && door === "accept") {
         placeAllyTowers();
