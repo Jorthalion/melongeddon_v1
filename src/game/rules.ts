@@ -403,7 +403,7 @@ export type Guard = "none" | "rind" | "husk" | "damp";
 export const DIFFICULTIES: Array<{ id: Difficulty; name: string; blurb: string; hp: number; speed: number }> = [
   { id: "easy", name: "Story", blurb: "Thinner rinds. They walk a little slower.", hp: 0.75, speed: 0.9 },
   { id: "normal", name: "Stacks", blurb: "The library as written.", hp: 1, speed: 1 },
-  { id: "hard", name: "Melongeddon", blurb: "Thicker fruit, and they do not stroll.", hp: 1.35, speed: 1.12 },
+  { id: "hard", name: "Melongeddon", blurb: "Thicker fruit, and they do not stroll.", hp: 1.2, speed: 1.12 },
 ];
 
 export interface SpawnSpec {
@@ -699,6 +699,39 @@ export function waveAt(
     },
   ];
   return waves[act] ?? waves[waves.length - 1];
+}
+
+/**
+ * Global tuning knobs. Checked with the simulator (npm run sim).
+ * enemyHp:   multiplier on every enemy's health.
+ * hpPerWave: health growth per wave cleared.
+ * hpCurve:   shape of that growth. 1 = straight line; 2 = gentle early, steep late.
+ * killGold:  multiplier on seeds paid per kill.
+ * pulpEvery: seconds between pulp puddles from one melon cannon (pulp upgrades).
+ * slowPower: strength of puddle and chill slows (1 = as written, 0.5 = half as strong). Freeze is separate.
+ */
+export const BALANCE = {
+  enemyHp: 1,
+  hpPerWave: 0.55,
+  hpCurve: 2,
+  killGold: 1,
+  pulpEvery: 2.5,
+  slowPower: 1,
+};
+
+/** Apply slowPower to a speed multiplier (0.45 = crawl at 45% speed). */
+export function softenSlow(speed: number) {
+  return 1 - (1 - speed) * BALANCE.slowPower;
+}
+
+/** Health multiplier for enemies spawned after `cleared` waves. */
+export function waveHpScale(cleared: number) {
+  return BALANCE.enemyHp * (1 + BALANCE.hpPerWave * cleared ** BALANCE.hpCurve);
+}
+
+/** Seeds paid for a kill, before upgrades like Overdue Fines. */
+export function killReward(base: number) {
+  return Math.max(1, Math.round(base * BALANCE.killGold));
 }
 
 export const STATS: Record<EnemyKind, { hp: number; speed: number; gold: number; r: number; boss?: boolean }> = {

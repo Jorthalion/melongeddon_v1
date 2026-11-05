@@ -1,6 +1,6 @@
 import {
   CELL, COLS, ROWS, BOARDS, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
-  buildBoard, buildCost, buildOffer, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
+  BALANCE, softenSlow, buildBoard, buildCost, killReward, waveHpScale, buildOffer, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
   type Alliance, type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId, type ModDef,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
 } from "./rules.ts";
@@ -49,6 +49,8 @@ interface Tower {
   mods: ModId[];
   /** Seeds spent on this tower (build + shop mods). Sell refunds a share of it. */
   paid: number;
+  /** Seconds until this cannon's shots can leave another pulp puddle. */
+  pulpCd?: number;
 }
 
 interface Shot {
@@ -70,6 +72,8 @@ interface Shot {
   freezeExtra: number;
   fireLife: number;
   fireBurn: number;
+  /** This shot leaves a pulp puddle where it lands. */
+  pulp: boolean;
 }
 
 interface Pool {
@@ -388,7 +392,7 @@ export function createWorld(onChange: () => void): {
       maxHp: hp,
       speed: st.speed * tuned.speed,
       slow: 1,
-      gold: st.gold,
+      gold: killReward(st.gold),
       r: st.r,
       wp,
       boss: Boolean(st.boss),
@@ -406,7 +410,7 @@ export function createWorld(onChange: () => void): {
   const spill = (parent: Enemy) => {
     const st = STATS.melon;
     const tuned = tune();
-    const hp = Math.round(st.hp * 0.55 * tuned.hp);
+    const hp = Math.round(st.hp * 0.55 * tuned.hp * waveHpScale(cleared));
     const offsets = [
       [-14, -10],
       [14, -10],
@@ -423,7 +427,7 @@ export function createWorld(onChange: () => void): {
         maxHp: hp,
         speed: st.speed * tuned.speed,
         slow: 1,
-        gold: 4,
+        gold: killReward(4),
         r: st.r,
         wp: Math.min(parent.wp, world.points.length - 1),
         boss: false,
@@ -591,11 +595,12 @@ export function createWorld(onChange: () => void): {
       e.freeze = Math.max(e.freeze, e.guard === "damp" ? hold * 1.4 : hold);
       float(e.x, e.y - 18, "frozen", "#d5e4ee");
     }
-    if (!shot.fromAlly && (has("juicy") || has("sticky") || has("vial") || has("distill"))) {
+    if (shot.pulp) {
       addPool(e.x, e.y);
-      if (has("juicy")) {
-        for (const other of world.enemies) hurt(other, e, 8, 46, "splash");
-      }
+      shot.pulp = false; // a bounce does not leave a second puddle
+    }
+    if (!shot.fromAlly && has("juicy")) {
+      for (const other of world.enemies) hurt(other, e, 8, 46, "splash");
     }
     if (has("splatter") && !shot.fromAlly) {
       for (const other of world.enemies) hurt(other, e, 9, 40, "splash");
@@ -715,7 +720,7 @@ export function createWorld(onChange: () => void): {
   };
 
   const tickCombat = (dt: number) => {
-    const scale = 1 + cleared * 0.1;
+    const scale = waveHpScale(cleared);
     spawnClock += dt;
     while (queueCursor < queue.length && spawnClock >= queue[queueCursor].t) {
       spawnEnemy(queue[queueCursor].kind, scale * queue[queueCursor].tough, queue[queueCursor].guard, {
@@ -747,12 +752,12 @@ export function createWorld(onChange: () => void): {
           continue;
         }
         const crawl = has("distill") ? 0.38 : has("sticky") ? 0.45 : has("vial") ? 0.55 : 0.78;
-        slow = Math.min(slow, crawl);
+        slow = Math.min(slow, softenSlow(crawl));
         if (has("juicy") || has("distill")) dot = has("distill") ? 16 : 10;
       }
       if (e.chill > 0) {
         e.chill -= dt;
-        slow = Math.min(slow, has("distill") ? 0.48 : 0.62);
+        slow = Math.min(slow, softenSlow(has("distill") ? 0.48 : 0.62));
       }
       if (e.freeze > 0) {
         e.freeze -= dt;
@@ -796,6 +801,7 @@ export function createWorld(onChange: () => void): {
 
     for (const tower of world.towers) {
       tower.cd -= dt;
+      tower.pulpCd = (tower.pulpCd ?? 0) - dt;
       let target: Enemy | null = null;
       let bestProg = -1;
       const stats = statsFor(tower);
@@ -820,6 +826,13 @@ export function createWorld(onChange: () => void): {
       }
       tower.cd = stats.interval;
       const dmg = stats.dmg;
+      // Pulp upgrades: only melon cannons leave puddles, and at most one per cannon every few seconds.
+      const pulp =
+        !tower.ally &&
+        tower.kind === "melon" &&
+        (tower.pulpCd ?? 0) <= 0 &&
+        (has("juicy") || has("sticky") || has("vial") || has("distill"));
+      if (pulp) tower.pulpCd = BALANCE.pulpEvery;
       world.shots.push({
         id: id(),
         x: tower.x,
@@ -839,6 +852,7 @@ export function createWorld(onChange: () => void): {
         freezeExtra: hasMod(tower, "hold") ? 0.55 : 0,
         fireLife: hasMod(tower, "lasting") ? 3.6 : 2.4,
         fireBurn: hasMod(tower, "hotter") ? 34 : 22,
+        pulp,
       });
     }
 
