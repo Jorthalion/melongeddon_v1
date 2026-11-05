@@ -7,6 +7,7 @@ import {
   TOWERS,
   buildCost,
   doorMemory,
+  sellValue,
   shopPrice,
   towerReadout,
   MAP_H,
@@ -432,7 +433,7 @@ function TowerInspector({
             api.sellSelected();
           }}
         >
-          Sell 35
+          Sell {tower ? sellValue(tower.paid) : 0}
         </button>
         <button
           type="button"

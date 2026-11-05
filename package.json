@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sim": "node --disable-warning=ExperimentalWarning scripts/sim.ts",
+    "test": "node --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "lucide-react": "^0.510.0",
@@ -16,6 +18,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",

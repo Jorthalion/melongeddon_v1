@@ -1,0 +1,216 @@
+/**
+ * One headless run of Melongeddon driven by a simple bot.
+ * Uses the real engine (createWorld/stepWorld), so results match the game.
+ */
+import {
+  CELL,
+  COLS,
+  ROWS,
+  createWorld,
+  shopPrice,
+  stepWorld,
+  towerReadout,
+  type Alliance,
+  type Difficulty,
+  type HeroId,
+  type MapId,
+  type NightId,
+  type TowerKind,
+} from "../src/game/engine.ts";
+
+/** lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves. */
+export type Strategy = "melon" | "mixed" | "mixed+mods" | "lean";
+
+export interface RunConfig {
+  hero: HeroId;
+  difficulty: Difficulty;
+  strategy: Strategy;
+  night: NightId;
+  map: MapId;
+  /** Knight choice. Midnight: picked at the door after wave 4. Overflow: how night one ended. */
+  door: Exclude<Alliance, "none">;
+  seed: number;
+  /** Optional cap on player towers (for "how few towers can win?" probes). */
+  maxTowers?: number;
+}
+
+export interface RunResult {
+  config: RunConfig;
+  won: boolean;
+  /** Wave the run ended on (10 on a win). */
+  reachedWave: number;
+  livesLeft: number;
+  maxLives: number;
+  /** Stacks lost on each wave played, index 0 = wave 1. */
+  leaks: number[];
+  towers: number;
+  simSeconds: number;
+}
+
+const DT = 1 / 60;
+const MAX_SIM_SECONDS = 60 * 60;
+const BUILD_EVERY = 1; // seconds between bot build checks during combat
+const ROTATION: TowerKind[] = ["melon", "mortar", "melon", "freeze", "fire", "still"];
+
+/** Small seeded PRNG so runs are repeatable. */
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function simulateRun(config: RunConfig): RunResult {
+  const realRandom = Math.random;
+  const rng = mulberry32(config.seed * 7919 + config.hero.length * 31 + config.difficulty.length);
+  Math.random = rng; // engine uses Math.random for mod rolls and particles
+  try {
+    return play(config, rng);
+  } finally {
+    Math.random = realRandom;
+  }
+}
+
+function play(config: RunConfig, rng: () => number): RunResult {
+  const api = createWorld(() => {});
+  const { world } = api;
+
+  api.openLibrary();
+  api.setDifficulty(config.difficulty);
+  if (config.night === "overflow") {
+    api.chooseNight("overflow");
+    api.setDoor(config.door);
+  } else {
+    api.chooseMap(config.map);
+  }
+  api.chooseHero(config.hero);
+  api.beginNight();
+
+  // Sample points along the carpet, used to score tower spots by coverage.
+  const samples: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < world.points.length - 1; i++) {
+    const a = world.points[i];
+    const b = world.points[i + 1];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    for (let d = 0; d < len; d += 6) samples.push({ x: a.x + ((b.x - a.x) * d) / len, y: a.y + ((b.y - a.y) * d) / len });
+  }
+
+  let placed = 0;
+  const nextKind = (): TowerKind => (config.strategy === "melon" ? "melon" : ROTATION[placed % ROTATION.length]);
+
+  const bestCell = (range: number) => {
+    let best: { c: number; r: number } | null = null;
+    let bestScore = 0;
+    for (let c = 0; c < COLS; c++) {
+      for (let r = 0; r < ROWS; r++) {
+        if (world.pathCells.has(`${c},${r}`)) continue;
+        if (world.towers.some((t) => t.c === c && t.r === r)) continue;
+        const x = c * CELL + CELL / 2;
+        const y = r * CELL + CELL / 2;
+        let score = 0;
+        for (const s of samples) if ((s.x - x) ** 2 + (s.y - y) ** 2 <= range * range) score++;
+        if (score > bestScore) {
+          bestScore = score;
+          best = { c, r };
+        }
+      }
+    }
+    return best;
+  };
+
+  const click = (c: number, r: number) => api.pointer(c * CELL + CELL / 2, r * CELL + CELL / 2, "down");
+
+  const tryMod = () => {
+    if (config.strategy !== "mixed+mods" || world.hud.phase !== "prep") return false;
+    const price = shopPrice(world.hud.hero, world.hud.shopVisits);
+    if (world.hud.seeds < price || price >= world.hud.towerCost) return false;
+    const tower = world.towers.find((t) => !t.ally && t.mods.length < 2);
+    if (!tower) return false;
+    if (world.hud.selected !== tower.id) click(tower.c, tower.r);
+    api.openShop();
+    if ((world.hud.phase as string) !== "shop") return false;
+    const offer = world.hud.modOffer;
+    api.pickMod(offer[Math.floor(rng() * offer.length)].id);
+    return true;
+  };
+
+  const build = () => {
+    const lean = config.strategy === "lean";
+    if (lean && world.hud.phase !== "prep") return;
+    const limit = lean ? 2 : 40;
+    for (let guard = 0; guard < limit; guard++) {
+      if (tryMod()) continue;
+      const kind = nextKind();
+      api.chooseBuild(kind);
+      if (world.hud.seeds < world.hud.towerCost) break;
+      if (config.maxTowers != null && world.towers.filter((x) => !x.ally).length >= config.maxTowers) break;
+      const range = towerReadout(world.hud.hero, kind, [], world.hud.upgrades).range;
+      const spot = bestCell(range);
+      if (!spot) break;
+      const before = world.towers.length;
+      click(spot.c, spot.r);
+      if (world.towers.length === before) break;
+      placed++;
+    }
+    api.dismissSelection();
+  };
+
+  const leaks: number[] = [];
+  let t = 0;
+  let sinceBuild = 0;
+  let prevLives = world.hud.lives;
+
+  while (t < MAX_SIM_SECONDS) {
+    const phase = world.hud.phase;
+    if (phase === "victory" || phase === "defeat") break;
+    if (phase === "prep") {
+      build();
+      api.startWave();
+    } else if (phase === "betrayal" || phase === "consequence") {
+      api.startWave();
+    } else if (phase === "upgrade") {
+      const offer = world.hud.offer;
+      api.pickUpgrade(offer[Math.floor(rng() * offer.length)].id);
+    } else if (phase === "alliance") {
+      api.chooseAlliance(config.door);
+    } else if (phase === "memory") {
+      api.ackMemory();
+    } else if (phase === "shop") {
+      api.closeShop();
+    } else if (phase === "combat") {
+      const w = world.hud.wave - 1;
+      while (leaks.length <= w) leaks.push(0);
+      prevLives = world.hud.lives;
+      stepWorld(world, DT);
+      t += DT;
+      if (world.hud.lives < prevLives) leaks[w] += prevLives - world.hud.lives;
+      sinceBuild += DT;
+      if (sinceBuild >= BUILD_EVERY && world.hud.phase === "combat") {
+        sinceBuild = 0;
+        build();
+      }
+      continue;
+    } else {
+      throw new Error(`Bot stuck in phase ${phase}`);
+    }
+    if (world.hud.phase === phase && phase !== "prep") {
+      throw new Error(`Bot could not leave phase ${phase}`);
+    }
+  }
+
+  const won = world.hud.phase === "victory";
+  return {
+    config,
+    won,
+    reachedWave: won ? 10 : world.hud.wave,
+    livesLeft: world.hud.lives,
+    maxLives: world.hud.maxLives,
+    leaks,
+    towers: world.towers.filter((x) => !x.ally).length,
+    simSeconds: Math.round(t),
+  };
+}
