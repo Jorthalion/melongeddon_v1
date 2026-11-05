@@ -1,5 +1,6 @@
 import { asset } from "../lib/asset.ts";
-import { CELL, MAP_H, MAP_W, type World } from "./engine";
+import { CELL, MAP_H, MAP_W, type TowerKind, type World } from "./engine";
+import { DRAWN_KINDS, drawCannon, drawShot } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
   melon: asset("sprites/melon.webp"),
@@ -116,7 +117,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     if (open && world.hud.canPlace) {
       ctx.save();
       ctx.globalAlpha = 0.5;
-      drawTower(ctx, cx, cy, 0, world.hud.build, false, world.hud.build === "mortar", false, art);
+      drawTower(ctx, cx, cy, 0, world.hud.build, false, world.hud.build === "mortar", false, art, world.anim);
       ctx.restore();
       ctx.beginPath();
       ctx.arc(cx, cy, world.hud.placeRange, 0, Math.PI * 2);
@@ -230,10 +231,37 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.arc(e.x, e.y, e.r + 3, 0, Math.PI * 2);
       ctx.fill();
     }
+    if ((e.ink ?? 0) > 0) {
+      ctx.fillStyle = "rgba(29,38,64,0.85)";
+      ctx.beginPath();
+      ctx.arc(e.x + e.r * 0.5, e.y - e.r * 0.6, 4, 0, Math.PI * 2);
+      ctx.arc(e.x + e.r * 0.5 + 4, e.y - e.r * 0.6 + 3, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if ((e.worm ?? 0) > 0) {
+      ctx.fillStyle = "#e79ab0";
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(e.x - e.r * 0.4 + i * 2.5, e.y + Math.sin(world.anim * 12 + i) * 1.5, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 
   for (const t of world.towers) {
-    drawTower(ctx, t.x, t.y, t.aim, t.kind, t.ally, t.orange, t.id === world.hud.selected, art);
+    if (t.kind !== "lantern") continue;
+    const reach = t.mods.includes("wick") ? 102 : 72;
+    const light = ctx.createRadialGradient(t.x, t.y, 8, t.x, t.y, reach);
+    light.addColorStop(0, "rgba(255,214,140,0.16)");
+    light.addColorStop(1, "rgba(255,214,140,0)");
+    ctx.fillStyle = light;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, reach, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const t of world.towers) {
+    drawTower(ctx, t.x, t.y, t.aim, t.kind, t.ally, t.orange, t.id === world.hud.selected, art, world.anim);
     if (t.mods.length) {
       ctx.fillStyle = "#e6c36a";
       for (let i = 0; i < t.mods.length; i++) {
@@ -245,6 +273,10 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   }
 
   for (const s of world.shots) {
+    if (s.element === "seed" || s.element === "fly" || s.element === "ink" || s.element === "peel" || s.element === "worm") {
+      drawShot(ctx, s.x, s.y, s.element, world.anim);
+      continue;
+    }
     const img =
       s.element === "fire"
         ? art.shotFire
@@ -262,6 +294,24 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.arc(s.x, s.y, s.fromAlly ? 6 : 7, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  for (const l of world.lines) {
+    ctx.strokeStyle = `rgba(${l.color},${Math.max(0, l.life / l.max)})`;
+    ctx.lineWidth = l.width;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(l.x, l.y);
+    ctx.lineTo(l.x2, l.y2);
+    ctx.stroke();
+  }
+  for (const r of world.rings) {
+    const k = 1 - r.life / r.max;
+    ctx.strokeStyle = `rgba(${r.color},${(1 - k) * 0.8})`;
+    ctx.lineWidth = 3 * (1 - k) + 1;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, Math.max(1, r.r * (0.25 + 0.75 * k)), 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   for (const spark of world.sparks) {
@@ -493,12 +543,18 @@ function drawTower(
   x: number,
   y: number,
   aim: number,
-  kind: "melon" | "mortar" | "still" | "fire" | "freeze",
+  kind: TowerKind,
   ally: boolean,
   orange: boolean,
   selected: boolean,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
+  t = 0,
 ) {
+  if (DRAWN_KINDS.includes(kind)) {
+    drawCannon(ctx, x, y, aim, kind, t);
+    if (selected) ring(ctx, x, y);
+    return;
+  }
   const base = art.base;
   if (kind === "fire" || kind === "freeze") {
     const glow = ctx.createRadialGradient(x, y, 2, x, y, 36);

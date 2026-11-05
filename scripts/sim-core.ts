@@ -33,6 +33,8 @@ export interface RunConfig {
   /** Knight choice. Midnight: picked at the door after wave 4. Overflow: how night one ended. Ignored in endless. */
   door: Exclude<Alliance, "none">;
   seed: number;
+  /** Optional build order to cycle through instead of the strategy's (any cannon types). */
+  rotation?: TowerKind[];
   /** Optional bookmark (meta perk) to equip. */
   bookmark?: BookmarkId;
   /** Optional cap on player towers (for "how few towers can win?" probes). */
@@ -107,11 +109,37 @@ function play(config: RunConfig, rng: () => number): RunResult {
   }
 
   let placed = 0;
-  const nextKind = (): TowerKind => (config.strategy === "melon" ? "melon" : ROTATION[placed % ROTATION.length]);
+  const order = config.rotation ?? (config.strategy === "melon" ? ["melon" as TowerKind] : ROTATION);
+  const nextKind = (): TowerKind => order[placed % order.length];
 
-  const bestCell = (range: number) => {
+  const bestCell = (range: number, kind: TowerKind) => {
+    // Whole-board cannons score spots like a normal cannon would; anywhere works for them.
+    if (range >= 900) range = 132;
     let best: { c: number; r: number } | null = null;
     let bestScore = 0;
+    if (kind === "lantern" || kind === "compost") {
+      // Lamp: next to the most cannons. Compost: the spot least useful for shooting.
+      let pick: { c: number; r: number } | null = null;
+      let score = -Infinity;
+      for (let c = 0; c < COLS; c++)
+        for (let r = 0; r < ROWS; r++) {
+          if (world.pathCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+          const x = c * CELL + CELL / 2;
+          const y = r * CELL + CELL / 2;
+          let v = 0;
+          if (kind === "lantern") {
+            for (const t of world.towers) if (!t.ally && t.kind !== "lantern" && t.kind !== "compost" && (t.x - x) ** 2 + (t.y - y) ** 2 <= 72 * 72) v++;
+          } else {
+            for (const p of samples) if ((p.x - x) ** 2 + (p.y - y) ** 2 <= 132 * 132) v--;
+          }
+          if (v > score) {
+            score = v;
+            pick = { c, r };
+          }
+        }
+      // A lamp with no cannons to light yet just goes on the best shooting spot.
+      if (kind === "compost" || score > 0) return pick;
+    }
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
         if (world.pathCells.has(`${c},${r}`)) continue;
@@ -156,7 +184,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       if (world.hud.seeds < world.hud.towerCost) break;
       if (config.maxTowers != null && world.towers.filter((x) => !x.ally).length >= config.maxTowers) break;
       const range = towerReadout(world.hud.hero, kind, [], world.hud.upgrades).range;
-      const spot = bestCell(range);
+      const spot = bestCell(range, kind);
       if (!spot) break;
       const before = world.towers.length;
       click(spot.c, spot.r);

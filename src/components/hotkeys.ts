@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import { TOWERS, type TowerKind, type UpgradeId, createWorld } from "@/game/engine";
+import { TOWER_GROUPS, groupOf, type UpgradeId, createWorld } from "@/game/engine";
 
 /**
  * Keyboard shortcuts:
- *   1–5      pick a cannon to build (or pick choice 1–3 on an upgrade / back-room screen)
+ *   1–5      pick a cannon in the open tab (or choice 1–3 on an upgrade / back-room screen)
+ *   Q W E    Damage / Control / Support tab
  *   Space    start the next wave; pause / resume during a wave
  *   P        pause / resume
  *   S        sell the selected cannon
@@ -12,7 +13,7 @@ import { TOWERS, type TowerKind, type UpgradeId, createWorld } from "@/game/engi
  *   + / −    game speed
  *   M        sound on / off
  */
-export const HOTKEY_HELP = "1–5 build · Space wave/pause · S sell · B back room · Esc close · +/− speed · M sound";
+export const HOTKEY_HELP = "Q/W/E tab · 1–5 build · Space wave/pause · S sell · B back room · Esc close · +/− speed · M sound";
 
 export function useHotkeys(
   api: ReturnType<typeof createWorld>,
@@ -23,7 +24,6 @@ export function useHotkeys(
   ref.current = handlers;
 
   useEffect(() => {
-    const kinds = Object.keys(TOWERS) as TowerKind[];
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
@@ -46,10 +46,16 @@ export function useHotkeys(
       } else if (phase === "shop" && key === "Escape") {
         api.closeShop();
       } else if (phase === "prep" || phase === "combat") {
+        const kinds = groupOf(hud.build).kinds;
+        const tab = TOWER_GROUPS.find((g) => g.key === key);
         if (digit >= 0 && digit < kinds.length) {
           ref.current.onGesture();
           api.dismissSelection();
           api.chooseBuild(kinds[digit]);
+        } else if (tab) {
+          ref.current.onGesture();
+          api.dismissSelection();
+          if (groupOf(hud.build).id !== tab.id) api.chooseBuild(tab.kinds[0]);
         } else if (key === " ") {
           ref.current.onGesture();
           if (phase === "prep") api.startWave();

@@ -18,7 +18,7 @@ import {
   type Alliance,
   type NightId,
 } from "../src/game/engine.ts";
-import { ALL_UNLOCKED, EMPTY_META, TOWERS as T, backRoomPrice } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, EMPTY_META, TOWERS as T, TOWER_GROUPS, backRoomPrice, stepWorld, type TowerKind } from "../src/game/engine.ts";
 import { simulateRun } from "../scripts/sim-core.ts";
 
 const center = (c: number) => c * CELL + CELL / 2;
@@ -186,6 +186,72 @@ test("reaching a milestone unlocks a bookmark mid-run", () => {
   assert.ok(api.world.hud.unlocked.includes("backroom"));
   assert.deepEqual(api.world.hud.newUnlocks, ["backroom"]);
   assert.match(api.world.hud.log, /New bookmark: Back-room Key/);
+});
+
+test("every cannon is in exactly one build tab of five", () => {
+  const all = TOWER_GROUPS.flatMap((g) => g.kinds);
+  assert.equal(all.length, Object.keys(T).length);
+  assert.equal(new Set(all).size, all.length);
+  for (const g of TOWER_GROUPS) assert.equal(g.kinds.length, 5);
+});
+
+/** A board with lots of seeds and one cannon of `kind` at (4,3), right beside the Stacks carpet. */
+function withCannon(kind: TowerKind) {
+  const api = startGame("vael");
+  api.world.hud.seeds = 5000;
+  api.chooseBuild(kind);
+  api.pointer(center(4), center(3), "down");
+  const tower = api.world.towers.find((t) => t.kind === kind);
+  assert.ok(tower, `${kind} placed`);
+  api.dismissSelection();
+  return { api, tower };
+}
+
+test("every new cannon can be built and survives a wave", () => {
+  for (const kind of Object.keys(T) as TowerKind[]) {
+    const { api } = withCannon(kind);
+    api.startWave();
+    for (let i = 0; i < 60 * 90 && api.world.hud.phase === "combat"; i++) stepWorld(api.world, 1 / 60);
+    assert.notEqual(api.world.hud.phase, "combat", `${kind}: wave 1 never ended`);
+  }
+});
+
+test("Reading Lamp boosts a neighbour's range and fire rate", () => {
+  const { api, tower } = withCannon("melon");
+  const before = api.statsOf(tower.id)!;
+  api.chooseBuild("lantern");
+  api.pointer(center(5), center(3), "down");
+  const after = api.statsOf(tower.id)!;
+  assert.ok(after.range > before.range);
+  assert.ok(after.interval < before.interval);
+  assert.equal(after.lit, true);
+});
+
+test("Compost Heap pays seeds when a wave ends", () => {
+  const { api } = withCannon("compost");
+  api.startWave();
+  let seedsAtEnd = 0;
+  for (let i = 0; i < 60 * 90 && api.world.hud.phase === "combat"; i++) {
+    seedsAtEnd = api.world.hud.seeds;
+    stepWorld(api.world, 1 / 60);
+  }
+  assert.equal(api.world.hud.seeds - seedsAtEnd, 15);
+});
+
+test("ballista spear damages enemies on its line", () => {
+  const { api } = withCannon("ballista");
+  api.startWave();
+  let damaged = 0;
+  for (let i = 0; i < 60 * 30 && api.world.lines.length === 0; i++) {
+    const hp = new Map(api.world.enemies.map((e) => [e.id, e.hp]));
+    const seeds = api.world.hud.seeds;
+    stepWorld(api.world, 1 / 60);
+    if (api.world.lines.length) {
+      damaged = api.world.enemies.filter((e) => (hp.get(e.id) ?? e.hp) > e.hp).length + (api.world.hud.seeds > seeds ? 1 : 0);
+    }
+  }
+  assert.ok(api.world.lines.length >= 1, "ballista fired");
+  assert.ok(damaged >= 1, "spear hurt something");
 });
 
 test("simulated runs reach an ending on every night and knight choice", () => {

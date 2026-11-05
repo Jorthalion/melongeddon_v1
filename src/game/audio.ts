@@ -159,6 +159,34 @@ function fire(kind: TowerKind | undefined) {
       voice({ freq: vary(2550, 0.04), dur: 0.1, type: "sine", gain: 0.012, at: 0.02 });
       break;
     case "still":
+    case "lantern":
+    case "compost":
+      break;
+    case "spitter":
+      voice({ freq: vary(900, 0.12), to: 500, dur: 0.035, type: "square", gain: 0.012 });
+      break;
+    case "ballista":
+      voice({ freq: vary(220), to: 110, dur: 0.18, type: "sawtooth", gain: 0.03 });
+      hiss({ dur: 0.14, gain: 0.04, filter: "bandpass", freq: 2200, to: 800, q: 2 });
+      break;
+    case "reader":
+      hiss({ dur: 0.09, gain: 0.08, filter: "highpass", freq: 1500 });
+      voice({ freq: 1400, to: 300, dur: 0.18, type: "triangle", gain: 0.04 });
+      break;
+    case "bell":
+      [1046, 1568, 2093].forEach((f, i) => voice({ freq: f, dur: 1.1 - i * 0.3, type: "sine", gain: 0.03 - i * 0.008 }));
+      break;
+    case "hive":
+      voice({ freq: vary(190, 0.1), dur: 0.12, type: "sawtooth", gain: 0.008 });
+      break;
+    case "ink":
+      voice({ freq: vary(300), to: 120, dur: 0.1, type: "sine", gain: 0.05 });
+      break;
+    case "peeler":
+      hiss({ dur: 0.08, gain: 0.04, filter: "bandpass", freq: 3000, to: 1500, q: 3 });
+      break;
+    case "bookworm":
+      voice({ freq: vary(160), to: 240, dur: 0.12, type: "triangle", gain: 0.03 });
       break;
     default:
       voice({ freq: vary(190), to: 75, dur: 0.1, type: "sine", gain: 0.06 });

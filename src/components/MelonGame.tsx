@@ -5,6 +5,8 @@ import {
   BOARDS,
   DIFFICULTIES,
   MODS,
+  TOWER_GROUPS,
+  groupOf,
   TOWERS,
   buildCost,
   doorMemory,
@@ -31,6 +33,7 @@ import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, 
 import { useHotkeys } from "@/components/hotkeys";
 import { TutorialHint } from "@/components/TutorialHint";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
+import { TowerIcon } from "@/components/TowerIcon";
 
 /** Largest uniform scale that fits the board in a w×h box, plus the offset that centers it (CSS px). */
 function fitBoard(w: number, h: number) {
@@ -309,7 +312,32 @@ export function MelonGame() {
                 <span className="ml-2 hidden text-xs font-normal opacity-70 sm:inline">Space</span>
               </button>
             )}
-            <p className="h-4 truncate text-xs text-muted">{hud.upgrades.map((id) => UPGRADES[id].name).join(" · ")}</p>
+            <div className="flex h-7 items-center gap-2">
+              <div className="flex shrink-0 gap-1" role="tablist" aria-label="Cannon type">
+                {TOWER_GROUPS.map((g) => {
+                  const on = groupOf(hud.build).id === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={on}
+                      title={`${g.name} (${g.key.toUpperCase()})`}
+                      className={`h-7 rounded-md px-2.5 text-xs font-semibold ${on ? "bg-[#3a242c] text-gold ring-1 ring-[#c6a15a]" : "text-muted"}`}
+                      onClick={() => {
+                        gesture();
+                        api.dismissSelection();
+                        if (!on) api.chooseBuild(g.kinds[0]);
+                      }}
+                    >
+                      {g.name}
+                      <span className="ml-1 hidden opacity-60 sm:inline">{g.key.toUpperCase()}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="min-w-0 flex-1 truncate text-right text-xs text-muted">{hud.upgrades.map((id) => UPGRADES[id].name).join(" · ")}</p>
+            </div>
             {selected ? (
               <TowerInspector
                 api={api}
@@ -319,26 +347,24 @@ export function MelonGame() {
               />
             ) : (
               <div className="grid h-[5.5rem] grid-cols-5 gap-2">
-                {(Object.keys(TOWERS) as TowerKind[]).map((id) => {
+                {groupOf(hud.build).kinds.map((id, slot) => {
                   const placed = api.world.towers.filter((t) => !t.ally).length;
-                  const cost = buildCost(hud.hero, placed, id);
+                  const cost = Math.max(0, buildCost(hud.hero, placed, id) - (hud.bookmark === "discount" ? 5 : 0));
                   const on = hud.build === id;
                   return (
                     <button
                       key={id}
                       type="button"
-                      title={`${TOWERS[id].name} (${(Object.keys(TOWERS) as TowerKind[]).indexOf(id) + 1})`}
+                      title={`${TOWERS[id].name} (${slot + 1}): ${TOWERS[id].blurb}`}
                       className={`relative h-full min-w-0 rounded-lg border px-1 py-1.5 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost ? "opacity-55" : ""}`}
                       onClick={() => {
                         gesture();
                         api.chooseBuild(id);
                       }}
                     >
-                      <span className="absolute top-1 left-1.5 hidden text-[10px] text-muted sm:block">{(Object.keys(TOWERS) as TowerKind[]).indexOf(id) + 1}</span>
-                      <img src={TOWER_ART[id]} alt="" className="mx-auto h-9 w-full object-contain" />
-                      <span className="mt-1 block text-xs font-semibold">
-                        {id === "mortar" ? "Mortar" : TOWERS[id].name.replace(" cannon", "")}
-                      </span>
+                      <span className="absolute top-1 left-1.5 hidden text-[10px] text-muted sm:block">{slot + 1}</span>
+                      <TowerIcon kind={id} className="mx-auto block h-9 w-full" />
+                      <span className="mt-1 block truncate text-xs font-semibold">{SHORT_NAME[id]}</span>
                       <span className="block truncate text-[11px] text-muted">
                         {cost}
                         <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
@@ -414,13 +440,34 @@ export function MelonGame() {
   );
 }
 
-const TOWER_ART: Record<TowerKind, string> = {
-  melon: asset("sprites/cannon-barrel.webp"),
-  mortar: asset("sprites/pumpkin-barrel.webp"),
-  still: asset("sprites/still.webp"),
-  fire: asset("sprites/fire-barrel.webp"),
-  freeze: asset("sprites/freeze-barrel.webp"),
+/** Build-bar labels (the full names are too long for five across on a phone). */
+const SHORT_NAME: Record<TowerKind, string> = {
+  melon: "Melon",
+  mortar: "Mortar",
+  still: "Still",
+  fire: "Fire",
+  freeze: "Freeze",
+  spitter: "Spitter",
+  ballista: "Ballista",
+  reader: "Reader",
+  bell: "Bell",
+  hive: "Hive",
+  lantern: "Lamp",
+  ink: "Ink Well",
+  compost: "Compost",
+  peeler: "Peeler",
+  bookworm: "Bookworm",
 };
+
+function describeStats(kind: TowerKind, read: { dmg: number; range: number; interval: number; lit?: boolean }) {
+  const tiles = read.range >= 900 ? "whole board" : `${(read.range / 48).toFixed(1)} tiles`;
+  const lit = read.lit ? " · lit" : "";
+  if (kind === "compost") return "No shot · pays seeds every wave";
+  if (kind === "lantern") return `Boosts cannons within ${tiles}`;
+  if (kind === "bell") return `Stun · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
+  if (kind === "still") return `No shot · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
+  return `DMG ${read.dmg} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
+}
 
 function TowerInspector({
   api,
@@ -436,20 +483,21 @@ function TowerInspector({
   const hud = api.world.hud;
   const tower = api.world.towers.find((t) => t.id === hud.selected);
   if (!tower) return null;
-  const read = towerReadout(hud.hero, tower.kind, tower.mods, hud.upgrades);
+  const read = api.statsOf(tower.id) ?? towerReadout(hud.hero, tower.kind, tower.mods, hud.upgrades);
+  const canFit = MODS.some((m) => m.kinds.includes(tower.kind) && !tower.mods.includes(m.id));
   return (
     <div className="relative flex h-[5.5rem] items-center gap-3 rounded-lg border border-[#c6a15a]/60 bg-[#241418] py-1.5 pr-9 pl-3">
-      <img src={TOWER_ART[tower.kind]} alt="" className="h-12 w-12 shrink-0 object-contain" />
+      <TowerIcon kind={tower.kind} className="h-12 w-12 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-display text-lg leading-none font-semibold">{TOWERS[tower.kind].name}</p>
         <p className="mt-1 truncate text-[10px] tracking-[0.16em] text-gold uppercase">{TOWERS[tower.kind].role}</p>
         <p className="mt-1 truncate text-xs text-muted sm:text-sm">
-          {tower.kind === "still" ? "No shot" : `DMG ${read.dmg}`} · {(read.range / 48).toFixed(1)} tiles · {read.interval.toFixed(1)}s
+          {describeStats(tower.kind, read)}
         </p>
         <p className="mt-0.5 h-4 truncate text-xs text-gold">{tower.mods.map((id) => MODS.find((m) => m.id === id)?.name).join(" · ")}</p>
       </div>
       <div className="flex shrink-0 flex-col gap-1.5">
-        {phase === "prep" && tower.mods.length < 2 ? (
+        {phase === "prep" && tower.mods.length < 2 && canFit ? (
           <button
             type="button"
             title="Back room (B)"
@@ -536,7 +584,7 @@ function TitleScreen({
               <MenuButton onClick={() => onMute(!muted)}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
               <MenuButton onClick={onMusic}>{music ? "Music is on" : "Music is off"}</MenuButton>
             </div>
-            <p className="mt-3 text-xs text-muted">Keys: 1–5 build · Space wave · S sell · B back room · Esc close · +/− speed · M sound</p>
+            <p className="mt-3 text-xs text-muted">Keys: Q/W/E tab · 1–5 build · Space wave · S sell · B back room · Esc close · +/− speed · M sound</p>
           </MenuCard>
         ) : null}
         {view === "quit" ? (

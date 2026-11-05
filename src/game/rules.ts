@@ -153,7 +153,38 @@ export function buildOffer(
   }
   return out.map((id) => UPGRADES[id]);
 }
-export type TowerKind = "melon" | "mortar" | "still" | "fire" | "freeze";
+export type TowerKind =
+  | "melon"
+  | "mortar"
+  | "still"
+  | "fire"
+  | "freeze"
+  | "spitter"
+  | "ballista"
+  | "reader"
+  | "bell"
+  | "hive"
+  | "lantern"
+  | "ink"
+  | "compost"
+  | "peeler"
+  | "bookworm";
+
+/** Build-bar tabs. Keys 1–5 pick within the open tab; Q / W / E switch tabs. */
+export const TOWER_GROUPS: Array<{ id: "damage" | "control" | "support"; name: string; key: string; kinds: TowerKind[] }> = [
+  { id: "damage", name: "Damage", key: "q", kinds: ["melon", "mortar", "spitter", "ballista", "reader"] },
+  { id: "control", name: "Control", key: "w", kinds: ["still", "fire", "freeze", "bell", "hive"] },
+  { id: "support", name: "Support", key: "e", kinds: ["lantern", "ink", "peeler", "bookworm", "compost"] },
+];
+
+export function groupOf(kind: TowerKind) {
+  return TOWER_GROUPS.find((g) => g.kinds.includes(kind)) ?? TOWER_GROUPS[0];
+}
+
+/** Cannons that never shoot. */
+export const PASSIVE: TowerKind[] = ["lantern", "compost"];
+/** Whole-board range. */
+export const GLOBAL_RANGE = 900;
 
 export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: number; role: string }> = {
   melon: {
@@ -186,6 +217,95 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 65,
     role: "Slow",
   },
+  spitter: {
+    name: "Seed Spitter",
+    blurb: "Rapid fire, tiny seeds, short reach. Shreds corn. Shelled melons shrug it off.",
+    cost: 50,
+    role: "Rapid",
+  },
+  ballista: {
+    name: "Shelf Ballista",
+    blurb: "A bookend spear that goes through everything in a straight line.",
+    cost: 80,
+    role: "Pierce",
+  },
+  reader: {
+    name: "Long Reader",
+    blurb: "Sees the whole board. One huge, slow shot at the toughest thing on the carpet.",
+    cost: 95,
+    role: "Sniper",
+  },
+  bell: {
+    name: "Shush Bell",
+    blurb: "Every few seconds: SHHH. Everything nearby stops. Husks cannot hear it.",
+    cost: 70,
+    role: "Stun",
+  },
+  hive: {
+    name: "Fly Hive",
+    blurb: "Fruit flies that find anything, anywhere on the board. Small bites, never miss.",
+    cost: 65,
+    role: "Homing",
+  },
+  lantern: {
+    name: "Reading Lamp",
+    blurb: "No shot. Cannons next to it see farther and fire faster.",
+    cost: 60,
+    role: "Boost",
+  },
+  ink: {
+    name: "Ink Well",
+    blurb: "Splashes ink. Marked fruit takes a quarter more damage from everything.",
+    cost: 55,
+    role: "Mark",
+  },
+  compost: {
+    name: "Compost Heap",
+    blurb: "No shot. Pays seeds at the end of every wave.",
+    cost: 70,
+    role: "Seeds",
+  },
+  peeler: {
+    name: "Peeler",
+    blurb: "Strips shells, husks and damp, so the other cannons hit them normally.",
+    cost: 60,
+    role: "Strip",
+  },
+  bookworm: {
+    name: "Bookworm",
+    blurb: "Burrows into pumpkins and Karl for heavy damage over time. Bored by the rest.",
+    cost: 75,
+    role: "Pumpkins",
+  },
+};
+
+/**
+ * Stat shape for the newer cannons, relative to a plain melon cannon:
+ * dmg and pace multiply damage and time between shots; range multiplies reach (0 = whole board).
+ */
+const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: number }>> = {
+  spitter: { dmg: 0.35, pace: 0.3, range: 0.8 },
+  ballista: { dmg: 1.6, pace: 2.1, range: 1.25 },
+  reader: { dmg: 8, pace: 2.4, range: 0 },
+  bell: { dmg: 0, pace: 4.4, range: 0.8 },
+  hive: { dmg: 0.7, pace: 0.65, range: 0 },
+  ink: { dmg: 0.3, pace: 1.2, range: 0.9 },
+  peeler: { dmg: 0.6, pace: 1.1, range: 0.9 },
+  bookworm: { dmg: 0.4, pace: 1.3, range: 1 },
+};
+
+/** Tunable numbers for the newer cannons' special effects. */
+export const CANNON = {
+  bellStun: 0.9,
+  bellStunBoss: 0.35,
+  lanternRadius: 72,
+  lanternRange: 1.15,
+  lanternPace: 0.85,
+  inkTime: 4,
+  inkBonus: 1.25,
+  compostSeeds: 15,
+  wormDps: 26,
+  wormTime: 4,
 };
 
 export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) {
@@ -195,6 +315,23 @@ export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) 
 
 export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgrades: UpgradeId[]) {
   const lamp = upgrades.includes("lamp");
+  if (kind === "lantern") {
+    return { dmg: 0, range: CANNON.lanternRadius + (mods.includes("wick") ? 30 : 0), interval: 0 };
+  }
+  if (kind === "compost") return { dmg: 0, range: 0, interval: 0 };
+  const profile = PROFILE[kind];
+  if (profile) {
+    const base = hero === "mynxi" ? 176 : 132;
+    const far = mods.some((id) => id === "reach" || id === "loud");
+    const range = profile.range === 0 ? GLOBAL_RANGE : Math.round(base * profile.range) + (lamp ? 32 : 0) + (far ? 28 : 0);
+    let pace = profile.pace;
+    if (mods.includes("haste")) pace *= 0.85;
+    const interval = (upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1) * pace;
+    let dmg = hero === "michael" ? BALANCE.michaelShot : 14;
+    if (upgrades.includes("caliber")) dmg += 8;
+    dmg = profile.dmg === 0 ? 0 : Math.max(1, Math.round(dmg * profile.dmg));
+    return { dmg, range, interval };
+  }
   const farther = mods.some((id) => id === "reach" || id === "arc" || id === "flare" || id === "coldreach");
   const range =
     (kind === "still" ? (hero === "mynxi" ? 118 : 96) + (lamp ? 20 : 0) : (hero === "mynxi" ? 176 : 132) + (lamp ? 32 : 0)) +
@@ -227,7 +364,14 @@ export type ModId =
   | "flare"
   | "hold"
   | "brittle"
-  | "coldreach";
+  | "coldreach"
+  | "loud"
+  | "swarm"
+  | "wick"
+  | "bright"
+  | "indelible"
+  | "loam"
+  | "venom";
 
 export interface ModDef {
   id: ModId;
@@ -237,9 +381,21 @@ export interface ModDef {
 }
 
 export const MODS: ModDef[] = [
-  { id: "reach", name: "Longer barrel", blurb: "This cannon reaches farther down the carpet.", kinds: ["melon"] },
-  { id: "chill", name: "Cold rind", blurb: "Its shot slows whatever it hits, for a moment.", kinds: ["melon"] },
-  { id: "haste", name: "Quick wick", blurb: "This cannon cycles a little faster. The others do not.", kinds: ["melon"] },
+  { id: "reach", name: "Longer barrel", blurb: "This cannon reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm"] },
+  { id: "chill", name: "Cold rind", blurb: "Its shot slows whatever it hits, for a moment.", kinds: ["melon", "spitter"] },
+  {
+    id: "haste",
+    name: "Quick wick",
+    blurb: "This cannon cycles a little faster. The others do not.",
+    kinds: ["melon", "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm"],
+  },
+  { id: "loud", name: "Louder bell", blurb: "The shush carries farther.", kinds: ["bell"] },
+  { id: "swarm", name: "Bigger swarm", blurb: "Two flies leave the hive each time.", kinds: ["hive"] },
+  { id: "wick", name: "Longer wick", blurb: "The lamp lights more of the room.", kinds: ["lantern"] },
+  { id: "bright", name: "Brighter flame", blurb: "Cannons in its light get a bigger boost.", kinds: ["lantern"] },
+  { id: "indelible", name: "Indelible ink", blurb: "The mark lasts longer and stings more.", kinds: ["ink"] },
+  { id: "loam", name: "Rich loam", blurb: "The heap pays half again as much.", kinds: ["compost"] },
+  { id: "venom", name: "Hungrier worms", blurb: "The burrowing does half again as much damage.", kinds: ["bookworm"] },
   { id: "wide", name: "Wide lob", blurb: "The splash covers more of the fold.", kinds: ["mortar"] },
   { id: "heavy", name: "Heavy lob", blurb: "The splash bites harder.", kinds: ["mortar"] },
   { id: "arc", name: "High arc", blurb: "This mortar lobs farther.", kinds: ["mortar"] },
