@@ -9,7 +9,7 @@ import {
   buildCost,
   doorMemory,
   sellValue,
-  shopPrice,
+  backRoomPrice,
   towerReadout,
   MAP_H,
   MAP_W,
@@ -22,6 +22,7 @@ import {
   type TowerKind,
   type UpgradeId,
   type World,
+  type BookmarkId,
   BALANCE,
   stacksWord,
 } from "@/game/engine";
@@ -29,6 +30,7 @@ import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
 import { useHotkeys } from "@/components/hotkeys";
 import { TutorialHint } from "@/components/TutorialHint";
+import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
 
 /** Largest uniform scale that fits the board in a w×h box, plus the offset that centers it (CSS px). */
 function fitBoard(w: number, h: number) {
@@ -145,7 +147,7 @@ export function MelonGame() {
   const phase = hud.phase;
   const showPlace = phase === "prep" || phase === "combat";
   const selected = hud.selected == null ? null : (api.world.towers.find((t) => t.id === hud.selected) ?? null);
-  const roomPrice = shopPrice(hud.hero, hud.shopVisits);
+  const roomPrice = backRoomPrice(hud.hero, hud.shopVisits, hud.bookmark);
 
   return (
     <main className="relative flex h-dvh flex-col bg-ink text-parchment">
@@ -796,6 +798,8 @@ function SelectScreen({
           </div>
         </div>
 
+        <BookmarkPicker api={api} onGesture={onGesture} />
+
         {hud.night === "overflow" ? (
           <div className="mb-6">
             <p className="text-[10px] tracking-[0.22em] text-gold uppercase">How the first night ended</p>
@@ -949,7 +953,7 @@ function Overlay({
           <>
             <h2 className="font-display text-2xl font-semibold">The back room</h2>
             <p className="mt-1 text-sm text-muted">
-              {shopPrice(hud.hero, hud.shopVisits)} seeds. It fits this cannon only, and a cannon holds two.
+              {backRoomPrice(hud.hero, hud.shopVisits, hud.bookmark) || "Free, this once"}{backRoomPrice(hud.hero, hud.shopVisits, hud.bookmark) ? " seeds" : ""}. It fits this cannon only, and a cannon holds two.
             </p>
             <div className="mt-4 flex flex-col gap-2">
               {hud.modOffer.map((mod) => (
@@ -1142,6 +1146,7 @@ function Overlay({
                   : "Mynxi is filing this under accidents that worked."
             }`}
             action="Run it back"
+            unlocks={hud.newUnlocks}
             onAction={() => {
               onGesture();
               api.reset();
@@ -1158,6 +1163,7 @@ function Overlay({
                 : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. The produce does not send condolences.`
             }
             action="Try again"
+            unlocks={hud.newUnlocks}
             onAction={() => {
               onGesture();
               api.reset();
@@ -1174,16 +1180,19 @@ function EndCard({
   body,
   action,
   onAction,
+  unlocks = [],
 }: {
   title: string;
   body: string;
   action: string;
   onAction: () => void;
+  unlocks?: BookmarkId[];
 }) {
   return (
     <>
       <h2 className="font-display text-2xl font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-muted">{body}</p>
+      <NewUnlocks ids={unlocks} />
       <button
         type="button"
         className="mt-4 min-h-11 w-full rounded-xl bg-rind px-4 py-3 font-semibold text-ink"

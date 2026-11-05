@@ -7,10 +7,13 @@ import {
   COLS,
   ROWS,
   createWorld,
-  shopPrice,
+  ALL_UNLOCKED,
+  EMPTY_META,
+  backRoomPrice,
   stepWorld,
   towerReadout,
   type Alliance,
+  type BookmarkId,
   type Difficulty,
   type HeroId,
   type MapId,
@@ -30,6 +33,8 @@ export interface RunConfig {
   /** Knight choice. Midnight: picked at the door after wave 4. Overflow: how night one ended. Ignored in endless. */
   door: Exclude<Alliance, "none">;
   seed: number;
+  /** Optional bookmark (meta perk) to equip. */
+  bookmark?: BookmarkId;
   /** Optional cap on player towers (for "how few towers can win?" probes). */
   maxTowers?: number;
 }
@@ -76,7 +81,7 @@ export function simulateRun(config: RunConfig): RunResult {
 }
 
 function play(config: RunConfig, rng: () => number): RunResult {
-  const api = createWorld(() => {});
+  const api = createWorld(() => {}, { meta: config.bookmark ? ALL_UNLOCKED : EMPTY_META });
   const { world } = api;
 
   api.openLibrary();
@@ -88,6 +93,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     api.chooseNight(config.night);
     api.chooseMap(config.map);
   }
+  if (config.bookmark) api.setBookmark(config.bookmark);
   api.chooseHero(config.hero);
   api.beginNight();
 
@@ -127,7 +133,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
 
   const tryMod = () => {
     if (config.strategy !== "mixed+mods" || world.hud.phase !== "prep") return false;
-    const price = shopPrice(world.hud.hero, world.hud.shopVisits);
+    const price = backRoomPrice(world.hud.hero, world.hud.shopVisits, world.hud.bookmark);
     if (world.hud.seeds < price || price >= world.hud.towerCost) return false;
     const tower = world.towers.find((t) => !t.ally && t.mods.length < 2);
     if (!tower) return false;

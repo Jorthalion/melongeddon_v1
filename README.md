@@ -26,6 +26,20 @@ Optional: once you know the final URL, make `og:image` in `index.html` an absolu
 
 Pick **Endless** as the night on the keeper screen. You play act one's six waves, then generated waves that cycle four themes (corn swarms, shelled melons, pumpkins, a mix), grow every other wave, and add armoured variants from wave 13. Karl comes every fifth wave. You get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Enemy health follows the story curve to wave 10, then grows `BALANCE.endlessGrowth` (15%) per wave. In simulation, Normal runs end around waves 17–19 and Easy around 25. Best endless score is saved separately.
 
+## Bookmarks (meta unlocks)
+
+Milestones across runs unlock bookmarks: small perks you equip one at a time on the keeper screen. Progress is saved in the browser (`src/game/meta.ts`).
+
+| Bookmark | Effect | Unlocked by |
+|---|---|---|
+| Seed Fund | +30 starting seeds | clearing wave 3 |
+| Spare Stack | +2 stacks | popping Karl |
+| Back-room Key | first fitting each run is free | buying 5 fittings |
+| Bulk Order | cannons cost 5 less | winning a night |
+| Late Fees | +1 seed per kill | reaching wave 15 in Endless |
+
+Effect sizes live in `BOOKMARK_VALUES`. The simulator can equip one (`bookmark` in `RunConfig`); in testing each adds roughly 0–17 points of win rate, Late Fees the most.
+
 ## Controls
 
 Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade and back-room screens), `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close, `+`/`-` speed, `M` sound. Music has its own toggle in Settings and the header.

@@ -18,6 +18,7 @@ import {
   type Alliance,
   type NightId,
 } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, EMPTY_META, TOWERS as T, backRoomPrice } from "../src/game/engine.ts";
 import { simulateRun } from "../scripts/sim-core.ts";
 
 const center = (c: number) => c * CELL + CELL / 2;
@@ -137,6 +138,54 @@ test("endless offers a pick every fifth wave after act one", () => {
   assert.equal(nextBeat(16, "none", "endless"), "upgrade");
   assert.equal(nextBeat(12, "none", "endless"), "prep");
   assert.equal(nextBeat(4, "none", "endless"), "prep");
+});
+
+test("locked bookmarks cannot be equipped", () => {
+  const api = createWorld(() => {}, { meta: EMPTY_META });
+  api.openLibrary();
+  api.setBookmark("seedfund");
+  assert.equal(api.world.hud.bookmark, null);
+  assert.deepEqual(api.world.hud.unlocked, []);
+});
+
+test("bookmarks change the run start and prices", () => {
+  const start = (id: "seedfund" | "sparestack" | "discount" | "backroom" | null) => {
+    const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
+    api.openLibrary();
+    api.setBookmark(id);
+    api.chooseHero("vael");
+    api.beginNight();
+    return api;
+  };
+  const plain = start(null).world.hud;
+  assert.equal(start("seedfund").world.hud.seeds, plain.seeds + 30);
+  assert.equal(start("sparestack").world.hud.maxLives, plain.maxLives + 2);
+  assert.equal(start("discount").world.hud.towerCost, T.melon.cost - 5);
+  assert.equal(backRoomPrice("vael", 0, "backroom"), 0);
+  assert.equal(backRoomPrice("vael", 1, "backroom"), shopPrice("vael", 1));
+
+  // Back-room Key: the first fitting costs nothing and adds nothing to the refund.
+  const api = start("backroom");
+  api.pointer(center(4), center(3), "down");
+  const before = api.world.hud.seeds;
+  api.openShop();
+  api.pickMod(api.world.hud.modOffer[0].id);
+  assert.equal(api.world.hud.seeds, before);
+  assert.equal(api.world.towers.find((t) => !t.ally)?.paid, 60);
+});
+
+test("reaching a milestone unlocks a bookmark mid-run", () => {
+  const api = createWorld(() => {}, { meta: { ...EMPTY_META, fittings: 4 } });
+  api.openLibrary();
+  api.chooseHero("vael");
+  api.beginNight();
+  api.world.hud.seeds = 1000;
+  api.pointer(center(4), center(3), "down");
+  api.openShop();
+  api.pickMod(api.world.hud.modOffer[0].id);
+  assert.ok(api.world.hud.unlocked.includes("backroom"));
+  assert.deepEqual(api.world.hud.newUnlocks, ["backroom"]);
+  assert.match(api.world.hud.log, /New bookmark: Back-room Key/);
 });
 
 test("simulated runs reach an ending on every night and knight choice", () => {

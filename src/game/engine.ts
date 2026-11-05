@@ -6,6 +6,20 @@ import {
 } from "./rules.ts";
 
 export * from "./rules.ts";
+import {
+  BOOKMARK,
+  BOOKMARK_VALUES,
+  EMPTY_META,
+  backRoomPrice,
+  loadMeta,
+  loadPick,
+  saveMeta,
+  savePick,
+  unlockedIds,
+  type BookmarkId,
+  type MetaStats,
+} from "./meta.ts";
+export * from "./meta.ts";
 
 interface Waypoint {
   x: number;
@@ -137,6 +151,11 @@ export interface Hud {
   best: number;
   /** Most waves cleared in an endless run. */
   endlessBest: number;
+  /** Equipped bookmark (meta perk) for this run. */
+  bookmark: BookmarkId | null;
+  /** Bookmarks unlocked so far, and the ones unlocked during this run. */
+  unlocked: BookmarkId[];
+  newUnlocks: BookmarkId[];
   hero: HeroId | null;
   branch: UpgradeId | null;
   map: MapId;
@@ -224,7 +243,15 @@ export interface World {
   reduced: boolean;
 }
 
-export function createWorld(onChange: () => void): {
+export interface WorldOptions {
+  /** Use these stats instead of the saved ones, and never save (simulator, tests). */
+  meta?: MetaStats;
+}
+
+export function createWorld(
+  onChange: () => void,
+  options: WorldOptions = {},
+): {
   world: World;
   pointer: (x: number, y: number, kind: "move" | "down") => void;
   startWave: () => void;
@@ -248,6 +275,7 @@ export function createWorld(onChange: () => void): {
   beginNight: () => void;
   reset: () => void;
   unlock: () => void;
+  setBookmark: (id: BookmarkId | null) => void;
 } {
   let nextId = 1;
   const id = () => nextId++;
@@ -276,6 +304,9 @@ export function createWorld(onChange: () => void): {
       waveSize: 0,
       best: 0,
       endlessBest: 0,
+      bookmark: null,
+      unlocked: [],
+      newUnlocks: [],
       hero: null,
       branch: null,
       map: "stacks",
@@ -316,6 +347,29 @@ export function createWorld(onChange: () => void): {
   let spawnClock = 0;
   let karlReward = false;
   const has = (u: UpgradeId) => world.hud.upgrades.includes(u);
+
+  const persistMeta = !options.meta && typeof window !== "undefined";
+  const meta: MetaStats = options.meta ? { ...options.meta } : persistMeta ? loadMeta() : { ...EMPTY_META };
+  world.hud.unlocked = unlockedIds(meta);
+  if (persistMeta) {
+    const pick = loadPick();
+    if (pick && world.hud.unlocked.includes(pick)) world.hud.bookmark = pick;
+  }
+  const bm = (id: BookmarkId) => world.hud.bookmark === id;
+  /** Update lifetime stats; announce any bookmark this unlocks. */
+  const record = (change: (m: MetaStats) => void) => {
+    change(meta);
+    if (persistMeta) saveMeta(meta);
+    const now = unlockedIds(meta);
+    const fresh = now.filter((id) => !world.hud.unlocked.includes(id));
+    world.hud.unlocked = now;
+    if (fresh.length) {
+      world.hud.newUnlocks = [...world.hud.newUnlocks, ...fresh];
+      world.hud.log = `New bookmark: ${fresh.map((id) => BOOKMARK[id].name).join(", ")}. Equip it on the keeper screen.`;
+      cue("clear");
+    }
+  };
+  const roomPrice = () => backRoomPrice(world.hud.hero, world.hud.shopVisits, world.hud.bookmark);
 
   if (typeof window !== "undefined") {
     world.hud.best = readBest();
@@ -374,7 +428,8 @@ export function createWorld(onChange: () => void): {
   const statsFor = (tower: Tower) =>
     tower.ally ? ALLY_STATS : towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades);
   const rangeFor = (kind: TowerKind) => towerReadout(world.hud.hero, kind, [], world.hud.upgrades).range;
-  const priceNext = () => buildCost(world.hud.hero, placedCount(), world.hud.build);
+  const priceNext = () =>
+    Math.max(0, buildCost(world.hud.hero, placedCount(), world.hud.build) - (bm("discount") ? BOOKMARK_VALUES.discount : 0));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
   const towerRange = (tower: Tower) => statsFor(tower).range;
   const syncPrice = () => {
@@ -552,7 +607,7 @@ export function createWorld(onChange: () => void): {
   };
 
   const onDeath = (e: Enemy) => {
-    world.hud.seeds += e.gold + (has("fines") ? 5 : 0);
+    world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0);
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
     burst(e.x, e.y, e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : "#e23b4a", e.boss ? 28 : 10);
     cue(e.boss ? "bossPop" : "pop");
@@ -568,6 +623,7 @@ export function createWorld(onChange: () => void): {
         : world.hud.night === "overflow"
           ? "Karl came up the chute and left as pie. +2 stacks."
           : "Karl is pie. The library exhales. +2 stacks.";
+      record((m) => (m.karls += 1));
       for (const other of world.enemies) hurt(other, e, 40, 90, "splash");
     } else if (karlReward && e.kind === "pumpkin") {
       burst(e.x, e.y, "#e8883a", 8);
@@ -677,6 +733,19 @@ export function createWorld(onChange: () => void): {
     return false;
   };
 
+  /** Lifetime stats for a cleared wave (after the wave's own log line, so an unlock notice shows). */
+  const recordWave = () => {
+    const endless = world.hud.night === "endless";
+    record((m) => {
+      if (endless) m.endlessBest = Math.max(m.endlessBest, cleared);
+      else m.bestWave = Math.max(m.bestWave, cleared);
+      if (!endless && cleared >= WAVE_COUNT) {
+        m.wins += 1;
+        if (world.hud.difficulty === "hard") m.hardWins += 1;
+      }
+    });
+  };
+
   const endWave = () => {
     cleared += 1;
     bumpBest();
@@ -706,6 +775,7 @@ export function createWorld(onChange: () => void): {
                 ? "You sent him away, and survived the produce alone."
                 : "The library holds.";
       world.hud.log = world.hud.blurb;
+      recordWave();
       notify();
       return;
     }
@@ -750,6 +820,7 @@ export function createWorld(onChange: () => void): {
       world.hud.waveName = upcoming.name;
       world.hud.log = `Wave ${cleared} cleared.`;
     }
+    recordWave();
     notify();
   };
 
@@ -1181,6 +1252,12 @@ export function createWorld(onChange: () => void): {
         world.hud.seeds += 45;
         world.hud.log = "You sent him away. The crates were never eaten. +45 seeds.";
       }
+      world.hud.newUnlocks = [];
+      if (bm("seedfund")) world.hud.seeds += BOOKMARK_VALUES.seedfund;
+      if (bm("sparestack")) {
+        world.hud.lives += BOOKMARK_VALUES.sparestack;
+        world.hud.maxLives += BOOKMARK_VALUES.sparestack;
+      }
       syncPrice();
       notify();
     },
@@ -1202,14 +1279,16 @@ export function createWorld(onChange: () => void): {
       if (world.hud.phase !== "prep" || world.hud.selected == null) return;
       const tower = world.towers.find((t) => t.id === world.hud.selected && !t.ally);
       if (!tower || tower.mods.length >= 2) return;
-      const price = shopPrice(world.hud.hero, world.hud.shopVisits);
+      const price = roomPrice();
       if (world.hud.seeds < price) return;
       const offer = rollMods(tower.kind, tower.mods);
       if (offer.length === 0) return;
       world.hud.modOffer = offer;
       world.hud.shopFor = tower.id;
       world.hud.phase = "shop";
-      world.hud.log = `${TOWERS[tower.kind].name}. ${price} seeds, and it stays on this cannon.`;
+      world.hud.log = price
+        ? `${TOWERS[tower.kind].name}. ${price} seeds, and it stays on this cannon.`
+        : `${TOWERS[tower.kind].name}. This one is on the house, and it stays on this cannon.`;
       notify();
     },
     pickMod(modId: ModId) {
@@ -1217,7 +1296,7 @@ export function createWorld(onChange: () => void): {
       const tower = world.towers.find((t) => t.id === world.hud.shopFor && !t.ally);
       const mod = world.hud.modOffer.find((m) => m.id === modId);
       if (!tower || !mod || tower.mods.length >= 2 || tower.mods.includes(modId)) return;
-      const price = shopPrice(world.hud.hero, world.hud.shopVisits);
+      const price = roomPrice();
       if (world.hud.seeds < price) return;
       world.hud.seeds -= price;
       world.hud.shopVisits += 1;
@@ -1228,6 +1307,7 @@ export function createWorld(onChange: () => void): {
       world.hud.shopFor = null;
       world.hud.range = towerRange(tower);
       world.hud.log = `${mod.name} fitted. It does not leave this cannon.`;
+      record((m) => (m.fittings += 1));
       syncPrice();
       world.hud.range = towerRange(tower);
       notify();
@@ -1353,11 +1433,19 @@ export function createWorld(onChange: () => void): {
         night: "midnight",
         map: "stacks",
         waveCount: WAVE_COUNT,
+        newUnlocks: [],
       };
       notify();
     },
     unlock() {
       /* gesture hook reserved for audio in the component */
+    },
+    setBookmark(id: BookmarkId | null) {
+      if (world.hud.phase !== "select" && world.hud.phase !== "coldopen") return;
+      if (id && !world.hud.unlocked.includes(id)) return;
+      world.hud.bookmark = id;
+      if (persistMeta) savePick(id);
+      notify();
     },
   };
 
