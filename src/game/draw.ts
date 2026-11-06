@@ -29,6 +29,13 @@ const SPRITE_SRC = {
   shotIce: asset("sprites/shot-ice.webp"),
   shotMortar: asset("sprites/shot-mortar.webp"),
   floor: asset("sprites/tile-floor.webp"),
+  floorRarebooks: asset("sprites/tile-floor-rarebooks.webp"),
+  floorArchive: asset("sprites/tile-floor-archive.webp"),
+  shotSeed: asset("sprites/shot-seed.webp"),
+  shotFly: asset("sprites/shot-fly.webp"),
+  shotInk: asset("sprites/shot-ink.webp"),
+  shotPeel: asset("sprites/shot-peel.webp"),
+  shotWorm: asset("sprites/shot-worm.webp"),
   carpet: asset("sprites/tile-carpet.webp"),
   corner: asset("sprites/tile-carpet-corner.webp"),
   shelf: asset("sprites/tile-shelf.webp"),
@@ -103,8 +110,10 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   ctx.fillRect(-8, -8, MAP_W + 16, MAP_H + 16);
 
   const art = getSprites();
-  if (ready(art.floor)) {
-    const pattern = ctx.createPattern(art.floor, "repeat");
+  const ownFloor = world.hud.map === "rarebooks" ? art.floorRarebooks : world.hud.map === "archive" ? art.floorArchive : undefined;
+  const floor = ready(ownFloor) ? ownFloor : art.floor;
+  if (ready(floor)) {
+    const pattern = ctx.createPattern(floor, "repeat");
     if (pattern) {
       ctx.fillStyle = pattern;
       ctx.fillRect(0, 0, MAP_W, MAP_H);
@@ -285,7 +294,15 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   for (const s of world.shots) {
     if (s.element === "seed" || s.element === "fly" || s.element === "ink" || s.element === "peel" || s.element === "worm") {
-      drawShot(ctx, s.x, s.y, s.element, world.anim);
+      const look = NEW_SHOT[s.element];
+      const img = art[look.sprite];
+      if (ready(img)) {
+        // Seeds and worms point where they fly; peel spins; the fly wobbles.
+        const heading = Math.atan2(s.ty - s.y, s.tx - s.x);
+        const rot =
+          s.element === "seed" ? heading + Math.PI / 2 : s.element === "worm" ? heading : s.element === "peel" ? world.anim * 14 : s.element === "fly" ? Math.sin(world.anim * 30) * 0.25 : 0;
+        blit(ctx, img, s.x, s.y, look.size, rot);
+      } else drawShot(ctx, s.x, s.y, s.element, world.anim);
       continue;
     }
     const img =
@@ -659,6 +676,15 @@ function drawPaintedCannon(
   }
   return true;
 }
+
+/** Sprites and on-board sizes (px) for the newer cannons' shots. */
+const NEW_SHOT = {
+  seed: { sprite: "shotSeed", size: 10 },
+  fly: { sprite: "shotFly", size: 13 },
+  ink: { sprite: "shotInk", size: 13 },
+  peel: { sprite: "shotPeel", size: 14 },
+  worm: { sprite: "shotWorm", size: 14 },
+} as const satisfies Record<string, { sprite: SpriteName; size: number }>;
 
 const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108 } as const;
 

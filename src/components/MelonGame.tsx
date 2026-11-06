@@ -424,8 +424,8 @@ export function MelonGame() {
           />
         ) : (
           <RoomScreen
-            src={hud.map === "annex" ? asset("sprites/screen-annex.webp") : asset("sprites/screen-stacks.webp")}
-            dim={Boolean(BOARDS[hud.map].dark)}
+            src={MAP_ART[hud.map] ?? MAP_ART.stacks!}
+            dim={Boolean(BOARDS[hud.map].dark) && !MAP_ART[hud.map]}
             kicker={hud.hero === "michael" ? "Pumpkin Knight" : hud.hero === "vael" ? "Potions division" : "Head librarian"}
             title={BOARDS[hud.map].name}
             joke={ROOM_JOKE[hud.map] ?? ROOM_JOKE.stacks!}
@@ -641,10 +641,14 @@ const ROOM_JOKE: Partial<Record<MapId, string>> = {
   archive: "Somebody turned the lights off. Somebody round and green.",
 };
 
-/** Maps with painted previews; the rest are drawn by MapPreview. */
+/** Map banners; any map without one is drawn by MapPreview. */
 const MAP_ART: Partial<Record<MapId, string>> = {
   stacks: asset("sprites/screen-stacks.webp"),
   annex: asset("sprites/screen-annex.webp"),
+  mezzanine: asset("sprites/screen-mezzanine.webp"),
+  rarebooks: asset("sprites/screen-rarebooks.webp"),
+  archive: asset("sprites/screen-archive.webp"),
+  overflow: asset("sprites/screen-overflow.webp"),
 };
 
 function RoomScreen({
