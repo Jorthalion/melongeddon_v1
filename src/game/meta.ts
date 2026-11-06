@@ -2,7 +2,7 @@
  * Meta progression: lifetime stats saved in the browser, and the bookmarks they unlock.
  * A bookmark is a small perk; the player equips one per run on the keeper screen.
  */
-import { shopPrice, type HeroId } from "./rules.ts";
+import { shopPrice, type HeroId, type MapId } from "./rules.ts";
 
 export type BookmarkId = "seedfund" | "sparestack" | "backroom" | "discount" | "latefee";
 
@@ -118,6 +118,20 @@ export function savePick(id: BookmarkId | null) {
 
 export function unlockedIds(m: MetaStats): BookmarkId[] {
   return BOOKMARKS.filter((b) => b.unlocked(m)).map((b) => b.id);
+}
+
+/** Maps that start locked, with how to open them. The rest are always open. */
+export const MAP_GOALS: Partial<Record<MapId, { goal: string; unlocked: (m: MetaStats) => boolean }>> = {
+  mezzanine: { goal: "Clear wave 5.", unlocked: (m) => Math.max(m.bestWave, m.endlessBest) >= 5 },
+  rarebooks: { goal: "Pop Karl.", unlocked: (m) => m.karls >= 1 },
+  archive: { goal: "Win a night.", unlocked: (m) => m.wins >= 1 },
+};
+
+/** Maps the player can pick on the keeper screen (the Overflow is night two's, never picked). */
+export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive"];
+
+export function unlockedMaps(m: MetaStats): MapId[] {
+  return PICKABLE_MAPS.filter((id) => MAP_GOALS[id]?.unlocked(m) ?? true);
 }
 
 /** Back-room price, with the Back-room Key's free first fitting. */

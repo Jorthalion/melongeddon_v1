@@ -25,6 +25,9 @@ const DOORS: Exclude<Alliance, "none">[] = ["accept", "betray", "reject"];
 const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "stacks" },
   { night: "midnight", map: "annex" },
+  { night: "midnight", map: "mezzanine" },
+  { night: "midnight", map: "rarebooks" },
+  { night: "midnight", map: "archive" },
   { night: "overflow", map: "overflow" },
 ];
 

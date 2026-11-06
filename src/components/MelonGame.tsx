@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Music } from "lucide-react";
 import {
   BOARDS,
+  MAP_GOALS,
+  PICKABLE_MAPS,
   DIFFICULTIES,
   MODS,
   TOWER_GROUPS,
@@ -34,6 +36,8 @@ import { useHotkeys } from "@/components/hotkeys";
 import { TutorialHint } from "@/components/TutorialHint";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
 import { TowerIcon } from "@/components/TowerIcon";
+import { MapPreview } from "@/components/MapPreview";
+import { Lock } from "lucide-react";
 
 /** Largest uniform scale that fits the board in a w×h box, plus the offset that centers it (CSS px). */
 function fitBoard(w: number, h: number) {
@@ -420,13 +424,10 @@ export function MelonGame() {
         ) : (
           <RoomScreen
             src={hud.map === "annex" ? asset("sprites/screen-annex.webp") : asset("sprites/screen-stacks.webp")}
+            dim={Boolean(BOARDS[hud.map].dark)}
             kicker={hud.hero === "michael" ? "Pumpkin Knight" : hud.hero === "vael" ? "Potions division" : "Head librarian"}
-            title={hud.map === "annex" ? "The Annex" : "The Stacks"}
-            joke={
-              hud.map === "annex"
-                ? "The carpet folded. Nobody told the corn."
-                : "The library is closed. The melons have a reservation."
-            }
+            title={BOARDS[hud.map].name}
+            joke={ROOM_JOKE[hud.map] ?? ROOM_JOKE.stacks!}
             action="To the carpet"
             onAction={() => {
               gesture();
@@ -631,8 +632,23 @@ function MenuButton({ gold, onClick, children }: { gold?: boolean; onClick: () =
   );
 }
 
+const ROOM_JOKE: Partial<Record<MapId, string>> = {
+  stacks: "The library is closed. The melons have a reservation.",
+  annex: "The carpet folded. Nobody told the corn.",
+  mezzanine: "The balcony creaks. The melons like the view.",
+  rarebooks: "Please do not touch the first editions. The pumpkins did not read the sign.",
+  archive: "Somebody turned the lights off. Somebody round and green.",
+};
+
+/** Maps with painted previews; the rest are drawn by MapPreview. */
+const MAP_ART: Partial<Record<MapId, string>> = {
+  stacks: asset("sprites/screen-stacks.webp"),
+  annex: asset("sprites/screen-annex.webp"),
+};
+
 function RoomScreen({
   src,
+  dim = false,
   kicker,
   title,
   joke,
@@ -640,6 +656,7 @@ function RoomScreen({
   onAction,
 }: {
   src: string;
+  dim?: boolean;
   kicker: string;
   title: string;
   joke: string;
@@ -648,7 +665,7 @@ function RoomScreen({
 }) {
   return (
     <div className="absolute inset-0 z-20">
-      <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+      <img src={src} alt="" className={`absolute inset-0 h-full w-full object-cover object-center ${dim ? "brightness-[0.35]" : ""}`} />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,4,6,0.2)_0%,rgba(8,4,6,0)_40%,rgba(8,4,6,0.88)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 px-4 pb-8 text-center">
         <p className="text-xs tracking-[0.28em] text-gold uppercase">{kicker}</p>
@@ -878,33 +895,50 @@ function SelectScreen({
             <p className="mt-1.5 text-sm text-muted">{doorMemory(hud.alliance)}</p>
           </div>
         ) : (
-          <div className="mb-6 grid gap-3 sm:grid-cols-2">
-            {(Object.keys(BOARDS) as MapId[])
-              .filter((id) => id !== "overflow")
-              .map((id) => {
-                const board = BOARDS[id];
-                const on = hud.map === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    className={`overflow-hidden rounded-lg border text-left ${on ? "border-[#c6a15a] shadow-[0_0_18px_rgba(198,161,90,0.28)]" : "border-line/70"}`}
-                    onClick={() => {
-                      onGesture();
-                      tone(210, 0.05, "triangle", 0.03);
-                      api.chooseMap(id);
-                    }}
-                  >
-                    <img
-                      src={id === "annex" ? asset("sprites/screen-annex.webp") : asset("sprites/screen-stacks.webp")}
-                      alt=""
-                      className="h-24 w-full object-cover"
-                    />
-                    <span className="block px-3 pt-2 font-display text-lg font-semibold">{board.name}</span>
-                    <span className="block px-3 pb-3 text-sm text-muted">{board.blurb}</span>
-                  </button>
-                );
-              })}
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {PICKABLE_MAPS.map((id) => {
+              const board = BOARDS[id];
+              const on = hud.map === id;
+              const locked = !hud.maps.includes(id);
+              const art = MAP_ART[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={on}
+                  aria-disabled={locked}
+                  title={locked ? `Locked. ${MAP_GOALS[id]?.goal ?? ""}` : board.blurb}
+                  className={`overflow-hidden rounded-lg border text-left ${
+                    on
+                      ? "border-[#c6a15a] shadow-[0_0_18px_rgba(198,161,90,0.28)]"
+                      : locked
+                        ? "cursor-not-allowed border-line/50"
+                        : "border-line/70"
+                  }`}
+                  onClick={() => {
+                    if (locked) return;
+                    onGesture();
+                    tone(210, 0.05, "triangle", 0.03);
+                    api.chooseMap(id);
+                  }}
+                >
+                  <span className="relative block">
+                    {art ? (
+                      <img src={art} alt="" className={`block h-20 w-full object-cover ${locked ? "opacity-30 grayscale" : ""}`} />
+                    ) : (
+                      <MapPreview map={id} className={`block h-20 w-full ${locked ? "opacity-30 grayscale" : ""}`} />
+                    )}
+                    {locked ? (
+                      <Lock className="absolute top-1/2 left-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
+                    ) : null}
+                  </span>
+                  <span className={`block px-3 pt-2 font-display text-base font-semibold ${locked ? "text-muted" : ""}`}>{board.name}</span>
+                  <span className="block px-3 pb-3 text-xs text-muted">
+                    {locked ? `Locked: ${MAP_GOALS[id]?.goal ?? ""}` : board.blurb}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -1195,6 +1229,7 @@ function Overlay({
             }`}
             action="Run it back"
             unlocks={hud.newUnlocks}
+            maps={hud.newMaps}
             onAction={() => {
               onGesture();
               api.reset();
@@ -1212,6 +1247,7 @@ function Overlay({
             }
             action="Try again"
             unlocks={hud.newUnlocks}
+            maps={hud.newMaps}
             onAction={() => {
               onGesture();
               api.reset();
@@ -1229,18 +1265,20 @@ function EndCard({
   action,
   onAction,
   unlocks = [],
+  maps = [],
 }: {
   title: string;
   body: string;
   action: string;
   onAction: () => void;
   unlocks?: BookmarkId[];
+  maps?: MapId[];
 }) {
   return (
     <>
       <h2 className="font-display text-2xl font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-muted">{body}</p>
-      <NewUnlocks ids={unlocks} />
+      <NewUnlocks ids={unlocks} maps={maps} />
       <button
         type="button"
         className="mt-4 min-h-11 w-full rounded-xl bg-rind px-4 py-3 font-semibold text-ink"

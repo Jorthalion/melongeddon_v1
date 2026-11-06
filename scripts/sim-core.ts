@@ -8,7 +8,6 @@ import {
   ROWS,
   createWorld,
   ALL_UNLOCKED,
-  EMPTY_META,
   backRoomPrice,
   stepWorld,
   towerReadout,
@@ -83,7 +82,8 @@ export function simulateRun(config: RunConfig): RunResult {
 }
 
 function play(config: RunConfig, rng: () => number): RunResult {
-  const api = createWorld(() => {}, { meta: config.bookmark ? ALL_UNLOCKED : EMPTY_META });
+  // Everything unlocked so any map can be chosen; bookmarks only apply when one is set.
+  const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
   const { world } = api;
 
   api.openLibrary();

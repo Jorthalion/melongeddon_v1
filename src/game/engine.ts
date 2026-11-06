@@ -16,6 +16,7 @@ import {
   saveMeta,
   savePick,
   unlockedIds,
+  unlockedMaps,
   type BookmarkId,
   type MetaStats,
 } from "./meta.ts";
@@ -189,6 +190,9 @@ export interface Hud {
   /** Bookmarks unlocked so far, and the ones unlocked during this run. */
   unlocked: BookmarkId[];
   newUnlocks: BookmarkId[];
+  /** Maps unlocked so far, and the ones unlocked during this run. */
+  maps: MapId[];
+  newMaps: MapId[];
   hero: HeroId | null;
   branch: UpgradeId | null;
   map: MapId;
@@ -344,6 +348,8 @@ export function createWorld(
       bookmark: null,
       unlocked: [],
       newUnlocks: [],
+      maps: [],
+      newMaps: [],
       hero: null,
       branch: null,
       map: "stacks",
@@ -390,6 +396,7 @@ export function createWorld(
   const persistMeta = !options.meta && typeof window !== "undefined";
   const meta: MetaStats = options.meta ? { ...options.meta } : persistMeta ? loadMeta() : { ...EMPTY_META };
   world.hud.unlocked = unlockedIds(meta);
+  world.hud.maps = unlockedMaps(meta);
   if (persistMeta) {
     const pick = loadPick();
     if (pick && world.hud.unlocked.includes(pick)) world.hud.bookmark = pick;
@@ -402,9 +409,18 @@ export function createWorld(
     const now = unlockedIds(meta);
     const fresh = now.filter((id) => !world.hud.unlocked.includes(id));
     world.hud.unlocked = now;
+    const maps = unlockedMaps(meta);
+    const freshMaps = maps.filter((id) => !world.hud.maps.includes(id));
+    world.hud.maps = maps;
+    if (freshMaps.length) world.hud.newMaps = [...world.hud.newMaps, ...freshMaps];
+    const said: string[] = [];
     if (fresh.length) {
       world.hud.newUnlocks = [...world.hud.newUnlocks, ...fresh];
-      world.hud.log = `New bookmark: ${fresh.map((id) => BOOKMARK[id].name).join(", ")}. Equip it on the keeper screen.`;
+      said.push(`New bookmark: ${fresh.map((id) => BOOKMARK[id].name).join(", ")}. Equip it on the keeper screen.`);
+    }
+    if (freshMaps.length) said.push(`New map: ${freshMaps.map((id) => BOARDS[id].name).join(", ")}.`);
+    if (said.length) {
+      world.hud.log = said.join(" ");
       cue("clear");
     }
   };
@@ -478,10 +494,16 @@ export function createWorld(
       const b = { range: bright ? 1.25 : CANNON.lanternRange, pace: bright ? 0.78 : CANNON.lanternPace };
       if (!boost || b.range > boost.range) boost = b;
     }
-    if (!boost) return base;
+    if (!boost) return dark() ? { ...base, range: Math.round(base.range * BALANCE.archiveDark) } : base;
     return { dmg: base.dmg, range: Math.round(base.range * boost.range), interval: base.interval * boost.pace, lit: true };
   };
-  const rangeFor = (kind: TowerKind) => towerReadout(world.hud.hero, kind, [], world.hud.upgrades).range;
+  /** The Archive is dark: see statsFor. */
+  const dark = () => Boolean(BOARDS[world.hud.map].dark);
+  const rangeFor = (kind: TowerKind) => {
+    const range = towerReadout(world.hud.hero, kind, [], world.hud.upgrades).range;
+    if (!dark() || PASSIVE.includes(kind) || range >= GLOBAL_RANGE) return range;
+    return Math.round(range * BALANCE.archiveDark);
+  };
   const priceNext = () =>
     Math.max(0, buildCost(world.hud.hero, placedCount(), world.hud.build) - (bm("discount") ? BOOKMARK_VALUES.discount : 0));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
@@ -502,7 +524,7 @@ export function createWorld(
     const st = STATS[kind];
     const start = world.points[0];
     const tuned = tune();
-    const hp = Math.round(st.hp * bonusHp * tuned.hp);
+    const hp = Math.round(st.hp * bonusHp * tuned.hp * (BOARDS[world.hud.map].hp ?? 1));
     const chute = Boolean(flags.chute) && !flags.at;
     let x = flags.at?.x ?? start.x - CELL;
     let y = flags.at?.y ?? start.y;
@@ -1428,6 +1450,7 @@ export function createWorld(
         world.hud.log = "You sent him away. The crates were never eaten. +45 seeds.";
       }
       world.hud.newUnlocks = [];
+      world.hud.newMaps = [];
       if (bm("seedfund")) world.hud.seeds += BOOKMARK_VALUES.seedfund;
       if (bm("sparestack")) {
         world.hud.lives += BOOKMARK_VALUES.sparestack;
@@ -1438,7 +1461,7 @@ export function createWorld(
     },
     chooseMap(map: MapId) {
       if (world.hud.phase !== "select" || world.hud.night === "overflow") return;
-      if (map === "overflow") return;
+      if (map === "overflow" || !world.hud.maps.includes(map)) return;
       applyBoard(map);
       world.hud.log = BOARDS[map].blurb;
       notify();
@@ -1611,6 +1634,7 @@ export function createWorld(
         map: "stacks",
         waveCount: WAVE_COUNT,
         newUnlocks: [],
+        newMaps: [],
       };
       notify();
     },

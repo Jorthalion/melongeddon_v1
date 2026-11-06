@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { CELL, MAP_H, MAP_W, type TowerKind, type World } from "./engine";
+import { BOARDS, CELL, MAP_H, MAP_W, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawCannon, drawShot } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
@@ -105,6 +105,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   drawShelves(ctx, world, art);
   drawCarpet(ctx, world, art);
+  if (BOARDS[world.hud.map].dark) drawDark(ctx, world);
 
   const hover = world.hover;
   const placing = world.hud.phase === "prep" || world.hud.phase === "combat";
@@ -346,6 +347,42 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   ctx.fillRect(0, 0, MAP_W, MAP_H);
 
   ctx.restore();
+}
+
+let darkLayer: HTMLCanvasElement | null = null;
+
+/** The Archive: dim the room, with light around lamps, cannons and the door. */
+function drawDark(ctx: CanvasRenderingContext2D, world: World) {
+  if (typeof document === "undefined") return;
+  darkLayer ??= document.createElement("canvas");
+  const layer = darkLayer;
+  if (layer.width !== MAP_W || layer.height !== MAP_H) {
+    layer.width = MAP_W;
+    layer.height = MAP_H;
+  }
+  const d = layer.getContext("2d");
+  if (!d) return;
+  d.globalCompositeOperation = "source-over";
+  d.clearRect(0, 0, MAP_W, MAP_H);
+  d.fillStyle = "rgba(4,3,10,0.62)";
+  d.fillRect(0, 0, MAP_W, MAP_H);
+  d.globalCompositeOperation = "destination-out";
+  const hole = (x: number, y: number, r: number, a: number) => {
+    const g = d.createRadialGradient(x, y, r * 0.4, x, y, r);
+    g.addColorStop(0, `rgba(0,0,0,${a})`);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    d.fillStyle = g;
+    d.beginPath();
+    d.arc(x, y, r, 0, Math.PI * 2);
+    d.fill();
+  };
+  for (const t of world.towers) {
+    if (t.kind === "lantern") hole(t.x, t.y, (t.mods.includes("wick") ? 102 : 72) + 18, 0.95);
+    else hole(t.x, t.y, 30, 0.45);
+  }
+  const end = world.points[world.points.length - 1];
+  hole(end.x, end.y, 66, 0.7);
+  ctx.drawImage(layer, 0, 0);
 }
 
 function drawCarpet(

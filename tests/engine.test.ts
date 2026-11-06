@@ -227,6 +227,62 @@ test("Reading Lamp boosts a neighbour's range and fire rate", () => {
   assert.equal(after.lit, true);
 });
 
+function startOn(map: "stacks" | "mezzanine" | "rarebooks" | "archive") {
+  const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
+  api.openLibrary();
+  api.chooseMap(map);
+  api.chooseHero("vael");
+  api.beginNight();
+  api.world.hud.seeds = 5000;
+  return api;
+}
+
+test("new maps stay locked until their goal is met", () => {
+  const api = createWorld(() => {}, { meta: EMPTY_META });
+  api.openLibrary();
+  assert.deepEqual(api.world.hud.maps, ["stacks", "annex"]);
+  api.chooseMap("archive");
+  assert.equal(api.world.hud.map, "stacks");
+  const open = createWorld(() => {}, { meta: { ...EMPTY_META, bestWave: 5, karls: 1, wins: 1 } });
+  open.openLibrary();
+  assert.deepEqual(open.world.hud.maps, ["stacks", "annex", "mezzanine", "rarebooks", "archive"]);
+  open.chooseMap("archive");
+  assert.equal(open.world.hud.map, "archive");
+});
+
+test("the Archive cuts range unless a Reading Lamp reaches the cannon", () => {
+  const lit = startOn("stacks");
+  lit.pointer(center(4), center(3), "down");
+  const normal = lit.statsOf(lit.world.towers[0].id)!.range;
+
+  const api = startOn("archive");
+  assert.equal(api.world.hud.placeRange, Math.round(normal * 0.8));
+  api.pointer(center(5), center(3), "down");
+  const melon = api.world.towers.find((t) => t.kind === "melon")!;
+  assert.equal(api.statsOf(melon.id)!.range, Math.round(normal * 0.8));
+  api.dismissSelection();
+  api.chooseBuild("lantern");
+  api.pointer(center(6), center(3), "down");
+  assert.ok(api.statsOf(melon.id)!.range > normal, "a lit cannon sees further than normal");
+});
+
+test("Rare Books fruit are 25% tougher", () => {
+  const firstHp = (map: "stacks" | "rarebooks") => {
+    const api = startOn(map);
+    api.startWave();
+    for (let i = 0; i < 600 && !api.world.enemies.length; i++) stepWorld(api.world, 1 / 60);
+    return api.world.enemies[0].maxHp;
+  };
+  assert.equal(firstHp("rarebooks"), Math.round(firstHp("stacks") * 1.25));
+});
+
+test("every pickable map plays a full simulated night", () => {
+  for (const map of ["mezzanine", "rarebooks", "archive"] as const) {
+    const r = simulateRun({ hero: "vael", difficulty: "normal", strategy: "mixed", night: "midnight", map, door: "accept", seed: 1 });
+    assert.ok(r.reachedWave >= 3, `${map}: only reached wave ${r.reachedWave}`);
+  }
+});
+
 test("Compost Heap pays seeds when a wave ends", () => {
   const { api } = withCannon("compost");
   api.startWave();

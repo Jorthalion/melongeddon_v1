@@ -432,7 +432,7 @@ export function rollMods(kind: TowerKind, owned: ModId[]) {
   }
   return pool.slice(0, 3);
 }
-export type MapId = "stacks" | "annex" | "overflow";
+export type MapId = "stacks" | "annex" | "mezzanine" | "rarebooks" | "archive" | "overflow";
 export type NightId = "midnight" | "overflow" | "endless";
 
 export interface Board {
@@ -442,6 +442,10 @@ export interface Board {
   corners: Array<[number, number]>;
   allies: Array<[number, number]>;
   knight: [number, number];
+  /** Dark room: cannons lose range unless a Reading Lamp reaches them. */
+  dark?: boolean;
+  /** Enemy health multiplier on this map (1 if unset). */
+  hp?: number;
 }
 
 export const BOARDS: Record<MapId, Board> = {
@@ -484,6 +488,65 @@ export const BOARDS: Record<MapId, Board> = {
       [6, 2],
     ],
     knight: [2, 5],
+  },
+  mezzanine: {
+    id: "mezzanine",
+    name: "The Mezzanine",
+    blurb: "Along the balcony, down the stairs, back along the floor. Lots of room in the middle.",
+    corners: [
+      [0, 1],
+      [13, 1],
+      [13, 7],
+      [1, 7],
+    ],
+    allies: [
+      [5, 2],
+      [14, 4],
+      [8, 6],
+    ],
+    knight: [3, 2],
+  },
+  rarebooks: {
+    id: "rarebooks",
+    name: "Rare Books",
+    blurb: "The carpet spirals in to a door in the middle. First-edition fruit: 25% tougher.",
+    corners: [
+      [0, 1],
+      [11, 1],
+      [11, 7],
+      [4, 7],
+      [4, 4],
+      [8, 4],
+    ],
+    allies: [
+      [6, 2],
+      [12, 4],
+      [6, 6],
+    ],
+    knight: [2, 2],
+    hp: 1.25,
+  },
+  archive: {
+    id: "archive",
+    name: "The Archive",
+    blurb: "Lights out. Cannons see 20% less far unless a Reading Lamp is close.",
+    corners: [
+      [0, 4],
+      [4, 4],
+      [4, 1],
+      [9, 1],
+      [9, 7],
+      [13, 7],
+      [13, 3],
+      [15, 3],
+    ],
+    allies: [
+      [6, 3],
+      [11, 5],
+      [2, 3],
+    ],
+    knight: [2, 5],
+    dark: true,
   },
   overflow: {
     id: "overflow",
@@ -960,6 +1023,8 @@ export const BALANCE = {
   michaelTurnCut: 3,
   /** Sir Michael's base shot damage (everyone else: 14). */
   michaelShot: 28,
+  /** The Archive: range multiplier for cannons no Reading Lamp reaches. */
+  archiveDark: 0.8,
 };
 
 const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];

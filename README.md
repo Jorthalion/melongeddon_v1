@@ -36,6 +36,20 @@ Pick **Endless** as the night on the keeper screen. You play act one's six waves
 
 The ten newer cannons are drawn in code (`src/game/drawCannons.ts`) until there is painted art. Their stats are in `PROFILE` and `CANNON` in `src/game/rules.ts`. Upgrade on-hit effects (Juicy, Splatter, Electric) only fire from the original four shooting cannons, so rapid-fire cannons don't multiply them.
 
+## Maps
+
+Night one (and Endless) can be played on any unlocked map. Night two is always the Overflow. Boards are defined in `BOARDS` in `src/game/rules.ts` as a list of carpet corners, plus fixed spots for ally and knight cannons.
+
+| Map | What's different | Unlocked by |
+|---|---|---|
+| The Stacks | the original carpet | always open |
+| The Annex | the carpet folds back on itself | always open |
+| The Mezzanine | balcony across the top, floor across the bottom, open middle | clearing wave 5 |
+| Rare Books | spiral to a door in the middle; fruit have 25% more health (`hp` on the board) | popping Karl |
+| The Archive | dark: cannons have 20% less range unless a Reading Lamp reaches them (`BALANCE.archiveDark`) | winning a night |
+
+Map unlock goals are `MAP_GOALS` in `src/game/meta.ts`. Maps without painted art get a drawn preview (`src/components/MapPreview.tsx`). In simulation all five play within a few points of the Stacks. Rare Books is the easiest without its health bonus; the Archive is the hardest for the bot, which doesn't plan lamp placement.
+
 ## Bookmarks (meta unlocks)
 
 Milestones across runs unlock bookmarks: small perks you equip one at a time on the keeper screen. Progress is saved in the browser (`src/game/meta.ts`).

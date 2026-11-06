@@ -1,5 +1,5 @@
 import { Lock } from "lucide-react";
-import { BOOKMARK, BOOKMARKS, createWorld, type BookmarkId } from "@/game/engine";
+import { BOARDS, BOOKMARK, BOOKMARKS, createWorld, type BookmarkId, type MapId } from "@/game/engine";
 import { tone } from "@/game/audio";
 
 /** Keeper-screen row: equip one unlocked bookmark (or none). Locked ones show how to earn them. */
@@ -78,18 +78,26 @@ function BookmarkButton({
   );
 }
 
-/** "New bookmark" lines for the end-of-run card. */
-export function NewUnlocks({ ids }: { ids: BookmarkId[] }) {
-  if (!ids.length) return null;
+/** "New bookmark" / "New map" lines for the end-of-run card. */
+export function NewUnlocks({ ids, maps = [] }: { ids: BookmarkId[]; maps?: MapId[] }) {
+  if (!ids.length && !maps.length) return null;
   return (
     <div className="mt-3 rounded-lg border border-[#c6a15a]/70 bg-[#241418] px-3 py-2">
+      {maps.map((id) => (
+        <p key={id} className="text-sm">
+          <span className="font-semibold text-gold">New map: {BOARDS[id].name}.</span>{" "}
+          <span className="text-muted">{BOARDS[id].blurb}</span>
+        </p>
+      ))}
       {ids.map((id) => (
         <p key={id} className="text-sm">
           <span className="font-semibold text-gold">New bookmark: {BOOKMARK[id].name}.</span>{" "}
           <span className="text-muted">{BOOKMARK[id].blurb}</span>
         </p>
       ))}
-      <p className="mt-1 text-xs text-muted">Equip it on the keeper screen.</p>
+      <p className="mt-1 text-xs text-muted">
+        {ids.length ? "Equip bookmarks on the keeper screen." : "Pick it on the keeper screen."}
+      </p>
     </div>
   );
 }
