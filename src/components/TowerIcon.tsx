@@ -3,13 +3,23 @@ import type { TowerKind } from "@/game/engine";
 import { drawCannonIcon } from "@/game/drawCannons";
 import { asset } from "@/lib/asset";
 
-/** Painted sprites for the original cannons; the newer ones are drawn in code. */
+/** Painted sprites for every cannon; the canvas drawing is a fallback for any kind not listed. */
 const PAINTED: Partial<Record<TowerKind, string>> = {
   melon: asset("sprites/cannon-barrel.webp"),
   mortar: asset("sprites/pumpkin-barrel.webp"),
   still: asset("sprites/still.webp"),
   fire: asset("sprites/fire-barrel.webp"),
   freeze: asset("sprites/freeze-barrel.webp"),
+  spitter: asset("sprites/spitter-barrel.webp"),
+  ballista: asset("sprites/ballista-barrel.webp"),
+  reader: asset("sprites/reader-barrel.webp"),
+  ink: asset("sprites/ink-barrel.webp"),
+  peeler: asset("sprites/peeler-barrel.webp"),
+  bookworm: asset("sprites/bookworm-barrel.webp"),
+  bell: asset("sprites/bell.webp"),
+  hive: asset("sprites/hive.webp"),
+  lantern: asset("sprites/lamp.webp"),
+  compost: asset("sprites/compost.webp"),
 };
 
 export function TowerIcon({ kind, className = "" }: { kind: TowerKind; className?: string }) {

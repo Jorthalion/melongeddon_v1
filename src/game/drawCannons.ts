@@ -1,5 +1,5 @@
 /**
- * Procedural art for the newer cannons (no sprite files yet).
+ * Procedural art for the newer cannons, used while their painted sprites load (see drawPaintedCannon in draw.ts).
  * Everything is drawn around (x, y) in a ~44px box, matching the painted cannons' footprint.
  * To swap in painted art later, draw a sprite here instead (see blit() in draw.ts).
  */

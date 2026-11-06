@@ -13,6 +13,16 @@ const SPRITE_SRC = {
   fireBarrel: asset("sprites/fire-barrel.webp"),
   freezeBarrel: asset("sprites/freeze-barrel.webp"),
   still: asset("sprites/still.webp"),
+  spitter: asset("sprites/spitter-barrel.webp"),
+  ballista: asset("sprites/ballista-barrel.webp"),
+  reader: asset("sprites/reader-barrel.webp"),
+  ink: asset("sprites/ink-barrel.webp"),
+  peeler: asset("sprites/peeler-barrel.webp"),
+  bookworm: asset("sprites/bookworm-barrel.webp"),
+  bell: asset("sprites/bell.webp"),
+  hive: asset("sprites/hive.webp"),
+  lantern: asset("sprites/lamp.webp"),
+  compost: asset("sprites/compost.webp"),
   shot: asset("sprites/shot-melon.webp"),
   allyShot: asset("sprites/shot-pumpkin.webp"),
   shotFire: asset("sprites/shot-fire.webp"),
@@ -573,6 +583,83 @@ function drawShelves(
   }
 }
 
+/** Painted art for the newer cannons: aiming ones sit on the shared base and turn; the rest stand. Sizes are the max box in px. */
+const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: number }>> = {
+  spitter: { aim: true, w: 44, h: 34 },
+  ballista: { aim: true, w: 56, h: 34 },
+  reader: { aim: true, w: 58, h: 24 },
+  ink: { aim: true, w: 44, h: 36 },
+  peeler: { aim: true, w: 54, h: 26 },
+  bookworm: { aim: true, w: 46, h: 36 },
+  bell: { aim: false, w: 40, h: 48 },
+  hive: { aim: false, w: 34, h: 52 },
+  lantern: { aim: false, w: 28, h: 50 },
+  compost: { aim: false, w: 44, h: 42 },
+};
+
+/** Draw an image fitted into a w×h box around (x, y), turned by rot. Flips upright when aiming left. */
+function blitFit(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, maxW: number, maxH: number, rot = 0) {
+  const ar = img.naturalWidth / img.naturalHeight;
+  let h = maxH;
+  let w = h * ar;
+  if (w > maxW) {
+    w = maxW;
+    h = w / ar;
+  }
+  ctx.save();
+  ctx.translate(x, y);
+  if (rot) ctx.rotate(rot);
+  if (Math.cos(rot) < 0) ctx.scale(1, -1);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+function drawPaintedCannon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  aim: number,
+  kind: TowerKind,
+  art: Partial<Record<SpriteName, HTMLImageElement>>,
+  t: number,
+): boolean {
+  const spec = PAINTED_CANNON[kind];
+  const img = art[kind as SpriteName];
+  if (!spec || !ready(img)) return false;
+  if (spec.aim && !ready(art.base)) return false;
+  if (kind === "lantern") {
+    const flick = 0.85 + Math.sin(t * 9) * 0.06 + Math.sin(t * 13) * 0.04;
+    const glow = ctx.createRadialGradient(x, y - 10, 2, x, y - 10, 34);
+    glow.addColorStop(0, `rgba(255,214,140,${0.5 * flick})`);
+    glow.addColorStop(1, "rgba(255,214,140,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y - 10, 34, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 17, spec.aim ? 16 : spec.w * 0.4, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (spec.aim) {
+    blit(ctx, art.base!, x, y + 6, 46);
+    blitFit(ctx, img, x, y - 2, spec.w, spec.h, aim);
+    return true;
+  }
+  const sway = kind === "bell" ? Math.sin(t * 2) * 0.04 : 0;
+  blitFit(ctx, img, x, y + 18 - spec.h / 2, spec.w, spec.h, sway);
+  if (kind === "hive") {
+    ctx.fillStyle = "#1b1410";
+    for (let i = 0; i < 3; i++) {
+      const a = t * 3 + i * 2.1;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * 18, y - 12 + Math.sin(a * 1.3) * 7, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  return true;
+}
+
 const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108 } as const;
 
 function drawTower(
@@ -588,7 +675,7 @@ function drawTower(
   t = 0,
 ) {
   if (DRAWN_KINDS.includes(kind)) {
-    drawCannon(ctx, x, y, aim, kind, t);
+    if (!drawPaintedCannon(ctx, x, y, aim, kind, art, t)) drawCannon(ctx, x, y, aim, kind, t);
     if (selected) ring(ctx, x, y);
     return;
   }
