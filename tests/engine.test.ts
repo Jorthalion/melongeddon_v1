@@ -18,7 +18,7 @@ import {
   type Alliance,
   type NightId,
 } from "../src/game/engine.ts";
-import { ALL_UNLOCKED, EMPTY_META, TOWERS as T, TOWER_GROUPS, backRoomPrice, stepWorld, type TowerKind } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, EMPTY_META, TOWERS as T, buildOffer, TOWER_GROUPS, backRoomPrice, stepWorld, type TowerKind } from "../src/game/engine.ts";
 import { simulateRun } from "../scripts/sim-core.ts";
 
 const center = (c: number) => c * CELL + CELL / 2;
@@ -308,6 +308,89 @@ test("ballista spear damages enemies on its line", () => {
   }
   assert.ok(api.world.lines.length >= 1, "ballista fired");
   assert.ok(damaged >= 1, "spear hurt something");
+});
+
+test("cannon upgrades are offered only for cannons you have built", () => {
+  const ids = (step: 1 | 2, built: TowerKind[], owned: Parameters<typeof buildOffer>[2] = []) =>
+    buildOffer("vael", step, owned, step === 1 ? null : "juicy", "none", built).map((u) => u.id);
+  // Never at the first pick: that pick sets the keeper's path.
+  assert.deepEqual(ids(1, ["ballista"]), ["juicy", "rapid", "vial"]);
+  assert.deepEqual(ids(2, []), ["sticky", "electric", "distill"]);
+  assert.deepEqual(ids(2, ["melon", "ballista"]), ["sticky", "barbed", "distill"]);
+  assert.deepEqual(ids(2, ["compost", "ballista"]), ["sticky", "interest", "distill"]);
+  assert.deepEqual(ids(2, ["ballista"], ["juicy", "barbed"]), ["sticky", "electric", "distill"]);
+});
+
+/** Run a wave until `done` says so (or 30 s pass). */
+function runUntil(api: ReturnType<typeof createWorld>, done: () => boolean, each?: () => void) {
+  api.startWave();
+  for (let i = 0; i < 60 * 30 && !done(); i++) {
+    each?.();
+    stepWorld(api.world, 1 / 60);
+  }
+}
+
+test("Barbed Spears slow what the spear passes through", () => {
+  const { api } = withCannon("ballista");
+  api.world.hud.upgrades = ["barbed"];
+  runUntil(api, () => api.world.lines.length > 0);
+  assert.ok(api.world.enemies.some((e) => e.chill > 0));
+});
+
+test("Footnotes ink the Reader's target", () => {
+  const { api } = withCannon("reader");
+  api.world.hud.upgrades = ["footnotes"];
+  // Tough fruit, so the Reader's big hit doesn't pop the target (and its ink) at once.
+  const saved = STATS.melon.hp;
+  STATS.melon.hp = 9999;
+  try {
+    runUntil(api, () => api.world.lines.length > 0);
+  } finally {
+    STATS.melon.hp = saved;
+  }
+  assert.ok(api.world.enemies.some((e) => (e.ink ?? 0) > 0));
+});
+
+test("Stinging Flies get a second target", () => {
+  const { api } = withCannon("hive");
+  api.world.hud.upgrades = ["stinging"];
+  runUntil(api, () => api.world.shots.some((s) => s.element === "fly"));
+  assert.equal(api.world.shots.find((s) => s.element === "fly")?.bounces, 1);
+});
+
+test("Ink Blot spreads ink when a marked fruit pops", () => {
+  const { api } = withCannon("melon");
+  api.world.hud.upgrades = ["blot"];
+  let a: (typeof api.world.enemies)[number] | undefined;
+  let b: (typeof api.world.enemies)[number] | undefined;
+  runUntil(
+    api,
+    () => Boolean(a && a.hp <= 0) || Boolean(a && !api.world.enemies.includes(a)),
+    () => {
+      if (!a && api.world.enemies.length >= 2) [a, b] = api.world.enemies;
+      if (a && b) {
+        a.ink = 4;
+        a.hp = Math.min(a.hp, 1);
+        b.ink = 0;
+        b.x = a.x + 10;
+        b.y = a.y;
+      }
+    },
+  );
+  assert.ok(a && b, "two enemies spawned");
+  assert.ok((b!.ink ?? 0) > 0, "ink splashed onto the neighbour");
+});
+
+test("Interest adds to each Compost Heap payout", () => {
+  const { api } = withCannon("compost");
+  api.world.hud.upgrades = ["interest"];
+  api.startWave();
+  let seedsAtEnd = 0;
+  for (let i = 0; i < 60 * 90 && api.world.hud.phase === "combat"; i++) {
+    seedsAtEnd = api.world.hud.seeds;
+    stepWorld(api.world, 1 / 60);
+  }
+  assert.equal(api.world.hud.seeds - seedsAtEnd, 15 + 20 + 20, "5000 seeds held: interest hits its 20 cap");
 });
 
 test("simulated runs reach an ending on every night and knight choice", () => {

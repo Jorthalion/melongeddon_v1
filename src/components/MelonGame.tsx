@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Music } from "lucide-react";
 import {
   BOARDS,
+  CANNON_UPGRADES,
   MAP_GOALS,
   PICKABLE_MAPS,
   DIFFICULTIES,
@@ -1080,21 +1081,27 @@ function Overlay({
                     : `${hud.hero === "michael" ? "Sir Michael" : hud.hero === "vael" ? "Vael" : "Mynxi"} picks first. It lasts the rest of the run.`}
             </p>
             <div className="mt-4 flex flex-col gap-2">
-              {hud.offer.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  className="min-h-11 rounded-xl border border-line bg-panel-2 px-4 py-3 text-left"
-                  onClick={() => {
-                    onGesture();
-                    tone(360, 0.09, "triangle", 0.04);
-                    api.pickUpgrade(u.id as UpgradeId);
-                  }}
-                >
-                  <span className="block font-semibold">{u.name}</span>
-                  <span className="mt-1 block text-sm text-muted">{u.blurb}</span>
-                </button>
-              ))}
+              {hud.offer.map((u) => {
+                const forKind = (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === u.id);
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    className="flex min-h-11 items-center gap-3 rounded-xl border border-line bg-panel-2 px-4 py-3 text-left"
+                    onClick={() => {
+                      onGesture();
+                      tone(360, 0.09, "triangle", 0.04);
+                      api.pickUpgrade(u.id as UpgradeId);
+                    }}
+                  >
+                    {forKind ? <TowerIcon kind={forKind} className="h-10 w-10 shrink-0" /> : null}
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{u.name}</span>
+                      <span className="mt-1 block text-sm text-muted">{u.blurb}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </>
         ) : null}

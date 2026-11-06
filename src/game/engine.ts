@@ -1,5 +1,5 @@
 import {
-  CELL, COLS, ROWS, BOARDS, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
+  CELL, COLS, ROWS, BOARDS, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
   BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
   type Alliance, type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId, type ModDef,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
@@ -477,6 +477,12 @@ export function createWorld(
   const inMap = (c: number, r: number) => c >= 0 && r >= 0 && c < COLS && r < ROWS;
 
   const placedCount = () => world.towers.filter((t) => !t.ally).length;
+  /** Kinds the player has on the board, most-built first (for cannon upgrades). */
+  const builtKinds = () => {
+    const count = new Map<TowerKind, number>();
+    for (const t of world.towers) if (!t.ally) count.set(t.kind, (count.get(t.kind) ?? 0) + 1);
+    return [...count.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  };
   // All player tower stats come from towerReadout(), the same function the
   // inspector panel shows, so the numbers on screen are the numbers in play.
   const ALLY_STATS = { dmg: 11, range: 150, interval: 1.05 };
@@ -688,6 +694,14 @@ export function createWorld(
     burst(e.x, e.y, e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : "#e23b4a", e.boss ? 28 : 10);
     cue(e.boss ? "bossPop" : "pop");
     if (e.split) spill(e);
+    if (has("blot") && (e.ink ?? 0) > 0) {
+      for (const other of world.enemies) {
+        if (other === e || other.hp <= 0 || Math.hypot(other.x - e.x, other.y - e.y) > CANNON.blotRadius) continue;
+        other.ink = Math.max(other.ink ?? 0, CANNON.inkTime);
+        other.inkMul = Math.max(other.inkMul ?? 1, e.inkMul ?? CANNON.inkBonus);
+      }
+      world.rings.push({ x: e.x, y: e.y, r: CANNON.blotRadius, life: 0.35, max: 0.35, color: "29,38,64" });
+    }
     if (e.boss) {
       const second = karlReward;
       karlReward = true;
@@ -854,9 +868,12 @@ export function createWorld(
     world.enemies = [];
     world.shots = [];
     if (world.hud.lives <= 0) return;
+    // Interest is worked out on the seeds held before any heap pays, so heaps don't compound.
+    const interest = has("interest") ? Math.min(CANNON.interestCap, Math.floor(world.hud.seeds * CANNON.interestRate)) : 0;
     for (const heap of world.towers) {
       if (heap.kind !== "compost") continue;
-      const pay = Math.round(CANNON.compostSeeds * (heap.mods.includes("loam") ? 1.5 : 1));
+      const pay =
+        Math.round(CANNON.compostSeeds * (heap.mods.includes("loam") ? 1.5 : 1)) + (has("interest") ? CANNON.interestBase + interest : 0);
       world.hud.seeds += pay;
       float(heap.x, heap.y - 24, `+${pay}`, "#e6c36a");
       world.rings.push({ x: heap.x, y: heap.y, r: 30, life: 0.6, max: 0.6, color: "120,170,90" });
@@ -887,7 +904,8 @@ export function createWorld(
       return;
     }
     const step = cleared === 1 ? 1 : cleared === 2 ? 2 : 3;
-    const offer = beat === "upgrade" ? buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, world.hud.alliance) : [];
+    const offer =
+      beat === "upgrade" ? buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, world.hud.alliance, builtKinds()) : [];
     if (beat === "upgrade" && offer.length) {
       world.hud.offer = offer;
       world.hud.phase = "upgrade";
@@ -1067,6 +1085,10 @@ export function createWorld(
         cue("fire", tower.kind);
         const ang = Math.atan2(target.y - tower.y, target.x - tower.x);
         if (tower.kind === "reader") {
+          if (has("footnotes")) {
+            target.ink = Math.max(target.ink ?? 0, CANNON.inkTime);
+            target.inkMul = Math.max(target.inkMul ?? 1, CANNON.inkBonus);
+          }
           hurt(target, null, stats.dmg);
           world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.22, max: 0.22, color: "243,226,196", width: 2 });
           burst(target.x, target.y, "#f3e2c4", 8);
@@ -1081,6 +1103,7 @@ export function createWorld(
             const along = rx * ux + ry * uy;
             if (along < 0 || along > range) continue;
             if (Math.abs(rx * uy - ry * ux) > e.r + 8) continue;
+            if (has("barbed") && e.guard !== "husk") e.chill = Math.max(e.chill, CANNON.barbedSlow);
             hurt(e, null, stats.dmg);
           }
           world.lines.push({
@@ -1136,14 +1159,14 @@ export function createWorld(
         target: aimAt.id,
         dmg,
         life: 1.6,
-        bounces: !tower.ally && tower.kind === "melon" && has("bounce") ? 1 : 0,
+        bounces: tower.ally ? 0 : (tower.kind === "melon" && has("bounce")) || (tower.kind === "hive" && has("stinging")) ? 1 : 0,
         fromAlly: tower.ally,
         orange: tower.kind === "mortar" || tower.orange,
         splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) : 0,
         element,
         procs: !tower.ally && (element === "shot" || element === "fire" || element === "ice" || element === "mortar"),
         inkTime: hasMod(tower, "indelible") ? CANNON.inkTime * 1.5 : CANNON.inkTime,
-        inkMul: hasMod(tower, "indelible") ? CANNON.inkBonus + 0.1 : CANNON.inkBonus,
+        inkMul: (hasMod(tower, "indelible") ? CANNON.inkBonus + 0.1 : CANNON.inkBonus) + (has("blot") ? CANNON.blotInkBonus : 0),
         wormDps: hasMod(tower, "venom") ? CANNON.wormDps * 1.5 : CANNON.wormDps,
         splashRatio: hasMod(tower, "heavy") ? 0.8 : 0.55,
         chill: hasMod(tower, "chill") ? 0.75 : 0,
@@ -1314,7 +1337,8 @@ export function createWorld(
       if (world.hud.phase !== "upgrade") return;
       if (!world.hud.offer.some((u) => u.id === upgradeId)) return;
       if (!has(upgradeId)) world.hud.upgrades = [...world.hud.upgrades, upgradeId];
-      if (!world.hud.branch) world.hud.branch = upgradeId;
+      // Cannon upgrades don't choose the keeper's path (see buildOffer).
+      if (!world.hud.branch && !Object.values(CANNON_UPGRADES).includes(upgradeId)) world.hud.branch = upgradeId;
       if (upgradeId === "seeds") world.hud.seeds += 55;
       syncPrice();
       world.hud.offer = [];

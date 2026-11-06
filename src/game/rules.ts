@@ -36,7 +36,12 @@ export type UpgradeId =
   | "lamp"
   | "splatter"
   | "vial"
-  | "distill";
+  | "distill"
+  | "barbed"
+  | "footnotes"
+  | "stinging"
+  | "blot"
+  | "interest";
 
 export type EnemyKind = "melon" | "corn" | "pumpkin" | "karl";
 
@@ -109,6 +114,40 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
     name: "Distilled Batch",
     blurb: "The puddle bites, and the slow goes mean.",
   },
+  barbed: {
+    id: "barbed",
+    name: "Barbed Spears",
+    blurb: "Shelf Ballistas fire faster, and everything the spear passes through is slowed.",
+  },
+  footnotes: {
+    id: "footnotes",
+    name: "Footnotes",
+    blurb: "Long Readers fire faster, and each hit marks the target like ink.",
+  },
+  stinging: {
+    id: "stinging",
+    name: "Stinging Flies",
+    blurb: "Fly Hives fire faster, and each fly stings a second fruit.",
+  },
+  blot: {
+    id: "blot",
+    name: "Ink Blot",
+    blurb: "Ink Wells fire twice as fast and their marks sting more. A marked fruit that pops splashes ink on its neighbours.",
+  },
+  interest: {
+    id: "interest",
+    name: "Interest",
+    blurb: "Each Compost Heap pays 20 more, plus 10% of your unspent seeds (up to 20).",
+  },
+};
+
+/** Upgrades tied to one cannon. They are only offered once you have built that cannon. */
+export const CANNON_UPGRADES: Partial<Record<TowerKind, UpgradeId>> = {
+  ballista: "barbed",
+  reader: "footnotes",
+  hive: "stinging",
+  ink: "blot",
+  compost: "interest",
 };
 export const PAD: UpgradeId[] = ["sticky", "bounce", "electric", "seeds", "juicy", "rapid", "lamp", "splatter"];
 
@@ -124,6 +163,8 @@ export function buildOffer(
   owned: UpgradeId[],
   branch: UpgradeId | null,
   alliance: Alliance = "none",
+  /** Cannon kinds the player has built, most-built first. */
+  built: TowerKind[] = [],
 ): UpgradeDef[] {
   const first: UpgradeId[] =
     hero === "michael" ? ["juicy", "rapid", "caliber"] : hero === "vael" ? ["juicy", "rapid", "vial"] : ["juicy", "rapid", "fines"];
@@ -151,6 +192,11 @@ export function buildOffer(
     out.push(id);
     if (out.length === 3) break;
   }
+  // From the second pick on, a cannon upgrade for something you built takes the middle
+  // slot. The third slot holds the keeper's own pick, and the first pick sets the
+  // keeper's path, so neither is displaced.
+  const extra = built.map((k) => CANNON_UPGRADES[k]).find((id): id is UpgradeId => !!id && !owned.includes(id));
+  if (step > 1 && extra && out.length === 3) out[1] = extra;
   return out.map((id) => UPGRADES[id]);
 }
 export type TowerKind =
@@ -306,6 +352,19 @@ export const CANNON = {
   compostSeeds: 15,
   wormDps: 26,
   wormTime: 4,
+  /** Cannon upgrades. */
+  /** Interval multiplier for a cannon whose cannon upgrade you own (0.75 = fires a third faster). */
+  upgradePace: 0.75,
+  readerUpgradePace: 0.6,
+  inkUpgradePace: 0.5,
+  /** Ink Blot: extra damage taken on every ink mark (on top of inkBonus). */
+  blotInkBonus: 0.2,
+  /** Extra seeds per Compost Heap payout with Interest. */
+  interestBase: 20,
+  barbedSlow: 1.5,
+  blotRadius: 64,
+  interestRate: 0.1,
+  interestCap: 20,
 };
 
 export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) {
@@ -326,6 +385,10 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
     const range = profile.range === 0 ? GLOBAL_RANGE : Math.round(base * profile.range) + (lamp ? 32 : 0) + (far ? 28 : 0);
     let pace = profile.pace;
     if (mods.includes("haste")) pace *= 0.85;
+    // A cannon upgrade also speeds up the cannon it belongs to.
+    const own = CANNON_UPGRADES[kind];
+    if (own && upgrades.includes(own))
+      pace *= kind === "reader" ? CANNON.readerUpgradePace : kind === "ink" ? CANNON.inkUpgradePace : CANNON.upgradePace;
     const interval = (upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1) * pace;
     let dmg = hero === "michael" ? BALANCE.michaelShot : 14;
     if (upgrades.includes("caliber")) dmg += 8;

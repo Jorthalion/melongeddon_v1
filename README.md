@@ -34,6 +34,10 @@ Pick **Endless** as the night on the keeper screen. You play act one's six waves
 - **Control:** Still, Fire, Freeze, Shush Bell (area stun; husks are deaf), Fly Hive (homing, whole board)
 - **Support:** Reading Lamp (boosts neighbours), Ink Well (+25% damage taken), Peeler (strips shells/husks/damp), Bookworm (damage over time on pumpkins and Karl), Compost Heap (seeds every wave)
 
+**Cannon upgrades.** Five of the new cannons have an upgrade in the between-wave picks: Barbed Spears (Ballista: spear slows), Footnotes (Reader: hits ink the target), Stinging Flies (Hive: each fly hits a second fruit), Ink Blot (Ink Well: popped marked fruit splash ink, marks sting harder) and Interest (Compost: +20 per heap plus 10% of unspent seeds, up to 20). Each also makes its own cannon fire faster. One is offered only once you've built that cannon, never at the first pick, and it takes the middle slot so the keeper's own pick stays. It doesn't change which picks come next. Knobs are in `CANNON` (`upgradePace`, `readerUpgradePace`, `inkUpgradePace`, `blotInkBonus`, `blotRadius`, `interestBase`, `interestRate`, `interestCap`).
+
+In simulation (bot always takes the cannon upgrade vs never), Barbed Spears, Footnotes and Stinging Flies are about level with the general pick they replace. Ink Blot and Interest still trail by roughly 20 points: both boost other cannons or reward saving seeds, which the bot doesn't plan for. The simulator accepts a `pickUpgrade` chooser in `RunConfig` for this kind of test.
+
 The ten newer cannons are drawn in code (`src/game/drawCannons.ts`) until there is painted art. Their stats are in `PROFILE` and `CANNON` in `src/game/rules.ts`. Upgrade on-hit effects (Juicy, Splatter, Electric) only fire from the original four shooting cannons, so rapid-fire cannons don't multiply them.
 
 ## Maps

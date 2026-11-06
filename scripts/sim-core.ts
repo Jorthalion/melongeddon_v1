@@ -18,6 +18,7 @@ import {
   type MapId,
   type NightId,
   type TowerKind,
+  type UpgradeId,
 } from "../src/game/engine.ts";
 
 /** lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves. */
@@ -38,6 +39,8 @@ export interface RunConfig {
   bookmark?: BookmarkId;
   /** Optional cap on player towers (for "how few towers can win?" probes). */
   maxTowers?: number;
+  /** Optional upgrade chooser; gets the offered ids, returns one. Default: random. */
+  pickUpgrade?: (offer: UpgradeId[]) => UpgradeId;
 }
 
 export interface RunResult {
@@ -51,6 +54,8 @@ export interface RunResult {
   leaks: number[];
   towers: number;
   simSeconds: number;
+  /** Upgrades held at the end of the run. */
+  upgrades: UpgradeId[];
 }
 
 const DT = 1 / 60;
@@ -208,8 +213,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
     } else if (phase === "betrayal" || phase === "consequence") {
       api.startWave();
     } else if (phase === "upgrade") {
-      const offer = world.hud.offer;
-      api.pickUpgrade(offer[Math.floor(rng() * offer.length)].id);
+      const ids = world.hud.offer.map((u) => u.id);
+      api.pickUpgrade(config.pickUpgrade ? config.pickUpgrade(ids) : ids[Math.floor(rng() * ids.length)]);
     } else if (phase === "alliance") {
       api.chooseAlliance(config.door);
     } else if (phase === "memory") {
@@ -247,5 +252,6 @@ function play(config: RunConfig, rng: () => number): RunResult {
     leaks,
     towers: world.towers.filter((x) => !x.ally).length,
     simSeconds: Math.round(t),
+    upgrades: [...world.hud.upgrades],
   };
 }
