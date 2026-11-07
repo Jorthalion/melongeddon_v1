@@ -12,6 +12,7 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { simulateRun, type RunConfig, type RunResult, type Strategy } from "./sim-core.ts";
+import { WAVE_COUNT } from "../src/game/engine.ts";
 import type { Alliance, Difficulty, HeroId, MapId, NightId } from "../src/game/engine.ts";
 
 const args = process.argv.slice(2);
@@ -96,13 +97,13 @@ lines.push("Wave each losing run died on (all difficulties).", "");
 const deaths = new Map<number, number>();
 for (const r of results) if (!r.won) deaths.set(r.reachedWave, (deaths.get(r.reachedWave) ?? 0) + 1);
 lines.push("| wave | losses |", "|---|---|");
-for (let w = 1; w <= 10; w++) lines.push(`| ${w} | ${deaths.get(w) ?? 0} |`);
+for (let w = 1; w <= WAVE_COUNT; w++) lines.push(`| ${w} | ${deaths.get(w) ?? 0} |`);
 lines.push("");
 
 lines.push("## Leaks per wave (Normal difficulty)", "");
 lines.push("Average stacks lost on each wave, counting only runs that reached it.", "");
 lines.push(`| wave | ${STRATEGIES.join(" | ")} |`, `|---|${STRATEGIES.map(() => "---").join("|")}|`);
-for (let w = 0; w < 10; w++) {
+for (let w = 0; w < WAVE_COUNT; w++) {
   const cells = STRATEGIES.map((s) => {
     const rs = results.filter((r) => r.config.difficulty === "normal" && r.config.strategy === s && r.leaks.length > w);
     return rs.length ? avg(rs.map((r) => r.leaks[w])).toFixed(2) : "–";

@@ -8,6 +8,7 @@ import {
   ROWS,
   createWorld,
   ALL_UNLOCKED,
+  WAVE_COUNT,
   backRoomPrice,
   stepWorld,
   towerReadout,
@@ -46,7 +47,7 @@ export interface RunConfig {
 export interface RunResult {
   config: RunConfig;
   won: boolean;
-  /** Wave the run ended on (10 on a win). */
+  /** Wave the run ended on (WAVE_COUNT on a win). */
   reachedWave: number;
   livesLeft: number;
   maxLives: number;
@@ -246,7 +247,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
   return {
     config,
     won,
-    reachedWave: won ? 10 : world.hud.wave,
+    reachedWave: won ? WAVE_COUNT : world.hud.wave,
     livesLeft: world.hud.lives,
     maxLives: world.hud.maxLives,
     leaks,

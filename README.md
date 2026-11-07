@@ -22,6 +22,10 @@ The build uses relative paths, so `dist/` runs from any folder or domain.
 
 Optional: once you know the final URL, make `og:image` in `index.html` an absolute URL so link previews show the poster.
 
+## Nights
+
+Each story night is 15 waves. Midnight plays act one (waves 1-6), the knight's choice, then nine waves for that choice ending in its finale (The Household, The Grudge or Unchaperoned). The Overflow ends with "The meter spends" and "Up the chute", when absurdity drops rinds down the chute. Enemy health climbs the full curve through wave 6, then `BALANCE.storyHpPace` (0.375) of a step per wave after that, so wave 15 is as tough as the old 10-wave finale.
+
 ## Endless mode
 
 Pick **Endless** as the night on the keeper screen. You play act one's six waves, then generated waves that cycle four themes (corn swarms, shelled melons, pumpkins, a mix), grow every other wave, and add armoured variants from wave 13. Karl comes every fifth wave. You get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Enemy health follows the story curve to wave 10, then grows `BALANCE.endlessGrowth` (15%) per wave. In simulation, Normal runs end around waves 17–19 and Easy around 25. Best endless score is saved separately.
@@ -89,6 +93,6 @@ All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `worl
 
 ## Tuning
 
-The main knobs are in `BALANCE` in `src/game/rules.ts` (enemy health curve, kill rewards, pulp puddle rate, slow strength, Sir Michael's start, the betrayal payout, endless health growth), plus `DIFFICULTIES` in the same file. After changing them, run `npm run sim` and compare against `docs/balance-current.md`.
+The main knobs are in `BALANCE` in `src/game/rules.ts` (enemy health curve, story-night pace, kill rewards, pulp puddle rate, slow strength, Sir Michael's start, the betrayal payout, endless health growth), plus `DIFFICULTIES` in the same file. After changing them, run `npm run sim` and compare against `docs/balance-current.md`.
 
 Targets used for the current numbers: a cautious player (2 towers per wave) wins ~90% on Story, ~60–70% on Stacks, ~35–45% on Melongeddon; a player who builds whenever they can wins ~90% on Stacks and ~50% on Melongeddon.

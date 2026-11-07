@@ -816,6 +816,49 @@ export const OVERFLOW: Array<{ name: string; blurb: string; spawns: SpawnSpec[] 
     ],
   },
   {
+    name: "Backwash",
+    blurb: "The chute is busy before the door is.",
+    spawns: [
+      { kind: "melon", count: 5, every: 1, guard: "rind", chute: true },
+      { kind: "corn", count: 6, every: 0.45 },
+    ],
+  },
+  {
+    name: "Low tide",
+    blurb: "The water went down. The pumpkins did not dry out.",
+    spawns: [
+      { kind: "pumpkin", count: 5, every: 0.85, guard: "damp" },
+      { kind: "melon", count: 6, every: 0.5 },
+    ],
+  },
+  {
+    name: "Sump pump",
+    blurb: "Cracked pumpkins at the door, rinds up the chute, husks in between.",
+    spawns: [
+      { kind: "pumpkin", count: 3, every: 1.1, split: true },
+      { kind: "melon", count: 3, every: 1.1, guard: "rind", chute: true },
+      { kind: "corn", count: 4, every: 0.45, guard: "husk" },
+    ],
+  },
+  {
+    name: "Floodgate",
+    blurb: "Karl took the stairs this time. He will not next time.",
+    spawns: [
+      { kind: "karl", count: 1, every: 0.4 },
+      { kind: "pumpkin", count: 3, every: 1, guard: "damp" },
+      { kind: "melon", count: 5, every: 0.55 },
+    ],
+  },
+  {
+    name: "High water",
+    blurb: "Raw pumpkins down here only bake if you are patient.",
+    spawns: [
+      { kind: "corn", count: 8, every: 0.35 },
+      { kind: "pumpkin", count: 3, every: 1.1, raw: true },
+      { kind: "melon", count: 4, every: 0.9, guard: "rind", chute: true },
+    ],
+  },
+  {
     name: "The meter spends",
     blurb: "Every 25 absurdity, the chute drops another rind.",
     spawns: [
@@ -835,7 +878,7 @@ export const OVERFLOW: Array<{ name: string; blurb: string; spawns: SpawnSpec[] 
   },
 ];
 
-export const WAVE_COUNT = 10;
+export const WAVE_COUNT = 15;
 
 // ---------- endless ----------
 
@@ -898,9 +941,10 @@ export function endlessWave(index: number): { name: string; blurb: string; spawn
   };
 }
 
-/** Enemy health multiplier. Endless follows the normal curve to wave 10, then grows by a steady rate. */
+/** Enemy health multiplier. Endless follows the original curve to wave 10, then grows by a steady rate. */
 export function hpScaleFor(night: NightId, cleared: number) {
-  if (night !== "endless" || cleared <= 9) return waveHpScale(cleared);
+  if (night !== "endless") return waveHpScale(storyHpStep(cleared));
+  if (cleared <= 9) return waveHpScale(cleared);
   return waveHpScale(9) * BALANCE.endlessGrowth ** (cleared - 9);
 }
 
@@ -917,7 +961,7 @@ export function nextBeat(cleared: number, alliance: Alliance, night: NightId = "
   if (night === "overflow") {
     if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
     if (cleared === 4) return "memory";
-    if (cleared === 9) return "consequence";
+    if (cleared === WAVE_COUNT - 1) return "consequence";
     return "prep";
   }
   if (cleared === 1 || cleared === 2) return "upgrade";
@@ -925,7 +969,7 @@ export function nextBeat(cleared: number, alliance: Alliance, night: NightId = "
   if (cleared === 6) return alliance === "betray" ? "prep" : "upgrade";
   if (cleared === 4) return "alliance";
   if (cleared === 5 && alliance === "accept") return "betrayal";
-  if (cleared === 9) return "consequence";
+  if (cleared === WAVE_COUNT - 1) return "consequence";
   return "prep";
 }
 
@@ -967,6 +1011,48 @@ export function waveAt(
         ],
       },
       {
+        name: "Fines due",
+        blurb: "Every melon you popped is on his list. He brought the list.",
+        spawns: [
+          { kind: "melon" as const, count: 8, every: 0.45, guard: "rind" as const },
+          { kind: "corn" as const, count: 6, every: 0.35 },
+        ],
+      },
+      {
+        name: "Cold shoulder",
+        blurb: "Wet pumpkins and husked corn. Nothing here burns easily.",
+        spawns: [
+          { kind: "pumpkin" as const, count: 5, every: 0.85, guard: "damp" as const },
+          { kind: "corn" as const, count: 6, every: 0.38, guard: "husk" as const },
+        ],
+      },
+      {
+        name: "Old friends",
+        blurb: "The household he would have brought, minus the manners.",
+        spawns: [
+          { kind: "karl" as const, count: 1, every: 0.4 },
+          { kind: "corn" as const, count: 8, every: 0.32 },
+          { kind: "melon" as const, count: 4, every: 0.5 },
+        ],
+      },
+      {
+        name: "Crumbs",
+        blurb: "Pumpkins that break into four, and melons to fill the gaps.",
+        spawns: [
+          { kind: "pumpkin" as const, count: 4, every: 1, split: true },
+          { kind: "melon" as const, count: 8, every: 0.4 },
+        ],
+      },
+      {
+        name: "Payback",
+        blurb: "The grudge is close now. This is the part before it.",
+        spawns: [
+          { kind: "pumpkin" as const, count: 5, every: 0.8, tough: 1.3 },
+          { kind: "pumpkin" as const, count: 3, every: 1.1, raw: true },
+          { kind: "corn" as const, count: 8, every: 0.3, guard: "husk" as const },
+        ],
+      },
+      {
         name: "The Grudge",
         blurb: "You shot first. He sent the grudge instead of a household.",
         spawns: [
@@ -1003,6 +1089,49 @@ export function waveAt(
         spawns: [
           { kind: "pumpkin" as const, count: 4, every: 0.8, tough: 1.2 },
           { kind: "pumpkin" as const, count: 2, every: 1.1, raw: true },
+          { kind: "corn" as const, count: 6, every: 0.35 },
+        ],
+      },
+      {
+        name: "Open house",
+        blurb: "Nobody is guarding the door, so everybody is using it.",
+        spawns: [
+          { kind: "corn" as const, count: 10, every: 0.32 },
+          { kind: "melon" as const, count: 5, every: 0.45, guard: "rind" as const },
+        ],
+      },
+      {
+        name: "Self-checkout",
+        blurb: "They are letting themselves in and taking what they like.",
+        spawns: [
+          { kind: "pumpkin" as const, count: 3, every: 1.1, split: true },
+          { kind: "pumpkin" as const, count: 3, every: 0.95, guard: "damp" as const },
+          { kind: "melon" as const, count: 6, every: 0.5 },
+        ],
+      },
+      {
+        name: "Nobody at the desk",
+        blurb: "Karl did not need an invitation.",
+        spawns: [
+          { kind: "karl" as const, count: 1, every: 0.4 },
+          { kind: "melon" as const, count: 6, every: 0.45 },
+          { kind: "corn" as const, count: 5, every: 0.4, guard: "husk" as const },
+        ],
+      },
+      {
+        name: "Late fees",
+        blurb: "Raw pumpkins and husked corn. Bake the first, crack the second.",
+        spawns: [
+          { kind: "pumpkin" as const, count: 4, every: 1, raw: true },
+          { kind: "corn" as const, count: 8, every: 0.33, guard: "husk" as const },
+        ],
+      },
+      {
+        name: "Full shelves",
+        blurb: "There is not much carpet left that is not fruit.",
+        spawns: [
+          { kind: "pumpkin" as const, count: 6, every: 0.75, tough: 1.3 },
+          { kind: "melon" as const, count: 8, every: 0.4, guard: "rind" as const },
           { kind: "corn" as const, count: 6, every: 0.35 },
         ],
       },
@@ -1047,6 +1176,50 @@ export function waveAt(
       ],
     },
     {
+      name: "Squires",
+      blurb: "His squires carry shields of rind. Crack them, then crack them again.",
+      spawns: [
+        { kind: "melon" as const, count: 8, every: 0.45, guard: "rind" as const },
+        { kind: "pumpkin" as const, count: 3, every: 0.9 },
+      ],
+    },
+    {
+      name: "Siege ladders",
+      blurb: "Husked corn up front, raw pumpkins behind.",
+      spawns: [
+        { kind: "corn" as const, count: 8, every: 0.35, guard: "husk" as const },
+        { kind: "pumpkin" as const, count: 3, every: 1, raw: true },
+        { kind: "melon" as const, count: 4, every: 0.5 },
+      ],
+    },
+    {
+      name: "The bannermen",
+      blurb: "Wet ones that will not burn, and cracked ones that will not stay whole.",
+      spawns: [
+        { kind: "pumpkin" as const, count: 4, every: 0.9, guard: "damp" as const },
+        { kind: "pumpkin" as const, count: 3, every: 1.1, split: true },
+        { kind: "corn" as const, count: 6, every: 0.4 },
+      ],
+    },
+    {
+      name: "Cousin Karl",
+      blurb: "Karl has a cousin. He is also called Karl.",
+      spawns: [
+        { kind: "karl" as const, count: 1, every: 0.4 },
+        { kind: "pumpkin" as const, count: 4, every: 0.85, tough: 1.2 },
+        { kind: "melon" as const, count: 5, every: 0.45, guard: "rind" as const },
+      ],
+    },
+    {
+      name: "Last watch",
+      blurb: "Everything he has left that is not the household.",
+      spawns: [
+        { kind: "pumpkin" as const, count: 5, every: 0.8, tough: 1.25 },
+        { kind: "corn" as const, count: 8, every: 0.32, guard: "husk" as const },
+        { kind: "melon" as const, count: 6, every: 0.42, guard: "rind" as const },
+      ],
+    },
+    {
       name: "The Household",
       blurb: "He already turned. The household comes back meaner, and taller.",
       spawns: [
@@ -1078,6 +1251,8 @@ export const BALANCE = {
   killGold: 1,
   pulpEvery: 2.5,
   slowPower: 1,
+  /** Story nights: health steps per wave after wave 6 (0.375 = the 15th wave is as tough as the old 10th). */
+  storyHpPace: 0.375,
   /** Endless only: enemy health growth per wave after wave 10 (1.15 = +15% a wave). */
   endlessGrowth: 1.15,
   betraySeeds: 55,
@@ -1099,6 +1274,14 @@ export function stacksWord(n: number) {
 /** Apply slowPower to a speed multiplier (0.45 = crawl at 45% speed). */
 export function softenSlow(speed: number) {
   return 1 - (1 - speed) * BALANCE.slowPower;
+}
+
+/**
+ * Story nights are 15 waves. Act one (waves 1-6) climbs the health curve as written;
+ * each later wave climbs BALANCE.storyHpPace of a step.
+ */
+export function storyHpStep(cleared: number) {
+  return cleared <= 6 ? cleared : 6 + (cleared - 6) * BALANCE.storyHpPace;
 }
 
 /** Health multiplier for enemies spawned after `cleared` waves. */

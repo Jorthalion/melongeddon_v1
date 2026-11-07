@@ -71,7 +71,7 @@ export const BOOKMARK_VALUES = { seedfund: 30, sparestack: 2, discount: 5, latef
 
 export const EMPTY_META: MetaStats = { bestWave: 0, endlessBest: 0, karls: 0, fittings: 0, wins: 0, hardWins: 0 };
 /** Everything unlocked (simulator and tests). */
-export const ALL_UNLOCKED: MetaStats = { bestWave: 10, endlessBest: 99, karls: 99, fittings: 99, wins: 99, hardWins: 99 };
+export const ALL_UNLOCKED: MetaStats = { bestWave: 15, endlessBest: 99, karls: 99, fittings: 99, wins: 99, hardWins: 99 };
 
 const META_KEY = "melongeddon-meta";
 const PICK_KEY = "melongeddon-bookmark";

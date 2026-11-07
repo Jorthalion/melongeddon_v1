@@ -960,7 +960,8 @@ export function createWorld(
       });
       queueCursor += 1;
     }
-    if (world.hud.night === "overflow" && cleared >= 8) {
+    // The Overflow's last two waves ("The meter spends", "Up the chute") drop a rind per 25 absurdity.
+    if (world.hud.night === "overflow" && cleared >= WAVE_COUNT - 2) {
       const due = Math.floor(world.hud.absurdity / 25);
       while (absurdDrops < due) {
         spawnEnemy("melon", scale, "rind", { chute: true });
