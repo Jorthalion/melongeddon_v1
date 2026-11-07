@@ -4,6 +4,10 @@ A single-player tower defense: defend the Midnight Library from melons, corn, an
 
 Standalone Vite + React + Tailwind project, extracted from the original Grok app-builder export.
 
+**New here? Read the [Setup and Player Guide](docs/GUIDE.md)**: how to install and run it, publish your own copy, and how to play (controls, keepers, towers, upgrades, enemies, nights and tips).
+
+Play online (once GitHub Pages is on): https://jorthalion.github.io/melongeddon_v1/
+
 ```bash
 npm install
 npm run dev      # http://localhost:5173
@@ -56,7 +60,7 @@ Four levels on the setup screen. They scale enemy health and speed (`DIFFICULTIE
 | Melongeddon | 1.2× | 1.12× | ~41–49% |
 | Overdue | 1.45× | 1.15× | ~25% |
 
-Bots are not smart players, so read these as relative. A win on Overdue also counts as a Melongeddon win for unlocks.
+Bots are not smart players, so read these as relative. Wins on Melongeddon and Overdue are counted in the saved stats (`hardWins`), but nothing unlocks from them yet.
 
 ## Endless mode
 
