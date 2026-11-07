@@ -26,6 +26,8 @@ Optional: once you know the final URL, make `og:image` in `index.html` an absolu
 
 Each story night is 15 waves. Midnight plays act one (waves 1-6), the knight's choice, then nine waves for that choice ending in its finale (The Household, The Grudge or Unchaperoned). The Overflow ends with "The meter spends" and "Up the chute", when absurdity drops rinds down the chute. Enemy health climbs the full curve through wave 6, then `BALANCE.storyHpPace` (0.375) of a step per wave after that, so wave 15 is as tough as the old 10-wave finale.
 
+**The Overflow's chute.** From wave 6, some fruit come up the returns chute: they appear past the far end of the carpet and walk it backwards, and one that reaches the entrance costs a stack. Waves 6–9, 11, 13 and 14 send shelled melons up it; waves 14 and 15 also drop a shelled melon per 25 absurdity, and wave 15 sends Karl. A **CHUTE** plate and arrows mark that end of the carpet: they glow blue and move while the current or next wave uses the chute (`hud.chuteWave`), and sit dim otherwise. The first chute wave also shows a one-time tip (`melongeddon:chute-tip`; Settings › Show tips again brings it back).
+
 ## Keepers
 
 Six keepers, picked on the setup screen (keys 1–6). Each has a perk and a **signature tower**: only that keeper can build it, one at a time, from the **Keeper** tab (key R). Signature towers can't be fitted in the back room.

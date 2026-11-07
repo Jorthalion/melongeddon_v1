@@ -46,7 +46,7 @@ import {
 import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
 import { HOTKEY_HELP, useHotkeys } from "@/components/hotkeys";
-import { TUTORIAL_KEY, TutorialHint } from "@/components/TutorialHint";
+import { CHUTE_TIP_KEY, ChuteTip, TUTORIAL_KEY, TutorialHint } from "@/components/TutorialHint";
 import { save } from "@/lib/storage";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
 import { TowerIcon } from "@/components/TowerIcon";
@@ -357,6 +357,7 @@ export function MelonGame() {
           </div>
         ) : null}
         {phase === "prep" || phase === "combat" ? <TutorialHint api={api} /> : null}
+        {phase === "prep" || phase === "combat" ? <ChuteTip api={api} /> : null}
         {phase === "select" ? <SelectScreen api={api} onGesture={gesture} /> : null}
         {phase !== "combat" && phase !== "prep" && phase !== "select" && phase !== "coldopen" && phase !== "poster" ? (
           <Overlay hudPhase={phase} api={api} onGesture={gesture} />
@@ -976,6 +977,7 @@ function SettingsPanel({
         onClick={() => {
           onGesture();
           save(TUTORIAL_KEY, "");
+          save(CHUTE_TIP_KEY, "");
           setTipsReset(true);
         }}
       >

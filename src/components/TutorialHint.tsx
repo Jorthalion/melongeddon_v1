@@ -57,3 +57,41 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
     </div>
   );
 }
+
+export const CHUTE_TIP_KEY = "melongeddon:chute-tip";
+
+/**
+ * One-time tip on the Overflow: the first time a wave uses the returns chute, explain that fruit
+ * come in at the far end and walk the carpet backwards. "Got it" hides it for good.
+ */
+export function ChuteTip({ api }: { api: ReturnType<typeof createWorld> }) {
+  const [done, setDone] = useState(() => load(CHUTE_TIP_KEY) === "done");
+  const { hud } = api.world;
+  if (done || hud.map !== "overflow" || !hud.chuteWave || (hud.phase !== "prep" && hud.phase !== "combat")) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
+      <div
+        role="status"
+        className="pointer-events-auto flex max-w-md items-start gap-3 rounded-lg border border-[#6fc6ef]/70 bg-ink/90 px-3 py-2 shadow-lg"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-base leading-tight font-semibold text-[#bfe6f7]">Returns come up the chute</p>
+          <p className="mt-0.5 text-xs leading-snug text-parchment">
+            Shelled melons climb in at the far end (marked CHUTE) and walk the carpet backwards. One that reaches the
+            entrance costs a stack. Cover both ends; a Peeler strips their shells.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="shrink-0 rounded px-2 py-1 text-xs text-muted underline"
+          onClick={() => {
+            save(CHUTE_TIP_KEY, "done");
+            setDone(true);
+          }}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}

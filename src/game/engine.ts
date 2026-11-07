@@ -219,6 +219,8 @@ export interface Hud {
   saved: boolean;
   /** Why the saved setup was changed on load (a locked map or bookmark), shown on the Title. */
   setupNote: string;
+  /** The Overflow: the current or next wave sends fruit up the chute (they walk the carpet backwards). */
+  chuteWave: boolean;
 }
 const BEST_KEY = "melongeddon-best-wave";
 const ENDLESS_BEST_KEY = "melongeddon-endless-best";
@@ -495,6 +497,7 @@ export function createWorld(
       night: "midnight",
       saved: false,
       setupNote: "",
+      chuteWave: false,
     },
     hover: null,
     anim: 0,
@@ -881,8 +884,14 @@ export function createWorld(
       waveCount: world.hud.night === "endless" ? 0 : WAVE_COUNT,
       newUnlocks: [],
       newMaps: [],
+      chuteWave: false,
     };
   };
+
+  /** Does wave `index` (0-based) send anything up the Overflow's chute? */
+  const usesChute = (index: number) =>
+    world.hud.night === "overflow" &&
+    (waveAt(index, world.hud.alliance, world.hud.night).spawns.some((s) => s.chute) || index >= WAVE_COUNT - 2);
 
   const removeAllies = () => {
     world.towers = world.towers.filter((t) => !t.ally);
@@ -1140,6 +1149,7 @@ export function createWorld(
 
   const endWave = () => {
     cleared += 1;
+    world.hud.chuteWave = usesChute(cleared);
     bumpBest();
     const endless = world.hud.night === "endless";
     world.hud.wave = endless ? cleared + 1 : Math.min(WAVE_COUNT, cleared + 1);
@@ -1749,6 +1759,7 @@ export function createWorld(
       world.hud.hero = hero;
       world.hud.phase = "poster";
       world.hud.wave = 1;
+      world.hud.chuteWave = usesChute(0);
       const opening = waveAt(0, door, world.hud.night);
       world.hud.waveName = opening.name;
       world.hud.blurb = opening.blurb;

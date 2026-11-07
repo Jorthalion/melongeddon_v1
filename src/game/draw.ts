@@ -527,23 +527,74 @@ function drawCarpet(
     ctx.fillText("STACKS", end.x, end.y + 4);
   }
 
-  if (world.hud.map === "overflow" && world.points.length >= 2) {
-    const prev = world.points[world.points.length - 2];
-    const dx = end.x - prev.x;
-    const dy = end.y - prev.y;
-    const len = Math.hypot(dx, dy) || 1;
-    const x = end.x + (dx / len) * CELL * 0.95;
-    const y = end.y + (dy / len) * CELL * 0.95;
-    ctx.fillStyle = "rgba(28, 22, 20, 0.92)";
-    ctx.fillRect(x - 16, y - 16, 32, 32);
-    ctx.strokeStyle = "#e6c36a";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x - 16, y - 16, 32, 32);
-    ctx.fillStyle = "#8d3a42";
+  if (world.hud.map === "overflow" && world.points.length >= 2) drawChute(ctx, world, end);
+}
+
+/**
+ * The Overflow's returns chute: fruit marked `chute` come in past the end of the carpet and walk it
+ * backwards. A "CHUTE" plate by the door and chevrons pointing back toward the entrance show where.
+ * They glow and move while the current or next wave uses the chute, and sit dim otherwise.
+ */
+function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number; y: number }) {
+  const prev = world.points[world.points.length - 2];
+  const len = Math.hypot(end.x - prev.x, end.y - prev.y) || 1;
+  // Unit vector pointing back along the carpet, the way chute fruit walk.
+  const bx = (prev.x - end.x) / len;
+  const by = (prev.y - end.y) / len;
+  const active = world.hud.chuteWave;
+  const pulse = active ? 0.55 + Math.sin(world.anim * 4) * 0.35 : 0;
+
+  ctx.save();
+  if (active) {
+    const glow = ctx.createRadialGradient(end.x, end.y, 4, end.x, end.y, 70);
+    glow.addColorStop(0, `rgba(111,198,239,${0.35 * pulse + 0.1})`);
+    glow.addColorStop(1, "rgba(111,198,239,0)");
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.arc(end.x, end.y, 70, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // Chevrons on the last stretch of carpet, drifting back toward the entrance when active.
+  const drift = active ? (world.anim * 0.9) % 1 : 0;
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (let i = 0; i < 3; i++) {
+    const along = CELL * (0.55 + (i + drift) * 0.55);
+    const cx = end.x + bx * along;
+    const cy = end.y + by * along;
+    const fade = active ? 0.9 - ((i + drift) / 3) * 0.6 : 0.28;
+    ctx.strokeStyle = active ? `rgba(111,198,239,${fade})` : `rgba(230,195,106,${fade})`;
+    // The point of the chevron leads in the walking direction (b); the arms trail behind.
+    const px = -by;
+    const py = bx;
+    ctx.beginPath();
+    ctx.moveTo(cx - bx * 6 + px * 8, cy - by * 6 + py * 8);
+    ctx.lineTo(cx + bx * 4, cy + by * 4);
+    ctx.lineTo(cx - bx * 6 - px * 8, cy - by * 6 - py * 8);
+    ctx.stroke();
+  }
+
+  // "CHUTE" plate beside the door, kept inside the board.
+  const w = 50;
+  const h = 16;
+  const side = end.y - CELL * 0.85 - h / 2 >= 2 ? -1 : 1;
+  const x = Math.max(w / 2 + 2, Math.min(MAP_W - w / 2 - 2, end.x - 4));
+  const y = end.y + side * CELL * 0.85;
+  ctx.fillStyle = "rgba(20,16,18,0.9)";
+  roundRect(ctx, x - w / 2, y - h / 2, w, h, 4);
+  ctx.fill();
+  ctx.strokeStyle = active ? `rgba(111,198,239,${0.6 + pulse * 0.4})` : "rgba(230,195,106,0.7)";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, x - w / 2, y - h / 2, w, h, 4);
+  ctx.stroke();
+  ctx.fillStyle = active ? "#bfe6f7" : "#e6c36a";
+  ctx.font = "700 10px Outfit, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("CHUTE", x, y + 0.5);
+  ctx.restore();
 }
 
 function fit(
