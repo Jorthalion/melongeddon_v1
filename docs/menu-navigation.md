@@ -2,7 +2,7 @@
 
 **Status:** revision 2. An independent AI agent reviewed it against the code; its corrections are folded in (see "Review history" at the end).
 
-**Progress:** Phase 1 is built (see 3.6). Part 1 still describes the game before Phase 1.
+**Progress:** Phases 1 and 2 are built (see 3.6). Part 1 still describes the game before them.
 
 **Covers:** every screen outside the board itself, plus the board's own controls (HUD, build bar, cannon inspector).
 
@@ -322,6 +322,7 @@ The phases are ordered by player impact and by what each depends on. Each phase 
    - Fixes H1, H2, H3, M1, M6, M8, L3, L5.
    - **Built.** Tests in `tests/navigation.test.ts`. Pulled forward from later phases because they were small: the Title's Start/Choose Keeper became Continue/New night; Esc goes back on Setup and the Intro and opens the menu on story cards; P added to `HOTKEY_HELP`; the pause menu's Settings has the music toggle, so phones can reach it mid-run; a `beforeunload` prompt during a run. Browser-history entries are left for Phase 2.
 2. **Phone setup layout.** Sticky Back/Begin footer, compact keeper row, sideways map row, reason line, and browser-history entries. Fixes H4.
+   - **Built.** Setup on a 375×812 phone went from 2,849 px of scrolling (after Phase 1's Back row) to 912 px, and Begin is always on screen. Rows follow the 3.4 order. Bookmarks also scroll sideways on phones. An unanswered Overflow door question is outlined in red. History keeps one spare entry while away from the Title: Back on Setup goes to the Title, on the Intro to Setup, on the board opens (or closes) the pause menu or closes the back room, and does nothing on end cards.
 3. **Keyboard and dialogs.**
    - Move key handling into a pure function `(hud, key) => action`, so it can be tested without a DOM.
    - A shared `Dialog` wrapper; digits for all choice cards; arrows on the Title.

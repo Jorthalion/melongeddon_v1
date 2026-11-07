@@ -2,7 +2,7 @@ import { Lock } from "lucide-react";
 import { BOARDS, BOOKMARK, BOOKMARKS, createWorld, type BookmarkId, type MapId } from "@/game/engine";
 import { tone } from "@/game/audio";
 
-/** Keeper-screen row: equip one unlocked bookmark (or none). Locked ones show how to earn them. */
+/** Setup row: equip one unlocked bookmark (or none). Locked ones show how to earn them. */
 export function BookmarkPicker({ api, onGesture }: { api: ReturnType<typeof createWorld>; onGesture: () => void }) {
   const hud = api.world.hud;
   const pick = (id: BookmarkId | null) => {
@@ -12,14 +12,14 @@ export function BookmarkPicker({ api, onGesture }: { api: ReturnType<typeof crea
   };
   const chosen = hud.bookmark ? BOOKMARK[hud.bookmark] : null;
   return (
-    <div className="mb-5">
+    <div>
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[10px] tracking-[0.22em] text-gold uppercase">Bookmark</p>
         <p className="text-xs text-muted">
           {hud.unlocked.length}/{BOOKMARKS.length} earned · one per run
         </p>
       </div>
-      <div className="mt-1.5 grid grid-cols-3 gap-1.5 sm:grid-cols-6" role="radiogroup" aria-label="Bookmark">
+      <div className="-mx-4 mt-1.5 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-6 sm:overflow-visible sm:px-0" role="radiogroup" aria-label="Bookmark">
         <BookmarkButton label="None" sub="Plain run" on={hud.bookmark == null} onClick={() => pick(null)} />
         {BOOKMARKS.map((b) => {
           const open = hud.unlocked.includes(b.id);
@@ -60,7 +60,7 @@ function BookmarkButton({
       aria-checked={on}
       aria-disabled={locked}
       title={locked ? `Locked. ${sub}` : sub}
-      className={`min-h-14 rounded-lg border px-2 py-1.5 text-left ${
+      className={`min-h-14 w-32 shrink-0 snap-start rounded-lg border px-2 py-1.5 text-left sm:w-auto ${
         on
           ? "border-[#c6a15a] bg-[linear-gradient(180deg,#d4b06a_0%,#9a7438_100%)] text-ink"
           : locked
