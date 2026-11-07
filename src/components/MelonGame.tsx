@@ -1,5 +1,5 @@
 import { asset } from "@/lib/asset";
-import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref } from "react";
 import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Music, Menu } from "lucide-react";
 import {
   BOARDS,
@@ -40,6 +40,7 @@ import { TutorialHint } from "@/components/TutorialHint";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
 import { TowerIcon } from "@/components/TowerIcon";
 import { MapPreview } from "@/components/MapPreview";
+import { Dialog } from "@/components/Dialog";
 import { Lock } from "lucide-react";
 
 /** Largest uniform scale that fits the board in a w×h box, plus the offset that centers it (CSS px). */
@@ -574,20 +575,15 @@ function PauseMenu({
 }) {
   const hud = api.world.hud;
   const [confirm, setConfirm] = useState<"restart" | "leave" | null>(null);
-  const first = useRef<HTMLButtonElement>(null);
   const view = hud.menu === "settings" ? "settings" : confirm ?? "pause";
-  useEffect(() => {
-    first.current?.focus();
-  }, [view]);
   const wave = hud.waveCount ? `Wave ${Math.min(hud.wave, hud.waveCount)} of ${hud.waveCount}` : `Wave ${hud.wave}`;
 
   return (
     <div className="absolute inset-0 z-40 grid place-items-center bg-ink/80 p-4 backdrop-blur-[2px]">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pause-title"
-        className="w-full max-w-xs rounded-md border border-[#d7b56a]/70 bg-[#100c0e]/95 px-4 py-5 text-center shadow-[inset_0_0_0_1px_rgba(215,181,106,0.22)]"
+      <Dialog
+        key={view}
+        labelledBy="pause-title"
+        className="w-full max-w-xs rounded-md border border-[#d7b56a]/70 bg-[#100c0e]/95 px-4 py-5 text-center shadow-[inset_0_0_0_1px_rgba(215,181,106,0.22)] outline-none"
       >
         {view === "pause" ? (
           <>
@@ -596,7 +592,7 @@ function PauseMenu({
               {NIGHT_LABEL[hud.night]} · {BOARDS[hud.map].name} · {wave}
             </p>
             <div className="mt-4 flex flex-col gap-2.5">
-              <MenuButton gold ref={first} onClick={() => { onGesture(); api.closeMenu(); }}>
+              <MenuButton gold onClick={() => { onGesture(); api.closeMenu(); }}>
                 Resume
               </MenuButton>
               <MenuButton onClick={() => { onGesture(); api.menuSettings(true); }}>Settings</MenuButton>
@@ -613,7 +609,7 @@ function PauseMenu({
             </p>
             <p className="mt-2 text-sm text-[#f4ead8]">This run's progress is lost. Your setup is kept.</p>
             <div className="mt-4 flex flex-col gap-2.5">
-              <MenuButton ref={first} onClick={() => { onGesture(); setConfirm(null); }}>
+              <MenuButton onClick={() => { onGesture(); setConfirm(null); }}>
                 Keep playing
               </MenuButton>
               <MenuButton
@@ -634,7 +630,7 @@ function PauseMenu({
           <>
             <p id="pause-title" className="font-display text-2xl font-semibold text-[#f6e7b4]">Settings</p>
             <div className="mt-4 flex flex-col gap-2.5">
-              <MenuButton ref={first} onClick={onMute}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
+              <MenuButton onClick={onMute}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
               <MenuButton onClick={onMusic}>{music ? "Music is on" : "Music is off"}</MenuButton>
             </div>
             <p className="mt-3 text-xs text-muted">Keys: {HOTKEY_HELP}</p>
@@ -643,7 +639,7 @@ function PauseMenu({
             </div>
           </>
         ) : null}
-      </div>
+      </Dialog>
     </div>
   );
 }
@@ -770,13 +766,38 @@ function TitleScreen({
   onMute: (next: boolean) => void;
 }) {
   const [view, setView] = useState<"menu" | "library" | "settings" | "quit">("menu");
+  const startRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Focus the main button whenever the menu shows, so Enter starts and arrows have a place to begin.
+  useEffect(() => {
+    if (view === "menu") startRef.current?.focus({ preventScroll: true });
+  }, [view]);
+  // Esc on a sub-card returns to the menu.
+  useEffect(() => {
+    if (view === "menu") return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setView("menu");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view]);
+  // Up / Down move between the menu buttons, wrapping at the ends.
+  const onMenuKey = (e: ReactKeyboardEvent) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const items = [...(menuRef.current?.querySelectorAll("button") ?? [])];
+    if (!items.length) return;
+    e.preventDefault();
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    items[(at < 0 ? 0 : at + step + items.length) % items.length].focus();
+  };
   return (
     <div className="absolute inset-0 z-20 bg-black">
       <img src={asset("sprites/screen-title.webp")} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
       <div className="absolute top-[43%] left-1/2 w-[min(20.5rem,74vw)] -translate-x-1/2">
         {view === "menu" ? (
-          <div className="flex flex-col gap-2.5">
-            <MenuButton gold onClick={onStart}>
+          <div ref={menuRef} className="flex flex-col gap-2.5" role="group" aria-label="Main menu" onKeyDown={onMenuKey}>
+            <MenuButton gold ref={startRef} onClick={onStart}>
               {saved ? "Continue" : "Start"}
             </MenuButton>
             <p className="-mt-1 rounded bg-black/55 px-2 py-1 text-center text-xs leading-snug text-[#f4ead8]">
@@ -1352,27 +1373,30 @@ function Overlay({
   const hud = api.world.hud;
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-ink/75 p-4">
-      <div className="max-h-full w-full max-w-md overflow-auto rounded-xl border border-line bg-panel p-5">
+      <Dialog key={hudPhase} labelledBy="card-title" className="max-h-full w-full max-w-md overflow-auto rounded-xl border border-line bg-panel p-5 outline-none">
         {hudPhase === "shop" ? (
           <>
-            <h2 className="font-display text-2xl font-semibold">The back room</h2>
+            <h2 id="card-title" className="font-display text-2xl font-semibold">The back room</h2>
             <p className="mt-1 text-sm text-muted">
               {backRoomPrice(hud.hero, hud.shopVisits, hud.bookmark) || "Free, this once"}{backRoomPrice(hud.hero, hud.shopVisits, hud.bookmark) ? " seeds" : ""}. It fits this cannon only, and a cannon holds two.
             </p>
             <div className="mt-4 flex flex-col gap-2">
-              {hud.modOffer.map((mod) => (
+              {hud.modOffer.map((mod, i) => (
                 <button
                   key={mod.id}
                   type="button"
-                  className="min-h-11 rounded-xl border border-line bg-panel-2 px-4 py-3 text-left"
+                  className="flex min-h-11 items-center gap-3 rounded-xl border border-line bg-panel-2 px-4 py-3 text-left"
                   onClick={() => {
                     onGesture();
                     tone(280, 0.08, "triangle", 0.04);
                     api.pickMod(mod.id);
                   }}
                 >
-                  <span className="block font-semibold">{mod.name}</span>
-                  <span className="mt-1 block text-sm text-muted">{mod.blurb}</span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{mod.name}</span>
+                    <span className="mt-1 block text-sm text-muted">{mod.blurb}</span>
+                  </span>
+                  <kbd className="ml-auto hidden shrink-0 rounded border border-line px-1.5 font-sans text-[11px] text-muted sm:block">{i + 1}</kbd>
                 </button>
               ))}
               <button
@@ -1383,7 +1407,7 @@ function Overlay({
                   api.closeShop();
                 }}
               >
-                Not now
+                Not now <span className="ml-1 hidden text-xs text-muted sm:inline">Esc</span>
               </button>
             </div>
           </>
@@ -1391,7 +1415,7 @@ function Overlay({
 
         {hudPhase === "upgrade" ? (
           <>
-            <h2 className="font-display text-2xl font-semibold">Between the waves</h2>
+            <h2 id="card-title" className="font-display text-2xl font-semibold">Between the waves</h2>
             <p className="mt-1 text-sm text-muted">
               {hud.night === "overflow" && hud.upgrades.length >= 2
                 ? "One more shelf. Then the meter starts spending."
@@ -1402,7 +1426,7 @@ function Overlay({
                     : `${hud.hero === "michael" ? "Sir Michael" : hud.hero === "vael" ? "Vael" : "Mynxi"} picks first. It lasts the rest of the run.`}
             </p>
             <div className="mt-4 flex flex-col gap-2">
-              {hud.offer.map((u) => {
+              {hud.offer.map((u, i) => {
                 const forKind = (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === u.id);
                 return (
                   <button
@@ -1420,6 +1444,7 @@ function Overlay({
                       <span className="block font-semibold">{u.name}</span>
                       <span className="mt-1 block text-sm text-muted">{u.blurb}</span>
                     </span>
+                    <kbd className="ml-auto hidden shrink-0 rounded border border-line px-1.5 font-sans text-[11px] text-muted sm:block">{i + 1}</kbd>
                   </button>
                 );
               })}
@@ -1435,7 +1460,7 @@ function Overlay({
                 alt=""
                 className="size-16 shrink-0 rounded-xl object-cover"
               />
-              <h2 className="font-display text-2xl font-semibold">
+              <h2 id="card-title" className="font-display text-2xl font-semibold">
                 {hud.hero === "michael" ? "Your own men are at the door" : "Sir Michael is at the door"}
               </h2>
             </div>
@@ -1455,7 +1480,7 @@ function Overlay({
                   api.chooseAlliance("accept");
                 }}
               >
-                Accept the alliance
+                Accept the alliance <span className="ml-1 hidden text-xs opacity-60 sm:inline">1</span>
               </button>
               <button
                 type="button"
@@ -1465,7 +1490,7 @@ function Overlay({
                   api.chooseAlliance("betray");
                 }}
               >
-                Betray him now
+                Betray him now <span className="ml-1 hidden text-xs opacity-60 sm:inline">2</span>
               </button>
               <button
                 type="button"
@@ -1475,7 +1500,7 @@ function Overlay({
                   api.chooseAlliance("reject");
                 }}
               >
-                Send him away
+                Send him away <span className="ml-1 hidden text-xs opacity-60 sm:inline">3</span>
               </button>
             </div>
           </>
@@ -1489,7 +1514,7 @@ function Overlay({
                 alt=""
                 className="size-16 shrink-0 rounded-xl object-cover"
               />
-              <h2 className="font-display text-2xl font-semibold">He turned.</h2>
+              <h2 id="card-title" className="font-display text-2xl font-semibold">He turned.</h2>
             </div>
             <p className="mt-3 text-sm text-muted">
               {hud.hero === "michael"
@@ -1504,7 +1529,7 @@ function Overlay({
                 api.startWave();
               }}
             >
-              Brace
+              Brace <span className="ml-1 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
             </button>
           </>
         ) : null}
@@ -1512,7 +1537,7 @@ function Overlay({
         {hudPhase === "consequence" ? (
           <>
             <p className="text-xs tracking-wide text-gold uppercase">The choice comes due</p>
-            <h2 className="mt-1 font-display text-2xl font-semibold">{hud.waveName}</h2>
+            <h2 id="card-title" className="mt-1 font-display text-2xl font-semibold">{hud.waveName}</h2>
             <p className="mt-3 text-sm text-muted">{hud.blurb}</p>
             <button
               type="button"
@@ -1522,7 +1547,7 @@ function Overlay({
                 api.startWave();
               }}
             >
-              Face it
+              Face it <span className="ml-1 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
             </button>
           </>
         ) : null}
@@ -1530,7 +1555,7 @@ function Overlay({
         {hudPhase === "memory" ? (
           <>
             <p className="text-xs tracking-wide text-gold uppercase">The door stays shut</p>
-            <h2 className="mt-1 font-display text-2xl font-semibold">No visitor</h2>
+            <h2 id="card-title" className="mt-1 font-display text-2xl font-semibold">No visitor</h2>
             <p className="mt-3 text-sm text-muted">{doorMemory(hud.alliance)}</p>
             <button
               type="button"
@@ -1540,7 +1565,7 @@ function Overlay({
                 api.ackMemory();
               }}
             >
-              The chute is next
+              The chute is next <span className="ml-1 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
             </button>
           </>
         ) : null}
@@ -1595,7 +1620,7 @@ function Overlay({
             onGesture={onGesture}
           />
         ) : null}
-      </div>
+      </Dialog>
     </div>
   );
 }
@@ -1622,15 +1647,17 @@ function EndCard({
 }) {
   return (
     <>
-      <h2 role="status" className="font-display text-2xl font-semibold">{title}</h2>
+      <h2 id="card-title" role="status" className="font-display text-2xl font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-muted">{body}</p>
       <NewUnlocks ids={unlocks} maps={maps} />
       <button
         type="button"
+        data-autofocus
         className="mt-4 min-h-11 w-full rounded-xl bg-rind px-4 py-3 font-semibold text-ink"
         onClick={onAction}
       >
         {action}
+        <span className="ml-2 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
       </button>
       {more.length ? (
         <div className={`mt-2 grid gap-2 ${more.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>

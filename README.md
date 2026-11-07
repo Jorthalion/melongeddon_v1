@@ -74,7 +74,7 @@ Effect sizes live in `BOOKMARK_VALUES`. The simulator can equip one (`bookmark` 
 
 ## Controls
 
-Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade and back-room screens), `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Music has its own toggle in Settings and the header.
+Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade, back-room and knight cards, and the keeper on Setup), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Music has its own toggle in Settings and the header.
 
 The pause menu (`Esc` or the menu button) has Resume, Settings, Restart night and Leave to title. The game remembers your last setup: the Title's Continue starts it again, and the end cards offer Play again, Change setup and Title.
 

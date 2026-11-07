@@ -23,6 +23,17 @@
     cursor: pointer;
   }
 
+  /* Keyboard focus: a gold ring with a dark gap, visible on both dark panels and gold buttons. */
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 3px rgb(20 14 18 / 0.9);
+  }
+  [role="dialog"]:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
   html,
   body,
   #root {

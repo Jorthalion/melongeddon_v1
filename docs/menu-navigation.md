@@ -2,7 +2,7 @@
 
 **Status:** revision 2. An independent AI agent reviewed it against the code; its corrections are folded in (see "Review history" at the end).
 
-**Progress:** Phases 1 and 2 are built (see 3.6). Part 1 still describes the game before them.
+**Progress:** Phases 1–3 are built (see 3.6). Part 1 still describes the game before them.
 
 **Covers:** every screen outside the board itself, plus the board's own controls (HUD, build bar, cannon inspector).
 
@@ -327,6 +327,7 @@ The phases are ordered by player impact and by what each depends on. Each phase 
    - Move key handling into a pure function `(hud, key) => action`, so it can be tested without a DOM.
    - A shared `Dialog` wrapper; digits for all choice cards; arrows on the Title.
    - Fixes M4, M5.
+   - **Built.** `src/game/keys.ts` holds `keyAction(hud, key)` and `runKeyAction`; tests in `tests/keys.test.ts`. `components/Dialog.tsx` wraps every card, end card and the pause menu. A button reached by keyboard keeps its own Enter/Space; one that only has focus from a mouse click doesn't, so Space still starts the wave. Also added: a gold `:focus-visible` ring everywhere, number hints (desktop) on choice cards, and Enter/Esc hints on single-button cards.
 4. **Names and content.**
    - The wording table, How to play content, and the Settings panel (key list, reduce motion, tips).
    - Music toggle into Settings; the same intro screen for the Overflow; the greyed Back room button.
