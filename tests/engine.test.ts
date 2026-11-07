@@ -25,7 +25,7 @@ const center = (c: number) => c * CELL + CELL / 2;
 
 function startGame(hero: "mynxi" | "michael" | "vael" = "vael") {
   const api = createWorld(() => {});
-  api.openLibrary();
+  api.openSetup();
   api.chooseHero(hero);
   api.beginNight();
   return api;
@@ -142,7 +142,7 @@ test("endless offers a pick every fifth wave after act one", () => {
 
 test("locked bookmarks cannot be equipped", () => {
   const api = createWorld(() => {}, { meta: EMPTY_META });
-  api.openLibrary();
+  api.openSetup();
   api.setBookmark("seedfund");
   assert.equal(api.world.hud.bookmark, null);
   assert.deepEqual(api.world.hud.unlocked, []);
@@ -151,7 +151,7 @@ test("locked bookmarks cannot be equipped", () => {
 test("bookmarks change the run start and prices", () => {
   const start = (id: "seedfund" | "sparestack" | "discount" | "backroom" | null) => {
     const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
-    api.openLibrary();
+    api.openSetup();
     api.setBookmark(id);
     api.chooseHero("vael");
     api.beginNight();
@@ -176,7 +176,7 @@ test("bookmarks change the run start and prices", () => {
 
 test("reaching a milestone unlocks a bookmark mid-run", () => {
   const api = createWorld(() => {}, { meta: { ...EMPTY_META, fittings: 4 } });
-  api.openLibrary();
+  api.openSetup();
   api.chooseHero("vael");
   api.beginNight();
   api.world.hud.seeds = 1000;
@@ -229,7 +229,7 @@ test("Reading Lamp boosts a neighbour's range and fire rate", () => {
 
 function startOn(map: "stacks" | "mezzanine" | "rarebooks" | "archive") {
   const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
-  api.openLibrary();
+  api.openSetup();
   api.chooseMap(map);
   api.chooseHero("vael");
   api.beginNight();
@@ -239,12 +239,12 @@ function startOn(map: "stacks" | "mezzanine" | "rarebooks" | "archive") {
 
 test("new maps stay locked until their goal is met", () => {
   const api = createWorld(() => {}, { meta: EMPTY_META });
-  api.openLibrary();
+  api.openSetup();
   assert.deepEqual(api.world.hud.maps, ["stacks", "annex"]);
   api.chooseMap("archive");
   assert.equal(api.world.hud.map, "stacks");
   const open = createWorld(() => {}, { meta: { ...EMPTY_META, bestWave: 5, karls: 1, wins: 1 } });
-  open.openLibrary();
+  open.openSetup();
   assert.deepEqual(open.world.hud.maps, ["stacks", "annex", "mezzanine", "rarebooks", "archive"]);
   open.chooseMap("archive");
   assert.equal(open.world.hud.map, "archive");

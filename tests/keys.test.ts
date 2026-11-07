@@ -71,7 +71,7 @@ test("Space starts a wave even when quick-paused, and the wave runs", () => {
 
 test("Setup: digits pick a keeper, Enter begins, Esc goes back", () => {
   const api = createWorld(() => {});
-  api.openLibrary();
+  api.openSetup();
   assert.equal(keyAction(api.world.hud, "Enter")?.type, "begin");
   press(api, "Enter");
   assert.equal(api.world.hud.phase, "select", "Enter does nothing with no keeper");

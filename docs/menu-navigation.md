@@ -1,381 +1,378 @@
-# Melongeddon: Menu Navigation Design
+# Melongeddon: Menu Navigation
 
-**Status:** revision 2. An independent AI agent reviewed it against the code; its corrections are folded in (see "Review history" at the end).
+**Status:** revision 3. Describes the game as shipped after all four redesign phases (commits `84e15e7`, `fadbde4`, `e9792fc`, `d03bcd0`, plus the revision-3 fixes noted in the Review history).
 
-**Progress:** All four phases are built (see 3.6). Parts 1 and 2 describe the game before them and are kept as the record of what was fixed.
+**How to read this document:**
 
-**Covers:** every screen outside the board itself, plus the board's own controls (HUD, build bar, cannon inspector).
+1. **Current menus** is the source of truth: every screen, every button and the engine function it calls, the keys, and the less obvious paths.
+2. **Original review** lists the problems found before the redesign and what happened to each one.
+3. **Design rules and remaining work** covers the principles, the engine model, the delivery record, and what is still open.
+4. **Appendix A** briefly describes the game before the redesign, for context only.
 
-This document has three parts:
-
-1. **As built**: every screen today, how you get in and out, and the controls on each.
-2. **Review**: problems found, ranked by how much they hurt a player.
-3. **Target design**: how the player should move through the menus, and the work to get there.
-
-Code references are to `src/components/MelonGame.tsx` unless another file is named.
+Code is referred to by file and function name. Line numbers go stale, so this document doesn't use them.
 
 ---
 
-## 1. As built
+## 1. Current menus
 
 ### 1.1 Screens
 
-The game has one route. Which screen shows is decided by `hud.phase` (`Phase` in `src/game/rules.ts`), plus a local `view` inside the title screen.
+Which screen shows is decided by `hud.phase` (`Phase` in `src/game/rules.ts`). The pause menu is `hud.menu` and sits on top of the current phase. The Title's sub-cards are local state in `TitleScreen`.
 
-| Screen | Phase | What the player does | Ways out |
+| Screen | Phase | What's on it | Ways out |
 |---|---|---|---|
-| **Title** | `coldopen` (view `menu`) | Five buttons: Start, Choose Keeper, Library, Settings, Quit | **Start** → Intro, skipping setup. **Choose Keeper** → Setup. **Library / Settings / Quit** → info cards |
-| Title › Library card ("The shelves") | `coldopen` (view `library`) | Reads lore | Back → Title |
-| Title › Settings card ("The hall") | `coldopen` (view `settings`) | Sound on/off, music on/off, key list | Back → Title |
-| Title › Quit card ("The doors") | `coldopen` (view `quit`) | Reads a joke; nothing quits | Back → Title |
-| **Setup** ("Who holds the stacks?"; header reads "Pick a keeper") | `select` | Night, difficulty, bookmark, then map *or* the Overflow door answer, then keeper, then Begin siege | Begin siege → Intro. **No way back to Title** |
-| **Intro** (map banner, or the Overflow poster) | `poster` | One button: "To the carpet" or "Cover the chute" | → Board (prep) |
-| **Board, between waves** | `prep` | Build, select, sell, back room, Start wave | **Start wave** → Board (combat). **Tap a cannon** → Inspector. **Back room** → Back room |
-| **Board, during a wave** | `combat` | Build, select, sell; speed and pause | **Wave cleared** → next beat (see 1.2). **Out of stacks** → Defeat |
-| Cannon inspector (replaces the build bar) | `prep`/`combat` | Stats; Back room (prep only); Sell; × close | × / Esc / tapping the **same** cannon again → build bar. Tapping empty floor builds a new cannon and selects it; tapping the carpet does nothing (`engine.ts` ~1256–1290) |
-| **Back room** | `shop` | Pick 1 of up to 3 fittings, or "Not now" | → Board (prep) |
-| **Upgrade pick** ("Between the waves") | `upgrade` | Pick 1 of 3. No skip | → Board (prep) |
-| **Knight at the door** (Midnight only) | `alliance` | Accept / Betray / Send away | → Board (prep) |
-| **He turned** (Midnight, knight accepted) | `betrayal` | "Brace" | → Board (combat). **Defeat** if losing the stacks (2, or `michaelTurnCut` for Sir Michael) empties them (`engine.ts` 1296–1311) |
-| **The choice comes due** | `consequence` | "Face it" | → Board (combat), finale wave |
-| **No visitor** (Overflow) | `memory` | "The chute is next" | → Board (prep) |
-| **Victory** | `victory` | Reads result and any unlocks; "Run it back" | → Setup |
-| **Defeat** | `defeat` | Reads result and any unlocks; "Try again" | → Setup |
+| **Title** | `coldopen` | Gold **Continue** button (**Start** on a first visit) with a summary line under it, then **New night**, **How to play**, **Settings** | Continue → `continueRun()` → Intro (or Setup, see 1.4). New night → `openSetup()` → Setup. The other two open sub-cards |
+| Title › How to play | `coldopen` | Basics, every cannon by tab, keepers, nights, rooms with unlock goals, keys. Scrolls inside the card | Back / Esc → Title |
+| Title › Settings | `coldopen` | The shared Settings panel (1.6) | Back / Esc → Title |
+| **Setup** | `select` | Rows: Night → Room (or the Overflow door question) → Keeper → Difficulty → Bookmark. Pinned footer with Back, Begin and a reason line | Back → `backToTitle()` → Title. Begin → `chooseHero(hud.hero)` → Intro |
+| **Intro** | `poster` | The room's banner art (the Overflow included), keeper title, a joke, one gold button, a small "Back to setup" | **To the carpet** / **Cover the chute** → `beginNight()` → Board. Back to setup → `backToSetup()` → Setup |
+| **Board, between waves** | `prep` | Header, Start wave, cannon tabs, build bar or inspector, log line | Start wave → combat. Back room (inspector) → Back room. Menu button / Esc → Pause menu |
+| **Board, during a wave** | `combat` | Header, wave bar, tabs, build bar or inspector | Wave cleared → next beat (1.3). Out of stacks → Defeat. Menu / Esc → Pause menu |
+| Cannon inspector | `prep` / `combat` | Stats, fittings, **Back room *price*** (between waves) or a greyed **Between waves** (during a wave), **Sell**, × | × / Esc / tapping the same cannon → build bar |
+| **Back room** | `shop` | Up to three fittings, **Not now** | Pick or Not now / Esc → Board |
+| **Upgrade pick** | `upgrade` | Three upgrades, no skip | Pick → Board |
+| **Knight at the door** (Midnight) | `alliance` | Accept / Betray / Send away | Pick → Board |
+| **He turned** (Midnight, accepted) | `betrayal` | **Brace** | → combat, or Defeat if the stack cut empties the stacks |
+| **The choice comes due** | `consequence` | **Face it** | → combat (finale wave) |
+| **No visitor** (Overflow) | `memory` | **The chute is next** | → Board |
+| **Pause menu** | `hud.menu` over any run phase except the Intro and end cards | **Resume**, **Settings**, **Restart night**, **Leave to title** | Resume / Esc → `closeMenu()` → where you were. Restart and Leave ask first, then `restartNight()` → Intro or `toTitle()` → Title |
+| **Victory** | `victory` | Result, any new unlocks, a primary button, secondary buttons | See 1.2 |
+| **Defeat** | `defeat` | Result, any new unlocks, **Try again**, **Change setup**, **Title** | See 1.2 |
 
-**What end cards reset:** both end buttons call `reset()` (`engine.ts` ~1611). It forces night to Midnight and map to the Stacks, clears the keeper, sets speed to 1× and clears pause. Difficulty and bookmark are kept.
+### 1.2 What each button calls
 
-**Header and footer:**
-- **Header**: seeds, stacks, absurdity, speed −/+, pause, sound, and music (desktop only). It shows whenever `hud.hero` is set: the Intro, the board, **every story/pick card, the back room and the end cards**.
-- **Footer**: the wave bar or Start wave, cannon tabs, the build bar or inspector, and the log line. It shows from the Intro on.
+Every navigation function first runs `resetRunState()` where a run is being thrown away. That clears the board, waves, picks, seeds and stacks, and **keeps the setup**: night, map, difficulty, bookmark, keeper, the Overflow door answer, and the game speed.
 
-### 1.2 Flow
+| Engine function | Goes to | Called by |
+|---|---|---|
+| `continueRun()` | Intro, or Setup if the saved night is the Overflow with no door answer | Title **Continue** / **Start** |
+| `openSetup()` | Setup | Title **New night** |
+| `backToTitle()` | Title | Setup **Back**, Esc on Setup, browser Back on Setup |
+| `chooseHero(hero)` | Intro, and saves the setup record | Setup **Begin**, Enter on Setup |
+| `backToSetup()` | Setup | Intro **Back to setup**, Esc on the Intro, browser Back on the Intro |
+| `restartNight()` | **Intro**, same setup | Defeat **Try again**, Victory **Play again**, pause menu **Restart night** |
+| `reset()` | **Setup**, choices kept | Victory / Defeat **Change setup** |
+| `toTitle()` | Title | Victory / Defeat **Title**, pause menu **Leave to title** |
+| `continueOverflow()` | Overflow Intro, same keeper, difficulty and bookmark | Victory after Midnight: **Continue to the Overflow** |
+| `tryEndless()` | Setup with Endless selected and the room set to The Stacks | Victory after the Overflow: **Set up Endless** |
+
+**End-card buttons by result:**
+
+| Result | Primary (gold, focused, Enter) | Secondary |
+|---|---|---|
+| Midnight won | Continue to the Overflow | Play again · Change setup · Title |
+| Overflow won | Set up Endless | Play again · Change setup · Title |
+| Any defeat (Endless included) | Try again | Change setup · Title |
+
+Endless has no victory, so it never shows the first table's Play again.
+
+### 1.3 Flow
 
 ```mermaid
 flowchart TD
-  T[Title] -->|Start: Mynxi, Stacks, Midnight, normal, saved bookmark| I[Intro]
-  T -->|Choose Keeper| S[Setup]
-  T <-->|Library / Settings / Quit| C[Info cards]
-  S -->|Begin siege| I
-  I --> P[Board: prep]
+  T[Title] -->|Continue / Start| I[Intro]
+  T -->|Continue: Overflow saved, no door answer| S
+  T -->|New night| S[Setup]
+  T <-->|How to play / Settings| C[Title sub-cards]
+  S -->|Back| T
+  S -->|Begin| I
+  I -->|Back to setup| S
+  I -->|To the carpet / Cover the chute| P[Board: prep]
   P -->|Start wave| W[Board: combat]
   P <-->|Back room| B[Back room]
   W -->|cleared| X{next beat}
   X -->|after waves 1, 2; after 6 unless knight betrayed| U[Upgrade pick] --> P
-  X -->|Midnight, after wave 4| A[Knight at the door] --> P
-  X -->|Midnight, accepted, after wave 5| BT[He turned]
-  BT --> W
+  X -->|Midnight, after wave 4| A[Knight] --> P
+  X -->|Midnight, accepted, after wave 5| BT[He turned] --> W
   BT -->|stacks run out| D
   X -->|Overflow, after wave 4| M[No visitor] --> P
-  X -->|story nights, after wave 14| CQ[The choice comes due] --> W
+  X -->|story nights, after wave 14| CQ[Choice comes due] --> W
   X -->|otherwise| P
   X -->|after wave 15| V[Victory]
   W -->|out of stacks| D[Defeat]
-  V -->|Run it back| S
-  D -->|Try again| S
+  P & W & U & A & BT & CQ & M & B -.->|Menu / Esc| PM[Pause menu]
+  PM -.->|Resume| P
+  PM -->|Restart night| I
+  PM -->|Leave to title| T
+  V -->|Midnight: Continue to the Overflow| I
+  V -->|Overflow: Set up Endless| S
+  V -->|Play again| I
+  D -->|Try again| I
+  V & D -->|Change setup| S
+  V & D -->|Title| T
 ```
 
-**Notes on the flow:**
-- **Betraying the knight** replaces the wave-6 upgrade with an immediate prize (`rules.ts` ~967).
-- **Endless** has no knight, no consequence and no victory. It picks after waves 1, 2 and 6, then every fifth wave, and ends only in Defeat.
+The dotted Resume arrow returns to whichever screen the menu was opened from, not only to prep.
 
-### 1.3 Controls today
+**Pacing:** a story night is 15 waves. Endless picks after waves 1, 2 and 6, then every fifth wave, and ends only in Defeat.
 
-| Where | Mouse / touch | Keyboard (`src/components/hotkeys.ts`) |
-|---|---|---|
-| Title, Setup | Buttons | No hotkeys. Tab plus Enter/Space on a focused button works natively; Esc and arrows do nothing |
-| Board | Tap floor to build; tap a cannon to select | Q/W/E tab · 1–5 cannon · Space start wave (prep) / pause (combat) · P pause · S sell · B back room · Esc deselect · +/− speed · M sound |
-| Upgrade pick | Buttons | 1–3 |
-| Back room | Buttons | 1–3, Esc = Not now |
-| Knight, He turned, Choice comes due, No visitor, Victory, Defeat | Buttons | No hotkeys (native Tab + Enter only) |
-| Anywhere with the header | Header pause/speed/sound/music | M sound. P and +/− only on the board |
+### 1.4 Less obvious paths
 
-**Quirks:**
-- Pause persists into the next wave.
-- In prep, Space starts a wave even while paused (`hotkeys.ts` 61).
-- The "Paused" banner draws over story cards (line 274).
+- **Continue, then Back on the Intro, lands on Setup, not the Title.** The Intro's Back always means "change my setup", wherever you came from. A second Back (or Esc) reaches the Title.
+- **Pause menu over a story or pick card:** the card stays open underneath and becomes inert, so only one modal dialog is active at a time. Resume or Esc closes the menu and returns to the same card, with focus back on the button it had. The card's choice is not made for you.
+- **Pause menu over the back room:** the header menu button opens it. Esc in the back room means "Not now", not "menu".
+- **Restart / Leave confirmations:** "Keep playing" returns to the pause menu. Esc closes the whole menu and resumes.
+- **Back room during a wave:** the inspector shows a greyed **Between waves** button, and **B** does nothing until the wave ends.
+- **Continue to the Overflow with no door answer:** it uses this run's knight answer, then the saved one. If neither exists it opens Setup with the door question outlined. A Midnight run can't normally reach Victory without answering the knight after wave 4, so this is a safety net.
+- **Continue on the Title after a map or bookmark was re-locked** (for example, cleared storage): it falls back to The Stacks or no bookmark, and a gold note under the summary says so.
+- **First visit:** the gold button reads **Start**. The summary shows the defaults (Midnight · The Stacks · Mynxi · Normal difficulty) plus "Pick your own with New night." It reads **Continue** once any night has been begun, because the setup is saved on Begin.
+- **Closing or reloading the tab mid-run:** the browser asks first. The run itself is not saved (open question 2).
+- **Phone / browser Back:** on Setup it goes to the Title. On the Intro it goes to Setup. On the board or a card it opens the pause menu, a second Back closes it, and in the back room it means Not now. On end cards it does nothing. On the Title it leaves the site.
+
+### 1.5 Controls
+
+Key rules live in one pure function, `keyAction(hud, key)` in `src/game/keys.ts`; `runKeyAction` applies the result. The React hook in `src/components/hotkeys.ts` only handles typing in inputs, focused buttons and `preventDefault`.
+
+| Where | Keys |
+|---|---|
+| Title | ↑/↓ move through the buttons (focus starts on Continue), Enter presses the focused one, Esc closes a sub-card |
+| Setup | 1–3 keeper, Enter Begin (when ready), Esc Back |
+| Intro | Enter goes to the carpet, Esc back to Setup |
+| Board | Q/W/E tab · 1–5 cannon · Space starts the wave between waves and pauses during one · P quick pause · S sell · B back room (between waves, cannon selected) · Esc closes the inspector, then opens the pause menu · +/− speed · M sound |
+| Upgrade pick | 1–3 pick, Esc pause menu |
+| Back room | 1–3 fit, Esc Not now |
+| Knight | 1–3 (Accept, Betray, Send away), Esc pause menu |
+| He turned, Choice comes due, No visitor | Enter presses the button, Esc pause menu |
+| Victory / Defeat | Enter presses the primary button. Esc does nothing, so new unlocks aren't skipped |
+| Pause menu | Esc closes it (from its Settings, Esc goes back to the menu first). Space, P, digits and +/− are ignored. M still works |
+
+**Rules that apply everywhere:**
+- **Focused buttons:** a button reached by keyboard (`:focus-visible`) keeps its own Enter and Space. A button that only has focus because it was clicked doesn't, so Space still starts the wave after you click a cannon.
+- **Pausing:** quick pause works only on the board, never under the menu. Starting a wave always unpauses.
+- **Hints:** desktop shows number hints on choice cards and "Enter" / "Esc" hints on single-button cards and Not now.
+
+### 1.6 Screen details
+
+**Title**
+- **Summary line:** `setupSummary()` gives night · room (or the door answer on the Overflow) · keeper · difficulty · bookmark, for example "Midnight · The Archive · Vaelithra · Melongeddon difficulty".
+- **Fallback note:** any note from `validateSetup()` appears in gold under the summary.
+- **Quit:** removed. A browser tab can't quit.
+
+**Setup**
+- **Layout:** the content scrolls in its own area. The footer is pinned and holds **Back** (left), **Begin** (right) and, when Begin is off, a red reason line: "Pick a keeper." or "Say how the first night ended."
+- **Door question:** when unanswered on the Overflow, it is also outlined in red.
+- **Phones (below 768 px for keepers, below 640 px for rows):**
+  - Keepers are three portraits, with the chosen keeper's role, flavour line and traits in a panel below.
+  - Rooms and bookmarks are single rows that scroll sideways.
+  - Measured at 375×812: 912 px of scrolling for a 660 px view, and Begin is always visible.
+- **Wider screens:** the large keeper cards and room/bookmark grids.
+
+**Board header**
+- **Contents:** seeds · stacks · absurdity (desktop) · speed −, pause, + (board phases only) · menu · sound.
+- **Music:** lives only in Settings. Speed and pause are hidden on cards. The book icon hides on phones during a run, so the header fits 375 px.
+
+**Cards** (back room, upgrade, knight, He turned, Choice comes due, No visitor, end cards) **and the pause menu**
+- **Shared dialog:** all use `Dialog` (`src/components/Dialog.tsx`):
+  - `role="dialog"` and `aria-modal`, labelled by the card title
+  - focus moves to the `data-autofocus` element or the first button
+  - Tab is trapped inside, and focus returns on close
+- **Footer:** the board footer, including the log line, is hidden while a card is open.
+- **End-card title:** has `role="status"`, so the result is announced.
+
+**Settings panel** (`SettingsPanel`, the same component on the Title and in the pause menu)
+- **Sound** and **Music**.
+- **Game speed:** 0.5× / 1× / 2× / 3×. It sets the current speed and saves it as the default.
+- **Reduce motion:** saved, and overrides the system's `prefers-reduced-motion`. It turns off screen shake.
+- **Show tips again:** clears the tutorial flag and says "Tips will show on your next night."
+- **Key list:** built from `HOTKEY_HELP`, so it can't drift.
+
+**Focus ring:** a gold `:focus-visible` outline with a dark gap, in `src/styles.css`.
+
+### 1.7 Where things live
+
+| What | Where |
+|---|---|
+| Setup record, validation, navigation functions, pause state, speed and reduce-motion settings | `src/game/engine.ts` (`SetupRecord`, `validateSetup`, `resetRunState`, the api functions in 1.2, `openMenu`/`closeMenu`/`menuSettings`, `setSpeed`, `setReduced`) |
+| Key rules | `src/game/keys.ts` |
+| Key listener | `src/components/hotkeys.ts` |
+| Dialog frame | `src/components/Dialog.tsx` |
+| Screens, pause menu, Settings panel, How to play, browser history, leave-page prompt | `src/components/MelonGame.tsx` |
+| Saved in the browser | `melongeddon-setup` (setup record), `melongeddon-door`, `melongeddon-bookmark`, `melongeddon-speed`, `melongeddon-reduced`, `melongeddon:tutorial` |
+
+### 1.8 Tests
+
+`npm test` runs 59 tests with `node --test` and no DOM.
+
+**`tests/navigation.test.ts` (19 tests):**
+- Setup keeps the keeper.
+- `reset`, `restartNight` and `toTitle` clear the run and keep the setup.
+- Back from the Intro removes Sir Michael's free cannon.
+- Continue: first-visit defaults, pre-selection from a saved setup, locked map/bookmark fallback with a note, junk ignored.
+- The Overflow: no door answer → Setup; a saved answer starts it.
+- Continue to the Overflow uses this run's answer, and Set up Endless opens Setup.
+- Pause menu: it pauses and blocks quick pause and waves; Resume unpauses; it can't open on the Title, Setup, Intro or end cards; starting a wave unpauses.
+- Settings: speed values, and reduce motion.
+
+**`tests/keys.test.ts` (11 tests):**
+- Esc order on the board, and in the menu's Settings.
+- Keys ignored under the menu; Space-to-start while quick-paused.
+- Setup digits, Enter and Esc; Intro Enter.
+- Knight 1–3; Enter on single-button cards; end-card Enter and Esc; back-room digits and Esc.
+- The Title leaving keys to its own buttons.
 
 ---
 
-## 2. Review
+## 2. Original review
+
+These findings were written against the game **before** the redesign (Appendix A). Each now has a status.
 
 Severity:
 - **High**: a player can get stuck or lose progress.
 - **Medium**: confusing, slow, or content is easy to miss.
 - **Low**: polish.
 
-### High
+| ID | Finding (before the redesign) | Status |
+|---|---|---|
+| H1 | No way to leave a run: pause only froze the board | **Fixed, phase 1.** Pause menu with Restart night and Leave to title |
+| H2 | Setup had no way back; the Title was reachable only by reloading | **Fixed, phase 1.** Setup Back, Esc, browser Back |
+| H3 | "Run it back" went to Setup and wiped the night, map and keeper | **Fixed, phase 1.** Play again / Try again restart the same setup; Change setup keeps choices |
+| H4 | Phone Setup far too long, with Begin at the bottom | **Fixed, phase 2.** 912 px of scrolling, Begin pinned. See the note below |
+| M1 | Start silently used Mynxi, the Stacks, Midnight and normal | **Fixed, phase 1.** Continue shows a summary line; first-visit Start shows the defaults |
+| M2 | Button names didn't match their screens | **Fixed, phases 1 and 4.** New night, How to play, Quit removed, and the engine's `openLibrary` is now `openSetup` |
+| M3 | "Stacks" meant a difficulty, a map and the lives counter | **Mostly fixed, phase 4.** The difficulty is now "Normal". The map "The Stacks" and the lives counter "stacks" keep the word on purpose: it's the game's word for lives |
+| M4 | Keyboard support stopped at the board | **Fixed, phase 3** |
+| M5 | Overlays weren't dialogs | **Fixed, phase 3.** Plus, in revision 3, one modal at a time under the pause menu |
+| M6 | Pause and speed worked in the wrong places; Space started a frozen wave | **Fixed, phase 1** |
+| M7 | No music toggle on phones mid-run | **Fixed, phases 1 and 4.** Music is in Settings on every screen size |
+| M8 | Winning Midnight didn't point to the Overflow | **Fixed, phase 1.** Continue to the Overflow |
+| M9 | Info cards and key lists out of date | **Fixed, phase 4.** How to play is generated from game data; key lists come from `HOTKEY_HELP` |
+| L1 | Back room button vanished during a wave | **Fixed, phase 4.** Greyed "Between waves" |
+| L2 | Phone title logo clipped at the sides | **Open, deferred.** Needs a portrait title image (art). See 3.5 |
+| L3 | Setup forgot the last keeper | **Fixed, phase 1.** The keeper lives in the engine and the saved setup |
+| L4 | The Overflow used a different intro screen | **Fixed, phase 4** |
+| L5 | End cards had a single button | **Fixed, phase 1** |
+| L6 | The log line showed under story cards | **Fixed, phase 4** |
 
-**H1. Once a run starts there is no way to leave it.** Pause only freezes the board (`togglePause`; the "Paused" label at line 276). There is no pause menu, no restart, no "back to title". To change keeper, map or difficulty mid-run, the player must lose or reload the page.
-
-**H2. Setup has no way back to the Title.**
-- `openLibrary()` moves `coldopen → select`, and nothing moves back. Esc does nothing.
-- `coldopen` is only reachable on page load, so after the first visit the Title's Library and Settings cards are unreachable until a reload.
-
-**H3. "Run it back" doesn't run it back.** Both end cards send the player to Setup with night forced to Midnight, map forced to the Stacks, no keeper, speed reset to 1×, and pause cleared (see 1.1). Example: a player who just lost on the Archive with Vael presses "Try again" and has to find every choice again.
-
-**H4. On phones, Setup is far too long, and Begin siege is at the very bottom.**
-- Measured in the browser at 375×812: the scroll area is 2,484 px for a 727 px view, about 3.4 screens.
-- Each keeper card is at least 26rem tall (`min-h-[26rem]`), and cards stack below 768 px (`md:grid-cols-3`), so tablets in portrait suffer too.
-- When Begin siege is disabled, the only hint covers the Overflow door question, not a missing keeper (line 1020).
-
-### Medium
-
-**M1. "Start" silently picks Mynxi, the Stacks, Midnight and normal difficulty, plus the saved bookmark.** `onStart` calls `chooseHero("mynxi")` (line 397). The difficulty is always normal, because the Title only exists on page load (`engine.ts` ~362). Nothing on the Title says what Start will use.
-
-**M2. Button names don't match their screens.**
-- "Choose Keeper" opens a screen that chooses night, difficulty, bookmark, map *and* keeper.
-- "Library" opens lore, while the engine function behind "Choose Keeper" is called `openLibrary`.
-- "Quit" quits nothing (it can't in a browser).
-
-**M3. "Stacks" means three things.** It is the normal difficulty ("Stacks"), the first map ("The Stacks"), and the lives counter ("12 stacks"). The map and the difficulty are picked side by side on Setup.
-
-**M4. Keyboard support stops at the board.**
-- Title, Setup and the story cards have no hotkeys; only native Tab + Enter works there.
-- Board choices use 1–3, but the Knight card, which also has three choices, ignores them.
-- On the board, Space is captured by the game, so it can't press a focused button.
-
-**M5. Overlays aren't dialogs.** Story cards, upgrade picks and the back room are plain `div`s. They have no `role="dialog"` or `aria-modal`, focus isn't moved into them, there's no focus trap, and focus isn't returned on close. Screen-reader and keyboard users land behind the overlay.
-
-**M6. Pause and speed work in the wrong places.**
-- The header pause and speed buttons stay live during story cards, the back room and end cards. The "Paused" banner then draws over the card.
-- Pause carries into the next wave.
-- Space in prep starts a wave while paused, so the wave starts frozen.
-
-**M7. The music toggle disappears on phones.** The header music button is `hidden … sm:grid` (line 248). On a phone, music can only be changed from the Title's Settings card, which, per H2, can't be reached after the first visit.
-
-**M8. Winning Midnight doesn't point to the Overflow.** Night two is a toggle on Setup with no lock, but the Victory card never mentions it, even though the door answer is already saved (`writeDoor`). It's discoverable, just not suggested.
-
-**M9. Info cards are out of date.**
-- Library (lines 578–579) names only the Stacks, the Annex and the Overflow; the newer maps and cannons are missing.
-- Settings' key list (line 589) is hand-written and lacks P (pause) and Space-to-pause.
-- `HOTKEY_HELP` in `hotkeys.ts` (line 16) also lacks P.
-
-### Low
-
-**L1.** The Back room button disappears during a wave with no explanation.
-
-**L2.** On phones the title logo is clipped at the sides (already on the art to-do list as a portrait title image).
-
-**L3.** Setup forgets the last keeper. The selected keeper is local React state in `SelectScreen` (line 784), not engine state.
-
-**L4.** The Overflow uses a different intro component (`Poster`) from every other map (`RoomScreen`), even though it now has banner art.
-
-**L5.** End cards have a single button. There's no way to go to the Title, or to change only one setting.
-
-**L6.** The footer log line stays visible under story cards, sometimes repeating the card's text.
+**About the H4 numbers:**
+- **2,484 px:** measured for revision 1, before any phase.
+- **2,849 px:** the "before" figure in the phase 2 commit, measured after phase 1 had added the Back button row and the summary changes.
+- **912 px:** after phase 2.
 
 ---
 
-## 3. Target design
+## 3. Design rules and remaining work
 
 ### 3.1 Principles
 
-1. **Every screen has a visible way back.** On keyboards, Esc means close the topmost thing, or open the pause menu if nothing is open. Phones have no Esc, so every back path is also a button.
-2. **One primary action per screen**, always in the same place: the gold button, bottom-centre on phones. Enter presses it.
-3. **Choices are numbered.** Any card with 2–5 choices accepts 1–5, in on-screen order.
-4. **The engine remembers the setup.** The last night, map, difficulty, bookmark and keeper are pre-selected, so "same again" is one press.
-5. **Never lose a run by accident.** Leaving a run in progress asks first. That includes the browser's Back button and closing the tab.
-6. **Names say what they open.**
+1. **Every screen has a visible way back.** On keyboards, Esc closes the topmost thing, or opens the pause menu if nothing is open. Phones have no Esc, so every back path is also a button, and the phone's Back gesture follows the same steps.
+2. **One primary action per screen**, always the gold button, focused, pressed by Enter.
+3. **Choices are numbered.** Cards with 2–3 choices accept 1–3, in on-screen order.
+4. **The engine remembers the setup**, so "same again" is one press.
+5. **Never lose a run by accident.** Restart and Leave ask first, and closing the tab asks first.
+6. **Names say what they open.** For example, "Set up Endless" opens Setup instead of starting a run.
 
-### 3.2 Screen map
+### 3.2 Engine model
 
-```mermaid
-flowchart TD
-  T[Title] -->|Continue: last setup, validated| I[Intro]
-  T -->|New night| S[Setup]
-  T --> H[How to play]
-  T --> O[Settings]
-  S -->|Back| T
-  S -->|Begin| I
-  I -->|Back| S
-  I -->|To the carpet| G[Board]
-  G -->|menu button / Esc| PM[Pause menu]
-  Cards[Story and pick cards] -->|menu button / Esc on story cards| PM
-  PM -->|Resume| G
-  PM --> O
-  PM -->|Restart night: confirm| I
-  PM -->|Leave to title: confirm| T
-  G --> Cards --> G
-  G --> V[Victory]
-  G --> D[Defeat]
-  V -->|Midnight won: Continue to the Overflow| I
-  V -->|Overflow won: Try Endless| S
-  V -->|Play again: same setup| I
-  D -->|Try again: same setup| I
-  V & D -->|Change setup| S
-  V & D -->|Title| T
-```
+1. **Setup record.**
+   - **Contents:** `{ night, map, difficulty, bookmark, hero, door }`.
+   - **Saved:** by `chooseHero` on Begin.
+   - **On load:** read back, run through `validateSetup()`, and applied to the HUD so every Setup row is pre-selected. The bookmark comes from the separately saved pick, which is newer.
+   - **The keeper:** lives in `hud.hero` from Setup onward, so the UI decides "in a run" by phase, not by `hud.hero`.
+2. **Shared reset.** `resetRunState()` clears the run and keeps the setup and speed. Section 1.2 lists the functions built on it.
+3. **Pause model.**
+   - **State:** `hud.menu` is `"pause"`, `"settings"` or `null`. Opening the menu pauses the game, and closing it always unpauses.
+   - **Quick pause:** P, or Space during a wave. It toggles `paused` only, and only on the board.
+   - **Waves:** `startWave` refuses to run under the menu and always unpauses.
+4. **Continue validation.** `validateSetup()` falls back from unknown values, re-locked maps and re-locked bookmarks, with a note. `continueRun()` routes an Overflow without a door answer to Setup.
+5. **Browser history.**
+   - **Spare entry:** while you're away from the Title, the page keeps one extra history entry. Each Back uses it, does the in-game back step in 1.4, and puts it back unless that step reached the Title.
+   - **Back to the Title by button:** reaching the Title with a button drops the spare entry, so Back from the Title leaves the site as usual.
+   - **Leaving mid-run:** a `beforeunload` prompt runs during a run.
 
-### 3.3 Engine model (decide before building any screen)
+### 3.3 Wording (decided)
 
-**1. Setup record, owned by the engine.**
-- The selected keeper moves out of `SelectScreen`'s local state into `hud.hero`, which is now set while in `select`.
-- On Begin, the engine saves `{ night, map, difficulty, bookmark, hero, door }` to storage. `reset()` stops nulling these and only clears the run.
+| Before | Now |
+|---|---|
+| Start | Continue (Start on a first visit) |
+| Choose Keeper | New night |
+| Library ("The shelves") | How to play |
+| Settings ("The hall") | Settings |
+| Quit | Removed |
+| Difficulty "Stacks" | "Normal" (Story and Melongeddon unchanged; open question 3, decided) |
+| Begin siege | Begin |
+| Run it back / Try again | Play again / Try again (same setup), Change setup, Title, plus Continue to the Overflow and Set up Endless |
+| "keeper screen" (bookmark text, unlock messages, comments, README) | "setup screen" |
 
-**2. Shared reset.**
-- Extract the run-clearing half of `reset()` (enemies, towers, shots, pools, `cleared`, `queue`, `queueCursor`, `karlReward`, `absurdDrops`, run HUD fields) into `resetRunState()`.
-- Then:
-  - `reset()` = `resetRunState()`, then go to `select`.
-  - `restartNight()` = `resetRunState()`, then `chooseHero(savedHero)`.
-  - `toTitle()` = `resetRunState()`, then go to `coldopen`.
-- `chooseHero` alone is not enough: it doesn't clear run state, and it only runs from `select`/`coldopen`.
+### 3.4 Delivery record
 
-**3. Pause model.**
-- `hud.menu: "pause" | "settings" | null` lives in the HUD, because `hotkeys.ts` reads only `api.world.hud`.
-- Opening the menu sets `paused`; the frame loop checks only `hud.paused`.
-- **Quick pause** = P, or Space during a wave. It toggles `paused` only and shows the "Paused" label.
-- **Menu** = Esc, or the header menu button. If the game was quick-paused when the menu opened, Resume leaves it unpaused.
-- **While the menu is open:** Space, P, digits and +/− are swallowed. Esc or Resume closes it.
-- **Starting a wave always unpauses.**
-- **On cards:** the header speed buttons are hidden on story/pick cards and end cards, and the pause button becomes the menu button.
+| Phase | Commit | Scope | Fixed |
+|---|---|---|---|
+| 1. Setup record and ways out | `84e15e7` | Engine model, pause menu, Setup and Intro Back, end-card buttons, Continue with summary. Pulled forward: Continue / New night names, Esc on Setup, the Intro and story cards, P in `HOTKEY_HELP`, music in the pause menu's Settings, leave-page prompt | H1, H2, H3, M1, M6, M8, L3, L5 |
+| 2. Phone setup layout | `fadbde4` | Scroll area plus pinned footer, reason line, door outline, compact keepers, sideways rooms and bookmarks, browser history | H4 |
+| 3. Keyboard and dialogs | `e9792fc` | `keys.ts`, `Dialog`, digits and Enter everywhere, Title arrows, focus ring, hints | M4, M5 |
+| 4. Names and content | `d03bcd0` | Wording, How to play, shared Settings panel, music out of the header, same intro for the Overflow, greyed back room, footer hidden under cards | M2, M3, M7, M9, L1, L4, L6 |
+| Revision 3 fixes | this revision's commit | Card inert under the pause menu, "Set up Endless", `openLibrary` → `openSetup` | M2, M5 follow-ups |
 
-**4. Continue validation.** Before Continue starts a run:
-- **Map:** if the saved map isn't in `hud.maps`, fall back to the Stacks and say so on the Title.
-- **Bookmark:** if the saved bookmark isn't in `hud.unlocked`, fall back to none and say so.
-- **Overflow without a door answer:** if the saved night is the Overflow and `readDoor()` is `"none"`, Continue opens Setup with the door row highlighted, instead of failing silently.
-- **Summary line:** shows night (including Endless), map or door answer, keeper, and difficulty.
+### 3.5 Remaining and deferred
 
-**5. Browser history.**
-- Push a history entry when entering Setup, Intro and the board, so the phone's Back gesture moves back one screen instead of leaving the site.
-- On the board, Back opens the pause menu.
-- Add a `beforeunload` prompt while a run is in progress.
+- **L2, phone title clipping.** Needs a portrait crop or a portrait title image. It's on the art to-do list.
+- **"Try it" link for a newly unlocked map** on the end card.
+- **"Restart wave".** Needs a board snapshot.
+- **Resume a run after a reload** (open question 2).
 
-### 3.4 Screen by screen
+### 3.6 Open questions
 
-**Title**
-- **Continue**: gold, primary. It shows the summary line from 3.3.4. On a first visit it reads **Start** and uses the defaults.
-- **New night**: opens Setup.
-- **How to play**: replaces "Library". It covers controls, cannon roles and maps; the lore text moves here.
-- **Settings**: the shared panel, below.
-- **Quit**: removed on the web. Keep it only in a desktop build that can close its window.
-- Keys: ↑/↓ move, Enter selects, Esc on a sub-card returns to the menu.
+1. Should Endless get its own Title entry, since it has its own best score, rather than living as a Night toggle on Setup?
+2. Should Continue also resume a run in progress after a reload? That needs saving the board mid-run, which the game doesn't do.
 
-**Setup** (eyebrow "New night")
-- **Order:** Night → Map, or the Overflow door question → Keeper → Difficulty → Bookmark.
-- **Defaults:** every row is pre-selected from the setup record, so Begin is never disabled on a return visit.
-- **Phone layout:**
-  - Keeper cards become a row of three portraits, with the chosen keeper's traits below.
-  - Map cards become a row that scrolls sideways.
-  - A **sticky footer** holds Back on the left and Begin on the right.
-- **Disabled Begin:** the footer gives the reason ("Pick a keeper" / "Say how the first night ended").
-- **Keys:** Esc = Back to Title; Enter = Begin; 1–3 = keeper.
+**Decided:** question 3 from revision 2 ("rename only the normal difficulty, or all three?"). Only the normal difficulty was renamed, to "Normal". It can be revisited.
 
-**Intro**
-- Keeps a single primary button, plus a small Back to Setup.
-- The Overflow uses this same banner screen.
+---
 
-**Board**
-- **Header:** seeds · stacks · absurdity · speed · **menu** · sound. Music moves into Settings on every screen size.
-- **Pause menu:**
-  - **Resume** (primary)
-  - **Settings**
-  - **Restart night**: asks "Restart from wave 1? This run's progress is lost."
-  - **Leave to title**: same confirmation.
-- **Esc order:** close the back room → close the inspector → open the pause menu.
-- **Back room during a wave:** the button is shown greyed with "Between waves", instead of hidden.
+## Appendix A: before the redesign
 
-**Story and pick cards** (upgrade, knight, He turned, Choice comes due, No visitor, back room)
-- **Dialog behaviour:** all use one dialog frame: `role="dialog"`, `aria-modal`, focus on the first choice, Tab trapped inside, and focus returned on close.
-- **Choice cards** (upgrade, knight, back room): 1–3 pick. Esc opens the pause menu, except in the back room, where Esc = "Not now".
-- **Single-button cards:** Enter presses the button; Esc opens the pause menu.
-- **Log line:** the footer log is hidden while a card is open.
+For context only. Don't use this to find code.
 
-**Victory / Defeat**
-- **Primary button:**
-  - After a Midnight win: **Continue to the Overflow** (saved door answer, same keeper and difficulty).
-  - After an Overflow win: **Try Endless**, which opens Setup with Endless selected.
-  - After an Endless defeat: **Try again**.
-  - Otherwise: **Play again** after a win, **Try again** after a defeat, both with the same setup.
-- **Secondary buttons:** **Change setup** and **Title**.
-- **Keys:** Enter = primary. Esc does nothing, so new unlocks aren't skipped by accident.
-- **Accessibility:** the result is announced (`role="status"` on the title line).
-
-**Settings** (one shared panel, from the Title and the pause menu)
-- Sound on/off, music on/off, and default game speed.
-- **Reduce motion**: the engine already honours `prefers-reduced-motion`; this adds an in-game override.
-- **Key list:** built from `HOTKEY_HELP`, after adding P to it, so the list can't drift.
-- **"Show tips again":** clears `melongeddon:tutorial`. Tips only run on waves 1–2 and the hint reads storage once, so it says "Tips will show on your next night."
-
-### 3.5 Wording changes
-
-| Today | Target | Why |
-|---|---|---|
-| Start | Continue (Start on a first visit) | Says it reuses your setup |
-| Choose Keeper | New night | It opens the whole setup |
-| Library | How to play | Says what's inside |
-| Quit | (remove on web) | A browser tab can't quit |
-| Difficulty "Stacks" | "Normal" (see open question 3) | "Stacks" is also a map and the lives counter. "Library" was considered, but clashes with the "Midnight Library" subtitle |
-| Begin siege | Begin | Shorter |
-| Run it back / Try again | Play again / Try again (same setup) + Change setup + Title | Does what it says |
-
-**Text that must change with these renames:**
-- "keeper screen" in `Bookmarks.tsx` (~99), `engine.ts` (~419) and `meta.ts`.
-- The README.
-
-### 3.6 Implementation plan
-
-The phases are ordered by player impact and by what each depends on. Each phase can ship on its own.
-
-1. **Setup record and ways out.**
-   - The engine model in 3.3: setup record, `resetRunState`, `toTitle`, `restartNight`, pause model, Continue validation.
-   - Pause menu; Setup Back; Intro Back; end-card buttons (Play again / Change setup / Title / Continue to the Overflow).
-   - Fixes H1, H2, H3, M1, M6, M8, L3, L5.
-   - **Built.** Tests in `tests/navigation.test.ts`. Pulled forward from later phases because they were small: the Title's Start/Choose Keeper became Continue/New night; Esc goes back on Setup and the Intro and opens the menu on story cards; P added to `HOTKEY_HELP`; the pause menu's Settings has the music toggle, so phones can reach it mid-run; a `beforeunload` prompt during a run. Browser-history entries are left for Phase 2.
-2. **Phone setup layout.** Sticky Back/Begin footer, compact keeper row, sideways map row, reason line, and browser-history entries. Fixes H4.
-   - **Built.** Setup on a 375×812 phone went from 2,849 px of scrolling (after Phase 1's Back row) to 912 px, and Begin is always on screen. Rows follow the 3.4 order. Bookmarks also scroll sideways on phones. An unanswered Overflow door question is outlined in red. History keeps one spare entry while away from the Title: Back on Setup goes to the Title, on the Intro to Setup, on the board opens (or closes) the pause menu or closes the back room, and does nothing on end cards.
-3. **Keyboard and dialogs.**
-   - Move key handling into a pure function `(hud, key) => action`, so it can be tested without a DOM.
-   - A shared `Dialog` wrapper; digits for all choice cards; arrows on the Title.
-   - Fixes M4, M5.
-   - **Built.** `src/game/keys.ts` holds `keyAction(hud, key)` and `runKeyAction`; tests in `tests/keys.test.ts`. `components/Dialog.tsx` wraps every card, end card and the pause menu. A button reached by keyboard keeps its own Enter/Space; one that only has focus from a mouse click doesn't, so Space still starts the wave. Also added: a gold `:focus-visible` ring everywhere, number hints (desktop) on choice cards, and Enter/Esc hints on single-button cards.
-4. **Names and content.**
-   - The wording table, How to play content, and the Settings panel (key list, reduce motion, tips).
-   - Music toggle into Settings; the same intro screen for the Overflow; the greyed Back room button.
-   - Fixes M2, M3, M7, M9, L1, L4, L6.
-   - **Built.** Title: Continue, New night, How to play, Settings (Quit removed). One `SettingsPanel` on the Title and in the pause menu: sound, music, default speed (saved), reduce motion (saved, overrides the system setting), Show tips again, key list from `HOTKEY_HELP`. The music button left the header. Difficulty "Stacks" is now "Normal" (only that one renamed; open question 3). "Begin siege" is "Begin". "Keeper screen" text now says "setup screen". The Overflow uses the same banner intro as every room. The back-room button shows greyed as "Between waves" during a wave. The footer, and its log line, is hidden under cards.
-
-**Tests to add** (`node --test`, no DOM):
-- `restartNight` and `toTitle` clear the run and keep the setup record.
-- `reset()` keeps night, map, keeper, difficulty and bookmark.
-- Continue falls back from a locked map or bookmark, and routes an Overflow with no door answer to Setup.
-- Continue to the Overflow uses the saved door answer.
-- The pure key function follows the Esc order, swallows keys while the menu is open, and starting a wave unpauses.
-
-**Deferred:**
-- A "Try it" link for newly unlocked maps.
-- "Restart wave", which needs a board snapshot.
-
-### 3.7 Open questions
-
-1. Should Endless get its own Title entry, since it has its own best score, rather than living as a Night toggle?
-2. Should the Title's Continue also resume a run in progress after a reload? That would need saving the board mid-run, which the game doesn't do today.
-3. Rename only the normal difficulty ("Normal"), or all three together, keeping the library tone (e.g. Story / Shelved / Melongeddon)? **Decided for now:** only the normal difficulty was renamed, to "Normal".
+- **Title:** five buttons: Start (always Mynxi, the Stacks, Midnight, normal, plus the saved bookmark), Choose Keeper, Library (lore), Settings (sound, music, a hand-written key list) and Quit (a joke card). The Title only existed on page load.
+- **Setup:**
+  - Night and difficulty side by side, then bookmark, then room or door, then three tall keeper cards, with Begin siege at the bottom.
+  - The keeper was React state, forgotten on each visit.
+  - There was no Back.
+- **Overflow intro:** a separate plain poster card.
+- **Board:** pause and speed buttons in the header, live everywhere, including over cards. Pause carried into the next wave. A music button on desktop only. The back-room button disappeared during waves.
+- **Cards:** plain overlays, with no dialog role or focus handling. Digits worked only on the upgrade and back-room cards.
+- **End cards:** one button ("Run it back" / "Try again"). It went to Setup with the night forced to Midnight, the map to the Stacks, no keeper and speed reset.
 
 ---
 
 ## Review history
 
 **Revision 1** was reviewed by an independent AI agent, which read the code without the author's context. Verdict: **ready with changes**.
+- **Corrected:** "He turned" can end in Defeat; betraying the knight skips the wave-6 pick; only re-tapping the same cannon closes the inspector; Start always used normal difficulty plus the saved bookmark; `HOTKEY_HELP` also lacked P; native Tab + Enter worked off the board; pause and speed stayed live on cards; `reset()` also reset speed and pause.
+- **Re-ranked:** M8 from High to Medium.
+- **Added:** the engine model, pause-menu access over story cards, Victory Esc doing nothing, a button after an Overflow win, the rename knock-ons, "Normal" instead of "Library" for the difficulty, "Show tips again" applying next night, the pure key function, reduce motion, and `aria-modal` with focus return.
+- **Re-phased:** the setup record moved into Phase 1. "Try it" links and "Restart wave" were deferred.
 
-**Corrected in Part 1:**
-- "He turned" can end in Defeat.
-- Betraying the knight skips the wave-6 pick.
-- Only re-tapping the same cannon closes the inspector.
-- Start always uses normal difficulty plus the saved bookmark.
-- `HOTKEY_HELP` also lacks P.
-- Native Tab + Enter works off the board.
-- Pause and speed stay live on cards.
-- `reset()` also resets speed and pause.
+**Revision 2** carried those corrections and served as the build plan. Phases 1–4 shipped against it, each adding a "Built" note.
 
-**Re-ranked:** "Winning Midnight doesn't lead to the Overflow" moved from High to Medium (M8). The Overflow is selectable; it just isn't suggested.
+**Revision 3** answers a second review, which found the document contradicting itself after the build.
 
-**Added to Part 3:**
-- The engine model (3.3): an engine-owned setup record, `resetRunState`, the pause model, Continue validation, and browser history.
-- Pause menu access over story cards.
-- Victory Esc does nothing.
-- "Try Endless" after an Overflow win.
-- The rename knock-ons, and "Normal" instead of "Library" for the difficulty.
-- "Show tips again" applies next night.
-- A pure key function for testing, plus reduce motion and `aria-modal` / focus return.
+*Structure:*
+- Part 1 described the old game while the header said everything had shipped. Part 1 is now the current game, and the old one is Appendix A.
+- Shipped behavior lived only in the phase notes. It is now folded into 1.1–1.6.
+- Stale line numbers were removed.
 
-**Re-phased:** the setup record moved into Phase 1, so phases don't depend on later ones. "Try it" links and "Restart wave" are deferred.
+*Contradictions resolved:*
+- `reset()` vs Play again: 1.2 lists which function each button calls. Play again and Try again call `restartNight()` (Intro); Change setup calls `reset()` (Setup).
+- The H4 numbers are explained.
+- Section 3.3 no longer points at a decided question.
+
+*Paths now specified:*
+- Pause menu over a card.
+- Continue → Intro → Back reaching Setup.
+- Continue to the Overflow with no door answer.
+- B during a wave.
+- Esc from a confirmation.
+- The first-visit Start label.
+- The summary line contents.
+
+*Tests:* now described in the past tense, with file names and counts.
+
+*Status:* L2 is listed as open and deferred, instead of falling off the plan.
+
+*Code changes made with this revision:*
+- The story card underneath the pause menu is now `inert`, so only one modal dialog is active. Before, both were marked modal.
+- "Try Endless" is renamed "Set up Endless", since it opens Setup.
+- The engine's `openLibrary` is renamed `openSetup`.
+
+*Not a defect:* the review said `src/game/keys.ts`, `src/components/Dialog.tsx` and `tests/navigation.test.ts` don't exist. They exist and are committed in `e9792fc` and `84e15e7` (`tests/keys.test.ts` too). The reviewer was likely reading a copy from before phase 1.

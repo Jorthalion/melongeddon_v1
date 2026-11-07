@@ -474,7 +474,7 @@ export function MelonGame() {
           onKeeper={() => {
             gesture();
             tone(240, 0.06, "triangle", 0.04);
-            api.openLibrary();
+            api.openSetup();
           }}
         />
       ) : null}
@@ -1428,7 +1428,8 @@ function Overlay({
 }) {
   const hud = api.world.hud;
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-ink/75 p-4">
+    // While the pause menu sits on top, the card underneath is inert: one modal dialog at a time.
+    <div className="absolute inset-0 flex items-center justify-center bg-ink/75 p-4" inert={hud.menu != null}>
       <Dialog key={hudPhase} labelledBy="card-title" className="max-h-full w-full max-w-md overflow-auto rounded-xl border border-line bg-panel p-5 outline-none">
         {hudPhase === "shop" ? (
           <>
@@ -1636,7 +1637,7 @@ function Overlay({
                   ? "Vael files the result. The formula held."
                   : "Mynxi is filing this under accidents that worked."
             }`}
-            action={hud.night === "midnight" ? "Continue to the Overflow" : hud.night === "overflow" ? "Try Endless" : "Play again"}
+            action={hud.night === "midnight" ? "Continue to the Overflow" : hud.night === "overflow" ? "Set up Endless" : "Play again"}
             unlocks={hud.newUnlocks}
             maps={hud.newMaps}
             onAction={() => {

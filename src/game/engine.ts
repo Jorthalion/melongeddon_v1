@@ -409,7 +409,7 @@ export function createWorld(
   chooseNight: (night: NightId) => void;
   setDoor: (choice: Exclude<Alliance, "none">) => void;
   ackMemory: () => void;
-  openLibrary: () => void;
+  openSetup: () => void;
   beginNight: () => void;
   /** Setup: pick the keeper (kept in the HUD so it survives a return to Setup). */
   pickKeeper: (hero: HeroId) => void;
@@ -1828,7 +1828,7 @@ export function createWorld(
       world.hud.log = doorMemory(world.hud.alliance);
       notify();
     },
-    openLibrary() {
+    openSetup() {
       if (world.hud.phase !== "coldopen") return;
       world.hud.phase = "select";
       world.hud.log = "Choose who holds the stacks.";

@@ -7,7 +7,7 @@ const center = (c: number) => c * CELL + CELL / 2;
 /** A world on the Archive with Vael, hard, a bookmark, one cannon built and a wave started. */
 function midRun() {
   const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
-  api.openLibrary();
+  api.openSetup();
   api.chooseMap("archive");
   api.setDifficulty("hard");
   api.setBookmark("seedfund");
@@ -30,7 +30,7 @@ const SAME = { night: "midnight", map: "archive", difficulty: "hard", bookmark: 
 
 test("the keeper picked on Setup is kept in the engine", () => {
   const api = createWorld(() => {});
-  api.openLibrary();
+  api.openSetup();
   api.pickKeeper("michael");
   assert.equal(api.world.hud.hero, "michael");
   assert.equal(api.world.hud.phase, "select");
@@ -73,7 +73,7 @@ test("toTitle clears the run, and Continue starts the same setup", () => {
 
 test("Back from the Intro returns to Setup and removes Sir Michael's free cannon", () => {
   const api = createWorld(() => {});
-  api.openLibrary();
+  api.openSetup();
   api.pickKeeper("michael");
   api.chooseHero("michael");
   assert.equal(api.world.towers.length, 1);
@@ -164,7 +164,7 @@ test("Continue to the Overflow after Midnight uses this run's door answer", () =
   assert.ok(api.world.enemies.length > 0);
 });
 
-test("Try Endless after the Overflow opens Setup on Endless", () => {
+test("Set up Endless after the Overflow opens Setup on Endless", () => {
   const api = createWorld(() => {}, { setup: { night: "overflow", hero: "vael", door: "accept" } });
   api.continueRun();
   api.world.hud.phase = "victory";
@@ -209,7 +209,7 @@ test("the menu does not open on the Title, Setup, Intro or end cards", () => {
   const api = createWorld(() => {});
   api.openMenu();
   assert.equal(api.world.hud.menu, null);
-  api.openLibrary();
+  api.openSetup();
   api.openMenu();
   assert.equal(api.world.hud.menu, null);
   api.pickKeeper("mynxi");
