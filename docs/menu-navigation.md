@@ -2,6 +2,8 @@
 
 **Status:** revision 2. An independent AI agent reviewed it against the code; its corrections are folded in (see "Review history" at the end).
 
+**Progress:** Phase 1 is built (see 3.6). Part 1 still describes the game before Phase 1.
+
 **Covers:** every screen outside the board itself, plus the board's own controls (HUD, build bar, cannon inspector).
 
 This document has three parts:
@@ -318,6 +320,7 @@ The phases are ordered by player impact and by what each depends on. Each phase 
    - The engine model in 3.3: setup record, `resetRunState`, `toTitle`, `restartNight`, pause model, Continue validation.
    - Pause menu; Setup Back; Intro Back; end-card buttons (Play again / Change setup / Title / Continue to the Overflow).
    - Fixes H1, H2, H3, M1, M6, M8, L3, L5.
+   - **Built.** Tests in `tests/navigation.test.ts`. Pulled forward from later phases because they were small: the Title's Start/Choose Keeper became Continue/New night; Esc goes back on Setup and the Intro and opens the menu on story cards; P added to `HOTKEY_HELP`; the pause menu's Settings has the music toggle, so phones can reach it mid-run; a `beforeunload` prompt during a run. Browser-history entries are left for Phase 2.
 2. **Phone setup layout.** Sticky Back/Begin footer, compact keeper row, sideways map row, reason line, and browser-history entries. Fixes H4.
 3. **Keyboard and dialogs.**
    - Move key handling into a pure function `(hud, key) => action`, so it can be tested without a DOM.

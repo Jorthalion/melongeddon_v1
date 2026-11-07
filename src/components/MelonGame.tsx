@@ -1,6 +1,6 @@
 import { asset } from "@/lib/asset";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Music } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Music, Menu } from "lucide-react";
 import {
   BOARDS,
   CANNON_UPGRADES,
@@ -28,12 +28,14 @@ import {
   type UpgradeId,
   type World,
   type BookmarkId,
+  type Hud,
+  BOOKMARK,
   BALANCE,
   stacksWord,
 } from "@/game/engine";
 import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
-import { useHotkeys } from "@/components/hotkeys";
+import { HOTKEY_HELP, useHotkeys } from "@/components/hotkeys";
 import { TutorialHint } from "@/components/TutorialHint";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
 import { TowerIcon } from "@/components/TowerIcon";
@@ -152,8 +154,25 @@ export function MelonGame() {
 
   useHotkeys(api, { onGesture: gesture, onMute: toggleMute });
 
+  // Closing or reloading the tab mid-run asks first.
+  useEffect(() => {
+    const p = hud.phase;
+    const live = p !== "coldopen" && p !== "select" && p !== "poster" && p !== "victory" && p !== "defeat";
+    if (!live) return;
+    const onLeave = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, [hud.phase]);
+
   const phase = hud.phase;
   const showPlace = phase === "prep" || phase === "combat";
+  /** The keeper is also set on Setup now, so "in a run" is decided by phase. */
+  const inRun = hud.hero != null && phase !== "coldopen" && phase !== "select";
+  const menuable = inRun && phase !== "poster" && phase !== "victory" && phase !== "defeat";
+  const runLive = menuable;
   const selected = hud.selected == null ? null : (api.world.towers.find((t) => t.id === hud.selected) ?? null);
   const roomPrice = backRoomPrice(hud.hero, hud.shopVisits, hud.bookmark);
 
@@ -161,25 +180,27 @@ export function MelonGame() {
     <main className="relative flex h-dvh flex-col bg-ink text-parchment">
       <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <div className="flex items-center gap-2">
-          <BookOpen className="size-5 text-gold" aria-hidden="true" />
-          <div className={hud.hero ? "hidden sm:block" : ""}>
+          <BookOpen className={`size-5 text-gold ${inRun ? "hidden sm:block" : ""}`} aria-hidden="true" />
+          <div className={inRun ? "hidden sm:block" : ""}>
             <p className="font-display text-lg leading-none font-semibold">Melongeddon</p>
             <p className="text-xs text-muted">
               {phase === "coldopen"
                 ? "Tonight only"
-                : hud.hero === "michael"
+                : !inRun
+                  ? "Midnight Library"
+                  : hud.hero === "michael"
                   ? "Sir Michael"
                   : hud.hero === "vael"
                     ? "Vael"
                     : hud.hero === "mynxi"
                       ? "Mynxi"
                       : "Midnight Library"}
-              {hud.hero ? ` · ${BOARDS[hud.map].name}${hud.night === "endless" ? " · Endless" : ""}` : ""}
+              {inRun ? ` · ${BOARDS[hud.map].name}${hud.night === "endless" ? " · Endless" : ""}` : ""}
             </p>
           </div>
         </div>
         <div className="flex items-center justify-end gap-1.5 text-sm sm:gap-2">
-          {hud.hero ? (
+          {inRun ? (
             <>
               <span className="flex items-center gap-1.5">
                 <Coins className="size-5 text-gold" aria-hidden="true" />
@@ -193,6 +214,8 @@ export function MelonGame() {
               </span>
               <span className="hidden text-xs text-muted sm:inline">Absurdity {hud.absurdity}</span>
               <div className="flex items-center gap-1">
+                {showPlace ? (
+                <>
                 <button
                   type="button"
                   aria-label="Slow down"
@@ -229,10 +252,27 @@ export function MelonGame() {
                   +
                 </button>
                 <span className="hidden w-8 text-center text-xs text-muted sm:inline">{hud.paused ? "||" : `${hud.speed}×`}</span>
+                </>
+                ) : null}
+                {menuable ? (
+                  <button
+                    type="button"
+                    aria-label="Menu"
+                    aria-haspopup="dialog"
+                    title="Menu (Esc)"
+                    className="grid size-9 sm:size-11 place-items-center rounded-lg border border-line/70"
+                    onClick={() => {
+                      gesture();
+                      api.openMenu();
+                    }}
+                  >
+                    <Menu className="size-4" />
+                  </button>
+                ) : null}
               </div>
             </>
           ) : phase === "select" ? (
-            <span className="text-sm text-muted">Pick a keeper</span>
+            <span className="text-sm text-muted">New night</span>
           ) : null}
           <button
             type="button"
@@ -271,7 +311,7 @@ export function MelonGame() {
             tone(240, 0.06, "square", 0.03);
           }}
         />
-        {hud.paused && phase !== "select" && phase !== "coldopen" && phase !== "poster" ? (
+        {hud.paused && !hud.menu && showPlace ? (
           <div className="pointer-events-none absolute inset-3 grid place-items-center">
             <p className="rounded-xl border border-line bg-ink/80 px-4 py-2 font-display text-xl">Paused</p>
           </div>
@@ -391,10 +431,13 @@ export function MelonGame() {
           muted={muted}
           music={music}
           onMusic={toggleMusic}
+          saved={hud.saved}
+          summary={`${setupSummary(hud)}${hud.saved || hud.hero ? "" : ". Pick your own with New night."}`}
+          note={hud.setupNote}
           onStart={() => {
             gesture();
             tone(220, 0.08, "triangle", 0.04);
-            api.chooseHero("mynxi");
+            api.continueRun();
           }}
           onKeeper={() => {
             gesture();
@@ -421,6 +464,10 @@ export function MelonGame() {
               tone(260, 0.08, "triangle", 0.04);
               api.beginNight();
             }}
+            onBack={() => {
+              gesture();
+              api.backToSetup();
+            }}
           />
         ) : (
           <RoomScreen
@@ -435,10 +482,127 @@ export function MelonGame() {
               tone(260, 0.08, "triangle", 0.04);
               api.beginNight();
             }}
+            onBack={() => {
+              gesture();
+              api.backToSetup();
+            }}
           />
         )
       ) : null}
+      {hud.menu && runLive ? (
+        <PauseMenu api={api} muted={muted} music={music} onMute={toggleMute} onMusic={toggleMusic} onGesture={gesture} />
+      ) : null}
     </main>
+  );
+}
+
+const NIGHT_LABEL: Record<Hud["night"], string> = { midnight: "Midnight", overflow: "The Overflow", endless: "Endless" };
+const DOOR_LABEL: Record<Hud["alliance"], string> = {
+  accept: "you let him in",
+  betray: "you shot first",
+  reject: "you sent him away",
+  none: "door not answered",
+};
+const KEEPER_NAME: Record<HeroId, string> = { mynxi: "Mynxi", vael: "Vaelithra", michael: "Sir Michael" };
+
+/** One line for the Title's Continue: night, map or door answer, keeper, difficulty, bookmark. */
+function setupSummary(hud: Hud) {
+  const where = hud.night === "overflow" ? DOOR_LABEL[hud.alliance] : BOARDS[hud.map].name;
+  const level = DIFFICULTIES.find((d) => d.id === hud.difficulty)?.name ?? "";
+  const parts = [NIGHT_LABEL[hud.night], where, KEEPER_NAME[hud.hero ?? "mynxi"], `${level} difficulty`];
+  if (hud.bookmark) parts.push(BOOKMARK[hud.bookmark].name);
+  return parts.join(" · ");
+}
+
+/** Resume / Settings / Restart night / Leave to title. Restart and Leave ask first. */
+function PauseMenu({
+  api,
+  muted,
+  music,
+  onMute,
+  onMusic,
+  onGesture,
+}: {
+  api: ReturnType<typeof createWorld>;
+  muted: boolean;
+  music: boolean;
+  onMute: () => void;
+  onMusic: () => void;
+  onGesture: () => void;
+}) {
+  const hud = api.world.hud;
+  const [confirm, setConfirm] = useState<"restart" | "leave" | null>(null);
+  const first = useRef<HTMLButtonElement>(null);
+  const view = hud.menu === "settings" ? "settings" : confirm ?? "pause";
+  useEffect(() => {
+    first.current?.focus();
+  }, [view]);
+  const wave = hud.waveCount ? `Wave ${Math.min(hud.wave, hud.waveCount)} of ${hud.waveCount}` : `Wave ${hud.wave}`;
+
+  return (
+    <div className="absolute inset-0 z-40 grid place-items-center bg-ink/80 p-4 backdrop-blur-[2px]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pause-title"
+        className="w-full max-w-xs rounded-md border border-[#d7b56a]/70 bg-[#100c0e]/95 px-4 py-5 text-center shadow-[inset_0_0_0_1px_rgba(215,181,106,0.22)]"
+      >
+        {view === "pause" ? (
+          <>
+            <p id="pause-title" className="font-display text-2xl font-semibold text-[#f6e7b4]">Paused</p>
+            <p className="mt-1 text-sm text-muted">
+              {NIGHT_LABEL[hud.night]} · {BOARDS[hud.map].name} · {wave}
+            </p>
+            <div className="mt-4 flex flex-col gap-2.5">
+              <MenuButton gold ref={first} onClick={() => { onGesture(); api.closeMenu(); }}>
+                Resume
+              </MenuButton>
+              <MenuButton onClick={() => { onGesture(); api.menuSettings(true); }}>Settings</MenuButton>
+              <MenuButton onClick={() => { onGesture(); setConfirm("restart"); }}>Restart night</MenuButton>
+              <MenuButton onClick={() => { onGesture(); setConfirm("leave"); }}>Leave to title</MenuButton>
+            </div>
+          </>
+        ) : null}
+
+        {view === "restart" || view === "leave" ? (
+          <>
+            <p id="pause-title" className="font-display text-2xl font-semibold text-[#f6e7b4]">
+              {view === "restart" ? "Restart from wave 1?" : "Leave to the title?"}
+            </p>
+            <p className="mt-2 text-sm text-[#f4ead8]">This run's progress is lost. Your setup is kept.</p>
+            <div className="mt-4 flex flex-col gap-2.5">
+              <MenuButton ref={first} onClick={() => { onGesture(); setConfirm(null); }}>
+                Keep playing
+              </MenuButton>
+              <MenuButton
+                gold
+                onClick={() => {
+                  onGesture();
+                  if (view === "restart") api.restartNight();
+                  else api.toTitle();
+                }}
+              >
+                {view === "restart" ? "Restart night" : "Leave to title"}
+              </MenuButton>
+            </div>
+          </>
+        ) : null}
+
+        {view === "settings" ? (
+          <>
+            <p id="pause-title" className="font-display text-2xl font-semibold text-[#f6e7b4]">Settings</p>
+            <div className="mt-4 flex flex-col gap-2.5">
+              <MenuButton ref={first} onClick={onMute}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
+              <MenuButton onClick={onMusic}>{music ? "Music is on" : "Music is off"}</MenuButton>
+            </div>
+            <p className="mt-3 text-xs text-muted">Keys: {HOTKEY_HELP}</p>
+            <div className="mt-4">
+              <MenuButton onClick={() => { onGesture(); api.menuSettings(false); }}>Back</MenuButton>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -549,10 +713,16 @@ function TitleScreen({
   onStart,
   onKeeper,
   onMute,
+  saved,
+  summary,
+  note,
 }: {
   muted: boolean;
   music: boolean;
   onMusic: () => void;
+  saved: boolean;
+  summary: string;
+  note: string;
   onStart: () => void;
   onKeeper: () => void;
   onMute: (next: boolean) => void;
@@ -565,9 +735,13 @@ function TitleScreen({
         {view === "menu" ? (
           <div className="flex flex-col gap-2.5">
             <MenuButton gold onClick={onStart}>
-              Start
+              {saved ? "Continue" : "Start"}
             </MenuButton>
-            <MenuButton onClick={onKeeper}>Choose Keeper</MenuButton>
+            <p className="-mt-1 rounded bg-black/55 px-2 py-1 text-center text-xs leading-snug text-[#f4ead8]">
+              {summary}
+              {note ? <span className="mt-0.5 block text-gold">{note}</span> : null}
+            </p>
+            <MenuButton onClick={onKeeper}>New night</MenuButton>
             <MenuButton onClick={() => setView("library")}>Library</MenuButton>
             <MenuButton onClick={() => setView("settings")}>Settings</MenuButton>
             <MenuButton onClick={() => setView("quit")}>Quit</MenuButton>
@@ -586,7 +760,7 @@ function TitleScreen({
               <MenuButton onClick={() => onMute(!muted)}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
               <MenuButton onClick={onMusic}>{music ? "Music is on" : "Music is off"}</MenuButton>
             </div>
-            <p className="mt-3 text-xs text-muted">Keys: Q/W/E tab · 1–5 build · Space wave · S sell · B back room · Esc close · +/− speed · M sound</p>
+            <p className="mt-3 text-xs text-muted">Keys: {HOTKEY_HELP}</p>
           </MenuCard>
         ) : null}
         {view === "quit" ? (
@@ -611,9 +785,20 @@ function MenuCard({ title, onBack, children }: { title: string; onBack: () => vo
   );
 }
 
-function MenuButton({ gold, onClick, children }: { gold?: boolean; onClick: () => void; children: ReactNode }) {
+function MenuButton({
+  gold,
+  onClick,
+  children,
+  ref,
+}: {
+  gold?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  ref?: Ref<HTMLButtonElement>;
+}) {
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
       className={
@@ -659,6 +844,7 @@ function RoomScreen({
   joke,
   action,
   onAction,
+  onBack,
 }: {
   src: string;
   dim?: boolean;
@@ -667,6 +853,7 @@ function RoomScreen({
   joke: string;
   action: string;
   onAction: () => void;
+  onBack: () => void;
 }) {
   return (
     <div className="absolute inset-0 z-20">
@@ -683,6 +870,13 @@ function RoomScreen({
         >
           {action}
         </button>
+        <button
+          type="button"
+          className="mt-3 block w-full text-sm text-muted underline-offset-4 hover:text-parchment hover:underline"
+          onClick={onBack}
+        >
+          Back to setup
+        </button>
       </div>
     </div>
   );
@@ -694,12 +888,14 @@ function Poster({
   joke,
   action,
   onAction,
+  onBack,
 }: {
   kicker: string;
   title: string;
   joke: string;
   action: string;
   onAction: () => void;
+  onBack: () => void;
 }) {
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink/88 p-4">
@@ -714,6 +910,13 @@ function Poster({
           onClick={onAction}
         >
           {action}
+        </button>
+        <button
+          type="button"
+          className="mt-3 block w-full text-sm text-muted underline-offset-4 hover:text-parchment hover:underline"
+          onClick={onBack}
+        >
+          Back to setup
         </button>
       </div>
     </div>
@@ -782,7 +985,7 @@ function SelectScreen({
   onGesture: () => void;
 }) {
   const hud = api.world.hud;
-  const [keeper, setKeeper] = useState<HeroId | null>(null);
+  const keeper = hud.hero;
   const hard = hud.difficulty === "hard";
   const doorReady = hud.night !== "overflow" || hud.alliance !== "none";
   const ready = keeper != null && doorReady;
@@ -963,7 +1166,7 @@ function SelectScreen({
                 onClick={() => {
                   onGesture();
                   tone(hero.toneHz, 0.08, "triangle", 0.04);
-                  setKeeper(hero.id);
+                  api.pickKeeper(hero.id);
                 }}
               >
                 <span className="pointer-events-none absolute top-2 left-2 size-3 border-t border-l border-[#c6a15a]" />
@@ -1004,19 +1207,31 @@ function SelectScreen({
           })}
         </div>
 
-        <button
-          type="button"
-          disabled={!ready}
-          className="mt-5 min-h-12 w-full rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink disabled:opacity-40"
-          onClick={() => {
-            if (!keeper) return;
-            onGesture();
-            tone(280, 0.1, "triangle", 0.05);
-            api.chooseHero(keeper);
-          }}
-        >
-          Begin siege
-        </button>
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            className="min-h-12 shrink-0 rounded-lg border border-line/80 px-5 text-lg text-parchment"
+            onClick={() => {
+              onGesture();
+              api.backToTitle();
+            }}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            disabled={!ready}
+            className="min-h-12 flex-1 rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink disabled:opacity-40"
+            onClick={() => {
+              if (!keeper) return;
+              onGesture();
+              tone(280, 0.1, "triangle", 0.05);
+              api.chooseHero(keeper);
+            }}
+          >
+            Begin siege
+          </button>
+        </div>
         {!doorReady ? <p className="mt-2 text-center text-sm text-muted">The chute stays shut until you say how the door ended.</p> : null}
       </div>
     </div>
@@ -1238,13 +1453,21 @@ function Overlay({
                   ? "Vael files the result. The formula held."
                   : "Mynxi is filing this under accidents that worked."
             }`}
-            action="Run it back"
+            action={hud.night === "midnight" ? "Continue to the Overflow" : hud.night === "overflow" ? "Try Endless" : "Play again"}
             unlocks={hud.newUnlocks}
             maps={hud.newMaps}
             onAction={() => {
               onGesture();
-              api.reset();
+              if (hud.night === "midnight") api.continueOverflow();
+              else if (hud.night === "overflow") api.tryEndless();
+              else api.restartNight();
             }}
+            more={[
+              ...(hud.night === "endless" ? [] : [{ label: "Play again", run: api.restartNight }]),
+              { label: "Change setup", run: api.reset },
+              { label: "Title", run: api.toTitle },
+            ]}
+            onGesture={onGesture}
           />
         ) : null}
 
@@ -1261,8 +1484,13 @@ function Overlay({
             maps={hud.newMaps}
             onAction={() => {
               onGesture();
-              api.reset();
+              api.restartNight();
             }}
+            more={[
+              { label: "Change setup", run: api.reset },
+              { label: "Title", run: api.toTitle },
+            ]}
+            onGesture={onGesture}
           />
         ) : null}
       </div>
@@ -1277,6 +1505,8 @@ function EndCard({
   onAction,
   unlocks = [],
   maps = [],
+  more = [],
+  onGesture,
 }: {
   title: string;
   body: string;
@@ -1284,10 +1514,13 @@ function EndCard({
   onAction: () => void;
   unlocks?: BookmarkId[];
   maps?: MapId[];
+  /** Secondary buttons under the main one. */
+  more?: Array<{ label: string; run: () => void }>;
+  onGesture: () => void;
 }) {
   return (
     <>
-      <h2 className="font-display text-2xl font-semibold">{title}</h2>
+      <h2 role="status" className="font-display text-2xl font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-muted">{body}</p>
       <NewUnlocks ids={unlocks} maps={maps} />
       <button
@@ -1297,6 +1530,23 @@ function EndCard({
       >
         {action}
       </button>
+      {more.length ? (
+        <div className={`mt-2 grid gap-2 ${more.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+          {more.map((b) => (
+            <button
+              key={b.label}
+              type="button"
+              className="min-h-11 rounded-xl border border-line px-2 py-2 text-sm"
+              onClick={() => {
+                onGesture();
+                b.run();
+              }}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </>
   );
 }

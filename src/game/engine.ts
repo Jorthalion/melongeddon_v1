@@ -202,8 +202,14 @@ export interface Hud {
   shopFor: number | null;
   speed: number;
   paused: boolean;
+  /** Pause menu state. While it is open the board is paused and most keys are ignored. */
+  menu: "pause" | "settings" | null;
   difficulty: Difficulty;
   night: NightId;
+  /** True once a setup has been saved, so the Title offers Continue instead of Start. */
+  saved: boolean;
+  /** Why the saved setup was changed on load (a locked map or bookmark), shown on the Title. */
+  setupNote: string;
 }
 const BEST_KEY = "melongeddon-best-wave";
 const ENDLESS_BEST_KEY = "melongeddon-endless-best";
@@ -226,6 +232,76 @@ function writeDoor(alliance: Alliance) {
   } catch {
     /* ignore */
   }
+}
+
+/** The choices behind the last night started, so "same again" is one press. */
+export interface SetupRecord {
+  night: NightId;
+  map: MapId;
+  difficulty: Difficulty;
+  bookmark: BookmarkId | null;
+  hero: HeroId;
+  door: Alliance;
+}
+
+const SETUP_KEY = "melongeddon-setup";
+const HEROES: HeroId[] = ["mynxi", "vael", "michael"];
+const NIGHTS: NightId[] = ["midnight", "overflow", "endless"];
+
+export const DEFAULT_SETUP: SetupRecord = {
+  night: "midnight",
+  map: "stacks",
+  difficulty: "normal",
+  bookmark: null,
+  hero: "mynxi",
+  door: "none",
+};
+
+export function loadSetup(): Partial<SetupRecord> | null {
+  try {
+    const raw = localStorage.getItem(SETUP_KEY);
+    return raw ? (JSON.parse(raw) as Partial<SetupRecord>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSetup(rec: SetupRecord) {
+  try {
+    localStorage.setItem(SETUP_KEY, JSON.stringify(rec));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Turn a saved setup into one that can start right now. Anything unknown falls back to the
+ * default; a map or bookmark that is no longer unlocked falls back too, with a note saying so.
+ * `needsDoor` means the Overflow was saved but there is no answer for how the first night ended.
+ */
+export function validateSetup(
+  saved: Partial<SetupRecord> | null | undefined,
+  have: { maps: MapId[]; unlocked: BookmarkId[] },
+): { setup: SetupRecord; notes: string[]; needsDoor: boolean } {
+  const s = saved ?? {};
+  const notes: string[] = [];
+  const night = NIGHTS.includes(s.night as NightId) ? (s.night as NightId) : DEFAULT_SETUP.night;
+  const hero = HEROES.includes(s.hero as HeroId) ? (s.hero as HeroId) : DEFAULT_SETUP.hero;
+  const difficulty = DIFFICULTIES.some((d) => d.id === s.difficulty) ? (s.difficulty as Difficulty) : DEFAULT_SETUP.difficulty;
+  let map: MapId = DEFAULT_SETUP.map;
+  if (night === "overflow") map = "overflow";
+  else if (s.map && s.map !== "overflow" && s.map in BOARDS) {
+    if (have.maps.includes(s.map)) map = s.map;
+    else notes.push(`${BOARDS[s.map].name} is locked, so this starts in ${BOARDS.stacks.name}.`);
+  }
+  let bookmark: BookmarkId | null = null;
+  if (s.bookmark && s.bookmark in BOOKMARK) {
+    if (have.unlocked.includes(s.bookmark)) bookmark = s.bookmark;
+    else notes.push(`${BOOKMARK[s.bookmark].name} is locked, so no bookmark is equipped.`);
+  }
+  const door: Alliance =
+    night === "overflow" && (s.door === "accept" || s.door === "betray" || s.door === "reject") ? s.door : "none";
+  return { setup: { night, map, difficulty, bookmark, hero, door }, notes, needsDoor: night === "overflow" && door === "none" };
 }
 
 export function doorMemory(alliance: Alliance): string {
@@ -285,6 +361,8 @@ export interface World {
 export interface WorldOptions {
   /** Use these stats instead of the saved ones, and never save (simulator, tests). */
   meta?: MetaStats;
+  /** Start from this saved setup instead of the stored one (tests). */
+  setup?: Partial<SetupRecord> | null;
 }
 
 export function createWorld(
@@ -312,6 +390,26 @@ export function createWorld(
   ackMemory: () => void;
   openLibrary: () => void;
   beginNight: () => void;
+  /** Setup: pick the keeper (kept in the HUD so it survives a return to Setup). */
+  pickKeeper: (hero: HeroId) => void;
+  /** Title: start the saved setup (or the defaults on a first visit). */
+  continueRun: () => void;
+  /** Setup → Title. */
+  backToTitle: () => void;
+  /** Intro → Setup, keeping the choices. */
+  backToSetup: () => void;
+  /** Clear the run and start the same setup again from the Intro. */
+  restartNight: () => void;
+  /** Clear the run and go to the Title, keeping the setup. */
+  toTitle: () => void;
+  /** After a Midnight win: the Overflow with this run's door answer, same keeper and difficulty. */
+  continueOverflow: () => void;
+  /** After an Overflow win: Setup with Endless selected. */
+  tryEndless: () => void;
+  openMenu: () => void;
+  closeMenu: () => void;
+  menuSettings: (open: boolean) => void;
+  /** Clear the run and go to Setup, keeping the choices. */
   reset: () => void;
   unlock: () => void;
   setBookmark: (id: BookmarkId | null) => void;
@@ -359,8 +457,11 @@ export function createWorld(
       shopFor: null,
       speed: 1,
       paused: false,
+      menu: null,
       difficulty: "normal",
       night: "midnight",
+      saved: false,
+      setupNote: "",
     },
     hover: null,
     anim: 0,
@@ -397,9 +498,20 @@ export function createWorld(
   const meta: MetaStats = options.meta ? { ...options.meta } : persistMeta ? loadMeta() : { ...EMPTY_META };
   world.hud.unlocked = unlockedIds(meta);
   world.hud.maps = unlockedMaps(meta);
-  if (persistMeta) {
-    const pick = loadPick();
-    if (pick && world.hud.unlocked.includes(pick)) world.hud.bookmark = pick;
+  {
+    const stored = options.setup !== undefined ? options.setup : persistMeta ? loadSetup() : null;
+    // The bookmark pick is saved whenever it changes, so it is newer than the setup record.
+    const saved = persistMeta ? { ...(stored ?? {}), bookmark: loadPick() } : stored;
+    const { setup, notes } = validateSetup(saved, { maps: world.hud.maps, unlocked: world.hud.unlocked });
+    world.hud.saved = Boolean(stored);
+    world.hud.setupNote = stored ? notes.join(" ") : "";
+    world.hud.night = setup.night;
+    world.hud.waveCount = setup.night === "endless" ? 0 : WAVE_COUNT;
+    world.hud.map = setup.map;
+    world.hud.difficulty = setup.difficulty;
+    world.hud.bookmark = setup.bookmark;
+    world.hud.hero = stored ? setup.hero : null;
+    world.hud.alliance = setup.night === "overflow" ? (setup.door !== "none" ? setup.door : readDoor()) : "none";
   }
   const bm = (id: BookmarkId) => world.hud.bookmark === id;
   /** Update lifetime stats; announce any bookmark this unlocks. */
@@ -654,6 +766,64 @@ export function createWorld(
     world.points = built.points;
     world.turns = built.turns;
     world.hud.map = map;
+  };
+  applyBoard(world.hud.map);
+
+  /**
+   * Clear everything a run built up (board, waves, picks, seeds, stacks) and keep the setup:
+   * night, map, difficulty, bookmark, keeper and, on the Overflow, the door answer. Speed is a
+   * preference and is kept too.
+   */
+  const resetRunState = () => {
+    world.enemies = [];
+    world.towers = [];
+    world.shots = [];
+    world.pools = [];
+    world.sparks = [];
+    world.lines = [];
+    world.rings = [];
+    world.bits = [];
+    world.floaters = [];
+    world.shake = 0;
+    world.hover = null;
+    cleared = 0;
+    queue = [];
+    queueCursor = 0;
+    spawnClock = 0;
+    karlReward = false;
+    absurdDrops = 0;
+    applyBoard(world.hud.map);
+    const opening = waveAt(0, world.hud.night === "overflow" ? world.hud.alliance : "none", world.hud.night);
+    world.hud = {
+      ...world.hud,
+      seeds: 150,
+      lives: 12,
+      maxLives: 12,
+      wave: 1,
+      waveName: opening.name,
+      blurb: opening.blurb,
+      upgrades: [],
+      offer: [],
+      alliance: world.hud.night === "overflow" ? world.hud.alliance : "none",
+      absurdity: 0,
+      selected: null,
+      canPlace: false,
+      towerCost: TOWERS.melon.cost,
+      range: 132,
+      placeRange: 132,
+      left: 0,
+      waveSize: 0,
+      branch: null,
+      build: "melon",
+      shopVisits: 0,
+      modOffer: [],
+      shopFor: null,
+      paused: false,
+      menu: null,
+      waveCount: world.hud.night === "endless" ? 0 : WAVE_COUNT,
+      newUnlocks: [],
+      newMaps: [],
+    };
   };
 
   const removeAllies = () => {
@@ -1293,6 +1463,7 @@ export function createWorld(
       notify();
     },
     startWave() {
+      if (world.hud.menu) return;
       if (world.hud.phase === "betrayal") {
         removeAllies();
         const cut = world.hud.hero === "michael" ? BALANCE.michaelTurnCut : 2;
@@ -1311,6 +1482,8 @@ export function createWorld(
         }
       }
       if (world.hud.phase !== "prep" && world.hud.phase !== "betrayal" && world.hud.phase !== "consequence") return;
+      if (world.hud.menu) return;
+      world.hud.paused = false;
       const extra: SpawnSpec[] = [];
       if (world.hud.night === "midnight" && world.hud.alliance === "betray" && cleared === 4) {
         extra.push({ kind: "pumpkin", count: 5, every: 0.7 });
@@ -1476,6 +1649,20 @@ export function createWorld(
       }
       world.hud.newUnlocks = [];
       world.hud.newMaps = [];
+      world.hud.saved = true;
+      world.hud.setupNote = "";
+      world.hud.paused = false;
+      world.hud.menu = null;
+      if (persistMeta) {
+        saveSetup({
+          night: world.hud.night,
+          map: world.hud.map,
+          difficulty: world.hud.difficulty,
+          bookmark: world.hud.bookmark,
+          hero,
+          door,
+        });
+      }
       if (bm("seedfund")) world.hud.seeds += BOOKMARK_VALUES.seedfund;
       if (bm("sparestack")) {
         world.hud.lives += BOOKMARK_VALUES.sparestack;
@@ -1551,6 +1738,8 @@ export function createWorld(
       notify();
     },
     togglePause() {
+      if (world.hud.menu) return;
+      if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       world.hud.paused = !world.hud.paused;
       notify();
     },
@@ -1608,59 +1797,91 @@ export function createWorld(
       world.hud.phase = "prep";
       notify();
     },
+    pickKeeper(hero: HeroId) {
+      if (world.hud.phase !== "select" || !HEROES.includes(hero)) return;
+      world.hud.hero = hero;
+      notify();
+    },
+    continueRun() {
+      if (world.hud.phase !== "coldopen") return;
+      if (world.hud.night === "overflow" && world.hud.alliance === "none") {
+        world.hud.phase = "select";
+        world.hud.log = "The returns come up the chute. Say how the first night ended.";
+        notify();
+        return;
+      }
+      api.chooseHero(world.hud.hero ?? DEFAULT_SETUP.hero);
+    },
+    backToTitle() {
+      if (world.hud.phase !== "select") return;
+      resetRunState();
+      world.hud.phase = "coldopen";
+      notify();
+    },
+    backToSetup() {
+      if (world.hud.phase !== "poster") return;
+      resetRunState();
+      world.hud.phase = "select";
+      world.hud.log = "Choose who holds the stacks.";
+      notify();
+    },
+    restartNight() {
+      if (world.hud.phase === "coldopen" || world.hud.phase === "select") return;
+      const hero = world.hud.hero ?? DEFAULT_SETUP.hero;
+      resetRunState();
+      world.hud.phase = "select";
+      api.chooseHero(hero);
+    },
+    toTitle() {
+      resetRunState();
+      world.hud.phase = "coldopen";
+      world.hud.log = "The library is closed.";
+      notify();
+    },
+    continueOverflow() {
+      if (world.hud.phase !== "victory" || world.hud.night !== "midnight") return;
+      const door = world.hud.alliance;
+      const hero = world.hud.hero ?? DEFAULT_SETUP.hero;
+      world.hud.night = "overflow";
+      applyBoard("overflow");
+      world.hud.alliance = door === "none" ? readDoor() : door;
+      resetRunState();
+      world.hud.phase = "select";
+      if (world.hud.alliance === "none") {
+        world.hud.log = "The returns come up the chute. Say how the first night ended.";
+        notify();
+        return;
+      }
+      api.chooseHero(hero);
+    },
+    tryEndless() {
+      if (world.hud.phase !== "victory") return;
+      api.reset();
+      api.chooseNight("endless");
+    },
+    openMenu() {
+      const p = world.hud.phase;
+      if (p === "coldopen" || p === "select" || p === "poster" || p === "victory" || p === "defeat") return;
+      if (world.hud.menu) return;
+      world.hud.menu = "pause";
+      world.hud.paused = true;
+      notify();
+    },
+    closeMenu() {
+      if (!world.hud.menu) return;
+      world.hud.menu = null;
+      world.hud.paused = false;
+      notify();
+    },
+    menuSettings(open: boolean) {
+      if (!world.hud.menu) return;
+      world.hud.menu = open ? "settings" : "pause";
+      notify();
+    },
     reset() {
-      world.enemies = [];
-      world.towers = [];
-      world.shots = [];
-      world.pools = [];
-      world.sparks = [];
-      world.lines = [];
-      world.rings = [];
-      world.bits = [];
-      world.floaters = [];
-      world.shake = 0;
-      world.hover = null;
-      cleared = 0;
-      queue = [];
-      queueCursor = 0;
-      karlReward = false;
-      absurdDrops = 0;
-      applyBoard("stacks");
-      world.hud = {
-        ...world.hud,
-        phase: "select",
-        seeds: 150,
-        lives: 12,
-        maxLives: 12,
-        wave: 1,
-        waveName: WAVES[0].name,
-        blurb: WAVES[0].blurb,
-        upgrades: [],
-        offer: [],
-        alliance: "none",
-        log: "Choose who holds the stacks.",
-        absurdity: 0,
-        selected: null,
-        canPlace: false,
-        towerCost: TOWERS.melon.cost,
-        range: 132,
-        placeRange: 132,
-        left: 0,
-        waveSize: 0,
-        hero: null,
-        branch: null,
-        build: "melon",
-        shopVisits: 0,
-        modOffer: [],
-        shopFor: null,
-        speed: 1,
-        paused: false,
-        night: "midnight",
-        map: "stacks",
-        waveCount: WAVE_COUNT,
-        newUnlocks: [],
-        newMaps: [],
-      };
+      resetRunState();
+      world.hud.phase = "select";
+      world.hud.log = "Choose who holds the stacks.";
       notify();
     },
     unlock() {

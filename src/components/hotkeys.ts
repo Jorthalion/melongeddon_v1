@@ -9,11 +9,11 @@ import { TOWER_GROUPS, groupOf, type UpgradeId, createWorld } from "@/game/engin
  *   P        pause / resume
  *   S        sell the selected cannon
  *   B        open the back room for the selected cannon (between waves)
- *   Esc      close the back room, or deselect
+ *   Esc      close the back room, deselect, or open / close the pause menu (Back on Setup and the Intro)
  *   + / −    game speed
  *   M        sound on / off
  */
-export const HOTKEY_HELP = "Q/W/E tab · 1–5 build · Space wave/pause · S sell · B back room · Esc close · +/− speed · M sound";
+export const HOTKEY_HELP = "Q/W/E tab · 1–5 build · Space wave/pause · P pause · S sell · B back room · Esc close/menu · +/− speed · M sound";
 
 export function useHotkeys(
   api: ReturnType<typeof createWorld>,
@@ -35,8 +35,24 @@ export function useHotkeys(
       const digit = /^[1-9]$/.test(key) ? Number(key) - 1 : -1;
       let handled = true;
 
+      const card = phase === "upgrade" || phase === "alliance" || phase === "betrayal" || phase === "consequence" || phase === "memory";
+
       if (key === "m") {
         ref.current.onMute();
+      } else if (hud.menu) {
+        // The pause menu is open: Esc steps back out of it; game keys are swallowed.
+        if (key === "Escape") {
+          if (hud.menu === "settings") api.menuSettings(false);
+          else api.closeMenu();
+        } else if (!(key === " " || key === "p" || key === "+" || key === "=" || key === "-" || key === "_" || digit >= 0)) {
+          handled = false;
+        }
+      } else if (phase === "select" && key === "Escape") {
+        api.backToTitle();
+      } else if (phase === "poster" && key === "Escape") {
+        api.backToSetup();
+      } else if (card && key === "Escape") {
+        api.openMenu();
       } else if (phase === "upgrade" && digit >= 0 && digit < hud.offer.length) {
         ref.current.onGesture();
         api.pickUpgrade(hud.offer[digit].id as UpgradeId);
@@ -69,7 +85,8 @@ export function useHotkeys(
           ref.current.onGesture();
           api.openShop();
         } else if (key === "Escape") {
-          api.dismissSelection();
+          if (hud.selected != null) api.dismissSelection();
+          else api.openMenu();
         } else if (key === "+" || key === "=") {
           api.nudgeSpeed(1);
         } else if (key === "-" || key === "_") {
