@@ -22,7 +22,27 @@ export type Phase =
   | "victory"
   | "defeat";
 
-export type HeroId = "mynxi" | "michael" | "vael";
+export type HeroId = "mynxi" | "michael" | "vael" | "elf" | "ooze" | "scholar";
+
+/** Keepers in Setup order (keys 1–6 pick in this order). */
+export const HEROES: HeroId[] = ["mynxi", "vael", "michael", "elf", "ooze", "scholar"];
+
+/** Names used in text. `short` is how the story cards address the keeper. */
+export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: string }> = {
+  mynxi: { name: "Mynxi", short: "Mynxi", role: "Head librarian" },
+  vael: { name: "Vaelithra", short: "Vael", role: "Potions division" },
+  michael: { name: "Sir Michael", short: "Sir Michael", role: "Pumpkin Knight" },
+  elf: { name: "Legal Elf", short: "The Legal Elf", role: "Legal advisor" },
+  ooze: { name: "Ooze Clues", short: "Ooze", role: "Astral adventurer" },
+  scholar: { name: "Dr. Samodovol", short: "The Doctor", role: "The Scholar" },
+};
+
+/** Starting seeds and stacks for the newer keepers (the first three are set in the engine). */
+export const KEEPER_START: Partial<Record<HeroId, { seeds: number; lives: number }>> = {
+  elf: { seeds: 150, lives: 12 },
+  ooze: { seeds: 140, lives: 13 },
+  scholar: { seeds: 150, lives: 12 },
+};
 
 export type UpgradeId =
   | "juicy"
@@ -67,7 +87,7 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   seeds: {
     id: "seeds",
     name: "Seed Cache",
-    blurb: "Mynxi kicks over a crate. +55 seeds. No new tricks.",
+    blurb: "Someone kicks over a crate. +55 seeds. No new tricks.",
   },
   sticky: {
     id: "sticky",
@@ -87,7 +107,7 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   fines: {
     id: "fines",
     name: "Overdue Fines",
-    blurb: "Mynxi's ledger. Every kill pays 5 extra seeds.",
+    blurb: "The ledger. Every kill pays 5 extra seeds.",
   },
   caliber: {
     id: "caliber",
@@ -97,7 +117,7 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   lamp: {
     id: "lamp",
     name: "Reading Lamp",
-    blurb: "She marks the range. Cannons see farther down the carpet.",
+    blurb: "Someone marks the range. Cannons see farther down the carpet.",
   },
   splatter: {
     id: "splatter",
@@ -166,6 +186,7 @@ export function buildOffer(
   /** Cannon kinds the player has built, most-built first. */
   built: TowerKind[] = [],
 ): UpgradeDef[] {
+  const size = hero === "scholar" ? 4 : 3;
   const first: UpgradeId[] =
     hero === "michael" ? ["juicy", "rapid", "caliber"] : hero === "vael" ? ["juicy", "rapid", "vial"] : ["juicy", "rapid", "fines"];
   let wanted = first;
@@ -190,13 +211,13 @@ export function buildOffer(
     if (owned.includes(id) || out.includes(id)) continue;
     if (step === 1 && (id === "lamp" || id === "splatter" || id === "distill")) continue;
     out.push(id);
-    if (out.length === 3) break;
+    if (out.length === size) break;
   }
   // From the second pick on, a cannon upgrade for something you built takes the middle
   // slot. The third slot holds the keeper's own pick, and the first pick sets the
   // keeper's path, so neither is displaced.
   const extra = built.map((k) => CANNON_UPGRADES[k]).find((id): id is UpgradeId => !!id && !owned.includes(id));
-  if (step > 1 && extra && out.length === 3) out[1] = extra;
+  if (step > 1 && extra && out.length >= 3) out[1] = extra;
   return out.map((id) => UPGRADES[id]);
 }
 export type TowerKind =
@@ -214,21 +235,58 @@ export type TowerKind =
   | "ink"
   | "compost"
   | "peeler"
-  | "bookworm";
+  | "bookworm"
+  // Keeper signature towers: one per keeper, only that keeper can build it, one on the board at a time.
+  | "catalogue"
+  | "cauldron"
+  | "trebuchet"
+  | "scales"
+  | "mimic"
+  | "lectern";
 
-/** Build-bar tabs. Keys 1–5 pick within the open tab; Q / W / E switch tabs. */
-export const TOWER_GROUPS: Array<{ id: "damage" | "control" | "support"; name: string; key: string; kinds: TowerKind[] }> = [
+/** Each keeper's signature tower. */
+export const SIGNATURE: Record<HeroId, TowerKind> = {
+  mynxi: "catalogue",
+  vael: "cauldron",
+  michael: "trebuchet",
+  elf: "scales",
+  ooze: "mimic",
+  scholar: "lectern",
+};
+export const SIGNATURE_KINDS: TowerKind[] = Object.values(SIGNATURE);
+export const isSignature = (kind: TowerKind) => SIGNATURE_KINDS.includes(kind);
+
+export interface TowerGroup {
+  id: "damage" | "control" | "support" | "keeper";
+  name: string;
+  key: string;
+  kinds: TowerKind[];
+}
+
+/** Build-bar tabs. Keys 1–5 pick within the open tab; Q / W / E switch tabs (R is the keeper's tab). */
+export const TOWER_GROUPS: TowerGroup[] = [
   { id: "damage", name: "Damage", key: "q", kinds: ["melon", "mortar", "spitter", "ballista", "reader"] },
   { id: "control", name: "Control", key: "w", kinds: ["still", "fire", "freeze", "bell", "hive"] },
   { id: "support", name: "Support", key: "e", kinds: ["lantern", "ink", "peeler", "bookworm", "compost"] },
 ];
 
-export function groupOf(kind: TowerKind) {
+/** The keeper's own tab: just their signature tower. */
+export function keeperGroup(kind: TowerKind): TowerGroup {
+  return { id: "keeper", name: "Keeper", key: "r", kinds: [kind] };
+}
+
+/** The tabs a keeper sees: the three shared ones plus their own. */
+export function groupsFor(hero: HeroId | null): TowerGroup[] {
+  return hero ? [...TOWER_GROUPS, keeperGroup(SIGNATURE[hero])] : TOWER_GROUPS;
+}
+
+export function groupOf(kind: TowerKind): TowerGroup {
+  if (isSignature(kind)) return keeperGroup(kind);
   return TOWER_GROUPS.find((g) => g.kinds.includes(kind)) ?? TOWER_GROUPS[0];
 }
 
 /** Cannons that never shoot. */
-export const PASSIVE: TowerKind[] = ["lantern", "compost"];
+export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern"];
 /** Whole-board range. */
 export const GLOBAL_RANGE = 900;
 
@@ -323,6 +381,42 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 75,
     role: "Pumpkins",
   },
+  catalogue: {
+    name: "Card Catalogue",
+    blurb: "Mynxi's own. Long reach, and every shot is cross-referenced into two more fruit.",
+    cost: 90,
+    role: "Chain",
+  },
+  cauldron: {
+    name: "Bubbling Cauldron",
+    blurb: "Vael's own. Lobs a potion that leaves a green puddle: it slows and it eats.",
+    cost: 85,
+    role: "Poison",
+  },
+  trebuchet: {
+    name: "Pumpkin Trebuchet",
+    blurb: "Sir Michael's own. A huge, slow lob that knocks fruit back down the carpet.",
+    cost: 110,
+    role: "Knockback",
+  },
+  scales: {
+    name: "Scales of Justice",
+    blurb: "The Legal Elf's own. Weighs the heaviest fruit in reach and takes a share of its health. Kills pay a fee.",
+    cost: 95,
+    role: "Heavy hitter",
+  },
+  mimic: {
+    name: "Mimic Chest",
+    blurb: "Ooze's friend Memec. Swallows a nearby fruit whole, then digests. Karl only loses a bite.",
+    cost: 100,
+    role: "Devour",
+  },
+  lectern: {
+    name: "History Lectern",
+    blurb: "The Doctor's own. No shot. Cannons near it hit harder, and more so every wave it stands.",
+    cost: 65,
+    role: "Study",
+  },
 };
 
 /**
@@ -338,6 +432,11 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   ink: { dmg: 0.3, pace: 1.2, range: 0.9 },
   peeler: { dmg: 0.6, pace: 1.1, range: 0.9 },
   bookworm: { dmg: 0.4, pace: 1.3, range: 1 },
+  catalogue: { dmg: 1.15, pace: 1.1, range: 1.4 },
+  cauldron: { dmg: 0.5, pace: 1.7, range: 1.05 },
+  trebuchet: { dmg: 1.5, pace: 2.8, range: 1.3 },
+  scales: { dmg: 0.6, pace: 1.4, range: 1.15 },
+  mimic: { dmg: 0, pace: 4.5, range: 0.75 },
 };
 
 /** Tunable numbers for the newer cannons' special effects. */
@@ -365,6 +464,27 @@ export const CANNON = {
   blotRadius: 64,
   interestRate: 0.1,
   interestCap: 20,
+  /** Keeper signature towers. */
+  catalogueChains: 2,
+  catalogueChainRatio: 0.7,
+  cauldronRadius: 40,
+  cauldronLife: 3,
+  cauldronDps: 18,
+  cauldronSlow: 0.55,
+  trebuchetSplash: 64,
+  trebuchetKnock: 34,
+  /** Scales of Justice: extra damage as a share of the target's max health (Karl takes the boss share). */
+  scalesShare: 0.12,
+  scalesBossShare: 0.04,
+  scalesFee: 5,
+  /** Mimic Chest: damage to Karl instead of swallowing him, and seeds found in what it eats. */
+  mimicBossBite: 120,
+  mimicLoot: 3,
+  /** History Lectern: damage boost to cannons in reach, growing per wave it has stood. */
+  lecternRadius: 80,
+  lecternBase: 0.25,
+  lecternPerWave: 0.05,
+  lecternMax: 0.6,
 };
 
 export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) {
@@ -378,6 +498,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
     return { dmg: 0, range: CANNON.lanternRadius + (mods.includes("wick") ? 30 : 0), interval: 0 };
   }
   if (kind === "compost") return { dmg: 0, range: 0, interval: 0 };
+  if (kind === "lectern") return { dmg: 0, range: CANNON.lecternRadius, interval: 0 };
   const profile = PROFILE[kind];
   if (profile) {
     const base = hero === "mynxi" ? 176 : 132;
@@ -475,7 +596,9 @@ export const MODS: ModDef[] = [
 
 export function shopPrice(hero: HeroId | null, visits: number) {
   if (hero === "mynxi" && visits === 0) return 15;
-  return 25 + visits * 15;
+  const price = 25 + visits * 15;
+  // The Legal Elf negotiates: the back room costs 30% less.
+  return hero === "elf" ? Math.round(price * 0.7) : price;
 }
 
 /** Share of spent seeds returned when a tower is sold. */

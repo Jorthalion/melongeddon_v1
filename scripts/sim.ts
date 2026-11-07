@@ -19,7 +19,7 @@ const args = process.argv.slice(2);
 const seedArg = args.indexOf("--seeds");
 const SEEDS = seedArg >= 0 ? Math.max(1, Number(args[seedArg + 1]) || 3) : 3;
 
-const HEROES: HeroId[] = ["mynxi", "michael", "vael"];
+const HEROES: HeroId[] = ["mynxi", "michael", "vael", "elf", "ooze", "scholar"];
 const DIFFS: Difficulty[] = ["easy", "normal", "hard", "overdue"];
 const STRATEGIES: Strategy[] = ["melon", "mixed", "mixed+mods", "lean"];
 const DOORS: Exclude<Alliance, "none">[] = ["accept", "betray", "reject"];

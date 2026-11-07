@@ -19,11 +19,12 @@ import {
   type NightId,
 } from "../src/game/engine.ts";
 import { ALL_UNLOCKED, EMPTY_META, TOWERS as T, buildOffer, TOWER_GROUPS, backRoomPrice, stepWorld, type TowerKind } from "../src/game/engine.ts";
+import { HEROES, SIGNATURE, SIGNATURE_KINDS, type HeroId } from "../src/game/engine.ts";
 import { simulateRun } from "../scripts/sim-core.ts";
 
 const center = (c: number) => c * CELL + CELL / 2;
 
-function startGame(hero: "mynxi" | "michael" | "vael" = "vael") {
+function startGame(hero: HeroId = "vael") {
   const api = createWorld(() => {});
   api.openSetup();
   api.chooseHero(hero);
@@ -188,16 +189,19 @@ test("reaching a milestone unlocks a bookmark mid-run", () => {
   assert.match(api.world.hud.log, /New bookmark: Back-room Key/);
 });
 
-test("every cannon is in exactly one build tab of five", () => {
+test("every shared cannon is in exactly one build tab of five; each keeper has one signature", () => {
   const all = TOWER_GROUPS.flatMap((g) => g.kinds);
-  assert.equal(all.length, Object.keys(T).length);
+  assert.equal(all.length + SIGNATURE_KINDS.length, Object.keys(T).length);
+  assert.equal(new Set(SIGNATURE_KINDS).size, HEROES.length);
+  for (const k of SIGNATURE_KINDS) assert.ok(!all.includes(k), `${k} is not in a shared tab`);
   assert.equal(new Set(all).size, all.length);
   for (const g of TOWER_GROUPS) assert.equal(g.kinds.length, 5);
 });
 
 /** A board with lots of seeds and one cannon of `kind` at (4,3), right beside the Stacks carpet. */
 function withCannon(kind: TowerKind) {
-  const api = startGame("vael");
+  const owner = HEROES.find((h) => SIGNATURE[h] === kind) ?? "vael";
+  const api = startGame(owner);
   api.world.hud.seeds = 5000;
   api.chooseBuild(kind);
   api.pointer(center(4), center(3), "down");

@@ -26,6 +26,23 @@ Optional: once you know the final URL, make `og:image` in `index.html` an absolu
 
 Each story night is 15 waves. Midnight plays act one (waves 1-6), the knight's choice, then nine waves for that choice ending in its finale (The Household, The Grudge or Unchaperoned). The Overflow ends with "The meter spends" and "Up the chute", when absurdity drops rinds down the chute. Enemy health climbs the full curve through wave 6, then `BALANCE.storyHpPace` (0.375) of a step per wave after that, so wave 15 is as tough as the old 10-wave finale.
 
+## Keepers
+
+Six keepers, picked on the setup screen (keys 1–6). Each has a perk and a **signature tower**: only that keeper can build it, one at a time, from the **Keeper** tab (key R). Signature towers can't be fitted in the back room.
+
+| Keeper | Start | Perk | Signature tower |
+|---|---|---|---|
+| Mynxi | 12 stacks, 150 seeds | First build 40 seeds, longer reach | **Card Catalogue** (90): long reach, each shot chains into 2 more fruit at 70% |
+| Vaelithra | 11 stacks, 120 seeds | Shots slow | **Bubbling Cauldron** (85): potion puddle that slows and deals 18/s for 3 s |
+| Sir Michael | 10 stacks, 110 seeds, a free cannon | Shots hit harder | **Pumpkin Trebuchet** (110): huge splash that knocks non-boss fruit back 34 px |
+| Legal Elf | 12 stacks, 150 seeds | Back room 30% cheaper | **Scales of Justice** (95): hits the heaviest fruit in reach for its damage plus 12% of the target's max health (4% on Karl); kills pay a 5-seed fee |
+| Ooze Clues | 13 stacks, 140 seeds | The first single-fruit leak each wave is absorbed | **Mimic Chest / Memec** (100): about every 4 s swallows one nearby fruit whole (+3 seeds); Karl takes a 120 bite instead |
+| Dr. Samodovol | 12 stacks, 150 seeds | Upgrade picks offer 4 choices | **History Lectern** (65): no shot; cannons within 80 px deal +25% damage, +5% per wave since it was built, up to +60% |
+
+Tower numbers are in `CANNON` and `PROFILE` in `src/game/rules.ts`; starting stacks and seeds for the newer keepers are in `KEEPER_START`. Portraits for the three newer keepers are cropped from their reference sheets (`public/sprites/portrait-elf.webp`, `-ooze`, `-scholar`); the signature towers are drawn in code (`src/game/drawCannons.ts`) until painted sprites exist.
+
+**Simulated balance** (bots, 1 seed per setup, so ±7 points of noise): every keeper lands in the same range as the original three. The bots pick upgrades at random and rarely use the back room, so they undersell the Doctor's fourth choice and the Elf's discount.
+
 ## Difficulty
 
 Four levels on the setup screen. They scale enemy health and speed (`DIFFICULTIES` in `src/game/rules.ts`):
@@ -87,7 +104,7 @@ Effect sizes live in `BOOKMARK_VALUES`. The simulator can equip one (`bookmark` 
 
 ## Controls
 
-Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade, back-room and knight cards, and the keeper on Setup), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Settings (on the Title and in the pause menu) has sound, music, default game speed, reduce motion, and "Show tips again". The Title's How to play covers controls, cannons, keepers, nights and rooms.
+Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade, back-room and knight cards, 1–4 on the Doctor's picks, and 1–6 for the keeper on Setup), `Q`/`W`/`E`/`R` switch build tabs (R is the keeper's own tower), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Settings (on the Title and in the pause menu) has sound, music, default game speed, reduce motion, and "Show tips again". The Title's How to play covers controls, cannons, keepers, nights and rooms.
 
 The pause menu (`Esc` or the menu button) has Resume, Settings, Restart night and Leave to title. The game remembers your last setup: the Title's Continue starts it again, and the end cards offer Play again, Change setup and Title.
 

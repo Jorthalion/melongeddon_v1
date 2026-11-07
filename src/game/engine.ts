@@ -3,6 +3,7 @@ import {
   BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
   type Alliance, type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId, type ModDef,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
+  HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, isSignature,
 } from "./rules.ts";
 
 export * from "./rules.ts";
@@ -72,6 +73,8 @@ interface Tower {
   paid: number;
   /** Seconds until this cannon's shots can leave another pulp puddle. */
   pulpCd?: number;
+  /** Waves cleared when it was built (the History Lectern grows with each wave since). */
+  born?: number;
 }
 
 interface Shot {
@@ -87,7 +90,7 @@ interface Shot {
   fromAlly: boolean;
   orange: boolean;
   splash: number;
-  element: "shot" | "fire" | "ice" | "mortar" | "seed" | "fly" | "ink" | "peel" | "worm";
+  element: "shot" | "fire" | "ice" | "mortar" | "seed" | "fly" | "ink" | "peel" | "worm" | "potion";
   /** Upgrade on-hit effects (Juicy, Splatter, Electric) only fire from the classic cannons. */
   procs: boolean;
   inkTime?: number;
@@ -100,6 +103,10 @@ interface Shot {
   fireBurn: number;
   /** This shot leaves a pulp puddle where it lands. */
   pulp: boolean;
+  /** Damage kept on each bounce (Card Catalogue chains lose some; plain bounces keep it all). */
+  bounceRatio?: number;
+  /** Pumpkin Trebuchet: push fruit this far back along the carpet. */
+  knock?: number;
 }
 
 interface Pool {
@@ -110,6 +117,8 @@ interface Pool {
   max: number;
   hot: boolean;
   burn: number;
+  /** Bubbling Cauldron puddle: damage per second to anything in it (it also slows). */
+  toxic?: number;
 }
 
 /** Instant-hit trails (ballista spear, reader shot). */
@@ -245,7 +254,6 @@ export interface SetupRecord {
 }
 
 const SETUP_KEY = "melongeddon-setup";
-const HEROES: HeroId[] = ["mynxi", "vael", "michael"];
 const NIGHTS: NightId[] = ["midnight", "overflow", "endless"];
 
 export const DEFAULT_SETUP: SetupRecord = {
@@ -517,6 +525,8 @@ export function createWorld(
   let queueCursor = 0;
   let spawnClock = 0;
   let karlReward = false;
+  /** Ooze Clues: the first leak of the wave has been absorbed. */
+  let absorbed = false;
   const has = (u: UpgradeId) => world.hud.upgrades.includes(u);
 
   const persistMeta = !options.meta && typeof window !== "undefined";
@@ -628,10 +638,24 @@ export function createWorld(
   // All player tower stats come from towerReadout(), the same function the
   // inspector panel shows, so the numbers on screen are the numbers in play.
   const ALLY_STATS = { dmg: 11, range: 150, interval: 1.05 };
+  /** History Lectern: damage multiplier for a cannon in a lectern's reach (the best lectern counts). */
+  const lecternMul = (tower: Tower) => {
+    let best = 0;
+    for (const lec of world.towers) {
+      if (lec.kind !== "lectern" || lec === tower) continue;
+      if ((lec.x - tower.x) ** 2 + (lec.y - tower.y) ** 2 > CANNON.lecternRadius ** 2) continue;
+      const grown = Math.min(CANNON.lecternMax, CANNON.lecternBase + CANNON.lecternPerWave * Math.max(0, cleared - (lec.born ?? cleared)));
+      best = Math.max(best, grown);
+    }
+    return 1 + best;
+  };
   const statsFor = (tower: Tower) => {
     if (tower.ally) return ALLY_STATS;
-    const base = towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades);
-    if (PASSIVE.includes(tower.kind) || base.range >= GLOBAL_RANGE) return base;
+    const read = towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades);
+    if (PASSIVE.includes(tower.kind)) return read;
+    const mul = lecternMul(tower);
+    const base = mul > 1 ? { ...read, dmg: Math.round(read.dmg * mul), studied: true } : read;
+    if (base.range >= GLOBAL_RANGE) return base;
     // Reading Lamp: the best lamp in reach boosts this cannon (lamps do not stack).
     let boost: { range: number; pace: number } | null = null;
     for (const lamp of world.towers) {
@@ -643,7 +667,7 @@ export function createWorld(
       if (!boost || b.range > boost.range) boost = b;
     }
     if (!boost) return dark() ? { ...base, range: Math.round(base.range * BALANCE.archiveDark) } : base;
-    return { dmg: base.dmg, range: Math.round(base.range * boost.range), interval: base.interval * boost.pace, lit: true };
+    return { ...base, range: Math.round(base.range * boost.range), interval: base.interval * boost.pace, lit: true };
   };
   /** The Archive is dark: see statsFor. */
   const dark = () => Boolean(BOARDS[world.hud.map].dark);
@@ -654,6 +678,9 @@ export function createWorld(
   };
   const priceNext = () =>
     Math.max(0, buildCost(world.hud.hero, placedCount(), world.hud.build) - (bm("discount") ? BOOKMARK_VALUES.discount : 0));
+  /** A signature tower can be built only by its keeper, and only one at a time. */
+  const signatureBlocked = (kind: TowerKind) =>
+    isSignature(kind) && (world.hud.hero == null || SIGNATURE[world.hud.hero] !== kind || world.towers.some((t) => t.kind === kind));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
   const towerRange = (tower: Tower) => statsFor(tower).range;
   const syncPrice = () => {
@@ -821,6 +848,7 @@ export function createWorld(
     queueCursor = 0;
     spawnClock = 0;
     karlReward = false;
+    absorbed = false;
     absurdDrops = 0;
     applyBoard(world.hud.map);
     const opening = waveAt(0, world.hud.night === "overflow" ? world.hud.alliance : "none", world.hud.night);
@@ -861,6 +889,12 @@ export function createWorld(
   };
 
   const loseLife = (n: number, x: number, y: number) => {
+    if (world.hud.hero === "ooze" && !absorbed && n === 1) {
+      absorbed = true;
+      float(x, y, "absorbed", "#6fc6ef");
+      world.rings.push({ x, y, r: 26, life: 0.5, max: 0.5, color: "111,198,239" });
+      return;
+    }
     world.hud.lives = Math.max(0, world.hud.lives - n);
     world.shake = world.reduced ? 0 : 8;
     float(x, y, n > 1 ? `−${n} stacks` : "Leak", "#e23b4a");
@@ -886,6 +920,27 @@ export function createWorld(
 
   const addFire = (x: number, y: number, life = 2.4, burn = 22) => {
     world.pools.push({ x, y, r: 34, life, max: life, hot: true, burn });
+  };
+
+  /** Pumpkin Trebuchet: push a fruit back along the carpet, never past where it came in. */
+  const pushBack = (e: Enemy, distance: number) => {
+    let left = distance;
+    for (let guard = 0; left > 0 && guard < 8; guard++) {
+      const prevIdx = e.reverse ? e.wp + 1 : e.wp - 1;
+      const prev = world.points[prevIdx];
+      if (!prev) break;
+      const d = Math.hypot(prev.x - e.x, prev.y - e.y);
+      if (d <= left) {
+        e.x = prev.x;
+        e.y = prev.y;
+        left -= d;
+        e.wp = prevIdx;
+      } else {
+        e.x += ((prev.x - e.x) / d) * left;
+        e.y += ((prev.y - e.y) / d) * left;
+        left = 0;
+      }
+    }
   };
 
   const onDeath = (e: Enemy) => {
@@ -997,6 +1052,18 @@ export function createWorld(
       addPool(e.x, e.y);
       shot.pulp = false; // a bounce does not leave a second puddle
     }
+    if (shot.element === "potion") {
+      world.pools.push({
+        x: e.x,
+        y: e.y,
+        r: CANNON.cauldronRadius,
+        life: CANNON.cauldronLife,
+        max: CANNON.cauldronLife,
+        hot: false,
+        burn: 0,
+        toxic: CANNON.cauldronDps,
+      });
+    }
     if (shot.procs && has("juicy")) {
       for (const other of world.enemies) hurt(other, e, 8, 46, "splash");
     }
@@ -1006,6 +1073,14 @@ export function createWorld(
     if (shot.splash > 0 && !shot.fromAlly) {
       for (const other of world.enemies)
         hurt(other, e, Math.max(6, Math.round(shot.dmg * shot.splashRatio)), shot.splash, "splash");
+    }
+    if (shot.knock) {
+      for (const other of world.enemies) {
+        if (other.hp <= 0 || other.boss) continue;
+        if (other !== e && Math.hypot(other.x - e.x, other.y - e.y) > shot.splash) continue;
+        pushBack(other, shot.knock);
+      }
+      world.rings.push({ x: e.x, y: e.y, r: shot.splash, life: 0.35, max: 0.35, color: "232,136,58" });
     }
     if (has("electric") && shot.procs) {
       let best: Enemy | null = null;
@@ -1037,6 +1112,7 @@ export function createWorld(
       }
       if (next) {
         shot.bounces -= 1;
+        shot.dmg = Math.max(1, Math.round(shot.dmg * (shot.bounceRatio ?? 1)));
         shot.target = next.id;
         shot.x = e.x;
         shot.y = e.y;
@@ -1117,11 +1193,7 @@ export function createWorld(
             ? "One more shelf. Then the meter starts spending."
             : "One more shelf. Then the door you chose comes due."
           : step === 1
-            ? world.hud.hero === "michael"
-              ? "Sir Michael's first shelf."
-              : world.hud.hero === "vael"
-                ? "Vael's first shelf."
-                : "Mynxi's first shelf."
+            ? `${KEEPER_NAMES[world.hud.hero ?? "mynxi"].short}'s first shelf.`
             : "The last pick opened the next shelf.";
     } else if (beat === "alliance") {
       world.hud.phase = "alliance";
@@ -1182,9 +1254,14 @@ export function createWorld(
           burn = Math.max(burn, pool.burn || 22);
           continue;
         }
+        if (pool.toxic) {
+          slow = Math.min(slow, softenSlow(CANNON.cauldronSlow));
+          dot = Math.max(dot, pool.toxic);
+          continue;
+        }
         const crawl = has("distill") ? 0.38 : has("sticky") ? 0.45 : has("vial") ? 0.55 : 0.78;
         slow = Math.min(slow, softenSlow(crawl));
-        if (has("juicy") || has("distill")) dot = has("distill") ? 16 : 10;
+        if (has("juicy") || has("distill")) dot = Math.max(dot, has("distill") ? 16 : 10);
       }
       if (e.chill > 0) {
         e.chill -= dt;
@@ -1251,7 +1328,8 @@ export function createWorld(
         inRange.push(e);
         let prog = e.wp * 1000 - Math.hypot(e.x - (world.points[e.wp]?.x ?? e.x), e.y - (world.points[e.wp]?.y ?? e.y));
         // Specialists look for their favourite target first.
-        if (tower.kind === "reader") prog = e.hp;
+        if (tower.kind === "reader" || tower.kind === "scales") prog = e.hp;
+        else if (tower.kind === "mimic" && !e.boss) prog += 1e6;
         else if (tower.kind === "peeler" && ((e.guard === "rind" && e.shell > 0) || e.guard === "husk" || e.guard === "damp"))
           prog += 1e6;
         else if (tower.kind === "bookworm" && (e.kind === "pumpkin" || e.kind === "karl") && (e.worm ?? 0) < 1) prog += 1e6;
@@ -1279,6 +1357,36 @@ export function createWorld(
         }
         world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.45, max: 0.45, color: "230,195,106" });
         float(tower.x, tower.y - 26, "SHHH", "#e6c36a");
+        continue;
+      }
+      if (tower.kind === "mimic") {
+        // Memec swallows one fruit whole, then digests. Karl is too big: he loses a bite.
+        tower.cd = stats.interval;
+        cue("fire", "mimic");
+        if (target.boss) {
+          hurt(target, null, CANNON.mimicBossBite);
+          float(target.x, target.y - 22, "chomp", "#6fc6ef");
+        } else {
+          float(target.x, target.y - 22, "gulp", "#6fc6ef");
+          target.hp = 0;
+          onDeath(target);
+          world.hud.seeds += CANNON.mimicLoot;
+        }
+        world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.2, max: 0.2, color: "111,198,239", width: 6 });
+        continue;
+      }
+      if (tower.kind === "scales") {
+        // A share of the heaviest fruit's health, and a fee if the verdict kills it.
+        tower.cd = stats.interval;
+        cue("fire", "scales");
+        const share = target.boss ? CANNON.scalesBossShare : CANNON.scalesShare;
+        hurt(target, null, stats.dmg + target.maxHp * share);
+        if (target.hp <= 0) {
+          world.hud.seeds += CANNON.scalesFee;
+          float(target.x, target.y - 26, `fee +${CANNON.scalesFee}`, "#e6c36a");
+        }
+        world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.25, max: 0.25, color: "230,195,106", width: 3 });
+        burst(target.x, target.y, "#e6c36a", 8);
         continue;
       }
       if (tower.kind === "ballista" || tower.kind === "reader") {
@@ -1347,7 +1455,11 @@ export function createWorld(
                       ? "peel"
                       : tower.kind === "bookworm"
                         ? "worm"
-                        : "shot";
+                        : tower.kind === "cauldron"
+                          ? "potion"
+                          : tower.kind === "trebuchet"
+                            ? "mortar"
+                            : "shot";
       const flies = tower.kind === "hive" && hasMod(tower, "swarm") ? 2 : 1;
       for (let f = 0; f < flies; f++) {
       const aimAt = f === 0 ? target : (inRange[Math.floor(Math.random() * inRange.length)] ?? target);
@@ -1360,16 +1472,24 @@ export function createWorld(
         target: aimAt.id,
         dmg,
         life: 1.6,
-        bounces: tower.ally ? 0 : (tower.kind === "melon" && has("bounce")) || (tower.kind === "hive" && has("stinging")) ? 1 : 0,
+        bounces: tower.ally
+          ? 0
+          : tower.kind === "catalogue"
+            ? CANNON.catalogueChains
+            : (tower.kind === "melon" && has("bounce")) || (tower.kind === "hive" && has("stinging"))
+              ? 1
+              : 0,
+        bounceRatio: tower.kind === "catalogue" ? CANNON.catalogueChainRatio : 1,
+        knock: tower.kind === "trebuchet" ? CANNON.trebuchetKnock : 0,
         fromAlly: tower.ally,
-        orange: tower.kind === "mortar" || tower.orange,
-        splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) : 0,
+        orange: tower.kind === "mortar" || tower.kind === "trebuchet" || tower.orange,
+        splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) : tower.kind === "trebuchet" ? CANNON.trebuchetSplash : 0,
         element,
         procs: !tower.ally && (element === "shot" || element === "fire" || element === "ice" || element === "mortar"),
         inkTime: hasMod(tower, "indelible") ? CANNON.inkTime * 1.5 : CANNON.inkTime,
         inkMul: (hasMod(tower, "indelible") ? CANNON.inkBonus + 0.1 : CANNON.inkBonus) + (has("blot") ? CANNON.blotInkBonus : 0),
         wormDps: hasMod(tower, "venom") ? CANNON.wormDps * 1.5 : CANNON.wormDps,
-        splashRatio: hasMod(tower, "heavy") ? 0.8 : 0.55,
+        splashRatio: hasMod(tower, "heavy") || tower.kind === "trebuchet" ? 0.8 : 0.55,
         chill: hasMod(tower, "chill") ? 0.75 : 0,
         freezeExtra: hasMod(tower, "hold") ? 0.55 : 0,
         fireLife: hasMod(tower, "lasting") ? 3.6 : 2.4,
@@ -1450,6 +1570,7 @@ export function createWorld(
       world.hud.canPlace =
         !path &&
         !taken &&
+        !signatureBlocked(world.hud.build) &&
         world.hud.seeds >= world.hud.towerCost &&
         (world.hud.phase === "prep" || world.hud.phase === "combat");
       if (kind !== "down") return;
@@ -1468,8 +1589,13 @@ export function createWorld(
         return;
       }
       if (path || world.hud.seeds < world.hud.towerCost) return;
-      const p = cellCenter(c, r);
       const buildKind = world.hud.build;
+      if (signatureBlocked(buildKind)) {
+        world.hud.log = isSignature(buildKind) ? `Only one ${TOWERS[buildKind].name} at a time.` : world.hud.log;
+        notify();
+        return;
+      }
+      const p = cellCenter(c, r);
       const tower: Tower = {
         id: id(),
         c,
@@ -1483,6 +1609,7 @@ export function createWorld(
         kind: buildKind,
         mods: [],
         paid: world.hud.towerCost,
+        born: cleared,
       };
       world.towers.push(tower);
       cue("build", buildKind);
@@ -1514,6 +1641,7 @@ export function createWorld(
       if (world.hud.phase !== "prep" && world.hud.phase !== "betrayal" && world.hud.phase !== "consequence") return;
       if (world.hud.menu) return;
       world.hud.paused = false;
+      absorbed = false;
       const extra: SpawnSpec[] = [];
       if (world.hud.night === "midnight" && world.hud.alliance === "betray" && cleared === 4) {
         extra.push({ kind: "pumpkin", count: 5, every: 0.7 });
@@ -1642,6 +1770,17 @@ export function createWorld(
         world.hud.log = overflow
           ? "Her shots still slow the line. The wet does not care."
           : "Her shots slow the line. They do not hit harder.";
+      } else if (KEEPER_START[hero]) {
+        const start = KEEPER_START[hero]!;
+        world.hud.seeds = start.seeds;
+        world.hud.lives = start.lives;
+        world.hud.maxLives = start.lives;
+        world.hud.log =
+          hero === "elf"
+            ? "The back room takes his retainer: fittings cost less. The Scales are on the Keeper tab."
+            : hero === "ooze"
+              ? "The first fruit to leak each wave gets absorbed. Memec is on the Keeper tab."
+              : "Four books on every shelf: each pick offers one more. The Lectern is on the Keeper tab.";
       } else {
         world.hud.seeds = BALANCE.michaelSeeds;
         world.hud.lives = BALANCE.michaelLives;
@@ -1710,6 +1849,7 @@ export function createWorld(
     },
     chooseBuild(kind: TowerKind) {
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
+      if (isSignature(kind) && (world.hud.hero == null || SIGNATURE[world.hud.hero] !== kind)) return;
       world.hud.build = kind;
       world.hud.log = TOWERS[kind].blurb;
       syncPrice();

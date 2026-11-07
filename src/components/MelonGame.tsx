@@ -4,12 +4,16 @@ import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Me
 import {
   BOARDS,
   CANNON_UPGRADES,
+  CANNON,
   MAP_GOALS,
   PICKABLE_MAPS,
   DIFFICULTIES,
   MODS,
   TOWER_GROUPS,
   groupOf,
+  groupsFor,
+  KEEPER_NAMES,
+  SIGNATURE,
   TOWERS,
   buildCost,
   doorMemory,
@@ -234,13 +238,9 @@ export function MelonGame() {
                 ? "Tonight only"
                 : !inRun
                   ? "Midnight Library"
-                  : hud.hero === "michael"
-                  ? "Sir Michael"
-                  : hud.hero === "vael"
-                    ? "Vael"
-                    : hud.hero === "mynxi"
-                      ? "Mynxi"
-                      : "Midnight Library"}
+                  : hud.hero
+                    ? KEEPER_NAMES[hud.hero].name
+                    : "Midnight Library"}
               {inRun ? ` · ${BOARDS[hud.map].name}${hud.night === "endless" ? " · Endless" : ""}` : ""}
             </p>
           </div>
@@ -395,7 +395,7 @@ export function MelonGame() {
             )}
             <div className="flex h-7 items-center gap-2">
               <div className="flex shrink-0 gap-1" role="tablist" aria-label="Cannon type">
-                {TOWER_GROUPS.map((g) => {
+                {groupsFor(hud.hero).map((g) => {
                   const on = groupOf(hud.build).id === g.id;
                   return (
                     <button
@@ -432,12 +432,13 @@ export function MelonGame() {
                   const placed = api.world.towers.filter((t) => !t.ally).length;
                   const cost = Math.max(0, buildCost(hud.hero, placed, id) - (hud.bookmark === "discount" ? 5 : 0));
                   const on = hud.build === id;
+                  const built = groupOf(id).id === "keeper" && api.world.towers.some((t) => t.kind === id);
                   return (
                     <button
                       key={id}
                       type="button"
                       title={`${TOWERS[id].name} (${slot + 1}): ${TOWERS[id].blurb}`}
-                      className={`relative h-full min-w-0 rounded-lg border px-1 py-1.5 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost ? "opacity-55" : ""}`}
+                      className={`relative h-full min-w-0 rounded-lg border px-1 py-1.5 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built ? "opacity-55" : ""}`}
                       onClick={() => {
                         gesture();
                         api.chooseBuild(id);
@@ -447,12 +448,18 @@ export function MelonGame() {
                       <TowerIcon kind={id} className="mx-auto block h-9 w-full" />
                       <span className="mt-1 block truncate text-xs font-semibold">{SHORT_NAME[id]}</span>
                       <span className="block truncate text-[11px] text-muted">
-                        {cost}
+                        {built ? "Built" : cost}
                         <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                       </span>
                     </button>
                   );
                 })}
+                {groupOf(hud.build).id === "keeper" ? (
+                  <div className="col-span-4 flex min-w-0 flex-col justify-center rounded-lg border border-line/50 px-3 py-1.5">
+                    <p className="truncate font-display text-sm font-semibold text-gold">{TOWERS[groupOf(hud.build).kinds[0]].name}</p>
+                    <p className="line-clamp-2 text-xs text-muted">{TOWERS[groupOf(hud.build).kinds[0]].blurb} One at a time.</p>
+                  </div>
+                ) : null}
               </div>
             )}
             <p className="line-clamp-2 h-8 text-xs text-muted">{hud.log}</p>
@@ -483,7 +490,7 @@ export function MelonGame() {
           <RoomScreen
             src={MAP_ART[hud.map] ?? MAP_ART.stacks!}
             dim={Boolean(BOARDS[hud.map].dark) && !MAP_ART[hud.map]}
-            kicker={hud.hero === "michael" ? "Pumpkin Knight" : hud.hero === "vael" ? "Potions division" : "Head librarian"}
+            kicker={KEEPER_NAMES[hud.hero ?? "mynxi"].role}
             title={BOARDS[hud.map].name}
             joke={ROOM_JOKE[hud.map] ?? ROOM_JOKE.stacks!}
             action={hud.night === "overflow" ? "Cover the chute" : "To the carpet"}
@@ -513,13 +520,12 @@ const DOOR_LABEL: Record<Hud["alliance"], string> = {
   reject: "you sent him away",
   none: "door not answered",
 };
-const KEEPER_NAME: Record<HeroId, string> = { mynxi: "Mynxi", vael: "Vaelithra", michael: "Sir Michael" };
 
 /** One line for the Title's Continue: night, map or door answer, keeper, difficulty, bookmark. */
 function setupSummary(hud: Hud) {
   const where = hud.night === "overflow" ? DOOR_LABEL[hud.alliance] : BOARDS[hud.map].name;
   const level = DIFFICULTIES.find((d) => d.id === hud.difficulty)?.name ?? "";
-  const parts = [NIGHT_LABEL[hud.night], where, KEEPER_NAME[hud.hero ?? "mynxi"], `${level} difficulty`];
+  const parts = [NIGHT_LABEL[hud.night], where, KEEPER_NAMES[hud.hero ?? "mynxi"].name, `${level} difficulty`];
   if (hud.bookmark) parts.push(BOOKMARK[hud.bookmark].name);
   return parts.join(" · ");
 }
@@ -626,12 +632,22 @@ const SHORT_NAME: Record<TowerKind, string> = {
   compost: "Compost",
   peeler: "Peeler",
   bookworm: "Bookworm",
+  catalogue: "Catalogue",
+  cauldron: "Cauldron",
+  trebuchet: "Trebuchet",
+  scales: "Scales",
+  mimic: "Memec",
+  lectern: "Lectern",
 };
 
 function describeStats(kind: TowerKind, read: { dmg: number; range: number; interval: number; lit?: boolean }) {
   const tiles = read.range >= 900 ? "whole board" : `${(read.range / 48).toFixed(1)} tiles`;
   const lit = read.lit ? " · lit" : "";
   if (kind === "compost") return "No shot · pays seeds every wave";
+  if (kind === "lectern") return `No shot · boosts damage within ${tiles}, more each wave`;
+  if (kind === "mimic") return `Swallows one fruit · ${tiles} · ${read.interval.toFixed(1)}s`;
+  if (kind === "scales") return `DMG ${read.dmg} + ${Math.round(CANNON.scalesShare * 100)}% of max health · ${tiles} · ${read.interval.toFixed(1)}s`;
+  if (kind === "catalogue") return `DMG ${read.dmg} · chains ×${CANNON.catalogueChains} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "lantern") return `Boosts cannons within ${tiles}`;
   if (kind === "bell") return `Stun · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "still") return `No shot · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
@@ -825,6 +841,19 @@ function HowToPlay() {
               {g.name} ({g.key.toUpperCase()}):
             </span>{" "}
             <span className="text-muted">{g.kinds.map((k) => `${TOWERS[k].name} (${TOWERS[k].role.toLowerCase()})`).join(", ")}</span>
+          </li>
+        ))}
+      </ul>
+
+      <p className={h}>Keeper towers (R)</p>
+      <p className="text-muted">Each keeper has one tower only they can build, one at a time.</p>
+      <ul className="mt-1 space-y-1">
+        {KEEPERS.map((k) => (
+          <li key={k.id}>
+            <span className="font-semibold text-parchment">
+              {TOWERS[SIGNATURE[k.id]].name} ({k.name}):
+            </span>{" "}
+            <span className="text-muted">{TOWERS[SIGNATURE[k.id]].blurb}</span>
           </li>
         ))}
       </ul>
@@ -1094,6 +1123,48 @@ const KEEPERS: Array<{
       { icon: "heart", text: `${BALANCE.michaelLives} stacks, ${BALANCE.michaelSeeds} seeds` },
     ],
   },
+  {
+    id: "elf",
+    name: "Legal Elf",
+    role: "Legal advisor",
+    flavor: "Witty, confident, sharp. Objects to fruit on principle.",
+    toneHz: 330,
+    portrait: asset("sprites/portrait-elf.webp"),
+    filter: "sepia(0.2) saturate(0.85) contrast(1.05)",
+    traits: [
+      { icon: "coins", text: "Back room costs 30% less" },
+      { icon: "aim", text: "Ordinary shots" },
+      { icon: "heart", text: "11 stacks, 140 seeds" },
+    ],
+  },
+  {
+    id: "ooze",
+    name: "Ooze Clues",
+    role: "Astral adventurer",
+    flavor: "The world is a game, and she is here to 100% it.",
+    toneHz: 360,
+    portrait: asset("sprites/portrait-ooze.webp"),
+    filter: "sepia(0.22) saturate(0.8) contrast(1.04)",
+    traits: [
+      { icon: "heart", text: "First leak each wave is absorbed" },
+      { icon: "aim", text: "Ordinary shots" },
+      { icon: "coins", text: "12 stacks, 130 seeds" },
+    ],
+  },
+  {
+    id: "scholar",
+    name: "Dr. Samodovol",
+    role: "The Scholar",
+    flavor: "History is not a collection of victories. It is a collection of lessons.",
+    toneHz: 200,
+    portrait: asset("sprites/portrait-scholar.webp"),
+    filter: "sepia(0.3) saturate(0.8) brightness(0.95)",
+    traits: [
+      { icon: "aim", text: "Upgrade picks show 4 choices" },
+      { icon: "coins", text: "Ordinary shots" },
+      { icon: "heart", text: "12 stacks, 130 seeds" },
+    ],
+  },
 ];
 
 function SelectScreen({
@@ -1302,6 +1373,7 @@ function SelectScreen({
                       <span className="mt-2 text-sm text-muted">{hero.flavor}</span>
                       <span className="mt-auto pt-3">
                         <KeeperTraits traits={hero.traits} />
+                        <span className="mt-1.5 block text-xs text-gold">Tower: {TOWERS[SIGNATURE[hero.id]].name}</span>
                       </span>
                     </span>
                   </button>
@@ -1316,6 +1388,7 @@ function SelectScreen({
                   <div className="mt-1">
                     <KeeperTraits traits={chosen.traits} />
                   </div>
+                  <p className="mt-1 text-xs text-gold">Tower: {TOWERS[SIGNATURE[chosen.id]].name}. {TOWERS[SIGNATURE[chosen.id]].blurb}</p>
                 </>
               ) : (
                 <p className="text-sm text-muted">Tap a portrait to see what each keeper brings.</p>
@@ -1480,7 +1553,7 @@ function Overlay({
                   ? "One more shelf. Then the door you chose comes due."
                   : hud.branch
                     ? "The last pick opened this shelf. It lasts the rest of the run."
-                    : `${hud.hero === "michael" ? "Sir Michael" : hud.hero === "vael" ? "Vael" : "Mynxi"} picks first. It lasts the rest of the run.`}
+                    : `${KEEPER_NAMES[hud.hero ?? "mynxi"].short} picks first. It lasts the rest of the run.`}
             </p>
             <div className="mt-4 flex flex-col gap-2">
               {hud.offer.map((u, i) => {
@@ -1526,7 +1599,13 @@ function Overlay({
                 ? "They will cover the west shelves for one wave. You have read this plot."
                 : hud.hero === "vael"
                   ? "She has already priced his loyalty. He will lend cannons for one wave."
-                  : "The Pumpkin Knight will lend cannons for the next wave. Mynxi has read this plot before."}
+                  : hud.hero === "elf"
+                    ? "He offers cannons for one wave. The Legal Elf has read the contract, and the fine print has teeth."
+                    : hud.hero === "ooze"
+                      ? "A side quest! He will lend cannons for one wave. Memec does not trust him."
+                      : hud.hero === "scholar"
+                        ? "He will lend cannons for one wave. The Doctor knows how alliances like this end in the history books."
+                        : "The Pumpkin Knight will lend cannons for the next wave. Mynxi has read this plot before."}
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <button
@@ -1635,7 +1714,13 @@ function Overlay({
                 ? "Sir Michael kept the door. Barely."
                 : hud.hero === "vael"
                   ? "Vael files the result. The formula held."
-                  : "Mynxi is filing this under accidents that worked."
+                  : hud.hero === "elf"
+                    ? "Case closed. The Legal Elf bills the produce for his time."
+                    : hud.hero === "ooze"
+                      ? "Quest complete. Memec is still chewing."
+                      : hud.hero === "scholar"
+                        ? "The Doctor writes it down. History will remember this one."
+                        : "Mynxi is filing this under accidents that worked."
             }`}
             action={hud.night === "midnight" ? "Continue to the Overflow" : hud.night === "overflow" ? "Set up Endless" : "Play again"}
             unlocks={hud.newUnlocks}

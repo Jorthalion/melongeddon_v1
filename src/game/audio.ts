@@ -148,6 +148,7 @@ function fire(kind: TowerKind | undefined) {
   if (throttled(`fire:${kind}`, GAP.fire)) return;
   switch (kind) {
     case "mortar":
+    case "trebuchet":
       voice({ freq: vary(130), to: 45, dur: 0.22, type: "sine", gain: 0.09 });
       hiss({ dur: 0.12, gain: 0.04, freq: 500 });
       break;
@@ -170,6 +171,7 @@ function fire(kind: TowerKind | undefined) {
       hiss({ dur: 0.14, gain: 0.04, filter: "bandpass", freq: 2200, to: 800, q: 2 });
       break;
     case "reader":
+    case "scales":
       hiss({ dur: 0.09, gain: 0.08, filter: "highpass", freq: 1500 });
       voice({ freq: 1400, to: 300, dur: 0.18, type: "triangle", gain: 0.04 });
       break;
@@ -180,12 +182,14 @@ function fire(kind: TowerKind | undefined) {
       voice({ freq: vary(190, 0.1), dur: 0.12, type: "sawtooth", gain: 0.008 });
       break;
     case "ink":
+    case "cauldron":
       voice({ freq: vary(300), to: 120, dur: 0.1, type: "sine", gain: 0.05 });
       break;
     case "peeler":
       hiss({ dur: 0.08, gain: 0.04, filter: "bandpass", freq: 3000, to: 1500, q: 3 });
       break;
     case "bookworm":
+    case "mimic":
       voice({ freq: vary(160), to: 240, dur: 0.12, type: "triangle", gain: 0.03 });
       break;
     default:

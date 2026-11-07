@@ -20,6 +20,7 @@ import {
   type NightId,
   type TowerKind,
   type UpgradeId,
+  SIGNATURE,
 } from "../src/game/engine.ts";
 
 /** lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves. */
@@ -116,14 +117,19 @@ function play(config: RunConfig, rng: () => number): RunResult {
 
   let placed = 0;
   const order = config.rotation ?? (config.strategy === "melon" ? ["melon" as TowerKind] : ROTATION);
-  const nextKind = (): TowerKind => order[placed % order.length];
+  // Bots that mix cannons build the keeper's signature tower as their third cannon (once).
+  const signature = config.hero ? SIGNATURE[config.hero] : null;
+  const nextKind = (): TowerKind => {
+    const own = signature && config.strategy !== "melon" && !config.rotation && placed >= 2 && !world.towers.some((t) => t.kind === signature);
+    return own ? signature! : order[placed % order.length];
+  };
 
   const bestCell = (range: number, kind: TowerKind) => {
     // Whole-board cannons score spots like a normal cannon would; anywhere works for them.
     if (range >= 900) range = 132;
     let best: { c: number; r: number } | null = null;
     let bestScore = 0;
-    if (kind === "lantern" || kind === "compost") {
+    if (kind === "lantern" || kind === "compost" || kind === "lectern") {
       // Lamp: next to the most cannons. Compost: the spot least useful for shooting.
       let pick: { c: number; r: number } | null = null;
       let score = -Infinity;
@@ -133,7 +139,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
           const x = c * CELL + CELL / 2;
           const y = r * CELL + CELL / 2;
           let v = 0;
-          if (kind === "lantern") {
+          if (kind === "lantern" || kind === "lectern") {
             for (const t of world.towers) if (!t.ally && t.kind !== "lantern" && t.kind !== "compost" && (t.x - x) ** 2 + (t.y - y) ** 2 <= 72 * 72) v++;
           } else {
             for (const p of samples) if ((p.x - x) ** 2 + (p.y - y) ** 2 <= 132 * 132) v--;
@@ -195,7 +201,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       const before = world.towers.length;
       click(spot.c, spot.r);
       if (world.towers.length === before) break;
-      placed++;
+      if (kind !== signature) placed++;
     }
     api.dismissSelection();
   };

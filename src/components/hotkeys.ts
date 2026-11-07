@@ -5,7 +5,7 @@ import { keyAction, runKeyAction } from "@/game/keys";
 /**
  * Keyboard shortcuts (the rules live in `game/keys.ts`):
  *   1–5      pick a cannon in the open tab, or choice 1–3 on a pick card / the knight / Setup's keepers
- *   Q W E    Damage / Control / Support tab
+ *   Q W E R  Damage / Control / Support / Keeper tab
  *   Space    start the next wave; pause / resume during a wave
  *   P        pause / resume
  *   S        sell the selected cannon
@@ -16,7 +16,7 @@ import { keyAction, runKeyAction } from "@/game/keys";
  *   M        sound on / off
  */
 export const HOTKEY_HELP =
-  "Q/W/E tab · 1–5 build or choose · Space wave/pause · P pause · S sell · B back room · Enter main button · Esc back/menu · +/− speed · M sound";
+  "Q/W/E/R tab · 1–5 build or choose · Space wave/pause · P pause · S sell · B back room · Enter main button · Esc back/menu · +/− speed · M sound";
 
 export function useHotkeys(
   api: ReturnType<typeof createWorld>,

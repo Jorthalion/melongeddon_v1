@@ -178,6 +178,19 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.beginPath();
       ctx.arc(pool.x, pool.y - 2, pool.r * 0.45, 0, Math.PI * 2);
       ctx.fill();
+    } else if (pool.toxic) {
+      // Bubbling Cauldron puddle.
+      ctx.fillStyle = `rgba(80,190,90,${0.32 * a})`;
+      ctx.beginPath();
+      ctx.arc(pool.x, pool.y, pool.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = `rgba(190,255,170,${0.5 * a})`;
+      for (let i = 0; i < 3; i++) {
+        const ang = world.anim * 1.3 + i * 2.1;
+        ctx.beginPath();
+        ctx.arc(pool.x + Math.cos(ang) * pool.r * 0.5, pool.y + Math.sin(ang) * pool.r * 0.4, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
       ctx.fillStyle = `rgba(226,59,74,${0.28 * a})`;
       ctx.beginPath();
@@ -293,6 +306,10 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   }
 
   for (const s of world.shots) {
+    if (s.element === "potion") {
+      drawShot(ctx, s.x, s.y, s.element, world.anim);
+      continue;
+    }
     if (s.element === "seed" || s.element === "fly" || s.element === "ink" || s.element === "peel" || s.element === "worm") {
       const look = NEW_SHOT[s.element];
       const img = art[look.sprite];

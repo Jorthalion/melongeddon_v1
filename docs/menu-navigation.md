@@ -126,9 +126,9 @@ Key rules live in one pure function, `keyAction(hud, key)` in `src/game/keys.ts`
 | Where | Keys |
 |---|---|
 | Title | ↑/↓ move through the buttons (focus starts on Continue), Enter presses the focused one, Esc closes a sub-card |
-| Setup | 1–3 keeper, Enter Begin (when ready), Esc Back |
+| Setup | 1–6 keeper, Enter Begin (when ready), Esc Back |
 | Intro | Enter goes to the carpet, Esc back to Setup |
-| Board | Q/W/E tab · 1–5 cannon · Space starts the wave between waves and pauses during one · P quick pause · S sell · B back room (between waves, cannon selected) · Esc closes the inspector, then opens the pause menu · +/− speed · M sound |
+| Board | Q/W/E/R tab (R = the keeper's own tower) · 1–5 cannon · Space starts the wave between waves and pauses during one · P quick pause · S sell · B back room (between waves, cannon selected) · Esc closes the inspector, then opens the pause menu · +/− speed · M sound |
 | Upgrade pick | 1–3 pick, Esc pause menu |
 | Back room | 1–3 fit, Esc Not now |
 | Knight | 1–3 (Accept, Betray, Send away), Esc pause menu |
@@ -152,9 +152,9 @@ Key rules live in one pure function, `keyAction(hud, key)` in `src/game/keys.ts`
 - **Layout:** the content scrolls in its own area. The footer is pinned and holds **Back** (left), **Begin** (right) and, when Begin is off, a red reason line: "Pick a keeper." or "Say how the first night ended."
 - **Door question:** when unanswered on the Overflow, it is also outlined in red.
 - **Phones (below 768 px for keepers, below 640 px for rows):**
-  - Keepers are three portraits, with the chosen keeper's role, flavour line and traits in a panel below.
+  - Keepers are portraits in rows of three (six keepers), with the chosen keeper's role, flavour line, traits and signature tower in a panel below.
   - Rooms and bookmarks are single rows that scroll sideways.
-  - Measured at 375×812: 912 px of scrolling for a 660 px view, and Begin is always visible.
+  - Measured at 375×812: 912 px of scrolling for a 660 px view with three keepers; 1,110 px for a 688 px view after the second row of keepers was added. Begin is always visible.
 - **Wider screens:** the large keeper cards and room/bookmark grids.
 
 **Board header**

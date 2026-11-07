@@ -4,7 +4,7 @@
  * applies it. The React hook in `components/hotkeys.ts` only adds DOM concerns
  * (typing in inputs, focused buttons, preventDefault).
  */
-import { TOWER_GROUPS, groupOf, type Hud, type UpgradeId, type createWorld } from "./engine.ts";
+import { HEROES, groupOf, groupsFor, type Hud, type UpgradeId, type createWorld } from "./engine.ts";
 
 type Api = ReturnType<typeof createWorld>;
 
@@ -35,7 +35,7 @@ export type KeyAction =
   | { type: "speed"; dir: -1 | 1 };
 
 /** Keepers in on-screen order on Setup. */
-export const KEEPER_ORDER = ["mynxi", "vael", "michael"] as const;
+export const KEEPER_ORDER = HEROES;
 /** Knight choices in on-screen order. */
 export const ALLIANCE_ORDER = ["accept", "betray", "reject"] as const;
 
@@ -107,7 +107,7 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
     case "prep":
     case "combat": {
       const kinds = groupOf(hud.build).kinds;
-      const tab = TOWER_GROUPS.findIndex((g) => g.key === key);
+      const tab = groupsFor(hud.hero).findIndex((g) => g.key === key);
       if (digit >= 0 && digit < kinds.length) return { type: "build", index: digit };
       if (tab >= 0) return { type: "tab", index: tab };
       if (key === " ") return phase === "prep" ? { type: "startWave" } : { type: "togglePause" };
@@ -185,7 +185,7 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       api.chooseBuild(groupOf(hud.build).kinds[action.index]);
       return true;
     case "tab": {
-      const tab = TOWER_GROUPS[action.index];
+      const tab = groupsFor(hud.hero)[action.index];
       api.dismissSelection();
       if (groupOf(hud.build).id !== tab.id) api.chooseBuild(tab.kinds[0]);
       return true;
