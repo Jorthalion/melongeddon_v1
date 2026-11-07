@@ -287,7 +287,7 @@ Severity:
 | Choose Keeper | New night |
 | Library ("The shelves") | How to play |
 | Settings ("The hall") | Settings |
-| Quit | Removed |
+| Quit | Removed on the web; the desktop app (Electron) shows Quit on the Title |
 | Difficulty "Stacks" | "Normal" (Story and Melongeddon unchanged; open question 3, decided) |
 | Begin siege | Begin |
 | Run it back / Try again | Play again / Try again (same setup), Change setup, Title, plus Continue to the Overflow and Set up Endless |

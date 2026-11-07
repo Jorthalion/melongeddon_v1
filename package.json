@@ -2,6 +2,10 @@
   "name": "melongeddon",
   "private": true,
   "version": "0.1.0",
+  "description": "A single-player tower defense: defend the Midnight Library from melons, corn and pumpkins.",
+  "author": "Jorthalion",
+  "homepage": "https://github.com/Jorthalion/melongeddon_v1",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,21 +14,65 @@
     "typecheck": "tsc --noEmit",
     "sim": "node --disable-warning=ExperimentalWarning scripts/sim.ts",
     "test": "node --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\"",
-    "package": "npm run build && node --disable-warning=ExperimentalWarning scripts/package-itch.ts"
-  },
-  "dependencies": {
-    "lucide-react": "^0.510.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "package": "npm run build && node --disable-warning=ExperimentalWarning scripts/package-itch.ts",
+    "app": "npm run build && electron .",
+    "installer": "npm run build && electron-builder --win --publish never",
+    "icons": "python scripts/make-icons.py"
   },
   "devDependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/outfit": "^5.3.0",
     "@tailwindcss/vite": "^4.1.0",
     "@types/node": "^24.19.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "lucide-react": "^0.510.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0",
     "vite": "^7.0.0"
+  },
+  "build": {
+    "appId": "io.github.jorthalion.melongeddon",
+    "productName": "Melongeddon",
+    "copyright": "Copyright (c) Jorthalion",
+    "directories": {
+      "output": "release/installer",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Melongeddon",
+      "uninstallDisplayName": "Melongeddon",
+      "artifactName": "Melongeddon-Setup-${version}.${ext}"
+    },
+    "electronLanguages": [
+      "en-US"
+    ]
   }
 }

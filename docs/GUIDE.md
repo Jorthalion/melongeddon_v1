@@ -4,7 +4,7 @@ Melongeddon is a single-player tower defense game that runs in the browser. Melo
 
 This guide has two parts:
 
-- **[Part 1: Setting it up](#part-1-setting-it-up)**: play it online, run it on your own computer, build it, and publish your own copy.
+- **[Part 1: Setting it up](#part-1-setting-it-up)**: play it online, install it (Windows app or browser app), run it on your own computer, build it, and publish your own copy.
 - **[Part 2: How to play](#part-2-how-to-play)**: the screens, controls, keepers, towers, upgrades, enemies, nights, and strategy.
 
 ---
@@ -21,7 +21,37 @@ It works in any modern browser on desktop or phone. Your progress (unlocks, best
 
 > Repo owner: Pages has to be switched on once. In the repo, open **Settings → Pages** and set **Source** to **GitHub Actions**. Then open the **Actions** tab and re-run **Deploy to GitHub Pages** (or push any commit). From then on, every push to `master` rebuilds and republishes the game automatically.
 
-## Option B: Run it on your own computer
+## Option B: Install it
+
+There are two ways to install Melongeddon so it opens like any other app, in its own window, offline.
+
+### Windows app (installer)
+
+1. Open the repo's **[Releases](https://github.com/Jorthalion/melongeddon_v1/releases)** page and download **`Melongeddon-Setup-<version>.exe`** from the latest release (about 110 MB).
+2. Run it. Windows may show **"Windows protected your PC"**, because the installer isn't code-signed (signing costs money). Click **More info → Run anyway**.
+3. Choose where to install it, and it adds a Start-menu shortcut and a desktop shortcut.
+
+In the app, **F11** toggles fullscreen and the Title screen has a **Quit** button. Closing the window during a night asks before throwing the run away.
+
+To uninstall: **Settings → Apps → Installed apps → Melongeddon → Uninstall**.
+
+> The desktop app keeps its own saves, separate from any browser. Unlocks earned in the browser don't carry over, and vice versa.
+
+> No release yet? The repo owner makes one by pushing a version tag (see [Making a release](#making-a-release)), or you can [build the installer yourself](#building-the-windows-installer).
+
+### Browser app (any device)
+
+The online version can be installed straight from the browser:
+
+| Device | How |
+|---|---|
+| **Chrome or Edge** (Windows, macOS, Linux, ChromeOS) | Open the game, then click **Install app** on the Title screen, or the install icon at the right end of the address bar |
+| **Android** (Chrome) | Open the game, tap **Install app** on the Title screen, or **⋮ → Add to Home screen** |
+| **iPhone / iPad** (Safari) | Open the game, tap **Share → Add to Home Screen** |
+
+After the first visit it works with no internet connection, and it updates itself whenever you're online.
+
+## Option C: Run it on your own computer
 
 ### 1. Install the tools
 
@@ -86,6 +116,40 @@ Open **http://localhost:5173** in your browser. The page reloads by itself when 
 | `npm run typecheck` | Type-checks without building |
 | `npm run sim` | Balance simulator: bots play thousands of runs and write `sim-results/report.md` (several minutes; add `-- --seeds 10` for steadier numbers) |
 | `npm run package` | Builds, then zips the game into `release/melongeddon-web.zip` for itch.io |
+| `npm run app` | Builds, then opens the game as a desktop app (Electron) |
+| `npm run installer` | Builds the Windows installer into `release/installer/` (Windows only) |
+| `npm run icons` | Redraws the app icons from the melon shapes (needs Python with Pillow) |
+
+## Building the Windows installer
+
+On Windows, after `npm install`:
+
+```bash
+npm run installer
+```
+
+This builds the game, packages it with Electron, and writes **`release/installer/Melongeddon-Setup-<version>.exe`**. The first run downloads the Electron runtime and the installer tools, which takes a few minutes; later builds are quicker. The version number comes from `version` in `package.json`.
+
+To check the packaged app starts, without opening a window:
+
+```powershell
+$env:MELONGEDDON_SMOKE = "1"; .\release\installer\win-unpacked\Melongeddon.exe
+```
+
+It prints one line ending in `"ok":true` when the Title screen loaded.
+
+The app's code is in `electron/` (`main.cjs` opens the window; `preload.cjs` gives the page its Quit button), and the installer settings are under `"build"` in `package.json`. Icons come from `build/icon.ico` and `public/icons/`.
+
+## Making a release
+
+The workflow in `.github/workflows/release.yml` builds the installer on GitHub's Windows machines, smoke-tests it, and publishes it as a GitHub Release:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The tag becomes the installer's version. A few minutes later the release appears on the repo's **Releases** page with `Melongeddon-Setup-0.2.0.exe` attached. To get an installer without publishing a release, open **Actions → Build Windows installer → Run workflow**, and download it from the run's **Artifacts**.
 
 ## Publishing your own copy
 
@@ -108,7 +172,11 @@ Optional: once you know your final address, change `og:image` in `index.html` to
 | Port 5173 is already in use | Vite picks the next free port and prints it (for example 5174). Open that address instead. |
 | A blank page after deploying | Make sure you deployed the contents of `dist/` (from `npm run build`), not the project folder. |
 | GitHub Pages workflow fails at "deploy" | Pages isn't switched on yet: **Settings → Pages → Source: GitHub Actions**, then re-run the workflow. |
-| You want to reset your progress | Clear the site data for the game's address in your browser settings. Unlocks, best waves, saved setup and settings are all stored there. |
+| `npm run installer` fails with `!include: could not open file` | The project folder's path is too long for the installer tool (Windows' old 260-character limit). Move the project somewhere short, like `C:\melongeddon`, or map a drive letter to it first: `subst M: "C:\long\path\to\melongeddon_v1"`, then `cd M:\` and run the command there (`subst M: /D` removes it). |
+| Windows says "Windows protected your PC" when installing | The installer isn't code-signed. Click **More info → Run anyway**. |
+| No **Install app** button on the Title screen | Your browser doesn't offer installs (Firefox, Safari on desktop, or an embedded browser), or the game is already installed. On iPhone use **Share → Add to Home Screen**. The button never shows in the desktop app. |
+| The installed browser app shows an old version | Open it while online and reload once; the new version is used the next time it starts. |
+| You want to reset your progress | Browser: clear the site data for the game's address. Desktop app: delete `%APPDATA%\Melongeddon`. Unlocks, best waves, saved setup and settings are all stored there. |
 
 ---
 
@@ -127,6 +195,7 @@ Build cannons on the **floor** beside the carpet (never on it). Every fruit you 
    - **New night** opens Setup, where you pick everything yourself.
    - **How to play** is a quick reference inside the game.
    - **Settings** has sound, music, game speed, reduce motion, and "Show tips again".
+   - **Install app** appears when your browser can install the game; **Quit** appears in the desktop app.
 2. **Setup (New night).** Choose, top to bottom:
    - **Night**: Midnight (night one), The Overflow (night two) or Endless.
    - **Room**: the map. More unlock as you play. On the Overflow, you instead say how the first night ended.

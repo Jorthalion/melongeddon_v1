@@ -48,6 +48,7 @@ import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, 
 import { HOTKEY_HELP, useHotkeys } from "@/components/hotkeys";
 import { CHUTE_TIP_KEY, ChuteTip, TUTORIAL_KEY, TutorialHint } from "@/components/TutorialHint";
 import { save } from "@/lib/storage";
+import { canInstall, isDesktopApp, onInstallChange, promptInstall } from "@/lib/install";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
 import { TowerIcon } from "@/components/TowerIcon";
 import { MapPreview } from "@/components/MapPreview";
@@ -67,6 +68,8 @@ export function MelonGame() {
   const [, setTick] = useState(0);
   const [muted, setMutedUi] = useState(isMuted);
   const [music, setMusicUi] = useState(isMusicOn);
+  const [installable, setInstallable] = useState(canInstall);
+  useEffect(() => onInstallChange(() => setInstallable(canInstall())), []);
   const leftSeen = useRef(-1);
 
   if (!worldRef.current) {
@@ -488,6 +491,8 @@ export function MelonGame() {
             tone(240, 0.06, "triangle", 0.04);
             api.openSetup();
           }}
+          onInstall={installable ? () => void promptInstall() : undefined}
+          onQuit={isDesktopApp() ? () => window.melongeddonDesktop?.quit() : undefined}
         />
       ) : null}
       {phase === "poster" ? (
@@ -739,8 +744,14 @@ function TitleScreen({
   saved,
   summary,
   note,
+  onInstall,
+  onQuit,
 }: {
   settings: ReactNode;
+  /** Shown when the browser can install the game as an app. */
+  onInstall?: () => void;
+  /** Desktop app only: close the window. */
+  onQuit?: () => void;
   saved: boolean;
   summary: string;
   note: string;
@@ -789,6 +800,8 @@ function TitleScreen({
             <MenuButton onClick={onKeeper}>New night</MenuButton>
             <MenuButton onClick={() => setView("howto")}>How to play</MenuButton>
             <MenuButton onClick={() => setView("settings")}>Settings</MenuButton>
+            {onInstall ? <MenuButton onClick={onInstall}>Install app</MenuButton> : null}
+            {onQuit ? <MenuButton onClick={onQuit}>Quit</MenuButton> : null}
           </div>
         ) : null}
       </div>

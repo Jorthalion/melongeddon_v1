@@ -20,6 +20,9 @@ npm run sim      # balance simulator -> sim-results/report.md (add -- --seeds 10
 
 The build uses relative paths, so `dist/` runs from any folder or domain.
 
+- **Windows installer:** `npm run installer` writes `release/installer/Melongeddon-Setup-<version>.exe` (Electron; code in `electron/`, settings under `"build"` in `package.json`). Pushing a tag like `v0.2.0` runs `.github/workflows/release.yml`, which builds, smoke-tests (`MELONGEDDON_SMOKE=1`) and publishes it as a GitHub Release. See the guide for the long-path workaround.
+- **Installable web app:** the hosted build is a PWA (`public/manifest.webmanifest`, `public/sw.js`). The build writes `dist/precache.json` (every file) so the service worker can cache the whole game for offline play; the Title shows **Install app** when the browser offers it. Fonts are bundled (`@fontsource-variable`), so offline copies look the same.
+
 - **itch.io:** `npm run package` writes `release/melongeddon-web.zip`. On itch.io, create a project with Kind = HTML, upload the zip, tick "This file will be played in the browser", and set the embed size to 1280×800 (or "click to launch in fullscreen" for phones).
 - **Netlify:** connect the repo (settings come from `netlify.toml`), or drag the `dist/` folder onto app.netlify.com/drop.
 - **GitHub Pages:** push to GitHub, then in the repo's Settings → Pages set Source to "GitHub Actions". `.github/workflows/pages.yml` tests, builds and deploys on every push to `main`/`master`.

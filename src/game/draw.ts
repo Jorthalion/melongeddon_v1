@@ -375,7 +375,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.globalAlpha = 1;
   }
 
-  ctx.font = "600 13px Outfit, sans-serif";
+  ctx.font = "600 13px 'Outfit Variable', Outfit, sans-serif";
   ctx.textAlign = "center";
   for (const f of world.floaters) {
     ctx.globalAlpha = Math.max(0, f.life);
@@ -522,7 +522,7 @@ function drawCarpet(
     roundRect(ctx, end.x - 16, end.y - 22, 32, 44, 4);
     ctx.fill();
     ctx.fillStyle = "#2a1c22";
-    ctx.font = "700 11px Outfit, sans-serif";
+    ctx.font = "700 11px 'Outfit Variable', Outfit, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("STACKS", end.x, end.y + 4);
   }
@@ -590,7 +590,7 @@ function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number
   roundRect(ctx, x - w / 2, y - h / 2, w, h, 4);
   ctx.stroke();
   ctx.fillStyle = active ? "#bfe6f7" : "#e6c36a";
-  ctx.font = "700 10px Outfit, sans-serif";
+  ctx.font = "700 10px 'Outfit Variable', Outfit, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("CHUTE", x, y + 0.5);

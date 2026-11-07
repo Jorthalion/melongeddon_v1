@@ -1,4 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Outfit:wght@400;500;600;700&display=swap");
+/* Fonts ship with the game (no Google Fonts request), so installed and offline copies look the same. */
+@import "@fontsource-variable/fraunces/opsz.css";
+@import "@fontsource-variable/outfit";
 @import "tailwindcss";
 
 @theme {
@@ -12,8 +14,8 @@
   --color-flesh: #e23b4a;
   --color-gold: #e6c36a;
   --color-line: #4e3542;
-  --font-display: "Fraunces", Georgia, serif;
-  --font-sans: "Outfit", system-ui, sans-serif;
+  --font-display: "Fraunces Variable", "Fraunces", Georgia, serif;
+  --font-sans: "Outfit Variable", "Outfit", system-ui, sans-serif;
   --radius: 0.85rem;
 }
 
