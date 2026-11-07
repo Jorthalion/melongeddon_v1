@@ -13,6 +13,7 @@ import {
   groupOf,
   groupsFor,
   KEEPER_NAMES,
+  KEEPER_START,
   SIGNATURE,
   TOWERS,
   buildCost,
@@ -1134,7 +1135,7 @@ const KEEPERS: Array<{
     traits: [
       { icon: "coins", text: "Back room costs 30% less" },
       { icon: "aim", text: "Ordinary shots" },
-      { icon: "heart", text: "11 stacks, 140 seeds" },
+      { icon: "heart", text: `${KEEPER_START.elf!.lives} stacks, ${KEEPER_START.elf!.seeds} seeds` },
     ],
   },
   {
@@ -1148,7 +1149,7 @@ const KEEPERS: Array<{
     traits: [
       { icon: "heart", text: "First leak each wave is absorbed" },
       { icon: "aim", text: "Ordinary shots" },
-      { icon: "coins", text: "12 stacks, 130 seeds" },
+      { icon: "coins", text: `${KEEPER_START.ooze!.lives} stacks, ${KEEPER_START.ooze!.seeds} seeds` },
     ],
   },
   {
@@ -1162,7 +1163,7 @@ const KEEPERS: Array<{
     traits: [
       { icon: "aim", text: "Upgrade picks show 4 choices" },
       { icon: "coins", text: "Ordinary shots" },
-      { icon: "heart", text: "12 stacks, 130 seeds" },
+      { icon: "heart", text: `${KEEPER_START.scholar!.lives} stacks, ${KEEPER_START.scholar!.seeds} seeds` },
     ],
   },
 ];

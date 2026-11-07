@@ -39,7 +39,7 @@ Six keepers, picked on the setup screen (keys 1–6). Each has a perk and a **si
 | Ooze Clues | 13 stacks, 140 seeds | The first single-fruit leak each wave is absorbed | **Mimic Chest / Memec** (100): about every 4 s swallows one nearby fruit whole (+3 seeds); Karl takes a 120 bite instead |
 | Dr. Samodovol | 12 stacks, 150 seeds | Upgrade picks offer 4 choices | **History Lectern** (65): no shot; cannons within 80 px deal +25% damage, +5% per wave since it was built, up to +60% |
 
-Tower numbers are in `CANNON` and `PROFILE` in `src/game/rules.ts`; starting stacks and seeds for the newer keepers are in `KEEPER_START`. Portraits for the three newer keepers are cropped from their reference sheets (`public/sprites/portrait-elf.webp`, `-ooze`, `-scholar`); the signature towers are drawn in code (`src/game/drawCannons.ts`) until painted sprites exist.
+Tower numbers are in `CANNON` and `PROFILE` in `src/game/rules.ts`; starting stacks and seeds for the newer keepers are in `KEEPER_START`. Portraits for the three newer keepers are `public/sprites/portrait-elf.webp`, `-ooze` and `-scholar` (square crops of their portrait art); the signature towers are drawn in code (`src/game/drawCannons.ts`) until painted sprites exist.
 
 **Simulated balance** (bots, 1 seed per setup, so ±7 points of noise): every keeper lands in the same range as the original three. The bots pick upgrades at random and rarely use the back room, so they undersell the Doctor's fourth choice and the Elf's discount.
 
