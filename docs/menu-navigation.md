@@ -2,7 +2,7 @@
 
 **Status:** revision 2. An independent AI agent reviewed it against the code; its corrections are folded in (see "Review history" at the end).
 
-**Progress:** Phases 1–3 are built (see 3.6). Part 1 still describes the game before them.
+**Progress:** All four phases are built (see 3.6). Parts 1 and 2 describe the game before them and are kept as the record of what was fixed.
 
 **Covers:** every screen outside the board itself, plus the board's own controls (HUD, build bar, cannon inspector).
 
@@ -332,6 +332,7 @@ The phases are ordered by player impact and by what each depends on. Each phase 
    - The wording table, How to play content, and the Settings panel (key list, reduce motion, tips).
    - Music toggle into Settings; the same intro screen for the Overflow; the greyed Back room button.
    - Fixes M2, M3, M7, M9, L1, L4, L6.
+   - **Built.** Title: Continue, New night, How to play, Settings (Quit removed). One `SettingsPanel` on the Title and in the pause menu: sound, music, default speed (saved), reduce motion (saved, overrides the system setting), Show tips again, key list from `HOTKEY_HELP`. The music button left the header. Difficulty "Stacks" is now "Normal" (only that one renamed; open question 3). "Begin siege" is "Begin". "Keeper screen" text now says "setup screen". The Overflow uses the same banner intro as every room. The back-room button shows greyed as "Between waves" during a wave. The footer, and its log line, is hidden under cards.
 
 **Tests to add** (`node --test`, no DOM):
 - `restartNight` and `toTitle` clear the run and keep the setup record.
@@ -348,7 +349,7 @@ The phases are ordered by player impact and by what each depends on. Each phase 
 
 1. Should Endless get its own Title entry, since it has its own best score, rather than living as a Night toggle?
 2. Should the Title's Continue also resume a run in progress after a reload? That would need saving the board mid-run, which the game doesn't do today.
-3. Rename only the normal difficulty ("Normal"), or all three together, keeping the library tone (e.g. Story / Shelved / Melongeddon)?
+3. Rename only the normal difficulty ("Normal"), or all three together, keeping the library tone (e.g. Story / Shelved / Melongeddon)? **Decided for now:** only the normal difficulty was renamed, to "Normal".
 
 ---
 

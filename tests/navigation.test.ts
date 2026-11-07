@@ -227,3 +227,25 @@ test("quick pause only works on the board", () => {
   api.togglePause();
   assert.equal(api.world.hud.paused, false);
 });
+
+test("Settings: game speed accepts only the listed speeds and survives a restart", () => {
+  const api = createWorld(() => {});
+  api.setSpeed(2);
+  assert.equal(api.world.hud.speed, 2);
+  api.setSpeed(7);
+  assert.equal(api.world.hud.speed, 2);
+  api.continueRun();
+  api.beginNight();
+  api.restartNight();
+  assert.equal(api.world.hud.speed, 2);
+});
+
+test("Settings: reduce motion turns off screen shake", () => {
+  const api = createWorld(() => {});
+  api.world.shake = 10;
+  api.setReduced(true);
+  assert.equal(api.world.reduced, true);
+  assert.equal(api.world.shake, 0);
+  api.setReduced(false);
+  assert.equal(api.world.reduced, false);
+});

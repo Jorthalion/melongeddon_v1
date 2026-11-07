@@ -684,7 +684,7 @@ export type Guard = "none" | "rind" | "husk" | "damp";
 
 export const DIFFICULTIES: Array<{ id: Difficulty; name: string; blurb: string; hp: number; speed: number }> = [
   { id: "easy", name: "Story", blurb: "Thinner rinds. They walk a little slower.", hp: 0.75, speed: 0.9 },
-  { id: "normal", name: "Stacks", blurb: "The library as written.", hp: 1, speed: 1 },
+  { id: "normal", name: "Normal", blurb: "The library as written.", hp: 1, speed: 1 },
   { id: "hard", name: "Melongeddon", blurb: "Thicker fruit, and they do not stroll.", hp: 1.2, speed: 1.12 },
 ];
 

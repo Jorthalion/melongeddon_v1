@@ -314,6 +314,27 @@ export function doorMemory(alliance: Alliance): string {
 }
 const STACKS = buildBoard(BOARDS.stacks.corners);
 
+const SPEED_KEY = "melongeddon-speed";
+const REDUCED_KEY = "melongeddon-reduced";
+/** Game speeds the −/+ buttons step through. */
+export const SPEEDS = [0.5, 1, 2, 3];
+
+function readPref(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
+
 function readBest(key = BEST_KEY): number {
   try {
     return Number(localStorage.getItem(key) ?? 0) || 0;
@@ -409,6 +430,10 @@ export function createWorld(
   openMenu: () => void;
   closeMenu: () => void;
   menuSettings: (open: boolean) => void;
+  /** Settings: default game speed (also applied now). Saved. */
+  setSpeed: (speed: number) => void;
+  /** Settings: reduce motion (no screen shake). Saved; overrides the system setting. */
+  setReduced: (on: boolean) => void;
   /** Clear the run and go to Setup, keeping the choices. */
   reset: () => void;
   unlock: () => void;
@@ -528,7 +553,7 @@ export function createWorld(
     const said: string[] = [];
     if (fresh.length) {
       world.hud.newUnlocks = [...world.hud.newUnlocks, ...fresh];
-      said.push(`New bookmark: ${fresh.map((id) => BOOKMARK[id].name).join(", ")}. Equip it on the keeper screen.`);
+      said.push(`New bookmark: ${fresh.map((id) => BOOKMARK[id].name).join(", ")}. Equip it on the setup screen.`);
     }
     if (freshMaps.length) said.push(`New map: ${freshMaps.map((id) => BOARDS[id].name).join(", ")}.`);
     if (said.length) {
@@ -541,7 +566,12 @@ export function createWorld(
   if (typeof window !== "undefined") {
     world.hud.best = readBest();
     world.hud.endlessBest = readBest(ENDLESS_BEST_KEY);
-    world.reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    // Settings can override the system's reduce-motion preference.
+    const reducedPref = readPref(REDUCED_KEY);
+    world.reduced =
+      reducedPref === "1" ? true : reducedPref === "0" ? false : (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
+    const speedPref = Number(readPref(SPEED_KEY));
+    if (SPEEDS.includes(speedPref)) world.hud.speed = speedPref;
   }
 
   const notify = () => onChange();
@@ -1730,8 +1760,20 @@ export function createWorld(
       world.hud.log = "The back room can wait.";
       notify();
     },
+    setSpeed(speed: number) {
+      if (!SPEEDS.includes(speed)) return;
+      world.hud.speed = speed;
+      if (persistMeta) writePref(SPEED_KEY, String(speed));
+      notify();
+    },
+    setReduced(on: boolean) {
+      world.reduced = on;
+      if (on) world.shake = 0;
+      if (persistMeta) writePref(REDUCED_KEY, on ? "1" : "0");
+      notify();
+    },
     nudgeSpeed(dir: -1 | 1) {
-      const steps = [0.5, 1, 2, 3];
+      const steps = SPEEDS;
       const at = steps.indexOf(world.hud.speed);
       const next = Math.max(0, Math.min(steps.length - 1, (at < 0 ? 1 : at) + dir));
       world.hud.speed = steps[next];

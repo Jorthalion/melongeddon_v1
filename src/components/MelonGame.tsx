@@ -1,6 +1,6 @@
 import { asset } from "@/lib/asset";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref } from "react";
-import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Music, Menu } from "lucide-react";
+import { BookOpen, Heart, Coins, Pause, Play, Volume2, VolumeX, Crosshair, X, Menu } from "lucide-react";
 import {
   BOARDS,
   CANNON_UPGRADES,
@@ -31,12 +31,15 @@ import {
   type Hud,
   BOOKMARK,
   BALANCE,
+  SPEEDS,
+  WAVE_COUNT,
   stacksWord,
 } from "@/game/engine";
 import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
 import { HOTKEY_HELP, useHotkeys } from "@/components/hotkeys";
-import { TutorialHint } from "@/components/TutorialHint";
+import { TUTORIAL_KEY, TutorialHint } from "@/components/TutorialHint";
+import { save } from "@/lib/storage";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
 import { TowerIcon } from "@/components/TowerIcon";
 import { MapPreview } from "@/components/MapPreview";
@@ -326,16 +329,6 @@ export function MelonGame() {
           >
             {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
           </button>
-          <button
-            type="button"
-            className={`hidden size-11 place-items-center rounded-xl border border-line bg-panel sm:grid ${music ? "" : "opacity-45"}`}
-            aria-label={music ? "Music off" : "Music on"}
-            aria-pressed={music}
-            title="Music"
-            onClick={toggleMusic}
-          >
-            <Music className="size-4" />
-          </button>
         </div>
       </header>
 
@@ -366,7 +359,7 @@ export function MelonGame() {
         ) : null}
       </div>
 
-      {phase === "coldopen" || phase === "poster" || phase === "select" ? null : (
+      {!showPlace ? null : (
       <footer className="flex shrink-0 flex-col gap-2 border-t border-line px-3 py-2.5 sm:px-4 sm:py-3">
         {showPlace ? (
           <>
@@ -464,16 +457,12 @@ export function MelonGame() {
             )}
             <p className="line-clamp-2 h-8 text-xs text-muted">{hud.log}</p>
           </>
-        ) : (
-          <p className="text-sm text-muted">{hud.log}</p>
-        )}
+        ) : null}
       </footer>
       )}
       {phase === "coldopen" ? (
         <TitleScreen
-          muted={muted}
-          music={music}
-          onMusic={toggleMusic}
+          settings={<SettingsPanel api={api} muted={muted} music={music} onMute={toggleMute} onMusic={toggleMusic} onGesture={gesture} />}
           saved={hud.saved}
           summary={`${setupSummary(hud)}${hud.saved || hud.hero ? "" : ". Pick your own with New night."}`}
           note={hud.setupNote}
@@ -487,39 +476,17 @@ export function MelonGame() {
             tone(240, 0.06, "triangle", 0.04);
             api.openLibrary();
           }}
-          onMute={(next) => {
-            gesture();
-            setMuted(next);
-            setMutedUi(next);
-            tone(next ? 140 : 280, 0.06, "triangle", 0.04);
-          }}
         />
       ) : null}
       {phase === "poster" ? (
-        hud.night === "overflow" ? (
-          <Poster
-            kicker={hud.hero === "michael" ? "Pumpkin Knight" : hud.hero === "vael" ? "Potions division" : "Head librarian"}
-            title="The Overflow"
-            joke="The chute is open. The returns have opinions."
-            action="Cover the chute"
-            onAction={() => {
-              gesture();
-              tone(260, 0.08, "triangle", 0.04);
-              api.beginNight();
-            }}
-            onBack={() => {
-              gesture();
-              api.backToSetup();
-            }}
-          />
-        ) : (
+        (
           <RoomScreen
             src={MAP_ART[hud.map] ?? MAP_ART.stacks!}
             dim={Boolean(BOARDS[hud.map].dark) && !MAP_ART[hud.map]}
             kicker={hud.hero === "michael" ? "Pumpkin Knight" : hud.hero === "vael" ? "Potions division" : "Head librarian"}
             title={BOARDS[hud.map].name}
             joke={ROOM_JOKE[hud.map] ?? ROOM_JOKE.stacks!}
-            action="To the carpet"
+            action={hud.night === "overflow" ? "Cover the chute" : "To the carpet"}
             onAction={() => {
               gesture();
               tone(260, 0.08, "triangle", 0.04);
@@ -583,7 +550,7 @@ function PauseMenu({
       <Dialog
         key={view}
         labelledBy="pause-title"
-        className="w-full max-w-xs rounded-md border border-[#d7b56a]/70 bg-[#100c0e]/95 px-4 py-5 text-center shadow-[inset_0_0_0_1px_rgba(215,181,106,0.22)] outline-none"
+        className="max-h-full w-full max-w-xs overflow-y-auto rounded-md border border-[#d7b56a]/70 bg-[#100c0e]/95 px-4 py-5 text-center shadow-[inset_0_0_0_1px_rgba(215,181,106,0.22)] outline-none"
       >
         {view === "pause" ? (
           <>
@@ -629,11 +596,9 @@ function PauseMenu({
         {view === "settings" ? (
           <>
             <p id="pause-title" className="font-display text-2xl font-semibold text-[#f6e7b4]">Settings</p>
-            <div className="mt-4 flex flex-col gap-2.5">
-              <MenuButton onClick={onMute}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
-              <MenuButton onClick={onMusic}>{music ? "Music is on" : "Music is off"}</MenuButton>
+            <div className="mt-3">
+              <SettingsPanel api={api} muted={muted} music={music} onMute={onMute} onMusic={onMusic} onGesture={onGesture} />
             </div>
-            <p className="mt-3 text-xs text-muted">Keys: {HOTKEY_HELP}</p>
             <div className="mt-4">
               <MenuButton onClick={() => { onGesture(); api.menuSettings(false); }}>Back</MenuButton>
             </div>
@@ -701,11 +666,11 @@ function TowerInspector({
         <p className="mt-0.5 h-4 truncate text-xs text-gold">{tower.mods.map((id) => MODS.find((m) => m.id === id)?.name).join(" · ")}</p>
       </div>
       <div className="flex shrink-0 flex-col gap-1.5">
-        {phase === "prep" && tower.mods.length < 2 && canFit ? (
+        {tower.mods.length < 2 && canFit ? (
           <button
             type="button"
-            title="Back room (B)"
-            disabled={hud.seeds < roomPrice}
+            title={phase === "prep" ? "Back room (B)" : "The back room opens between waves"}
+            disabled={phase !== "prep" || hud.seeds < roomPrice}
             className="h-9 rounded-lg border border-[#c6a15a] px-3 text-sm disabled:opacity-40"
             onClick={() => {
               onGesture();
@@ -713,7 +678,7 @@ function TowerInspector({
               api.openShop();
             }}
           >
-            Back room {roomPrice}
+            {phase === "prep" ? `Back room ${roomPrice}` : "Between waves"}
           </button>
         ) : null}
         <button
@@ -745,27 +710,21 @@ function TowerInspector({
 }
 
 function TitleScreen({
-  muted,
-  music,
-  onMusic,
+  settings,
   onStart,
   onKeeper,
-  onMute,
   saved,
   summary,
   note,
 }: {
-  muted: boolean;
-  music: boolean;
-  onMusic: () => void;
+  settings: ReactNode;
   saved: boolean;
   summary: string;
   note: string;
   onStart: () => void;
   onKeeper: () => void;
-  onMute: (next: boolean) => void;
 }) {
-  const [view, setView] = useState<"menu" | "library" | "settings" | "quit">("menu");
+  const [view, setView] = useState<"menu" | "howto" | "settings">("menu");
   const startRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   // Focus the main button whenever the menu shows, so Enter starts and arrows have a place to begin.
@@ -805,45 +764,182 @@ function TitleScreen({
               {note ? <span className="mt-0.5 block text-gold">{note}</span> : null}
             </p>
             <MenuButton onClick={onKeeper}>New night</MenuButton>
-            <MenuButton onClick={() => setView("library")}>Library</MenuButton>
+            <MenuButton onClick={() => setView("howto")}>How to play</MenuButton>
             <MenuButton onClick={() => setView("settings")}>Settings</MenuButton>
-            <MenuButton onClick={() => setView("quit")}>Quit</MenuButton>
           </div>
         ) : null}
-        {view === "library" ? (
-          <MenuCard title="The shelves" onBack={() => setView("menu")}>
-            <p>Mynxi keeps the long shots. Vaelithra slows whatever is on the carpet. Sir Michael hits harder, and one cannon is already down.</p>
-            <p className="mt-2">The Stacks are the first room. The Annex folds. The Overflow is the wet night under the chute. Endless never stops: survive as long as you can.</p>
-          </MenuCard>
-        ) : null}
-        {view === "settings" ? (
-          <MenuCard title="The hall" onBack={() => setView("menu")}>
-            <p>The candles stay. The noise does not have to.</p>
-            <div className="flex flex-col gap-2">
-              <MenuButton onClick={() => onMute(!muted)}>{muted ? "Sound is off" : "Sound is on"}</MenuButton>
-              <MenuButton onClick={onMusic}>{music ? "Music is on" : "Music is off"}</MenuButton>
-            </div>
-            <p className="mt-3 text-xs text-muted">Keys: {HOTKEY_HELP}</p>
-          </MenuCard>
-        ) : null}
-        {view === "quit" ? (
-          <MenuCard title="The doors" onBack={() => setView("menu")}>
-            <p>They open inward. The produce is still in the stacks, and it is not leaving.</p>
-          </MenuCard>
-        ) : null}
+      </div>
+      {view !== "menu" ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 p-4">
+          {view === "howto" ? (
+            <MenuCard title="How to play" onBack={() => setView("menu")} wide>
+              <HowToPlay />
+            </MenuCard>
+          ) : null}
+          {view === "settings" ? (
+            <MenuCard title="Settings" onBack={() => setView("menu")}>
+              {settings}
+            </MenuCard>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MenuCard({ title, onBack, wide, children }: { title: string; onBack: () => void; wide?: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={`flex max-h-full w-full flex-col rounded-md border border-[#d7b56a]/70 bg-[#100c0e]/92 px-4 py-4 text-center shadow-[inset_0_0_0_1px_rgba(215,181,106,0.22)] ${wide ? "max-w-lg" : "max-w-xs"}`}
+      role="region"
+      aria-label={title}
+    >
+      <p className="font-display text-2xl font-semibold text-[#f6e7b4]">{title}</p>
+      <div className="mt-2 min-h-0 flex-1 overflow-y-auto text-sm leading-relaxed text-[#f4ead8]">{children}</div>
+      <div className="mt-4 shrink-0">
+        <MenuButton onClick={onBack}>Back</MenuButton>
       </div>
     </div>
   );
 }
 
-function MenuCard({ title, onBack, children }: { title: string; onBack: () => void; children: ReactNode }) {
+/** Title › How to play: controls, cannon tabs, keepers, nights and rooms. */
+function HowToPlay() {
+  const h = "mt-4 mb-1 text-[10px] tracking-[0.22em] text-gold uppercase first:mt-0";
   return (
-    <div className="rounded-md border border-[#d7b56a]/70 bg-[#100c0e]/88 px-4 py-4 text-center shadow-[inset_0_0_0_1px_rgba(215,181,106,0.22)]">
-      <p className="font-display text-2xl font-semibold text-[#f6e7b4]">{title}</p>
-      <div className="mt-2 text-sm leading-relaxed text-[#f4ead8]">{children}</div>
-      <div className="mt-4">
-        <MenuButton onClick={onBack}>Back</MenuButton>
+    <div className="text-left">
+      <p className={h}>The basics</p>
+      <p>
+        Produce walks the carpet. Build cannons on the floor beside it; anything that reaches the far end costs a stack.
+        Kills pay seeds. A story night is {WAVE_COUNT} waves, with an upgrade pick now and then.
+      </p>
+      <p className="mt-1">
+        Tap a cannon to see its stats, sell it, or (between waves) fit it in the back room. Esc or the ☰ button pauses.
+      </p>
+
+      <p className={h}>Cannons</p>
+      <ul className="space-y-1">
+        {TOWER_GROUPS.map((g) => (
+          <li key={g.id}>
+            <span className="font-semibold text-parchment">
+              {g.name} ({g.key.toUpperCase()}):
+            </span>{" "}
+            <span className="text-muted">{g.kinds.map((k) => `${TOWERS[k].name} (${TOWERS[k].role.toLowerCase()})`).join(", ")}</span>
+          </li>
+        ))}
+      </ul>
+
+      <p className={h}>Keepers</p>
+      <ul className="space-y-1">
+        {KEEPERS.map((k) => (
+          <li key={k.id}>
+            <span className="font-semibold text-parchment">{k.name}:</span>{" "}
+            <span className="text-muted">{k.traits.map((t) => t.text).join(", ")}.</span>
+          </li>
+        ))}
+      </ul>
+
+      <p className={h}>Nights</p>
+      <ul className="space-y-1 text-muted">
+        <li>
+          <span className="font-semibold text-parchment">Midnight:</span> the first night. A knight comes to the door, and what you
+          answer changes the rest of it.
+        </li>
+        <li>
+          <span className="font-semibold text-parchment">The Overflow:</span> night two, under the returns chute. Your answer to the
+          knight decides who is waiting.
+        </li>
+        <li>
+          <span className="font-semibold text-parchment">Endless:</span> no knight and no last wave. Survive as long as you can.
+        </li>
+      </ul>
+
+      <p className={h}>Rooms</p>
+      <ul className="space-y-1">
+        {PICKABLE_MAPS.map((id) => (
+          <li key={id}>
+            <span className="font-semibold text-parchment">{BOARDS[id].name}:</span>{" "}
+            <span className="text-muted">
+              {BOARDS[id].blurb}
+              {MAP_GOALS[id] ? ` Unlock: ${MAP_GOALS[id]!.goal}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <p className={h}>Keys</p>
+      <p className="text-muted">{HOTKEY_HELP}</p>
+    </div>
+  );
+}
+
+/** One Settings panel for the Title and the pause menu. */
+function SettingsPanel({
+  api,
+  muted,
+  music,
+  onMute,
+  onMusic,
+  onGesture,
+}: {
+  api: ReturnType<typeof createWorld>;
+  muted: boolean;
+  music: boolean;
+  onMute: () => void;
+  onMusic: () => void;
+  onGesture: () => void;
+}) {
+  const [tipsReset, setTipsReset] = useState(false);
+  const speed = api.world.hud.speed;
+  const reduced = api.world.reduced;
+  const label = "mb-1 text-[10px] tracking-[0.22em] text-gold uppercase";
+  return (
+    <div className="flex flex-col gap-2.5 text-center">
+      <MenuButton onClick={onMute}>{muted ? "Sound: off" : "Sound: on"}</MenuButton>
+      <MenuButton onClick={onMusic}>{music ? "Music: on" : "Music: off"}</MenuButton>
+      <div>
+        <p className={label}>Game speed</p>
+        <div className="grid grid-cols-4 overflow-hidden rounded-[5px] border border-[#e2c78a]/85" role="radiogroup" aria-label="Game speed">
+          {SPEEDS.map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={speed === v}
+              className={`min-h-10 text-sm font-semibold ${speed === v ? "bg-[linear-gradient(180deg,#f8ecc4_0%,#e6c87a_46%,#b89249_100%)] text-[#24160e]" : "bg-[#100c10]/80 text-[#f6efe2]"}`}
+              onClick={() => {
+                onGesture();
+                api.setSpeed(v);
+              }}
+            >
+              {v}×
+            </button>
+          ))}
+        </div>
       </div>
+      <MenuButton
+        onClick={() => {
+          onGesture();
+          api.setReduced(!reduced);
+        }}
+      >
+        {reduced ? "Reduce motion: on" : "Reduce motion: off"}
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          onGesture();
+          save(TUTORIAL_KEY, "");
+          setTipsReset(true);
+        }}
+      >
+        Show tips again
+      </MenuButton>
+      {tipsReset ? (
+        <p className="text-xs text-gold" role="status">
+          Tips will show on your next night.
+        </p>
+      ) : null}
+      <p className="text-xs text-muted">Keys: {HOTKEY_HELP}</p>
     </div>
   );
 }
@@ -887,6 +983,7 @@ const ROOM_JOKE: Partial<Record<MapId, string>> = {
   mezzanine: "The balcony creaks. The melons like the view.",
   rarebooks: "Please do not touch the first editions. The pumpkins did not read the sign.",
   archive: "Somebody turned the lights off. Somebody round and green.",
+  overflow: "The chute is open. The returns have opinions.",
 };
 
 /** Map banners; any map without one is drawn by MapPreview. */
@@ -929,47 +1026,6 @@ function RoomScreen({
         <button
           type="button"
           className="mt-5 min-h-12 w-full max-w-xs rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink"
-          onClick={onAction}
-        >
-          {action}
-        </button>
-        <button
-          type="button"
-          className="mt-3 block w-full text-sm text-muted underline-offset-4 hover:text-parchment hover:underline"
-          onClick={onBack}
-        >
-          Back to setup
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Poster({
-  kicker,
-  title,
-  joke,
-  action,
-  onAction,
-  onBack,
-}: {
-  kicker: string;
-  title: string;
-  joke: string;
-  action: string;
-  onAction: () => void;
-  onBack: () => void;
-}) {
-  return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink/88 p-4">
-      <div className="w-full max-w-md border-4 border-gold bg-panel px-6 py-8 text-center">
-        <p className="text-xs tracking-[0.28em] text-gold uppercase">{kicker}</p>
-        <h1 className="mt-3 font-display text-5xl leading-none font-semibold">{title}</h1>
-        <div className="mx-auto mt-4 h-px w-16 bg-gold" />
-        <p className="mt-4 text-lg">{joke}</p>
-        <button
-          type="button"
-          className="mt-6 min-h-11 w-full rounded-xl bg-rind px-4 py-3 font-semibold text-ink"
           onClick={onAction}
         >
           {action}
@@ -1333,7 +1389,7 @@ function SelectScreen({
                 api.chooseHero(keeper);
               }}
             >
-              Begin siege
+              Begin
             </button>
           </div>
         </div>

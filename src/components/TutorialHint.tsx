@@ -3,7 +3,8 @@ import { createWorld } from "@/game/engine";
 import { HOTKEY_HELP } from "@/components/hotkeys";
 import { load, save } from "@/lib/storage";
 
-const KEY = "melongeddon:tutorial";
+export const TUTORIAL_KEY = "melongeddon:tutorial";
+const KEY = TUTORIAL_KEY;
 
 /** Hints for a player's first two waves. Reads game state each render; dismiss once and it stays gone. */
 export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {

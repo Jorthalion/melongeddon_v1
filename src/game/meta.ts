@@ -1,6 +1,6 @@
 /**
  * Meta progression: lifetime stats saved in the browser, and the bookmarks they unlock.
- * A bookmark is a small perk; the player equips one per run on the keeper screen.
+ * A bookmark is a small perk; the player equips one per run on the setup screen.
  */
 import { shopPrice, type HeroId, type MapId } from "./rules.ts";
 
@@ -127,7 +127,7 @@ export const MAP_GOALS: Partial<Record<MapId, { goal: string; unlocked: (m: Meta
   archive: { goal: "Win a night.", unlocked: (m) => m.wins >= 1 },
 };
 
-/** Maps the player can pick on the keeper screen (the Overflow is night two's, never picked). */
+/** Maps the player can pick on the setup screen (the Overflow is night two's, never picked). */
 export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive"];
 
 export function unlockedMaps(m: MetaStats): MapId[] {

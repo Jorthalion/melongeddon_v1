@@ -96,7 +96,7 @@ export function NewUnlocks({ ids, maps = [] }: { ids: BookmarkId[]; maps?: MapId
         </p>
       ))}
       <p className="mt-1 text-xs text-muted">
-        {ids.length ? "Equip bookmarks on the keeper screen." : "Pick it on the keeper screen."}
+        {ids.length ? "Equip bookmarks on the setup screen (New night)." : "Pick it on the setup screen (New night)."}
       </p>
     </div>
   );

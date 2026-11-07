@@ -28,7 +28,7 @@ Each story night is 15 waves. Midnight plays act one (waves 1-6), the knight's c
 
 ## Endless mode
 
-Pick **Endless** as the night on the keeper screen. You play act one's six waves, then generated waves that cycle four themes (corn swarms, shelled melons, pumpkins, a mix), grow every other wave, and add armoured variants from wave 13. Karl comes every fifth wave. You get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Enemy health follows the story curve to wave 10, then grows `BALANCE.endlessGrowth` (15%) per wave. In simulation, Normal runs end around waves 17–19 and Easy around 25. Best endless score is saved separately.
+Pick **Endless** as the night on the setup screen (New night). You play act one's six waves, then generated waves that cycle four themes (corn swarms, shelled melons, pumpkins, a mix), grow every other wave, and add armoured variants from wave 13. Karl comes every fifth wave. You get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Enemy health follows the story curve to wave 10, then grows `BALANCE.endlessGrowth` (15%) per wave. In simulation, Normal runs end around waves 17–19 and Easy around 25. Best endless score is saved separately.
 
 ## Cannons
 
@@ -60,7 +60,7 @@ Map unlock goals are `MAP_GOALS` in `src/game/meta.ts`. Maps without painted art
 
 ## Bookmarks (meta unlocks)
 
-Milestones across runs unlock bookmarks: small perks you equip one at a time on the keeper screen. Progress is saved in the browser (`src/game/meta.ts`).
+Milestones across runs unlock bookmarks: small perks you equip one at a time on the setup screen. Progress is saved in the browser (`src/game/meta.ts`).
 
 | Bookmark | Effect | Unlocked by |
 |---|---|---|
@@ -74,7 +74,7 @@ Effect sizes live in `BOOKMARK_VALUES`. The simulator can equip one (`bookmark` 
 
 ## Controls
 
-Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade, back-room and knight cards, and the keeper on Setup), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Music has its own toggle in Settings and the header.
+Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade, back-room and knight cards, and the keeper on Setup), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Settings (on the Title and in the pause menu) has sound, music, default game speed, reduce motion, and "Show tips again". The Title's How to play covers controls, cannons, keepers, nights and rooms.
 
 The pause menu (`Esc` or the menu button) has Resume, Settings, Restart night and Leave to title. The game remembers your last setup: the Title's Continue starts it again, and the end cards offer Play again, Change setup and Title.
 
