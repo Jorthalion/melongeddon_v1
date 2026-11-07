@@ -74,6 +74,29 @@ In simulation (bot always takes the cannon upgrade vs never), Barbed Spears, Foo
 
 The ten newer cannons are drawn in code (`src/game/drawCannons.ts`) until there is painted art. Their stats are in `PROFILE` and `CANNON` in `src/game/rules.ts`. Upgrade on-hit effects (Juicy, Splatter, Electric) only fire from the original four shooting cannons, so rapid-fire cannons don't multiply them.
 
+## Tower types
+
+The build tabs (Damage / Control / Support) say what a tower is for. Each tower also has a **type**, which says how it does damage and decides which shared upgrades change it (`TOWER_TYPE` and `UPGRADE_TARGETS` in `src/game/rules.ts`):
+
+| Type | Towers |
+|---|---|
+| Cannon | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet |
+| Precision | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Card Catalogue, Scales of Justice |
+| Alchemy | Still, Ink Well, Bubbling Cauldron |
+| Creature | Fly Hive, Bookworm, Mimic Chest |
+| Utility (no damage) | Shush Bell, Reading Lamp, Compost Heap, History Lectern |
+
+| Upgrade | Affects |
+|---|---|
+| Rapid Rind, Reading Lamp | Cannon, Precision |
+| Heavy Caliber, Juicy Explosions, Knight's Splatter, Electrified Melons | Cannon |
+| Bouncing Melons | Melon cannon |
+| Sticky Pulp, Trial Vial, Distilled Batch | Alchemy, and the pulp cannons leave (they also make the Bubbling Cauldron's puddle bigger or stronger) |
+| Seed Cache, Overdue Fines | Seeds only |
+| Barbed Spears, Footnotes, Stinging Flies, Ink Blot, Interest | Their own cannon |
+
+Every upgrade card shows "Affects: …", and the cannon inspector shows the tower's type.
+
 ## Maps
 
 Night one (and Endless) can be played on any unlocked map. Night two is always the Overflow. Boards are defined in `BOARDS` in `src/game/rules.ts` as a list of carpet corners, plus fixed spots for ally and knight cannons.

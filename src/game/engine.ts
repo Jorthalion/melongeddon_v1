@@ -3,7 +3,7 @@ import {
   BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
   type Alliance, type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId, type ModDef,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
-  HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, isSignature,
+  HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, isSignature, TOWER_TYPE,
 } from "./rules.ts";
 
 export * from "./rules.ts";
@@ -1053,15 +1053,17 @@ export function createWorld(
       shot.pulp = false; // a bounce does not leave a second puddle
     }
     if (shot.element === "potion") {
+      // Puddle upgrades (Alchemy) reach the cauldron: Sticky spreads it, Vial and Distilled make it bite.
+      const life = CANNON.cauldronLife * (has("sticky") ? 1.4 : 1);
       world.pools.push({
         x: e.x,
         y: e.y,
-        r: CANNON.cauldronRadius,
-        life: CANNON.cauldronLife,
-        max: CANNON.cauldronLife,
+        r: CANNON.cauldronRadius + (has("sticky") ? 12 : 0),
+        life,
+        max: life,
         hot: false,
         burn: 0,
-        toxic: CANNON.cauldronDps,
+        toxic: CANNON.cauldronDps + (has("distill") ? 8 : has("vial") ? 4 : 0),
       });
     }
     if (shot.procs && has("juicy")) {
@@ -1485,7 +1487,8 @@ export function createWorld(
         orange: tower.kind === "mortar" || tower.kind === "trebuchet" || tower.orange,
         splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) : tower.kind === "trebuchet" ? CANNON.trebuchetSplash : 0,
         element,
-        procs: !tower.ally && (element === "shot" || element === "fire" || element === "ice" || element === "mortar"),
+        // Juicy, Splatter and Electric go off from Cannon-type towers only.
+        procs: !tower.ally && TOWER_TYPE[tower.kind] === "cannon",
         inkTime: hasMod(tower, "indelible") ? CANNON.inkTime * 1.5 : CANNON.inkTime,
         inkMul: (hasMod(tower, "indelible") ? CANNON.inkBonus + 0.1 : CANNON.inkBonus) + (has("blot") ? CANNON.blotInkBonus : 0),
         wormDps: hasMod(tower, "venom") ? CANNON.wormDps * 1.5 : CANNON.wormDps,

@@ -77,12 +77,12 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   juicy: {
     id: "juicy",
     name: "Juicy Explosions",
-    blurb: "Melons burst. The pulp pool burns anyone standing in it.",
+    blurb: "Cannon hits burst. The pulp pool burns anyone standing in it.",
   },
   rapid: {
     id: "rapid",
     name: "Rapid Rind",
-    blurb: "Cannons cycle 30% faster. The carpet gets louder.",
+    blurb: "Cannon and Precision towers cycle 30% faster. The carpet gets louder.",
   },
   seeds: {
     id: "seeds",
@@ -97,12 +97,12 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   bounce: {
     id: "bounce",
     name: "Bouncing Melons",
-    blurb: "A shot ricochets into a second target.",
+    blurb: "Melon cannon shots ricochet into a second target.",
   },
   electric: {
     id: "electric",
     name: "Electrified Melons",
-    blurb: "Impacts throw a spark into a nearby foe.",
+    blurb: "Cannon impacts throw a spark into a nearby foe.",
   },
   fines: {
     id: "fines",
@@ -112,17 +112,17 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   caliber: {
     id: "caliber",
     name: "Heavy Caliber",
-    blurb: "Sir Michael's shot hits harder. The cannon reloads slower.",
+    blurb: "Cannons hit harder and reload slower.",
   },
   lamp: {
     id: "lamp",
     name: "Reading Lamp",
-    blurb: "Someone marks the range. Cannons see farther down the carpet.",
+    blurb: "Someone marks the range. Cannon and Precision towers see farther down the carpet.",
   },
   splatter: {
     id: "splatter",
     name: "Knight's Splatter",
-    blurb: "Each hit chips everyone standing close to the target.",
+    blurb: "Each cannon hit chips everyone standing close to the target.",
   },
   vial: {
     id: "vial",
@@ -283,6 +283,79 @@ export function groupsFor(hero: HeroId | null): TowerGroup[] {
 export function groupOf(kind: TowerKind): TowerGroup {
   if (isSignature(kind)) return keeperGroup(kind);
   return TOWER_GROUPS.find((g) => g.kinds.includes(kind)) ?? TOWER_GROUPS[0];
+}
+
+/**
+ * Tower types. The build tabs (Damage / Control / Support) say what a tower is for;
+ * the type says how it does damage, and decides which shared upgrades apply to it.
+ */
+export type TowerType = "cannon" | "precision" | "alchemy" | "creature" | "utility";
+
+export const TOWER_TYPE: Record<TowerKind, TowerType> = {
+  melon: "cannon",
+  mortar: "cannon",
+  fire: "cannon",
+  freeze: "cannon",
+  trebuchet: "cannon",
+  spitter: "precision",
+  ballista: "precision",
+  reader: "precision",
+  peeler: "precision",
+  catalogue: "precision",
+  scales: "precision",
+  still: "alchemy",
+  ink: "alchemy",
+  cauldron: "alchemy",
+  hive: "creature",
+  bookworm: "creature",
+  mimic: "creature",
+  bell: "utility",
+  lantern: "utility",
+  compost: "utility",
+  lectern: "utility",
+};
+
+export const TYPE_INFO: Record<TowerType, { name: string; blurb: string }> = {
+  cannon: { name: "Cannon", blurb: "Barrels that fire a shot that flies and lands." },
+  precision: { name: "Precision", blurb: "Aimed instruments: seeds, spears, scopes, blades." },
+  alchemy: { name: "Alchemy", blurb: "Puddles, ink and potions." },
+  creature: { name: "Creature", blurb: "Things that bite: flies, worms, and Memec." },
+  utility: { name: "Utility", blurb: "No damage. Only their own fittings and upgrades change them." },
+};
+
+/**
+ * Which tower types each shared upgrade affects. Upgrades not listed here are economy
+ * (Seed Cache, Overdue Fines) or belong to one cannon (CANNON_UPGRADES).
+ */
+export const UPGRADE_TARGETS: Partial<Record<UpgradeId, TowerType[]>> = {
+  rapid: ["cannon", "precision"],
+  caliber: ["cannon"],
+  lamp: ["cannon", "precision"],
+  juicy: ["cannon"],
+  splatter: ["cannon"],
+  electric: ["cannon"],
+  // Puddle upgrades: the still and cauldron, and the pulp melon cannons leave.
+  sticky: ["alchemy", "cannon"],
+  vial: ["alchemy", "cannon"],
+  distill: ["alchemy", "cannon"],
+};
+
+/** Shared upgrades that belong to one tower rather than a type (Bouncing Melons is the melon cannon's). */
+export const UPGRADE_KIND: Partial<Record<UpgradeId, TowerKind>> = { bounce: "melon" };
+
+/** Does upgrade `id` change tower `kind`? */
+export function upgradeAffects(id: UpgradeId, kind: TowerKind) {
+  if (CANNON_UPGRADES[kind] === id || UPGRADE_KIND[id] === kind) return true;
+  return UPGRADE_TARGETS[id]?.includes(TOWER_TYPE[kind]) ?? false;
+}
+
+/** Short "affects" label for an upgrade card. */
+export function upgradeTargetLabel(id: UpgradeId) {
+  const own = UPGRADE_KIND[id] ?? (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === id);
+  if (own) return TOWERS[own].name;
+  const types = UPGRADE_TARGETS[id];
+  if (!types) return "Seeds";
+  return types.map((t) => TYPE_INFO[t].name).join(", ");
 }
 
 /** Cannons that never shoot. */
@@ -492,7 +565,9 @@ export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) 
   return TOWERS[kind].cost;
 }
 
-export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgrades: UpgradeId[]) {
+export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]) {
+  // Only the upgrades that affect this tower's type count.
+  const upgrades = upgradesOwned.filter((id) => upgradeAffects(id, kind));
   const lamp = upgrades.includes("lamp");
   if (kind === "lantern") {
     return { dmg: 0, range: CANNON.lanternRadius + (mods.includes("wick") ? 30 : 0), interval: 0 };

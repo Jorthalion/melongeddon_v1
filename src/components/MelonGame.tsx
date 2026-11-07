@@ -14,6 +14,9 @@ import {
   groupsFor,
   KEEPER_NAMES,
   KEEPER_START,
+  TOWER_TYPE,
+  TYPE_INFO,
+  upgradeTargetLabel,
   SIGNATURE,
   TOWERS,
   buildCost,
@@ -438,7 +441,7 @@ export function MelonGame() {
                     <button
                       key={id}
                       type="button"
-                      title={`${TOWERS[id].name} (${slot + 1}): ${TOWERS[id].blurb}`}
+                      title={`${TOWERS[id].name} (${slot + 1}) · ${TYPE_INFO[TOWER_TYPE[id]].name}: ${TOWERS[id].blurb}`}
                       className={`relative h-full min-w-0 rounded-lg border px-1 py-1.5 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built ? "opacity-55" : ""}`}
                       onClick={() => {
                         gesture();
@@ -676,7 +679,9 @@ function TowerInspector({
       <TowerIcon kind={tower.kind} className="h-12 w-12 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-display text-lg leading-none font-semibold">{TOWERS[tower.kind].name}</p>
-        <p className="mt-1 truncate text-[10px] tracking-[0.16em] text-gold uppercase">{TOWERS[tower.kind].role}</p>
+        <p className="mt-1 truncate text-[10px] tracking-[0.16em] text-gold uppercase">
+          {TYPE_INFO[TOWER_TYPE[tower.kind]].name} · {TOWERS[tower.kind].role}
+        </p>
         <p className="mt-1 truncate text-xs text-muted sm:text-sm">
           {describeStats(tower.kind, read)}
         </p>
@@ -834,6 +839,16 @@ function HowToPlay() {
         Tap a cannon to see its stats, sell it, or (between waves) fit it in the back room. Esc or the ☰ button pauses.
       </p>
 
+      <p className={h}>Tower types</p>
+      <p className="text-muted">The tabs say what a tower is for. Its type says how it does damage, and which shared upgrades change it. Every upgrade card says what it affects.</p>
+      <ul className="mt-1 space-y-1">
+        {(Object.keys(TYPE_INFO) as Array<keyof typeof TYPE_INFO>).map((t) => (
+          <li key={t}>
+            <span className="font-semibold text-parchment">{TYPE_INFO[t].name}:</span> <span className="text-muted">{TYPE_INFO[t].blurb}</span>
+          </li>
+        ))}
+      </ul>
+
       <p className={h}>Cannons</p>
       <ul className="space-y-1">
         {TOWER_GROUPS.map((g) => (
@@ -841,7 +856,9 @@ function HowToPlay() {
             <span className="font-semibold text-parchment">
               {g.name} ({g.key.toUpperCase()}):
             </span>{" "}
-            <span className="text-muted">{g.kinds.map((k) => `${TOWERS[k].name} (${TOWERS[k].role.toLowerCase()})`).join(", ")}</span>
+            <span className="text-muted">
+              {g.kinds.map((k) => `${TOWERS[k].name} (${TYPE_INFO[TOWER_TYPE[k]].name.toLowerCase()}, ${TOWERS[k].role.toLowerCase()})`).join(", ")}
+            </span>
           </li>
         ))}
       </ul>
@@ -1574,6 +1591,7 @@ function Overlay({
                     <span className="min-w-0">
                       <span className="block font-semibold">{u.name}</span>
                       <span className="mt-1 block text-sm text-muted">{u.blurb}</span>
+                      <span className="mt-1 block text-[11px] tracking-wide text-gold uppercase">Affects: {upgradeTargetLabel(u.id as UpgradeId)}</span>
                     </span>
                     <kbd className="ml-auto hidden shrink-0 rounded border border-line px-1.5 font-sans text-[11px] text-muted sm:block">{i + 1}</kbd>
                   </button>
