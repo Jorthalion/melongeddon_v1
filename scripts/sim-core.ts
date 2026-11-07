@@ -92,7 +92,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
   const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
   const { world } = api;
 
-  api.openLibrary();
+  api.openSetup();
   api.setDifficulty(config.difficulty);
   if (config.night === "overflow") {
     api.chooseNight("overflow");
