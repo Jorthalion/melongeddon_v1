@@ -26,6 +26,19 @@ Optional: once you know the final URL, make `og:image` in `index.html` an absolu
 
 Each story night is 15 waves. Midnight plays act one (waves 1-6), the knight's choice, then nine waves for that choice ending in its finale (The Household, The Grudge or Unchaperoned). The Overflow ends with "The meter spends" and "Up the chute", when absurdity drops rinds down the chute. Enemy health climbs the full curve through wave 6, then `BALANCE.storyHpPace` (0.375) of a step per wave after that, so wave 15 is as tough as the old 10-wave finale.
 
+## Difficulty
+
+Four levels on the setup screen. They scale enemy health and speed (`DIFFICULTIES` in `src/game/rules.ts`):
+
+| Level | Health | Speed | Simulated bot win rate |
+|---|---|---|---|
+| Story | 0.75× | 0.9× | ~97% |
+| Normal | 1× | 1× | ~77% |
+| Melongeddon | 1.2× | 1.12× | ~41–49% |
+| Overdue | 1.45× | 1.15× | ~25% |
+
+Bots are not smart players, so read these as relative. A win on Overdue also counts as a Melongeddon win for unlocks.
+
 ## Endless mode
 
 Pick **Endless** as the night on the setup screen (New night). You play act one's six waves, then generated waves that cycle four themes (corn swarms, shelled melons, pumpkins, a mix), grow every other wave, and add armoured variants from wave 13. Karl comes every fifth wave. You get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Enemy health follows the story curve to wave 10, then grows `BALANCE.endlessGrowth` (15%) per wave. In simulation, Normal runs end around waves 17–19 and Easy around 25. Best endless score is saved separately.

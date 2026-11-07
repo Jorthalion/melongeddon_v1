@@ -1106,7 +1106,7 @@ function SelectScreen({
   const hud = api.world.hud;
   const keeper = hud.hero;
   const chosen = KEEPERS.find((k) => k.id === keeper) ?? null;
-  const hard = hud.difficulty === "hard";
+  const hard = hud.difficulty === "hard" || hud.difficulty === "overdue";
   const doorReady = hud.night !== "overflow" || hud.alliance !== "none";
   const ready = keeper != null && doorReady;
   const reason = !doorReady ? "Say how the first night ended." : !keeper ? "Pick a keeper." : "";
@@ -1326,17 +1326,17 @@ function SelectScreen({
           {/* 4. Difficulty */}
           <div className="mt-5">
             <p className={label}>Difficulty</p>
-            <div className="mt-1.5 grid grid-cols-3 overflow-hidden rounded-lg border border-line/70 sm:max-w-xl" role="radiogroup" aria-label="Difficulty">
+            <div className="mt-1.5 grid grid-cols-4 overflow-hidden rounded-lg border border-line/70 sm:max-w-xl" role="radiogroup" aria-label="Difficulty">
               {DIFFICULTIES.map((d) => {
                 const on = hud.difficulty === d.id;
-                const menace = on && d.id === "hard";
+                const menace = on && (d.id === "hard" || d.id === "overdue");
                 return (
                   <button
                     key={d.id}
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    className={`min-h-11 px-2 py-2 text-sm font-semibold ${menace ? "bg-[#6a2430] text-parchment" : on ? picked : idle}`}
+                    className={`min-h-11 px-1 py-2 text-xs font-semibold sm:px-2 sm:text-sm ${menace ? (d.id === "overdue" ? "bg-[#4a0f1a] text-parchment" : "bg-[#6a2430] text-parchment") : on ? picked : idle}`}
                     onClick={() => {
                       onGesture();
                       api.setDifficulty(d.id as Difficulty);
@@ -1348,7 +1348,7 @@ function SelectScreen({
               })}
             </div>
             <p className={`mt-1.5 text-sm ${hard ? "text-flesh" : "text-muted"}`}>
-              {hard ? "Thicker fruit. They do not stroll. They arrive." : DIFFICULTIES.find((d) => d.id === hud.difficulty)?.blurb}
+              {hud.difficulty === "hard" ? "Thicker fruit. They do not stroll. They arrive." : DIFFICULTIES.find((d) => d.id === hud.difficulty)?.blurb}
             </p>
           </div>
 

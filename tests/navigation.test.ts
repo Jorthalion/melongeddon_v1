@@ -249,3 +249,15 @@ test("Settings: reduce motion turns off screen shake", () => {
   api.setReduced(false);
   assert.equal(api.world.reduced, false);
 });
+
+test("Overdue is a valid saved difficulty and is tougher and faster than Melongeddon", async () => {
+  const { DIFFICULTIES } = await import("../src/game/engine.ts");
+  const hard = DIFFICULTIES.find((d) => d.id === "hard")!;
+  const overdue = DIFFICULTIES.find((d) => d.id === "overdue")!;
+  assert.ok(overdue.hp > hard.hp && overdue.speed > hard.speed);
+  assert.equal(validateSetup({ difficulty: "overdue" }, { maps: [], unlocked: [] }).setup.difficulty, "overdue");
+  const api = createWorld(() => {});
+  api.openSetup();
+  api.setDifficulty("overdue");
+  assert.equal(api.world.hud.difficulty, "overdue");
+});

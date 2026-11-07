@@ -1055,7 +1055,7 @@ export function createWorld(
       else m.bestWave = Math.max(m.bestWave, cleared);
       if (!endless && cleared >= WAVE_COUNT) {
         m.wins += 1;
-        if (world.hud.difficulty === "hard") m.hardWins += 1;
+        if (world.hud.difficulty === "hard" || world.hud.difficulty === "overdue") m.hardWins += 1;
       }
     });
   };

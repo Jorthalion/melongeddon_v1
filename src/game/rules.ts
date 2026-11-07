@@ -679,13 +679,14 @@ export function buildBoard(corners: Array<[number, number]>) {
   }));
   return { cells, points, turns };
 }
-export type Difficulty = "easy" | "normal" | "hard";
+export type Difficulty = "easy" | "normal" | "hard" | "overdue";
 export type Guard = "none" | "rind" | "husk" | "damp";
 
 export const DIFFICULTIES: Array<{ id: Difficulty; name: string; blurb: string; hp: number; speed: number }> = [
   { id: "easy", name: "Story", blurb: "Thinner rinds. They walk a little slower.", hp: 0.75, speed: 0.9 },
   { id: "normal", name: "Normal", blurb: "The library as written.", hp: 1, speed: 1 },
   { id: "hard", name: "Melongeddon", blurb: "Thicker fruit, and they do not stroll.", hp: 1.2, speed: 1.12 },
+  { id: "overdue", name: "Overdue", blurb: "Thicker still, and in a hurry. For when Melongeddon is too polite.", hp: 1.45, speed: 1.15 },
 ];
 
 export interface SpawnSpec {
