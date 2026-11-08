@@ -22,6 +22,19 @@ import {
   type MetaStats,
 } from "./meta.ts";
 export * from "./meta.ts";
+import {
+  emptyProgress,
+  levelFor,
+  loadProgress,
+  normalizeRecord,
+  perkFx,
+  saveProgress,
+  waveXp,
+  winXp,
+  PERK_LEVELS,
+  type KeeperProgress,
+} from "./levels.ts";
+export * from "./levels.ts";
 
 interface Waypoint {
   x: number;
@@ -221,6 +234,11 @@ export interface Hud {
   setupNote: string;
   /** The Overflow: the current or next wave sends fruit up the chute (they walk the carpet backwards). */
   chuteWave: boolean;
+  /** Keeper levels: XP and perk picks for every keeper. */
+  keepers: KeeperProgress;
+  /** The keeper's XP when this run started, and the XP earned in it. */
+  xpStart: number;
+  xpRun: number;
 }
 const BEST_KEY = "melongeddon-best-wave";
 const ENDLESS_BEST_KEY = "melongeddon-endless-best";
@@ -394,6 +412,8 @@ export interface WorldOptions {
   meta?: MetaStats;
   /** Start from this saved setup instead of the stored one (tests). */
   setup?: Partial<SetupRecord> | null;
+  /** Use these keeper levels instead of the saved ones, and never save them (simulator, tests). */
+  keepers?: KeeperProgress;
 }
 
 export function createWorld(
@@ -448,6 +468,8 @@ export function createWorld(
   reset: () => void;
   unlock: () => void;
   setBookmark: (id: BookmarkId | null) => void;
+  /** Setup: choose perk `pick` (0 or 1) for the chosen keeper's tier `tier` (0-4). Saved. */
+  setPerk: (tier: number, pick: 0 | 1) => void;
   /** Live stats for a placed tower (includes a Reading Lamp's boost). */
   statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean } | null;
 } {
@@ -498,6 +520,9 @@ export function createWorld(
       saved: false,
       setupNote: "",
       chuteWave: false,
+      keepers: emptyProgress(),
+      xpStart: 0,
+      xpRun: 0,
     },
     hover: null,
     anim: 0,
@@ -528,8 +553,8 @@ export function createWorld(
   let queueCursor = 0;
   let spawnClock = 0;
   let karlReward = false;
-  /** Ooze Clues: the first leak of the wave has been absorbed. */
-  let absorbed = false;
+  /** Ooze Clues: leaks absorbed this wave (one a wave, more with perks). */
+  let absorbed = 0;
   const has = (u: UpgradeId) => world.hud.upgrades.includes(u);
 
   const persistMeta = !options.meta && typeof window !== "undefined";
@@ -551,6 +576,33 @@ export function createWorld(
     world.hud.hero = stored ? setup.hero : null;
     world.hud.alliance = setup.night === "overflow" ? (setup.door !== "none" ? setup.door : readDoor()) : "none";
   }
+  const persistKeepers = !options.keepers && !options.meta && typeof window !== "undefined";
+  world.hud.keepers = options.keepers
+    ? (Object.fromEntries(Object.entries(options.keepers).map(([h, r]) => [h, normalizeRecord(r)])) as KeeperProgress)
+    : persistKeepers
+      ? loadProgress()
+      : emptyProgress();
+  /** Perk effects for the run in play (set when a run starts). */
+  let fx = perkFx(null, undefined);
+  /** Is this the playing keeper's own tower? */
+  const own = (kind: TowerKind) => world.hud.hero != null && SIGNATURE[world.hud.hero] === kind;
+  /** Give the playing keeper XP; say so if it brings a new level. */
+  const giveXp = (amount: number) => {
+    const hero = world.hud.hero;
+    if (!hero || amount <= 0) return;
+    const rec = world.hud.keepers[hero];
+    const before = levelFor(rec.xp);
+    const next = normalizeRecord({ xp: rec.xp + amount, picks: rec.picks });
+    world.hud.keepers = { ...world.hud.keepers, [hero]: next };
+    world.hud.xpRun += amount;
+    if (persistKeepers) saveProgress(world.hud.keepers);
+    const after = levelFor(next.xp);
+    if (after > before) {
+      const perk = (PERK_LEVELS as readonly number[]).includes(after) ? " A new perk is ready on the setup screen." : "";
+      world.hud.log = `${world.hud.log} ${KEEPER_NAMES[hero].name} reached level ${after}.${perk}`.trim();
+      cue("clear");
+    }
+  };
   const bm = (id: BookmarkId) => world.hud.bookmark === id;
   /** Update lifetime stats; announce any bookmark this unlocks. */
   const record = (change: (m: MetaStats) => void) => {
@@ -574,7 +626,7 @@ export function createWorld(
       cue("clear");
     }
   };
-  const roomPrice = () => backRoomPrice(world.hud.hero, world.hud.shopVisits, world.hud.bookmark);
+  const roomPrice = () => backRoomPrice(world.hud.hero, world.hud.shopVisits, world.hud.bookmark, fx.shopOff);
 
   if (typeof window !== "undefined") {
     world.hud.best = readBest();
@@ -646,15 +698,33 @@ export function createWorld(
     let best = 0;
     for (const lec of world.towers) {
       if (lec.kind !== "lectern" || lec === tower) continue;
-      if ((lec.x - tower.x) ** 2 + (lec.y - tower.y) ** 2 > CANNON.lecternRadius ** 2) continue;
-      const grown = Math.min(CANNON.lecternMax, CANNON.lecternBase + CANNON.lecternPerWave * Math.max(0, cleared - (lec.born ?? cleared)));
+      const reach = CANNON.lecternRadius * fx.lecternReach;
+      if ((lec.x - tower.x) ** 2 + (lec.y - tower.y) ** 2 > reach ** 2) continue;
+      const grown = Math.min(
+        CANNON.lecternMax + fx.lecternMax,
+        CANNON.lecternBase + fx.lecternBase + (CANNON.lecternPerWave + fx.lecternGrow) * Math.max(0, cleared - (lec.born ?? cleared)),
+      );
       best = Math.max(best, grown);
     }
     return 1 + best;
   };
+  /** Keeper perks on a tower's base stats. */
+  const withPerks = <T extends { dmg: number; range: number; interval: number }>(kind: TowerKind, read: T): T => {
+    if (kind === "lectern") return { ...read, range: Math.round(read.range * fx.lecternReach) };
+    if (PASSIVE.includes(kind)) return read;
+    const sig = own(kind);
+    const dmgMul = fx.allDmg * (sig ? fx.sigDmg : 1);
+    const rangeMul = fx.allRange * (sig ? fx.sigRange : 1);
+    return {
+      ...read,
+      dmg: dmgMul === 1 || read.dmg === 0 ? read.dmg : Math.max(1, Math.round(read.dmg * dmgMul)),
+      range: read.range >= GLOBAL_RANGE ? read.range : Math.round(read.range * rangeMul),
+      interval: sig ? read.interval * fx.sigPace : read.interval,
+    };
+  };
   const statsFor = (tower: Tower) => {
     if (tower.ally) return ALLY_STATS;
-    const read = towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades);
+    const read = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
     if (PASSIVE.includes(tower.kind)) return read;
     const mul = lecternMul(tower);
     const base = mul > 1 ? { ...read, dmg: Math.round(read.dmg * mul), studied: true } : read;
@@ -675,15 +745,21 @@ export function createWorld(
   /** The Archive is dark: see statsFor. */
   const dark = () => Boolean(BOARDS[world.hud.map].dark);
   const rangeFor = (kind: TowerKind) => {
-    const range = towerReadout(world.hud.hero, kind, [], world.hud.upgrades).range;
+    const range = withPerks(kind, towerReadout(world.hud.hero, kind, [], world.hud.upgrades)).range;
     if (!dark() || PASSIVE.includes(kind) || range >= GLOBAL_RANGE) return range;
     return Math.round(range * BALANCE.archiveDark);
   };
   const priceNext = () =>
-    Math.max(0, buildCost(world.hud.hero, placedCount(), world.hud.build) - (bm("discount") ? BOOKMARK_VALUES.discount : 0));
+    Math.max(
+      0,
+      buildCost(world.hud.hero, placedCount(), world.hud.build) -
+        (bm("discount") ? BOOKMARK_VALUES.discount : 0) -
+        (own(world.hud.build) ? fx.sigCost : 0),
+    );
   /** A signature tower can be built only by its keeper, and only one at a time. */
   const signatureBlocked = (kind: TowerKind) =>
-    isSignature(kind) && (world.hud.hero == null || SIGNATURE[world.hud.hero] !== kind || world.towers.some((t) => t.kind === kind));
+    isSignature(kind) &&
+    (world.hud.hero == null || SIGNATURE[world.hud.hero] !== kind || world.towers.filter((t) => t.kind === kind).length >= 1 + fx.sigExtra);
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
   const towerRange = (tower: Tower) => statsFor(tower).range;
   const syncPrice = () => {
@@ -851,7 +927,7 @@ export function createWorld(
     queueCursor = 0;
     spawnClock = 0;
     karlReward = false;
-    absorbed = false;
+    absorbed = 0;
     absurdDrops = 0;
     applyBoard(world.hud.map);
     const opening = waveAt(0, world.hud.night === "overflow" ? world.hud.alliance : "none", world.hud.night);
@@ -898,8 +974,8 @@ export function createWorld(
   };
 
   const loseLife = (n: number, x: number, y: number) => {
-    if (world.hud.hero === "ooze" && !absorbed && n === 1) {
-      absorbed = true;
+    if (world.hud.hero === "ooze" && absorbed < 1 + fx.absorb && n === 1) {
+      absorbed += 1;
       float(x, y, "absorbed", "#6fc6ef");
       world.rings.push({ x, y, r: 26, life: 0.5, max: 0.5, color: "111,198,239" });
       return;
@@ -953,7 +1029,7 @@ export function createWorld(
   };
 
   const onDeath = (e: Enemy) => {
-    world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0);
+    world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
     burst(e.x, e.y, e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : "#e23b4a", e.boss ? 28 : 10);
     cue(e.boss ? "bossPop" : "pop");
@@ -1049,7 +1125,7 @@ export function createWorld(
     }
     hurt(e, null, shot.dmg);
     burst(e.x, e.y, "#3f9a5c", 6);
-    if (!shot.fromAlly && world.hud.hero === "vael" && e.guard !== "husk") e.chill = Math.max(e.chill, 1.15);
+    if (!shot.fromAlly && world.hud.hero === "vael" && e.guard !== "husk") e.chill = Math.max(e.chill, 1.15 * fx.chill);
     if (shot.chill > 0 && e.guard !== "husk") e.chill = Math.max(e.chill, shot.chill);
     if (shot.element === "fire" && !shot.fromAlly) addFire(e.x, e.y, shot.fireLife, shot.fireBurn);
     if (shot.element === "ice" && !shot.fromAlly && e.guard !== "husk") {
@@ -1063,16 +1139,16 @@ export function createWorld(
     }
     if (shot.element === "potion") {
       // Puddle upgrades (Alchemy) reach the cauldron: Sticky spreads it, Vial and Distilled make it bite.
-      const life = CANNON.cauldronLife * (has("sticky") ? 1.4 : 1);
+      const life = CANNON.cauldronLife * (has("sticky") ? 1.4 : 1) * fx.poolLife;
       world.pools.push({
         x: e.x,
         y: e.y,
-        r: CANNON.cauldronRadius + (has("sticky") ? 12 : 0),
+        r: Math.round((CANNON.cauldronRadius + (has("sticky") ? 12 : 0)) * fx.poolWide),
         life,
         max: life,
         hot: false,
         burn: 0,
-        toxic: CANNON.cauldronDps + (has("distill") ? 8 : has("vial") ? 4 : 0),
+        toxic: Math.round((CANNON.cauldronDps + (has("distill") ? 8 : has("vial") ? 4 : 0)) * fx.sigDmg),
       });
     }
     if (shot.procs && has("juicy")) {
@@ -1145,6 +1221,8 @@ export function createWorld(
         if (world.hud.difficulty === "hard" || world.hud.difficulty === "overdue") m.hardWins += 1;
       }
     });
+    const won = !endless && cleared >= WAVE_COUNT;
+    giveXp(waveXp(world.hud.difficulty) + (won ? winXp(world.hud.difficulty) : 0));
   };
 
   const endWave = () => {
@@ -1166,6 +1244,7 @@ export function createWorld(
       float(heap.x, heap.y - 24, `+${pay}`, "#e6c36a");
       world.rings.push({ x: heap.x, y: heap.y, r: 30, life: 0.6, max: 0.6, color: "120,170,90" });
     }
+    if (fx.waveSeeds) world.hud.seeds += fx.waveSeeds;
     const beat = nextBeat(cleared, world.hud.alliance, world.hud.night);
     const upcoming = waveAt(endless ? cleared : Math.min(cleared, WAVE_COUNT - 1), world.hud.alliance, world.hud.night);
     if (beat !== "victory") cue("clear");
@@ -1193,7 +1272,9 @@ export function createWorld(
     }
     const step = cleared === 1 ? 1 : cleared === 2 ? 2 : 3;
     const offer =
-      beat === "upgrade" ? buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, world.hud.alliance, builtKinds()) : [];
+      beat === "upgrade"
+        ? buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, world.hud.alliance, builtKinds(), fx.offer)
+        : [];
     if (beat === "upgrade" && offer.length) {
       world.hud.offer = offer;
       world.hud.phase = "upgrade";
@@ -1382,7 +1463,7 @@ export function createWorld(
           float(target.x, target.y - 22, "gulp", "#6fc6ef");
           target.hp = 0;
           onDeath(target);
-          world.hud.seeds += CANNON.mimicLoot;
+          world.hud.seeds += CANNON.mimicLoot + fx.loot;
         }
         world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.2, max: 0.2, color: "111,198,239", width: 6 });
         continue;
@@ -1391,11 +1472,12 @@ export function createWorld(
         // A share of the heaviest fruit's health, and a fee if the verdict kills it.
         tower.cd = stats.interval;
         cue("fire", "scales");
-        const share = target.boss ? CANNON.scalesBossShare : CANNON.scalesShare;
+        const share = target.boss ? CANNON.scalesBossShare : CANNON.scalesShare + fx.share;
         hurt(target, null, stats.dmg + target.maxHp * share);
         if (target.hp <= 0) {
-          world.hud.seeds += CANNON.scalesFee;
-          float(target.x, target.y - 26, `fee +${CANNON.scalesFee}`, "#e6c36a");
+          const fee = CANNON.scalesFee + fx.fee;
+          world.hud.seeds += fee;
+          float(target.x, target.y - 26, `fee +${fee}`, "#e6c36a");
         }
         world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.25, max: 0.25, color: "230,195,106", width: 3 });
         burst(target.x, target.y, "#e6c36a", 8);
@@ -1487,15 +1569,15 @@ export function createWorld(
         bounces: tower.ally
           ? 0
           : tower.kind === "catalogue"
-            ? CANNON.catalogueChains
+            ? CANNON.catalogueChains + fx.chains
             : (tower.kind === "melon" && has("bounce")) || (tower.kind === "hive" && has("stinging"))
               ? 1
               : 0,
-        bounceRatio: tower.kind === "catalogue" ? CANNON.catalogueChainRatio : 1,
-        knock: tower.kind === "trebuchet" ? CANNON.trebuchetKnock : 0,
+        bounceRatio: tower.kind === "catalogue" ? Math.max(CANNON.catalogueChainRatio, fx.chainRatio) : 1,
+        knock: tower.kind === "trebuchet" ? CANNON.trebuchetKnock * fx.knock : 0,
         fromAlly: tower.ally,
         orange: tower.kind === "mortar" || tower.kind === "trebuchet" || tower.orange,
-        splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) : tower.kind === "trebuchet" ? CANNON.trebuchetSplash : 0,
+        splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) : tower.kind === "trebuchet" ? Math.round(CANNON.trebuchetSplash * fx.splash) : 0,
         element,
         // Juicy, Splatter and Electric go off from Cannon-type towers only.
         procs: !tower.ally && TOWER_TYPE[tower.kind] === "cannon",
@@ -1654,7 +1736,7 @@ export function createWorld(
       if (world.hud.phase !== "prep" && world.hud.phase !== "betrayal" && world.hud.phase !== "consequence") return;
       if (world.hud.menu) return;
       world.hud.paused = false;
-      absorbed = false;
+      absorbed = 0;
       const extra: SpawnSpec[] = [];
       if (world.hud.night === "midnight" && world.hud.alliance === "betray" && cleared === 4) {
         extra.push({ kind: "pumpkin", count: 5, every: 0.7 });
@@ -1758,6 +1840,9 @@ export function createWorld(
       world.enemies = [];
       world.hud.hero = hero;
       world.hud.phase = "poster";
+      fx = perkFx(hero, world.hud.keepers[hero]);
+      world.hud.xpStart = world.hud.keepers[hero].xp;
+      world.hud.xpRun = 0;
       world.hud.wave = 1;
       world.hud.chuteWave = usesChute(0);
       const opening = waveAt(0, door, world.hud.night);
@@ -1851,6 +1936,9 @@ export function createWorld(
         world.hud.lives += BOOKMARK_VALUES.sparestack;
         world.hud.maxLives += BOOKMARK_VALUES.sparestack;
       }
+      world.hud.seeds += fx.seeds;
+      world.hud.lives += fx.lives;
+      world.hud.maxLives += fx.lives;
       syncPrice();
       notify();
     },
@@ -2092,6 +2180,18 @@ export function createWorld(
       if (id && !world.hud.unlocked.includes(id)) return;
       world.hud.bookmark = id;
       if (persistMeta) savePick(id);
+      notify();
+    },
+    setPerk(tier: number, pick: 0 | 1) {
+      if (world.hud.phase !== "select" && world.hud.phase !== "coldopen") return;
+      const hero = world.hud.hero;
+      if (!hero || tier < 0 || tier >= PERK_LEVELS.length || (pick !== 0 && pick !== 1)) return;
+      const rec = world.hud.keepers[hero];
+      if (levelFor(rec.xp) < PERK_LEVELS[tier]) return;
+      const picks = rec.picks.slice();
+      picks[tier] = pick;
+      world.hud.keepers = { ...world.hud.keepers, [hero]: normalizeRecord({ xp: rec.xp, picks }) };
+      if (persistKeepers) saveProgress(world.hud.keepers);
       notify();
     },
   };

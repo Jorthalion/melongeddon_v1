@@ -185,8 +185,10 @@ export function buildOffer(
   alliance: Alliance = "none",
   /** Cannon kinds the player has built, most-built first. */
   built: TowerKind[] = [],
+  /** Extra choices from keeper perks. */
+  extra = 0,
 ): UpgradeDef[] {
-  const size = hero === "scholar" ? 4 : 3;
+  const size = (hero === "scholar" ? 4 : 3) + extra;
   const first: UpgradeId[] =
     hero === "michael" ? ["juicy", "rapid", "caliber"] : hero === "vael" ? ["juicy", "rapid", "vial"] : ["juicy", "rapid", "fines"];
   let wanted = first;
@@ -216,8 +218,8 @@ export function buildOffer(
   // From the second pick on, a cannon upgrade for something you built takes the middle
   // slot. The third slot holds the keeper's own pick, and the first pick sets the
   // keeper's path, so neither is displaced.
-  const extra = built.map((k) => CANNON_UPGRADES[k]).find((id): id is UpgradeId => !!id && !owned.includes(id));
-  if (step > 1 && extra && out.length >= 3) out[1] = extra;
+  const cannonPick = built.map((k) => CANNON_UPGRADES[k]).find((id): id is UpgradeId => !!id && !owned.includes(id));
+  if (step > 1 && cannonPick && out.length >= 3 && !out.includes(cannonPick)) out[1] = cannonPick;
   return out.map((id) => UPGRADES[id]);
 }
 export type TowerKind =
@@ -669,11 +671,12 @@ export const MODS: ModDef[] = [
   { id: "coldreach", name: "Long chill", blurb: "This cannon freezes farther down the carpet.", kinds: ["freeze"] },
 ];
 
-export function shopPrice(hero: HeroId | null, visits: number) {
+export function shopPrice(hero: HeroId | null, visits: number, extraOff = 0) {
   if (hero === "mynxi" && visits === 0) return 15;
   const price = 25 + visits * 15;
-  // The Legal Elf negotiates: the back room costs 30% less.
-  return hero === "elf" ? Math.round(price * 0.7) : price;
+  // The Legal Elf negotiates: the back room costs 30% less (more with his Hard Bargain perk).
+  const rate = (hero === "elf" ? 0.7 : 1) - extraOff;
+  return rate === 1 ? price : Math.round(price * rate);
 }
 
 /** Share of spent seeds returned when a tower is sold. */

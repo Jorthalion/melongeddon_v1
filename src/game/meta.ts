@@ -135,7 +135,7 @@ export function unlockedMaps(m: MetaStats): MapId[] {
 }
 
 /** Back-room price, with the Back-room Key's free first fitting. */
-export function backRoomPrice(hero: HeroId | null, visits: number, bookmark: BookmarkId | null) {
+export function backRoomPrice(hero: HeroId | null, visits: number, bookmark: BookmarkId | null, extraOff = 0) {
   if (bookmark === "backroom" && visits === 0) return 0;
-  return shopPrice(hero, visits);
+  return shopPrice(hero, visits, extraOff);
 }

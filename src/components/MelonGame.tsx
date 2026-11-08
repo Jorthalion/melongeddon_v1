@@ -50,6 +50,7 @@ import { CHUTE_TIP_KEY, ChuteTip, TUTORIAL_KEY, TutorialHint } from "@/component
 import { save } from "@/lib/storage";
 import { canInstall, isDesktopApp, onInstallChange, promptInstall } from "@/lib/install";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
+import { LevelBadge, PerkPicker, XpSummary } from "@/components/KeeperLevels";
 import { TowerIcon } from "@/components/TowerIcon";
 import { MapPreview } from "@/components/MapPreview";
 import { Dialog } from "@/components/Dialog";
@@ -1396,6 +1397,7 @@ function SelectScreen({
                       />
                       <span className="absolute inset-0 bg-[linear-gradient(to_top,#241418_0%,rgba(36,20,24,0.15)_42%,rgba(90,40,28,0.18)_100%)]" />
                       <span className="absolute inset-0 shadow-[inset_0_0_24px_rgba(20,8,10,0.55)]" />
+                      <LevelBadge hud={hud} hero={hero.id} />
                     </span>
                     <span className={`truncate px-2 py-1.5 text-center font-display text-sm font-semibold md:hidden ${on ? "text-gold" : ""}`}>
                       {hero.name}
@@ -1427,6 +1429,11 @@ function SelectScreen({
                 <p className="text-sm text-muted">Tap a portrait to see what each keeper brings.</p>
               )}
             </div>
+          </div>
+
+          {/* 3b. The chosen keeper's level and perks */}
+          <div className="mt-5">
+            <PerkPicker api={api} onGesture={onGesture} />
           </div>
 
           {/* 4. Difficulty */}
@@ -1759,6 +1766,7 @@ function Overlay({
             action={hud.night === "midnight" ? "Continue to the Overflow" : hud.night === "overflow" ? "Set up Endless" : "Play again"}
             unlocks={hud.newUnlocks}
             maps={hud.newMaps}
+            hud={hud}
             onAction={() => {
               onGesture();
               if (hud.night === "midnight") api.continueOverflow();
@@ -1785,6 +1793,7 @@ function Overlay({
             action="Try again"
             unlocks={hud.newUnlocks}
             maps={hud.newMaps}
+            hud={hud}
             onAction={() => {
               onGesture();
               api.restartNight();
@@ -1809,6 +1818,7 @@ function EndCard({
   unlocks = [],
   maps = [],
   more = [],
+  hud,
   onGesture,
 }: {
   title: string;
@@ -1819,12 +1829,15 @@ function EndCard({
   maps?: MapId[];
   /** Secondary buttons under the main one. */
   more?: Array<{ label: string; run: () => void }>;
+  /** For the XP earned this run. */
+  hud?: Hud;
   onGesture: () => void;
 }) {
   return (
     <>
       <h2 id="card-title" role="status" className="font-display text-2xl font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-muted">{body}</p>
+      {hud ? <XpSummary hud={hud} /> : null}
       <NewUnlocks ids={unlocks} maps={maps} />
       <button
         type="button"

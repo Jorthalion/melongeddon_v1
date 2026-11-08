@@ -199,7 +199,8 @@ Build cannons on the **floor** beside the carpet (never on it). Every fruit you 
 2. **Setup (New night).** Choose, top to bottom:
    - **Night**: Midnight (night one), The Overflow (night two) or Endless.
    - **Room**: the map. More unlock as you play. On the Overflow, you instead say how the first night ended.
-   - **Keeper**: your hero, each with a perk and a signature tower (see [Keepers](#keepers)).
+   - **Keeper**: your hero, each with a perk and a signature tower (see [Keepers](#keepers)). The **Lv** badge on each portrait is that keeper's level.
+   - **Perks**: the chosen keeper's perk choices, one per row, opened by leveling up (see [Keeper levels and perks](#keeper-levels-and-perks)).
    - **Difficulty**: Story, Normal, Melongeddon or Overdue.
    - **Bookmark**: one small perk you've earned (see [Bookmarks](#bookmarks)).
 
@@ -252,6 +253,78 @@ Each keeper changes your start and has one **signature tower** that only they ca
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite |
 | **Dr. Samodovol**, The Scholar | 12 stacks, 150 seeds | Upgrade picks offer four choices instead of three | **History Lectern** (65): no shot; nearby cannons hit harder, and more so every wave it stands |
+
+## Keeper levels and perks
+
+Every keeper has their own level, from 1 to 10, saved between runs. A keeper earns XP only when you play them:
+
+- **10 XP for every wave cleared**, in any night, including Endless.
+- **+50 XP for winning** Midnight or the Overflow.
+- Difficulty scales both: Story ×0.5, Normal ×1, Melongeddon ×1.5, Overdue ×2.
+
+A Normal win is worth 200 XP. Level 2 takes 100 XP, and each level after costs 30 more than the last, so level 10 (1,980 XP in total) takes roughly 10–20 nights. The end-of-night card shows the XP you earned and your progress.
+
+At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen. One perk per row is active (the first is picked for you when the row opens). You can swap any open row before any night; perks can't be changed mid-run, and a level reached during a night applies from the next one.
+
+**Mynxi**
+
+| Level | Option A | Option B |
+|---|---|---|
+| 2 | **Petty Cash**: Start with 30 more seeds. | **Late Returns**: Every kill pays 1 more seed. |
+| 4 | **Cross-Reference**: The Card Catalogue chains to one more fruit. | **Long Desk**: The Card Catalogue reaches 20% farther. |
+| 6 | **Quiet, Please**: All your cannons hit 8% harder. | **Overdue Notices**: +10 seeds after every wave. |
+| 8 | **Card Index**: The Card Catalogue hits 30% harder. | **Reserved Shelf**: The Card Catalogue costs 30 seeds less. |
+| 10 | **Second Catalogue**: You can build two Card Catalogues. | **Dewey's Decree**: Catalogue chains lose no damage. |
+
+**Vaelithra**
+
+| Level | Option A | Option B |
+|---|---|---|
+| 2 | **Pocket Money**: Start with 30 more seeds. | **Spare Flask**: Start with two more stacks. |
+| 4 | **Slow Simmer**: Cauldron puddles last 50% longer. | **Wide Pot**: Cauldron puddles are 30% wider. |
+| 6 | **Cold Hands**: Her slow lasts 60% longer. | **Potent**: All your cannons hit 8% harder. |
+| 8 | **Reduction**: The Cauldron hits 40% harder, puddles too. | **Quick Stir**: The Cauldron fires 25% faster. |
+| 10 | **Second Cauldron**: You can build two Bubbling Cauldrons. | **Philosopher's Tip**: +15 seeds after every wave. |
+
+**Sir Michael**
+
+| Level | Option A | Option B |
+|---|---|---|
+| 2 | **War Chest**: Start with 20 more seeds. | **Squire**: Start with one more stack. |
+| 4 | **Heavier Pumpkins**: Trebuchet knockback is 50% stronger. | **Wide Splat**: Trebuchet splash is 25% wider. |
+| 6 | **Patrol Pay**: +6 seeds after every wave. | **Steady Arm**: All your cannons hit 5% harder. |
+| 8 | **Siege Crew**: The Trebuchet fires 20% faster. | **Requisition**: The Trebuchet costs 30 seeds less. |
+| 10 | **Second Trebuchet**: You can build two Pumpkin Trebuchets. | **Harvest Oath**: Every kill pays 1 more seed. |
+
+**Legal Elf**
+
+| Level | Option A | Option B |
+|---|---|---|
+| 2 | **Signing Bonus**: Start with 30 more seeds. | **Indemnity**: Start with two more stacks. |
+| 4 | **Hard Bargain**: The back room costs 40% less instead of 30%. | **Billable Hours**: Scales fees pay 5 more seeds. |
+| 6 | **Fine Print**: Every kill pays 1 more seed. | **Retainer**: +10 seeds after every wave. |
+| 8 | **Precedent**: The Scales take 18% of health instead of 12%. | **Swift Ruling**: The Scales fire 25% faster. |
+| 10 | **Second Scales**: You can build two Scales of Justice. | **Class Action**: All your cannons hit 12% harder. |
+
+**Ooze Clues**
+
+| Level | Option A | Option B |
+|---|---|---|
+| 2 | **Shiny Finds**: Start with 30 more seeds. | **Thick Skin**: Start with two more stacks. |
+| 4 | **Gelatinous**: Absorbs two leaks each wave instead of one. | **Astral Sight**: All your cannons reach 10% farther. |
+| 6 | **Snack Budget**: Memec finds 4 more seeds in every meal. | **Treasure Sense**: Every kill pays 1 more seed. |
+| 8 | **Big Appetite**: Memec eats 25% faster. | **Long Tongue**: Memec reaches 35% farther. |
+| 10 | **Second Mimic**: You can build two Mimic Chests. | **Bottomless**: Absorbs one more leak each wave. |
+
+**Dr. Samodovol**
+
+| Level | Option A | Option B |
+|---|---|---|
+| 2 | **Research Grant**: Start with 50 more seeds. | **Sabbatical**: Start with three more stacks. |
+| 4 | **Annotated**: The Lectern's bonus starts at 35% instead of 25%. | **Wide Reading**: The Lectern reaches 30% farther. |
+| 6 | **Tenure**: +15 seeds after every wave. | **Peer Review**: All your cannons hit 12% harder. |
+| 8 | **Thesis**: The Lectern grows faster and caps at 85% instead of 60%. | **Lecture Notes**: The Lectern costs 25 seeds less. |
+| 10 | **Second Lectern**: You can build two History Lecterns. | **Fifth Book**: Every shelf offers one more upgrade. |
 
 ## Towers
 

@@ -20,6 +20,7 @@ import {
   type NightId,
   type TowerKind,
   type UpgradeId,
+  type KeeperProgress,
   SIGNATURE,
 } from "../src/game/engine.ts";
 
@@ -43,6 +44,8 @@ export interface RunConfig {
   maxTowers?: number;
   /** Optional upgrade chooser; gets the offered ids, returns one. Default: random. */
   pickUpgrade?: (offer: UpgradeId[]) => UpgradeId;
+  /** Optional keeper levels and perk picks (default: every keeper at level 1). */
+  keepers?: KeeperProgress;
 }
 
 export interface RunResult {
@@ -90,7 +93,7 @@ export function simulateRun(config: RunConfig): RunResult {
 
 function play(config: RunConfig, rng: () => number): RunResult {
   // Everything unlocked so any map can be chosen; bookmarks only apply when one is set.
-  const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
+  const api = createWorld(() => {}, { meta: ALL_UNLOCKED, keepers: config.keepers });
   const { world } = api;
 
   api.openSetup();

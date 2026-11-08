@@ -120,6 +120,12 @@ Night one (and Endless) can be played on any unlocked map. Night two is always t
 
 Map unlock goals are `MAP_GOALS` in `src/game/meta.ts`. Maps without painted art get a drawn preview (`src/components/MapPreview.tsx`). In simulation all five play within a few points of the Stacks. Rare Books is the easiest without its health bonus; the Archive is the hardest for the bot, which doesn't plan lamp placement.
 
+## Keeper levels
+
+Each keeper levels from 1 to 10 by clearing waves as that keeper (10 XP a wave, +50 for a win, scaled by difficulty: Story ×0.5 up to Overdue ×2). Levels 2, 4, 6, 8 and 10 each open a choice of two perks, picked on the setup screen and swappable before any night. Level 10 offers a second copy of the keeper's signature tower or a keeper-specific capstone. Data, XP curve and storage live in `src/game/levels.ts`; the engine applies the merged effects (`perkFx`) when a run starts. The full perk list is in [docs/GUIDE.md](docs/GUIDE.md#keeper-levels-and-perks).
+
+Simulated win rates (all strategies, maps and doors, one seed): level 1 is 69% on Normal and 38% on Melongeddon; a level 10 keeper is about 80% and 50%. Weaker keepers (Dr. Samodovol, Ooze) get slightly bigger perks, and Sir Michael smaller ones. The simulator takes keeper levels through `keepers` in `RunConfig`.
+
 ## Bookmarks (meta unlocks)
 
 Milestones across runs unlock bookmarks: small perks you equip one at a time on the setup screen. Progress is saved in the browser (`src/game/meta.ts`).
