@@ -131,13 +131,13 @@ test("validateSetup ignores junk", () => {
   assert.deepEqual(r.setup, { night: "midnight", map: "stacks", difficulty: "normal", bookmark: null, hero: "mynxi", door: "none" });
 });
 
-test("Continue on the Overflow with no door answer opens Setup instead", () => {
+test("Continue on the Overflow with no door answer starts it as if he was sent away", () => {
   const api = createWorld(() => {}, { setup: { night: "overflow", hero: "vael" } });
-  assert.equal(validateSetup({ night: "overflow" }, { maps: [], unlocked: [] }).needsDoor, true);
+  assert.equal(validateSetup({ night: "overflow" }, { maps: [], unlocked: [] }).needsDoor, false);
   api.continueRun();
-  assert.equal(api.world.hud.phase, "select");
+  assert.equal(api.world.hud.phase, "poster");
   assert.equal(api.world.hud.night, "overflow");
-  assert.match(api.world.hud.log, /first night/);
+  assert.equal(api.world.hud.alliance, "reject");
 });
 
 test("Continue on the Overflow with a saved door answer starts it", () => {
@@ -148,18 +148,20 @@ test("Continue on the Overflow with a saved door answer starts it", () => {
   assert.equal(api.world.hud.map, "overflow");
 });
 
-test("Continue to the Overflow after Midnight uses this run's door answer", () => {
+test("Continue to the Overflow after Midnight opens Setup for late slips, keeping the door answer", () => {
   const api = midRun();
   api.world.hud.alliance = "betray";
   api.world.hud.phase = "victory";
   api.continueOverflow();
   const h = api.world.hud;
-  assert.equal(h.phase, "poster");
+  assert.equal(h.phase, "select");
   assert.equal(h.night, "overflow");
   assert.equal(h.map, "overflow");
   assert.equal(h.alliance, "betray");
   assert.equal(h.hero, "vael");
   assert.equal(h.difficulty, "hard");
+  api.chooseHero("vael");
+  assert.equal(h.phase, "poster");
   // Shooting first means husks are already on the carpet.
   assert.ok(api.world.enemies.length > 0);
 });

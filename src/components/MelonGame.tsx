@@ -51,6 +51,7 @@ import { save } from "@/lib/storage";
 import { canInstall, isDesktopApp, onInstallChange, promptInstall } from "@/lib/install";
 import { BookmarkPicker, NewUnlocks } from "@/components/Bookmarks";
 import { LevelBadge, PerkPicker, XpSummary } from "@/components/KeeperLevels";
+import { SlipPicker } from "@/components/LateSlips";
 import { TowerIcon } from "@/components/TowerIcon";
 import { MapPreview } from "@/components/MapPreview";
 import { Dialog } from "@/components/Dialog";
@@ -909,7 +910,7 @@ function HowToPlay() {
         </li>
         <li>
           <span className="font-semibold text-parchment">The Overflow:</span> night two, under the returns chute. Your answer to the
-          knight decides who is waiting.
+          knight decides who is waiting. Take up to three late slips for a harder night and more keeper XP.
         </li>
         <li>
           <span className="font-semibold text-parchment">Endless:</span> no knight and no last wave. Survive as long as you can.
@@ -1212,9 +1213,8 @@ function SelectScreen({
   const keeper = hud.hero;
   const chosen = KEEPERS.find((k) => k.id === keeper) ?? null;
   const hard = hud.difficulty === "hard" || hud.difficulty === "overdue";
-  const doorReady = hud.night !== "overflow" || hud.alliance !== "none";
-  const ready = keeper != null && doorReady;
-  const reason = !doorReady ? "Say how the first night ended." : !keeper ? "Pick a keeper." : "";
+  const ready = keeper != null;
+  const reason = !keeper ? "Pick a keeper." : "";
   const picked = "bg-[linear-gradient(180deg,#d4b06a_0%,#9a7438_100%)] text-ink";
   const idle = "bg-transparent text-parchment";
   const label = "text-[10px] tracking-[0.22em] text-gold uppercase";
@@ -1237,7 +1237,7 @@ function SelectScreen({
           </p>
           <p className="mt-1 hidden max-w-xl text-sm text-muted sm:block">
             {hud.night === "overflow"
-              ? "Say how the door ended. Then name who goes downstairs."
+              ? "Take late slips if you want more XP. Then name who goes downstairs."
               : "The first cannon is the only one that comes free."}
           </p>
 
@@ -1272,41 +1272,10 @@ function SelectScreen({
             </div>
           </div>
 
-          {/* 2. Room, or the Overflow's door question */}
+          {/* 2. Room, or the Overflow's late slips */}
           {hud.night === "overflow" ? (
             <div className="mt-5">
-              <p className={`${label} ${doorReady ? "" : "text-flesh"}`}>How the first night ended</p>
-              <div
-                className={`mt-1.5 grid grid-cols-3 gap-2 rounded-lg ${doorReady ? "" : "ring-2 ring-flesh/70 ring-offset-2 ring-offset-ink"}`}
-                role="radiogroup"
-                aria-label="How the first night ended"
-              >
-                {(
-                  [
-                    ["accept", "I let him in"],
-                    ["betray", "I shot first"],
-                    ["reject", "I sent him away"],
-                  ] as const
-                ).map(([id, text]) => {
-                  const on = hud.alliance === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      className={`min-h-11 rounded-lg border px-2 py-2 text-sm font-semibold ${on ? "border-[#c6a15a] bg-[linear-gradient(180deg,#d4b06a_0%,#9a7438_100%)] text-ink" : "border-line/70 text-parchment"}`}
-                      onClick={() => {
-                        onGesture();
-                        api.setDoor(id);
-                      }}
-                    >
-                      {text}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-1.5 text-sm text-muted">{doorMemory(hud.alliance)}</p>
+              <SlipPicker api={api} onGesture={onGesture} />
             </div>
           ) : (
             <div className="mt-5">

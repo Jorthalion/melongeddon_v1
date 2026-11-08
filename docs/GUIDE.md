@@ -198,7 +198,7 @@ Build cannons on the **floor** beside the carpet (never on it). Every fruit you 
    - **Install app** appears when your browser can install the game; **Quit** appears in the desktop app.
 2. **Setup (New night).** Choose, top to bottom:
    - **Night**: Midnight (night one), The Overflow (night two) or Endless.
-   - **Room**: the map. More unlock as you play. On the Overflow, you instead say how the first night ended.
+   - **Room**: the map. More unlock as you play. On the Overflow, you choose **late slips** instead (see [Late slips](#late-slips)).
    - **Keeper**: your hero, each with a perk and a signature tower (see [Keepers](#keepers)). The **Lv** badge on each portrait is that keeper's level.
    - **Perks**: the chosen keeper's perk choices, one per row, opened by leveling up (see [Keeper levels and perks](#keeper-levels-and-perks)).
    - **Difficulty**: Story, Normal, Melongeddon or Overdue.
@@ -261,6 +261,7 @@ Every keeper has their own level, from 1 to 10, saved between runs. A keeper ear
 - **10 XP for every wave cleared**, in any night, including Endless.
 - **+50 XP for winning** Midnight or the Overflow.
 - Difficulty scales both: Story ×0.5, Normal ×1, Melongeddon ×1.5, Overdue ×2.
+- On the Overflow, [late slips](#late-slips) add more on top.
 
 A Normal win is worth 200 XP. Level 2 takes 100 XP, and each level after costs 30 more than the last, so level 10 (1,980 XP in total) takes roughly 10–20 nights. The end-of-night card shows the XP you earned and your progress.
 
@@ -423,11 +424,11 @@ Fifteen waves.
    - **Send him away:** no help, no betrayal. You face the produce alone.
 2. **After wave 14**, "The choice comes due": the finale wave is the consequence of what you chose at the door.
 
-Winning Midnight offers **Continue to the Overflow** on the victory screen.
+Winning Midnight offers **Continue to the Overflow** on the victory screen. It opens the setup screen with the Overflow chosen and your keeper kept, so you can take late slips first.
 
 ### The Overflow (night two)
 
-Fifteen waves on a flooded map with a **returns chute** at the far end of the carpet. How you answered the knight carries over:
+Fifteen waves on a flooded map with a **returns chute** at the far end of the carpet. Your last answer to the knight in Midnight carries over on its own (if you haven't answered him yet, it counts as sending him away):
 - **Let him in:** two household cannons already guard the chute.
 - **Shot first:** four husked corn are already on the carpet.
 - **Sent him away:** +45 seeds.
@@ -435,6 +436,20 @@ Fifteen waves on a flooded map with a **returns chute** at the far end of the ca
 **The chute:** from wave 6, some fruit come **up the chute**. They appear past the far end and walk the carpet backwards; one that reaches the entrance costs a stack. A **CHUTE** marker shows that end of the carpet and glows when the current or next wave uses it. The last two waves also send an extra shelled melon up the chute for every 25 **absurdity** you've built (you gain absurdity for every kill), and the final wave sends Karl up the chute.
 
 Fire is weaker on the wet floor. Keep cannons covering **both ends** of the carpet.
+
+#### Late slips
+
+Before the Overflow you can take up to **three late slips** on the setup screen. Each one makes the night harder and raises the keeper XP it pays (bonuses add, so three slips can mean up to +75%). They are optional, and your picks are remembered for next time.
+
+| Slip | What gets harder | XP |
+|---|---|---|
+| **Heavy Returns** | The chute opens on wave 3, not 6: waves 3–5 each send 5 shelled melons up it. | +15% |
+| **Damp Powder** | All your towers deal 20% less damage. | +25% |
+| **No Refunds** | Selling a tower gives no seeds back. | +10% |
+| **Short Shelf** | Start with 4 fewer stacks. | +20% |
+| **Karl Is Early** | An extra Karl joins wave 8. | +25% |
+
+The end-of-night card shows the bonus with your XP.
 
 ### Endless
 

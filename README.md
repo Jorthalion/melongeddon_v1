@@ -120,6 +120,10 @@ Night one (and Endless) can be played on any unlocked map. Night two is always t
 
 Map unlock goals are `MAP_GOALS` in `src/game/meta.ts`. Maps without painted art get a drawn preview (`src/components/MapPreview.tsx`). In simulation all five play within a few points of the Stacks. Rare Books is the easiest without its health bonus; the Archive is the hardest for the bot, which doesn't plan lamp placement.
 
+## Late slips
+
+The Overflow's setup screen offers up to three optional **late slips** (`src/game/slips.ts`): Heavy Returns (chute opens on wave 3), Damp Powder (−20% damage), No Refunds (selling pays 0), Short Shelf (−4 stacks) and Karl Is Early (extra Karl on wave 8). Each adds keeper XP (+10% to +25%, bonuses add). They replaced the old "How the first night ended" question: the Overflow now takes the last Midnight door answer from storage (`overflowDoor()`, "sent away" when there is none). Picks save with the setup record; the simulator takes them through `slips` in `RunConfig`.
+
 ## Keeper levels
 
 Each keeper levels from 1 to 10 by clearing waves as that keeper (10 XP a wave, +50 for a win, scaled by difficulty: Story ×0.5 up to Overdue ×2). Levels 2, 4, 6, 8 and 10 each open a choice of two perks, picked on the setup screen and swappable before any night. Level 10 offers a second copy of the keeper's signature tower or a keeper-specific capstone. Data, XP curve and storage live in `src/game/levels.ts`; the engine applies the merged effects (`perkFx`) when a run starts. The full perk list is in [docs/GUIDE.md](docs/GUIDE.md#keeper-levels-and-perks).

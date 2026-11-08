@@ -20,6 +20,7 @@ import {
   type NightId,
   type TowerKind,
   type UpgradeId,
+  type SlipId,
   type KeeperProgress,
   SIGNATURE,
 } from "../src/game/engine.ts";
@@ -46,6 +47,8 @@ export interface RunConfig {
   pickUpgrade?: (offer: UpgradeId[]) => UpgradeId;
   /** Optional keeper levels and perk picks (default: every keeper at level 1). */
   keepers?: KeeperProgress;
+  /** Optional Overflow late slips. */
+  slips?: SlipId[];
 }
 
 export interface RunResult {
@@ -101,6 +104,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
   if (config.night === "overflow") {
     api.chooseNight("overflow");
     api.setDoor(config.door);
+    for (const id of config.slips ?? []) api.toggleSlip(id);
   } else {
     api.chooseNight(config.night);
     api.chooseMap(config.map);

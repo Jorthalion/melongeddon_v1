@@ -7,6 +7,7 @@ import {
   createWorld,
   levelFor,
   levelProgress,
+  slipXp,
   type Hud,
   type HeroId,
 } from "@/game/engine";
@@ -143,7 +144,10 @@ export function XpSummary({ hud }: { hud: Hud }) {
     <div className="mt-3 rounded-lg border border-line/70 bg-panel/60 px-3 py-2">
       <p className="text-sm">
         <span className="font-semibold text-gold">+{hud.xpRun} XP</span>{" "}
-        <span className="text-muted">for {KEEPER_NAMES[hero].name}.</span>
+        <span className="text-muted">
+          for {KEEPER_NAMES[hero].name}
+          {hud.night === "overflow" && hud.slips.length ? `, with +${Math.round(slipXp(hud.slips) * 100)}% from late slips` : ""}.
+        </span>
         {to > from ? <span className="font-semibold text-parchment"> Level {to}!</span> : null}
       </p>
       <div className="mt-1">

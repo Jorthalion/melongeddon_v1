@@ -35,6 +35,8 @@ import {
   type KeeperProgress,
 } from "./levels.ts";
 export * from "./levels.ts";
+import { SLIP_VALUES, cleanSlips, slipXp, type SlipId } from "./slips.ts";
+export * from "./slips.ts";
 
 interface Waypoint {
   x: number;
@@ -239,10 +241,18 @@ export interface Hud {
   /** The keeper's XP when this run started, and the XP earned in it. */
   xpStart: number;
   xpRun: number;
+  /** The Overflow: late slips taken for this night (harder, more XP). */
+  slips: SlipId[];
 }
 const BEST_KEY = "melongeddon-best-wave";
 const ENDLESS_BEST_KEY = "melongeddon-endless-best";
 const DOOR_KEY = "melongeddon-door";
+
+/** The Overflow's carry-over: the last Midnight door answer, or "sent away" if there is none. */
+export function overflowDoor(): Exclude<Alliance, "none"> {
+  const d = readDoor();
+  return d === "none" ? "reject" : d;
+}
 
 export function readDoor(): Alliance {
   try {
@@ -271,6 +281,8 @@ export interface SetupRecord {
   bookmark: BookmarkId | null;
   hero: HeroId;
   door: Alliance;
+  /** Overflow late slips. */
+  slips?: SlipId[];
 }
 
 const SETUP_KEY = "melongeddon-setup";
@@ -305,7 +317,7 @@ function saveSetup(rec: SetupRecord) {
 /**
  * Turn a saved setup into one that can start right now. Anything unknown falls back to the
  * default; a map or bookmark that is no longer unlocked falls back too, with a note saying so.
- * `needsDoor` means the Overflow was saved but there is no answer for how the first night ended.
+ * `needsDoor` is always false now: the Overflow takes the last Midnight door answer (see overflowDoor). Kept for callers.
  */
 export function validateSetup(
   saved: Partial<SetupRecord> | null | undefined,
@@ -329,7 +341,10 @@ export function validateSetup(
   }
   const door: Alliance =
     night === "overflow" && (s.door === "accept" || s.door === "betray" || s.door === "reject") ? s.door : "none";
-  return { setup: { night, map, difficulty, bookmark, hero, door }, notes, needsDoor: night === "overflow" && door === "none" };
+  const slips = cleanSlips(s.slips);
+  const setup: SetupRecord = { night, map, difficulty, bookmark, hero, door };
+  if (slips.length) setup.slips = slips;
+  return { setup, notes, needsDoor: false };
 }
 
 export function doorMemory(alliance: Alliance): string {
@@ -438,6 +453,8 @@ export function createWorld(
   setDifficulty: (id: Difficulty) => void;
   chooseNight: (night: NightId) => void;
   setDoor: (choice: Exclude<Alliance, "none">) => void;
+  /** Setup, Overflow only: take or drop a late slip (up to three). */
+  toggleSlip: (id: SlipId) => void;
   ackMemory: () => void;
   openSetup: () => void;
   beginNight: () => void;
@@ -523,6 +540,7 @@ export function createWorld(
       keepers: emptyProgress(),
       xpStart: 0,
       xpRun: 0,
+      slips: [],
     },
     hover: null,
     anim: 0,
@@ -574,7 +592,8 @@ export function createWorld(
     world.hud.difficulty = setup.difficulty;
     world.hud.bookmark = setup.bookmark;
     world.hud.hero = stored ? setup.hero : null;
-    world.hud.alliance = setup.night === "overflow" ? (setup.door !== "none" ? setup.door : readDoor()) : "none";
+    world.hud.alliance = setup.night === "overflow" ? (setup.door !== "none" ? setup.door : overflowDoor()) : "none";
+    world.hud.slips = setup.night === "overflow" ? cleanSlips(setup.slips) : [];
   }
   const persistKeepers = !options.keepers && !options.meta && typeof window !== "undefined";
   world.hud.keepers = options.keepers
@@ -604,6 +623,8 @@ export function createWorld(
     }
   };
   const bm = (id: BookmarkId) => world.hud.bookmark === id;
+  /** Is this late slip active? (Overflow only.) */
+  const slip = (id: SlipId) => world.hud.night === "overflow" && world.hud.slips.includes(id);
   /** Update lifetime stats; announce any bookmark this unlocks. */
   const record = (change: (m: MetaStats) => void) => {
     change(meta);
@@ -967,7 +988,9 @@ export function createWorld(
   /** Does wave `index` (0-based) send anything up the Overflow's chute? */
   const usesChute = (index: number) =>
     world.hud.night === "overflow" &&
-    (waveAt(index, world.hud.alliance, world.hud.night).spawns.some((s) => s.chute) || index >= WAVE_COUNT - 2);
+    (waveAt(index, world.hud.alliance, world.hud.night).spawns.some((s) => s.chute) ||
+      index >= WAVE_COUNT - 2 ||
+      (slip("heavy") && index >= SLIP_VALUES.heavyFrom && index <= SLIP_VALUES.heavyTo));
 
   const removeAllies = () => {
     world.towers = world.towers.filter((t) => !t.ally);
@@ -1074,6 +1097,7 @@ export function createWorld(
       if (Math.hypot(e.x - from.x, e.y - from.y) > radius) return;
     }
     if (e.hp <= 0) return;
+    if (slip("damp")) amount *= SLIP_VALUES.dampDamage;
     if (e.raw && via === "burn" && amount > 0) {
       e.raw = false;
       e.bread = true;
@@ -1222,7 +1246,9 @@ export function createWorld(
       }
     });
     const won = !endless && cleared >= WAVE_COUNT;
-    giveXp(waveXp(world.hud.difficulty) + (won ? winXp(world.hud.difficulty) : 0));
+    const base = waveXp(world.hud.difficulty) + (won ? winXp(world.hud.difficulty) : 0);
+    const bonus = world.hud.night === "overflow" ? slipXp(world.hud.slips) : 0;
+    giveXp(Math.round(base * (1 + bonus)));
   };
 
   const endWave = () => {
@@ -1748,6 +1774,10 @@ export function createWorld(
       if (world.hud.night === "overflow" && world.hud.alliance === "accept" && (cleared === 4 || cleared === 8)) {
         extra.push({ kind: "pumpkin", count: 3, every: 1, guard: "damp" });
       }
+      if (slip("heavy") && cleared >= SLIP_VALUES.heavyFrom && cleared <= SLIP_VALUES.heavyTo) {
+        extra.push({ kind: "melon", count: SLIP_VALUES.heavyCount, every: 1.2, guard: "rind", chute: true });
+      }
+      if (slip("karl") && cleared === SLIP_VALUES.karlWave) extra.push({ kind: "karl", count: 1, every: 0.4 });
       const spec = waveAt(cleared, world.hud.alliance, world.hud.night);
       buildQueue(extra);
       world.hud.waveSize = queue.length;
@@ -1811,7 +1841,7 @@ export function createWorld(
       const tower = world.towers.find((t) => t.id === sel && !t.ally);
       if (!tower) return;
       world.towers = world.towers.filter((t) => t.id !== sel);
-      const refund = sellValue(tower.paid);
+      const refund = slip("norefund") ? 0 : sellValue(tower.paid);
       cue("sell");
       world.hud.seeds += refund;
       world.hud.selected = null;
@@ -1830,12 +1860,8 @@ export function createWorld(
     chooseHero(hero: HeroId) {
       if (world.hud.phase !== "select" && world.hud.phase !== "coldopen") return;
       const overflow = world.hud.night === "overflow";
-      const door = overflow ? (world.hud.alliance === "none" ? readDoor() : world.hud.alliance) : "none";
-      if (overflow && door === "none") {
-        world.hud.log = "The chute stays shut until you say how the first night ended.";
-        notify();
-        return;
-      }
+      const door = overflow ? (world.hud.alliance === "none" ? overflowDoor() : world.hud.alliance) : "none";
+      if (!overflow) world.hud.slips = [];
       world.towers = [];
       world.enemies = [];
       world.hud.hero = hero;
@@ -1929,6 +1955,7 @@ export function createWorld(
           bookmark: world.hud.bookmark,
           hero,
           door,
+          ...(overflow && world.hud.slips.length ? { slips: world.hud.slips } : {}),
         });
       }
       if (bm("seedfund")) world.hud.seeds += BOOKMARK_VALUES.seedfund;
@@ -1939,6 +1966,10 @@ export function createWorld(
       world.hud.seeds += fx.seeds;
       world.hud.lives += fx.lives;
       world.hud.maxLives += fx.lives;
+      if (slip("short")) {
+        world.hud.lives = Math.max(1, world.hud.lives - SLIP_VALUES.shortStacks);
+        world.hud.maxLives = Math.max(1, world.hud.maxLives - SLIP_VALUES.shortStacks);
+      }
       syncPrice();
       notify();
     },
@@ -2039,11 +2070,8 @@ export function createWorld(
       world.hud.waveCount = night === "endless" ? 0 : WAVE_COUNT;
       if (night === "overflow") {
         applyBoard("overflow");
-        world.hud.alliance = readDoor();
-        world.hud.log =
-          world.hud.alliance === "none"
-            ? "The returns come up the chute. Say how the first night ended."
-            : doorMemory(world.hud.alliance);
+        world.hud.alliance = overflowDoor();
+        world.hud.log = "The returns come up the chute. Take late slips for more XP, or none.";
       } else {
         if (world.hud.map === "overflow") applyBoard("stacks");
         world.hud.alliance = "none";
@@ -2059,6 +2087,20 @@ export function createWorld(
       world.hud.alliance = choice;
       writeDoor(choice);
       world.hud.log = doorMemory(choice);
+      notify();
+    },
+    toggleSlip(id: SlipId) {
+      if (world.hud.phase !== "select" || world.hud.night !== "overflow") return;
+      const on = world.hud.slips.includes(id);
+      const next = on ? world.hud.slips.filter((x) => x !== id) : cleanSlips([...world.hud.slips, id]);
+      if (!on && next.length === world.hud.slips.length) {
+        world.hud.log = "Three slips is the most the desk will stamp.";
+        notify();
+        return;
+      }
+      world.hud.slips = next;
+      const bonus = Math.round(slipXp(next) * 100);
+      world.hud.log = next.length ? `${next.length} late slip${next.length > 1 ? "s" : ""}: +${bonus}% keeper XP tonight.` : "No late slips. The usual XP.";
       notify();
     },
     ackMemory() {
@@ -2088,12 +2130,6 @@ export function createWorld(
     },
     continueRun() {
       if (world.hud.phase !== "coldopen") return;
-      if (world.hud.night === "overflow" && world.hud.alliance === "none") {
-        world.hud.phase = "select";
-        world.hud.log = "The returns come up the chute. Say how the first night ended.";
-        notify();
-        return;
-      }
       api.chooseHero(world.hud.hero ?? DEFAULT_SETUP.hero);
     },
     backToTitle() {
@@ -2128,15 +2164,12 @@ export function createWorld(
       const hero = world.hud.hero ?? DEFAULT_SETUP.hero;
       world.hud.night = "overflow";
       applyBoard("overflow");
-      world.hud.alliance = door === "none" ? readDoor() : door;
+      world.hud.alliance = door === "none" ? overflowDoor() : door;
       resetRunState();
       world.hud.phase = "select";
-      if (world.hud.alliance === "none") {
-        world.hud.log = "The returns come up the chute. Say how the first night ended.";
-        notify();
-        return;
-      }
-      api.chooseHero(hero);
+      world.hud.hero = hero;
+      world.hud.log = "The returns come up the chute. Take late slips for more XP, or none.";
+      notify();
     },
     tryEndless() {
       if (world.hud.phase !== "victory") return;
