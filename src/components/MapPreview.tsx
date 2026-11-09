@@ -1,83 +1,67 @@
 import { useEffect, useRef } from "react";
-import { BOARDS, COLS, ROWS, buildBoard, type MapId } from "@/game/engine";
+import { ALL_UNLOCKED, MAP_H, MAP_W, createWorld, type MapId, type World } from "@/game/engine";
+import { drawWorld, spritesSettled } from "@/game/draw";
 
-/** A small drawn plan of a board's carpet, for maps without painted art. */
-export function MapPreview({ map, className = "" }: { map: MapId; className?: string }) {
+/** One empty world per map, drawn with the game's own renderer so previews always match play. */
+const worlds = new Map<MapId, World>();
+function previewWorld(map: MapId): World {
+  let w = worlds.get(map);
+  if (!w) {
+    const night = map === "overflow" ? "overflow" : "midnight";
+    w = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night, map, door: "reject" } }).world;
+    w.reduced = true;
+    worlds.set(map, w);
+  }
+  return w;
+}
+
+/**
+ * The real board for `map`, scaled to fit the canvas (whole board visible).
+ * `top` places the board that share of the spare height from the top (0.5 = centered).
+ */
+export function MapPreview({ map, className = "", top = 0.5 }: { map: MapId; className?: string; top?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = ref.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const w = canvas.clientWidth || 240;
-    const h = canvas.clientHeight || 96;
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    const board = BOARDS[map];
-    const { cells } = buildBoard(board.corners);
-    // Fit the whole board so the full carpet shape is readable.
-    const cell = Math.min(w / COLS, h / ROWS);
-    const ox = (w - cell * COLS) / 2;
-    const oy = (h - cell * ROWS) / 2;
-
-    const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, "#3a2a24");
-    g.addColorStop(1, "#211714");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h);
-
-    // Shelves along the floor, for a library feel.
-    ctx.fillStyle = "rgba(255,240,220,0.04)";
-    ctx.fillRect(ox, oy, cell * COLS, cell * ROWS);
-    ctx.fillStyle = "rgba(90,58,40,0.55)";
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (cells.has(`${c},${r}`) || (c * 7 + r * 3) % 5 !== 0) continue;
-        ctx.fillRect(ox + c * cell + cell * 0.15, oy + r * cell + cell * 0.25, cell * 0.7, cell * 0.5);
-      }
-    }
-
-    for (const key of cells) {
-      const [c, r] = key.split(",").map(Number);
-      ctx.fillStyle = "#8d3a42";
-      ctx.fillRect(ox + c * cell, oy + r * cell, cell + 0.5, cell + 0.5);
-    }
-    ctx.strokeStyle = "rgba(230,195,106,0.7)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    const seg = (x0: number, y0: number, x1: number, y1: number) => {
-      ctx.moveTo(x0, y0);
-      ctx.lineTo(x1, y1);
+    const world = previewWorld(map);
+    let timer = 0;
+    let tries = 0;
+    const draw = () => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = canvas.clientWidth || 240;
+      const h = canvas.clientHeight || 150;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = "#140e12";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const scale = Math.min(w / MAP_W, h / MAP_H);
+      const x = (w - MAP_W * scale) / 2;
+      const y = (h - MAP_H * scale) * top;
+      ctx.setTransform(scale * dpr, 0, 0, scale * dpr, x * dpr, y * dpr);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, MAP_W, MAP_H);
+      ctx.clip();
+      drawWorld(ctx, world);
+      ctx.restore();
     };
-    for (const key of cells) {
-      const [c, r] = key.split(",").map(Number);
-      const x = ox + c * cell;
-      const y = oy + r * cell;
-      if (!cells.has(`${c},${r - 1}`)) seg(x, y + 0.5, x + cell, y + 0.5);
-      if (!cells.has(`${c},${r + 1}`)) seg(x, y + cell - 0.5, x + cell, y + cell - 0.5);
-      if (!cells.has(`${c - 1},${r}`)) seg(x + 0.5, y, x + 0.5, y + cell);
-      if (!cells.has(`${c + 1},${r}`)) seg(x + cell - 0.5, y, x + cell - 0.5, y + cell);
-    }
-    ctx.stroke();
-
-    const [ec, er] = board.corners[board.corners.length - 1];
-    const ex = ox + (ec + 0.5) * cell;
-    const ey = oy + (er + 0.5) * cell;
-    if (board.dark) {
-      ctx.fillStyle = "rgba(4,3,10,0.7)";
-      ctx.fillRect(0, 0, w, h);
-      const light = ctx.createRadialGradient(ex, ey, 2, ex, ey, cell * 2.2);
-      light.addColorStop(0, "rgba(255,214,140,0.35)");
-      light.addColorStop(1, "rgba(255,214,140,0)");
-      ctx.fillStyle = light;
-      ctx.fillRect(0, 0, w, h);
-    }
-    ctx.fillStyle = "#e6c36a";
-    ctx.fillRect(ex - cell * 0.3, ey - cell * 0.4, cell * 0.6, cell * 0.8);
-  }, [map]);
+    const loop = () => {
+      draw();
+      // Redraw while sprites are still loading (about 5 seconds at most).
+      if (!spritesSettled() && tries++ < 25) timer = window.setTimeout(loop, 200);
+    };
+    loop();
+    const resize = new ResizeObserver(() => draw());
+    resize.observe(canvas);
+    return () => {
+      window.clearTimeout(timer);
+      resize.disconnect();
+    };
+  }, [map, top]);
 
   return <canvas ref={ref} aria-hidden="true" className={className} />;
 }

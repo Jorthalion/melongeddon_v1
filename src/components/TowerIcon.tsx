@@ -20,6 +20,12 @@ const PAINTED: Partial<Record<TowerKind, string>> = {
   hive: asset("sprites/hive.webp"),
   lantern: asset("sprites/lamp.webp"),
   compost: asset("sprites/compost.webp"),
+  catalogue: asset("sprites/sig-catalogue.webp"),
+  cauldron: asset("sprites/sig-cauldron.webp"),
+  trebuchet: asset("sprites/sig-trebuchet.webp"),
+  scales: asset("sprites/sig-scales.webp"),
+  mimic: asset("sprites/sig-mimic.webp"),
+  lectern: asset("sprites/sig-lectern.webp"),
 };
 
 export function TowerIcon({ kind, className = "" }: { kind: TowerKind; className?: string }) {

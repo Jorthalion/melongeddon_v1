@@ -40,6 +40,12 @@ const SPRITE_SRC = {
   corner: asset("sprites/tile-carpet-corner.webp"),
   shelf: asset("sprites/tile-shelf.webp"),
   door: asset("sprites/prop-stacks.webp"),
+  catalogue: asset("sprites/sig-catalogue.webp"),
+  cauldron: asset("sprites/sig-cauldron.webp"),
+  trebuchet: asset("sprites/sig-trebuchet.webp"),
+  scales: asset("sprites/sig-scales.webp"),
+  mimic: asset("sprites/sig-mimic.webp"),
+  lectern: asset("sprites/sig-lectern.webp"),
 } as const;
 
 type SpriteName = keyof typeof SPRITE_SRC;
@@ -57,6 +63,12 @@ function getSprites() {
     sprites[name] = img;
   }
   return sprites;
+}
+
+/** True once every sprite has loaded (or failed), so a still picture can stop redrawing. */
+export function spritesSettled(): boolean {
+  const all = Object.values(getSprites());
+  return all.length > 0 && all.every((img) => img.complete);
 }
 
 function ready(img: HTMLImageElement | undefined): img is HTMLImageElement {
@@ -680,6 +692,13 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   hive: { aim: false, w: 34, h: 52 },
   lantern: { aim: false, w: 28, h: 50 },
   compost: { aim: false, w: 44, h: 42 },
+  // Keeper signature towers: a little larger than the rest so they stand out.
+  catalogue: { aim: false, w: 44, h: 56 },
+  cauldron: { aim: false, w: 46, h: 54 },
+  trebuchet: { aim: false, w: 48, h: 56 },
+  scales: { aim: false, w: 44, h: 58 },
+  mimic: { aim: false, w: 44, h: 54 },
+  lectern: { aim: false, w: 46, h: 56 },
 };
 
 /** Draw an image fitted into a w×h box around (x, y), turned by rot. Flips upright when aiming left. */

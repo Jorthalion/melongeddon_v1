@@ -205,7 +205,7 @@ Build cannons on the **floor** beside the carpet (never on it). Every fruit you 
    - **Bookmark**: one small perk you've earned (see [Bookmarks](#bookmarks)).
 
    Then press **Begin**.
-3. **Intro.** A banner for the room. Press **To the carpet** (or **Cover the chute** on the Overflow).
+3. **Intro.** A picture of the room, exactly as you will play it. Press **To the carpet** (or **Cover the chute** on the Overflow).
 4. **Between waves.** Build cannons, then press **Start wave**.
 5. **During a wave.** Keep building if you can afford it. When the wave is cleared you may get a story card or an upgrade pick, then it's back to building.
 

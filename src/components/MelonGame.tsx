@@ -500,8 +500,7 @@ export function MelonGame() {
       {phase === "poster" ? (
         (
           <RoomScreen
-            src={MAP_ART[hud.map] ?? MAP_ART.stacks!}
-            dim={Boolean(BOARDS[hud.map].dark) && !MAP_ART[hud.map]}
+            map={hud.map}
             kicker={KEEPER_NAMES[hud.hero ?? "mynxi"].role}
             title={BOARDS[hud.map].name}
             joke={ROOM_JOKE[hud.map] ?? ROOM_JOKE.stacks!}
@@ -1050,19 +1049,9 @@ const ROOM_JOKE: Partial<Record<MapId, string>> = {
   overflow: "The chute is open. The returns have opinions.",
 };
 
-/** Map banners; any map without one is drawn by MapPreview. */
-const MAP_ART: Partial<Record<MapId, string>> = {
-  stacks: asset("sprites/screen-stacks.webp"),
-  annex: asset("sprites/screen-annex.webp"),
-  mezzanine: asset("sprites/screen-mezzanine.webp"),
-  rarebooks: asset("sprites/screen-rarebooks.webp"),
-  archive: asset("sprites/screen-archive.webp"),
-  overflow: asset("sprites/screen-overflow.webp"),
-};
 
 function RoomScreen({
-  src,
-  dim = false,
+  map,
   kicker,
   title,
   joke,
@@ -1070,8 +1059,7 @@ function RoomScreen({
   onAction,
   onBack,
 }: {
-  src: string;
-  dim?: boolean;
+  map: MapId;
   kicker: string;
   title: string;
   joke: string;
@@ -1081,7 +1069,8 @@ function RoomScreen({
 }) {
   return (
     <div className="absolute inset-0 z-20">
-      <img src={src} alt="" className={`absolute inset-0 h-full w-full object-cover object-center ${dim ? "brightness-[0.35]" : ""}`} />
+      {/* The real board, whole, above the title. */}
+      <MapPreview map={map} className="absolute inset-x-0 top-0 bottom-36 h-[calc(100%-9rem)] w-full" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,4,6,0.2)_0%,rgba(8,4,6,0)_40%,rgba(8,4,6,0.88)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 px-4 pb-8 text-center">
         <p className="text-xs tracking-[0.28em] text-gold uppercase">{kicker}</p>
@@ -1286,7 +1275,6 @@ function SelectScreen({
                   const board = BOARDS[id];
                   const on = hud.map === id;
                   const locked = !hud.maps.includes(id);
-                  const art = MAP_ART[id];
                   return (
                     <button
                       key={id}
@@ -1309,11 +1297,7 @@ function SelectScreen({
                       }}
                     >
                       <span className="relative block">
-                        {art ? (
-                          <img src={art} alt="" className={`block h-16 w-full object-cover sm:h-20 ${locked ? "opacity-30 grayscale" : ""}`} />
-                        ) : (
-                          <MapPreview map={id} className={`block h-16 w-full sm:h-20 ${locked ? "opacity-30 grayscale" : ""}`} />
-                        )}
+                        <MapPreview map={id} className={`block aspect-[16/10] w-full ${locked ? "opacity-30 grayscale" : ""}`} />
                         {locked ? (
                           <Lock className="absolute top-1/2 left-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
                         ) : null}
