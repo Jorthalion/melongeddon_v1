@@ -52,9 +52,18 @@ export async function promptInstall() {
   await e.prompt();
 }
 
-/** Register the offline cache on real web hosting (not the dev server, not the desktop app). */
+/** True when the game runs inside another page's frame (itch.io, game portals). */
+export function isEmbedded() {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true; // a cross-origin parent blocks the check, which also means we're framed
+  }
+}
+
+/** Register the offline cache on real web hosting (not the dev server, the desktop app, or an itch.io frame). */
 export function registerServiceWorker() {
-  if (!import.meta.env.PROD || isDesktopApp() || !("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
+  if (!import.meta.env.PROD || isDesktopApp() || isEmbedded() || !("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js").catch(() => {
       /* offline play just won't be available */

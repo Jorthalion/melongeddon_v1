@@ -362,8 +362,8 @@ export function upgradeTargetLabel(id: UpgradeId) {
 
 /** Cannons that never shoot. */
 export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern"];
-/** Whole-board range. */
-export const GLOBAL_RANGE = 900;
+/** Whole-board range: more than the diagonal of the largest board (22 x 14 cells is about 1250 px). */
+export const GLOBAL_RANGE = 1400;
 
 export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: number; role: string }> = {
   melon: {
@@ -696,7 +696,7 @@ export function rollMods(kind: TowerKind, owned: ModId[]) {
   }
   return pool.slice(0, 3);
 }
-export type MapId = "stacks" | "annex" | "mezzanine" | "rarebooks" | "archive" | "overflow";
+export type MapId = "stacks" | "annex" | "mezzanine" | "rarebooks" | "archive" | "greathall" | "readingroom" | "overflow";
 export type NightId = "midnight" | "overflow" | "endless";
 
 export interface Board {
@@ -710,6 +710,19 @@ export interface Board {
   dark?: boolean;
   /** Enemy health multiplier on this map (1 if unset). */
   hp?: number;
+  /** Board size in cells (default COLS x ROWS). Bigger boards draw smaller so they still fit the screen. */
+  cols?: number;
+  rows?: number;
+  /** Decorative shelf cells (default: the classic layout). */
+  shelves?: Array<[number, number]>;
+}
+
+/** A board's size in cells and in world pixels. */
+export function boardSize(map: MapId) {
+  const b = BOARDS[map];
+  const cols = b.cols ?? COLS;
+  const rows = b.rows ?? ROWS;
+  return { cols, rows, w: cols * CELL, h: rows * CELL };
 }
 
 export const BOARDS: Record<MapId, Board> = {
@@ -811,6 +824,68 @@ export const BOARDS: Record<MapId, Board> = {
     ],
     knight: [2, 5],
     dark: true,
+  },
+  greathall: {
+    id: "greathall",
+    name: "The Great Hall",
+    blurb: "A big room and a long carpet that snakes up and down it. Fruit have 20% more health.",
+    cols: 22,
+    rows: 14,
+    // The long carpet gives towers far more time; tougher fruit keep it close to the Stacks.
+    hp: 1.2,
+    corners: [
+      [0, 2],
+      [5, 2],
+      [5, 6],
+      [2, 6],
+      [2, 11],
+      [9, 11],
+      [9, 4],
+      [13, 4],
+      [13, 11],
+      [17, 11],
+      [17, 2],
+      [21, 2],
+    ],
+    allies: [
+      [7, 8],
+      [11, 7],
+      [15, 8],
+    ],
+    knight: [4, 9],
+    shelves: [
+      [0, 0], [1, 0], [2, 0], [8, 0], [9, 0], [10, 0], [11, 0], [12, 0], [19, 0], [20, 0],
+      [0, 13], [1, 13], [5, 13], [6, 13], [7, 13], [11, 13], [12, 13], [15, 13], [16, 13], [20, 13],
+      [7, 2], [11, 2], [15, 5], [19, 6], [20, 6], [19, 9], [20, 9], [0, 8], [0, 9],
+    ],
+  },
+  readingroom: {
+    id: "readingroom",
+    name: "The Reading Room",
+    blurb: "Three long lanes between the tables. A cannon between two covers both. Fruit have 40% more health.",
+    cols: 22,
+    rows: 14,
+    // Cannons between lanes hit fruit twice; tougher fruit keep it close to the Stacks.
+    hp: 1.4,
+    corners: [
+      [0, 2],
+      [19, 2],
+      [19, 6],
+      [2, 6],
+      [2, 10],
+      [21, 10],
+    ],
+    allies: [
+      [10, 4],
+      [10, 8],
+      [16, 8],
+    ],
+    knight: [5, 8],
+    shelves: [
+      [1, 0], [2, 0], [3, 0], [7, 0], [8, 0], [9, 0], [13, 0], [14, 0], [15, 0], [20, 0],
+      [0, 13], [1, 13], [5, 13], [6, 13], [7, 13], [12, 13], [13, 13], [14, 13], [19, 13], [20, 13],
+      [21, 4], [21, 5], [0, 7], [0, 8], [7, 4], [13, 4], [7, 8], [13, 8], [21, 12],
+    ],
   },
   overflow: {
     id: "overflow",
@@ -1145,6 +1220,7 @@ export function endlessWave(index: number): { name: string; blurb: string; spawn
 
 /** Enemy health multiplier. Endless follows the original curve to wave 10, then grows by a steady rate. */
 export function hpScaleFor(night: NightId, cleared: number) {
+  if (night === "overflow") return waveHpScale(storyHpStep(cleared)) * BALANCE.overflowHp;
   if (night !== "endless") return waveHpScale(storyHpStep(cleared));
   if (cleared <= 9) return waveHpScale(cleared);
   return waveHpScale(9) * BALANCE.endlessGrowth ** (cleared - 9);
@@ -1465,6 +1541,8 @@ export const BALANCE = {
   michaelShot: 28,
   /** The Archive: range multiplier for cannons no Reading Lamp reaches. */
   archiveDark: 0.8,
+  /** The Overflow (night two): enemy health multiplier on top of the story curve (1.4: about as winnable as Midnight; 1.0 was 96% on Normal). */
+  overflowHp: 1.4,
 };
 
 const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
