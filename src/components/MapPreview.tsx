@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ALL_UNLOCKED, MAP_H, MAP_W, createWorld, type MapId, type World } from "@/game/engine";
+import { ALL_UNLOCKED, createWorld, type MapId, type World } from "@/game/engine";
 import { drawWorld, spritesSettled } from "@/game/draw";
 
 /** One empty world per map, drawn with the game's own renderer so previews always match play. */
@@ -38,13 +38,13 @@ export function MapPreview({ map, className = "", top = 0.5 }: { map: MapId; cla
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#140e12";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const scale = Math.min(w / MAP_W, h / MAP_H);
-      const x = (w - MAP_W * scale) / 2;
-      const y = (h - MAP_H * scale) * top;
+      const scale = Math.min(w / world.w, h / world.h);
+      const x = (w - world.w * scale) / 2;
+      const y = (h - world.h * scale) * top;
       ctx.setTransform(scale * dpr, 0, 0, scale * dpr, x * dpr, y * dpr);
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, 0, MAP_W, MAP_H);
+      ctx.rect(0, 0, world.w, world.h);
       ctx.clip();
       drawWorld(ctx, world);
       ctx.restore();

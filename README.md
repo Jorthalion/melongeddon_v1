@@ -23,7 +23,7 @@ The build uses relative paths, so `dist/` runs from any folder or domain.
 - **Windows installer:** `npm run installer` writes `release/installer/Melongeddon-Setup-<version>.exe` (Electron; code in `electron/`, settings under `"build"` in `package.json`). Pushing a tag like `v0.2.0` runs `.github/workflows/release.yml`, which builds, smoke-tests (`MELONGEDDON_SMOKE=1`) and publishes it as a GitHub Release. See the guide for the long-path workaround.
 - **Installable web app:** the hosted build is a PWA (`public/manifest.webmanifest`, `public/sw.js`). The build writes `dist/precache.json` (every file) so the service worker can cache the whole game for offline play; the Title shows **Install app** when the browser offers it. Fonts are bundled (`@fontsource-variable`), so offline copies look the same.
 
-- **itch.io:** `npm run package` writes `release/melongeddon-web.zip`. On itch.io, create a project with Kind = HTML, upload the zip, tick "This file will be played in the browser", and set the embed size to 1280×800 (or "click to launch in fullscreen" for phones).
+- **itch.io:** `npm run package` writes `release/melongeddon-web.zip`. Full step-by-step page setup, description, tags, cover and screenshots: [docs/itch/ITCH.md](docs/itch/ITCH.md).
 - **Netlify:** connect the repo (settings come from `netlify.toml`), or drag the `dist/` folder onto app.netlify.com/drop.
 - **GitHub Pages:** push to GitHub, then in the repo's Settings → Pages set Source to "GitHub Actions". `.github/workflows/pages.yml` tests, builds and deploys on every push to `main`/`master`.
 
@@ -31,7 +31,7 @@ Optional: once you know the final URL, make `og:image` in `index.html` an absolu
 
 ## Nights
 
-Each story night is 15 waves. Midnight plays act one (waves 1-6), the knight's choice, then nine waves for that choice ending in its finale (The Household, The Grudge or Unchaperoned). The Overflow ends with "The meter spends" and "Up the chute", when absurdity drops rinds down the chute. Enemy health climbs the full curve through wave 6, then `BALANCE.storyHpPace` (0.375) of a step per wave after that, so wave 15 is as tough as the old 10-wave finale.
+Each story night is 15 waves. Midnight plays act one (waves 1-6), the knight's choice, then nine waves for that choice ending in its finale (The Household, The Grudge or Unchaperoned). The Overflow ends with "The meter spends" and "Up the chute", when absurdity drops rinds down the chute. Enemy health climbs the full curve through wave 6, then `BALANCE.storyHpPace` (0.375) of a step per wave after that, so wave 15 is as tough as the old 10-wave finale. The Overflow multiplies enemy health by `BALANCE.overflowHp` (1.4): at 1.0 the simulator won 96% of Overflow nights on Normal against 69% for Midnight; at 1.4 it is 72% on Normal and 35% on Melongeddon (Midnight: 38%).
 
 **The Overflow's chute.** From wave 6, some fruit come up the returns chute: they appear past the far end of the carpet and walk it backwards, and one that reaches the entrance costs a stack. Waves 6–9, 11, 13 and 14 send shelled melons up it; waves 14 and 15 also drop a shelled melon per 25 absurdity, and wave 15 sends Karl. A **CHUTE** plate and arrows mark that end of the carpet: they glow blue and move while the current or next wave uses the chute (`hud.chuteWave`), and sit dim otherwise. The first chute wave also shows a one-time tip (`melongeddon:chute-tip`; Settings › Show tips again brings it back).
 
@@ -117,8 +117,12 @@ Night one (and Endless) can be played on any unlocked map. Night two is always t
 | The Mezzanine | balcony across the top, floor across the bottom, open middle | clearing wave 5 |
 | Rare Books | spiral to a door in the middle; fruit have 25% more health (`hp` on the board) | popping Karl |
 | The Archive | dark: cannons have 20% less range unless a Reading Lamp reaches them (`BALANCE.archiveDark`) | winning a night |
+| The Great Hall | big (22 × 14): one very long snaking carpet; fruit have 20% more health | winning two nights |
+| The Reading Room | big (22 × 14): three long lanes, cannons between lanes cover two; fruit have 40% more health | winning a night on Melongeddon or harder |
 
-Map unlock goals are `MAP_GOALS` in `src/game/meta.ts`. Maps without painted art get a drawn preview (`src/components/MapPreview.tsx`). In simulation all five play within a few points of the Stacks. Rare Books is the easiest without its health bonus; the Archive is the hardest for the bot, which doesn't plan lamp placement.
+**Board size.** A board may set `cols`/`rows` (default 16 × 10); `boardSize(map)` gives cells and world pixels, and the world carries them as `world.cols/rows/w/h`. Drawing, input (`fitBoard`), previews and the simulator all read the world's size, so a bigger board simply draws at a smaller scale. `GLOBAL_RANGE` (1400 px) is larger than the biggest board's diagonal. Without their health bonus the long carpets made the big maps much easier (Midnight on Normal: Great Hall 89%, Reading Room 97%, Stacks 71%). With `hp` 1.2 and 1.4 they simulate at 69% / 46% (Great Hall) and 82% / 32% (Reading Room) on Normal / Melongeddon, against 71% / 42% for the Stacks.
+
+Map unlock goals are `MAP_GOALS` in `src/game/meta.ts`. Map cards and the intro screen draw the real board (`src/components/MapPreview.tsx`). In simulation the five classic maps play within a few points of the Stacks. Rare Books is the easiest without its health bonus; the Archive is the hardest for the bot, which doesn't plan lamp placement.
 
 ## Late slips
 

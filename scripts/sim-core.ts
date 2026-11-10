@@ -4,8 +4,7 @@
  */
 import {
   CELL,
-  COLS,
-  ROWS,
+  GLOBAL_RANGE,
   createWorld,
   ALL_UNLOCKED,
   WAVE_COUNT,
@@ -133,15 +132,15 @@ function play(config: RunConfig, rng: () => number): RunResult {
 
   const bestCell = (range: number, kind: TowerKind) => {
     // Whole-board cannons score spots like a normal cannon would; anywhere works for them.
-    if (range >= 900) range = 132;
+    if (range >= GLOBAL_RANGE) range = 132;
     let best: { c: number; r: number } | null = null;
     let bestScore = 0;
     if (kind === "lantern" || kind === "compost" || kind === "lectern") {
       // Lamp: next to the most cannons. Compost: the spot least useful for shooting.
       let pick: { c: number; r: number } | null = null;
       let score = -Infinity;
-      for (let c = 0; c < COLS; c++)
-        for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < world.cols; c++)
+        for (let r = 0; r < world.rows; r++) {
           if (world.pathCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
           const x = c * CELL + CELL / 2;
           const y = r * CELL + CELL / 2;
@@ -159,8 +158,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
       // A lamp with no cannons to light yet just goes on the best shooting spot.
       if (kind === "compost" || score > 0) return pick;
     }
-    for (let c = 0; c < COLS; c++) {
-      for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < world.cols; c++) {
+      for (let r = 0; r < world.rows; r++) {
         if (world.pathCells.has(`${c},${r}`)) continue;
         if (world.towers.some((t) => t.c === c && t.r === r)) continue;
         const x = c * CELL + CELL / 2;

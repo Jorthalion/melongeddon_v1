@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CELL, MAP_H, MAP_W, type TowerKind, type World } from "./engine";
+import { BOARDS, CELL, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawCannon, drawShot } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
@@ -115,11 +115,11 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   ctx.save();
   ctx.translate(ox, oy);
 
-  const g = ctx.createLinearGradient(0, 0, 0, MAP_H);
+  const g = ctx.createLinearGradient(0, 0, 0, world.h);
   g.addColorStop(0, "#1b1418");
   g.addColorStop(1, "#100c0e");
   ctx.fillStyle = g;
-  ctx.fillRect(-8, -8, MAP_W + 16, MAP_H + 16);
+  ctx.fillRect(-8, -8, world.w + 16, world.h + 16);
 
   const art = getSprites();
   const ownFloor = world.hud.map === "rarebooks" ? art.floorRarebooks : world.hud.map === "archive" ? art.floorArchive : undefined;
@@ -128,9 +128,9 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     const pattern = ctx.createPattern(floor, "repeat");
     if (pattern) {
       ctx.fillStyle = pattern;
-      ctx.fillRect(0, 0, MAP_W, MAP_H);
+      ctx.fillRect(0, 0, world.w, world.h);
       ctx.fillStyle = "rgba(16,12,14,0.38)";
-      ctx.fillRect(0, 0, MAP_W, MAP_H);
+      ctx.fillRect(0, 0, world.w, world.h);
     }
   }
 
@@ -396,11 +396,11 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.globalAlpha = 1;
   }
 
-  const vig = ctx.createRadialGradient(MAP_W / 2, MAP_H / 2, MAP_W * 0.22, MAP_W / 2, MAP_H / 2, MAP_W * 0.72);
+  const vig = ctx.createRadialGradient(world.w / 2, world.h / 2, world.w * 0.22, world.w / 2, world.h / 2, world.w * 0.72);
   vig.addColorStop(0, "rgba(0,0,0,0)");
   vig.addColorStop(1, "rgba(8,4,6,0.42)");
   ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, MAP_W, MAP_H);
+  ctx.fillRect(0, 0, world.w, world.h);
 
   ctx.restore();
 }
@@ -412,16 +412,16 @@ function drawDark(ctx: CanvasRenderingContext2D, world: World) {
   if (typeof document === "undefined") return;
   darkLayer ??= document.createElement("canvas");
   const layer = darkLayer;
-  if (layer.width !== MAP_W || layer.height !== MAP_H) {
-    layer.width = MAP_W;
-    layer.height = MAP_H;
+  if (layer.width !== world.w || layer.height !== world.h) {
+    layer.width = world.w;
+    layer.height = world.h;
   }
   const d = layer.getContext("2d");
   if (!d) return;
   d.globalCompositeOperation = "source-over";
-  d.clearRect(0, 0, MAP_W, MAP_H);
+  d.clearRect(0, 0, world.w, world.h);
   d.fillStyle = "rgba(4,3,10,0.62)";
-  d.fillRect(0, 0, MAP_W, MAP_H);
+  d.fillRect(0, 0, world.w, world.h);
   d.globalCompositeOperation = "destination-out";
   const hole = (x: number, y: number, r: number, a: number) => {
     const g = d.createRadialGradient(x, y, r * 0.4, x, y, r);
@@ -592,7 +592,7 @@ function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number
   const w = 50;
   const h = 16;
   const side = end.y - CELL * 0.85 - h / 2 >= 2 ? -1 : 1;
-  const x = Math.max(w / 2 + 2, Math.min(MAP_W - w / 2 - 2, end.x - 4));
+  const x = Math.max(w / 2 + 2, Math.min(world.w - w / 2 - 2, end.x - 4));
   const y = end.y + side * CELL * 0.85;
   ctx.fillStyle = "rgba(20,16,18,0.9)";
   roundRect(ctx, x - w / 2, y - h / 2, w, h, 4);
@@ -632,7 +632,7 @@ function drawShelves(
   world: World,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
 ) {
-  const spots: Array<[number, number]> = [
+  const spots: Array<[number, number]> = BOARDS[world.hud.map].shelves ?? [
     [1, 1],
     [2, 1],
     [3, 1],

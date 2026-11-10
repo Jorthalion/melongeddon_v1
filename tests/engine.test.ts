@@ -18,7 +18,7 @@ import {
   type Alliance,
   type NightId,
 } from "../src/game/engine.ts";
-import { ALL_UNLOCKED, EMPTY_META, TOWERS as T, buildOffer, TOWER_GROUPS, backRoomPrice, stepWorld, type TowerKind } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, EMPTY_META, GLOBAL_RANGE, boardSize, TOWERS as T, buildOffer, TOWER_GROUPS, backRoomPrice, stepWorld, type TowerKind } from "../src/game/engine.ts";
 import { HEROES, SIGNATURE, SIGNATURE_KINDS, type HeroId } from "../src/game/engine.ts";
 import { simulateRun } from "../scripts/sim-core.ts";
 
@@ -78,16 +78,34 @@ test("towers cannot be placed on the carpet", () => {
   assert.equal(api.world.towers.length, 0);
 });
 
-test("every board stays inside the map and keeps fixed spots off the carpet", () => {
+test("every board stays inside its own size and keeps fixed spots off the carpet", () => {
   for (const board of Object.values(BOARDS)) {
+    const { cols, rows } = boardSize(board.id);
+    const inside = (c: number, r: number) => c >= 0 && c < cols && r >= 0 && r < rows;
     const { cells } = buildBoard(board.corners);
     for (const key of cells) {
       const [c, r] = key.split(",").map(Number);
-      assert.ok(c >= 0 && c < COLS && r >= 0 && r < ROWS, `${board.id}: path cell ${key} off map`);
+      assert.ok(inside(c, r), `${board.id}: path cell ${key} off map`);
     }
+    assert.equal(board.corners[0][0], 0, `${board.id}: fruit enter on the left edge`);
     for (const [c, r] of [...board.allies, board.knight]) {
+      assert.ok(inside(c, r), `${board.id}: fixed tower spot ${c},${r} off map`);
       assert.ok(!cells.has(`${c},${r}`), `${board.id}: fixed tower spot ${c},${r} is on the carpet`);
     }
+    for (const [c, r] of board.shelves ?? []) assert.ok(inside(c, r), `${board.id}: shelf ${c},${r} off map`);
+  }
+});
+
+test("big maps are bigger, and whole-board range still covers them", () => {
+  const big = Object.values(BOARDS).filter((b) => (b.cols ?? COLS) > COLS);
+  assert.ok(big.length >= 2);
+  for (const b of big) {
+    const { w, h } = boardSize(b.id);
+    assert.ok(Math.hypot(w, h) < GLOBAL_RANGE, `${b.id} is wider than whole-board range`);
+    const api = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night: "midnight", map: b.id } });
+    assert.equal(api.world.hud.map, b.id);
+    assert.equal(api.world.w, w);
+    assert.equal(api.world.cols, b.cols);
   }
 });
 

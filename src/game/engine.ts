@@ -1,5 +1,5 @@
 import {
-  CELL, COLS, ROWS, BOARDS, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
+  CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
   BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
   type Alliance, type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId, type ModDef,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
@@ -419,6 +419,11 @@ export interface World {
   pathCells: Set<string>;
   points: Waypoint[];
   turns: Array<{ c: number; r: number; rot: number }>;
+  /** Board size in cells and world pixels (set with the map). */
+  cols: number;
+  rows: number;
+  w: number;
+  h: number;
   reduced: boolean;
 }
 
@@ -557,6 +562,7 @@ export function createWorld(
     pathCells: STACKS.cells,
     points: STACKS.points,
     turns: STACKS.turns,
+    ...boardSize("stacks"),
     reduced: false,
     sfx: [],
   };
@@ -702,7 +708,7 @@ export function createWorld(
 
   const occupied = (c: number, r: number) => world.towers.some((t) => t.c === c && t.r === r);
 
-  const inMap = (c: number, r: number) => c >= 0 && r >= 0 && c < COLS && r < ROWS;
+  const inMap = (c: number, r: number) => c >= 0 && r >= 0 && c < world.cols && r < world.rows;
 
   const placedCount = () => world.towers.filter((t) => !t.ally).length;
   /** Kinds the player has on the board, most-built first (for cannon upgrades). */
@@ -922,6 +928,7 @@ export function createWorld(
     world.pathCells = built.cells;
     world.points = built.points;
     world.turns = built.turns;
+    Object.assign(world, boardSize(map));
     world.hud.map = map;
   };
   applyBoard(world.hud.map);

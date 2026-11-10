@@ -24,8 +24,6 @@ import {
   sellValue,
   backRoomPrice,
   towerReadout,
-  MAP_H,
-  MAP_W,
   UPGRADES,
   createWorld,
   stepWorld,
@@ -58,9 +56,9 @@ import { Dialog } from "@/components/Dialog";
 import { Lock } from "lucide-react";
 
 /** Largest uniform scale that fits the board in a w×h box, plus the offset that centers it (CSS px). */
-function fitBoard(w: number, h: number) {
-  const scale = Math.max(0.0001, Math.min(w / MAP_W, h / MAP_H));
-  return { scale, x: (w - MAP_W * scale) / 2, y: (h - MAP_H * scale) / 2 };
+function fitBoard(w: number, h: number, bw: number, bh: number) {
+  const scale = Math.max(0.0001, Math.min(w / bw, h / bh));
+  return { scale, x: (w - bw * scale) / 2, y: (h - bh * scale) / 2 };
 }
 
 export function MelonGame() {
@@ -122,11 +120,11 @@ export function MelonGame() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#140e12";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const view = fitBoard(rect.width, rect.height);
+      const view = fitBoard(rect.width, rect.height, api.world.w, api.world.h);
       ctx.setTransform(view.scale * dpr, 0, 0, view.scale * dpr, view.x * dpr, view.y * dpr);
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, 0, MAP_W, MAP_H);
+      ctx.rect(0, 0, api.world.w, api.world.h);
       ctx.clip();
       drawWorld(ctx, api.world);
       ctx.restore();
@@ -144,7 +142,7 @@ export function MelonGame() {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    const view = fitBoard(rect.width, rect.height);
+    const view = fitBoard(rect.width, rect.height, api.world.w, api.world.h);
     return {
       x: (clientX - rect.left - view.x) / view.scale,
       y: (clientY - rect.top - view.y) / view.scale,
@@ -1046,6 +1044,8 @@ const ROOM_JOKE: Partial<Record<MapId, string>> = {
   mezzanine: "The balcony creaks. The melons like the view.",
   rarebooks: "Please do not touch the first editions. The pumpkins did not read the sign.",
   archive: "Somebody turned the lights off. Somebody round and green.",
+  greathall: "The hall is very long. So is the queue.",
+  readingroom: "Silence in the reading room. The melons are whispering anyway.",
   overflow: "The chute is open. The returns have opinions.",
 };
 

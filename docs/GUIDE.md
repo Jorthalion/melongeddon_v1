@@ -157,7 +157,7 @@ The build uses relative paths, so the `dist/` folder runs from any web address o
 
 - **GitHub Pages** (free): fork or push the repo to your own GitHub account, then set **Settings → Pages → Source** to **GitHub Actions**. The workflow in `.github/workflows/pages.yml` tests, builds and deploys on every push to `main` or `master`. Your copy appears at `https://<your-name>.github.io/<repo-name>/`.
 - **Netlify** (free): connect the repo at [app.netlify.com](https://app.netlify.com) (the settings come from `netlify.toml`), or run `npm run build` and drag the `dist/` folder onto [app.netlify.com/drop](https://app.netlify.com/drop).
-- **itch.io**: run `npm run package`, create a new itch.io project with **Kind of project: HTML**, upload `release/melongeddon-web.zip`, tick **This file will be played in the browser**, and set the embed size to **1280 × 800** (or "Click to launch in fullscreen" for phones).
+- **itch.io**: run `npm run package` and follow [itch/ITCH.md](itch/ITCH.md), which has the page settings, description, tags, cover and screenshots ready to paste.
 
 Optional: once you know your final address, change `og:image` in `index.html` to an absolute URL so links shared on social media show the poster.
 
@@ -428,7 +428,7 @@ Winning Midnight offers **Continue to the Overflow** on the victory screen. It o
 
 ### The Overflow (night two)
 
-Fifteen waves on a flooded map with a **returns chute** at the far end of the carpet. Your last answer to the knight in Midnight carries over on its own (if you haven't answered him yet, it counts as sending him away):
+Fifteen waves on a flooded map with a **returns chute** at the far end of the carpet. It's night two, so every fruit has **40% more health** than on Midnight. Your last answer to the knight in Midnight carries over on its own (if you haven't answered him yet, it counts as sending him away):
 - **Let him in:** two household cannons already guard the chute.
 - **Shot first:** four husked corn are already on the carpet.
 - **Sent him away:** +45 seeds.
@@ -464,6 +464,10 @@ No knight and no last wave. Waves keep coming and keep getting tougher, Karl arr
 | The Mezzanine | A balcony across the top, the floor across the bottom, an open middle | Clear wave 5 |
 | Rare Books | A spiral to a door in the middle; fruit have 25% more health | Pop Karl |
 | The Archive | Dark: cannons have 20% less reach unless a Reading Lamp reaches them | Win a night |
+| The Great Hall | **Big map** (22 × 14). One very long carpet snaking up and down the hall; fruit have 20% more health | Win two nights |
+| The Reading Room | **Big map** (22 × 14). Three long lanes between the tables, so a cannon between two lanes covers both; fruit have 40% more health | Win a night on Melongeddon or Overdue |
+
+On the big maps the whole room still fits on screen, so towers and fruit are drawn about a third smaller.
 
 ## Difficulty
 

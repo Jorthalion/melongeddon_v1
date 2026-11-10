@@ -125,10 +125,12 @@ export const MAP_GOALS: Partial<Record<MapId, { goal: string; unlocked: (m: Meta
   mezzanine: { goal: "Clear wave 5.", unlocked: (m) => Math.max(m.bestWave, m.endlessBest) >= 5 },
   rarebooks: { goal: "Pop Karl.", unlocked: (m) => m.karls >= 1 },
   archive: { goal: "Win a night.", unlocked: (m) => m.wins >= 1 },
+  greathall: { goal: "Win two nights.", unlocked: (m) => m.wins >= 2 },
+  readingroom: { goal: "Win a night on Melongeddon or harder.", unlocked: (m) => m.hardWins >= 1 },
 };
 
 /** Maps the player can pick on the setup screen (the Overflow is night two's, never picked). */
-export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive"];
+export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom"];
 
 export function unlockedMaps(m: MetaStats): MapId[] {
   return PICKABLE_MAPS.filter((id) => MAP_GOALS[id]?.unlocked(m) ?? true);
