@@ -7,6 +7,7 @@ import type { TowerKind } from "./rules.ts";
 
 export const DRAWN_KINDS: TowerKind[] = [
   "spitter", "ballista", "reader", "bell", "hive", "lantern", "ink", "compost", "peeler", "bookworm",
+  "boomerang", "orrery", "plane",
   "catalogue", "cauldron", "trebuchet", "scales", "mimic", "lectern",
 ];
 
@@ -290,6 +291,59 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.beginPath();
       ctx.arc(-4, -10, 4, 0.2, 3.6);
       ctx.stroke();
+      break;
+    }
+    case "boomerang": {
+      // A bookend thrower: a sling arm that turns to aim, a curved bookend loaded on it.
+      shadow(ctx, x, y);
+      plinth(ctx, x, y);
+      ctx.translate(x, y - 2);
+      ctx.rotate(aim);
+      ctx.fillStyle = WOOD_DARK;
+      rrect(ctx, -6, -5, 22, 10, 3);
+      ctx.fill();
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.rotate(-0.4);
+      drawBoomerangShape(ctx, 10, 0, 11, t * 0);
+      break;
+    }
+    case "orrery": {
+      // Brass rings on a stand with a little sun in the middle.
+      shadow(ctx, x, y);
+      plinth(ctx, x, y);
+      ctx.translate(x, y - 6);
+      ctx.strokeStyle = BRASS_LIGHT;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 13, 5, 0.35, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = BRASS;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 11, 7, -0.6 + Math.sin(t) * 0.1, 0, Math.PI * 2);
+      ctx.stroke();
+      const sun = ctx.createRadialGradient(0, 0, 1, 0, 0, 6);
+      sun.addColorStop(0, "#fff2c4");
+      sun.addColorStop(1, "#d4a03a");
+      ctx.fillStyle = sun;
+      ctx.beginPath();
+      ctx.arc(0, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = WOOD_DARK;
+      ctx.fillRect(-1.5, 5, 3, 8);
+      break;
+    }
+    case "plane": {
+      // A little launch rail with a folded paper plane ready to go.
+      shadow(ctx, x, y);
+      plinth(ctx, x, y);
+      ctx.translate(x, y - 2);
+      ctx.rotate(aim);
+      ctx.fillStyle = WOOD_DARK;
+      rrect(ctx, -12, -3, 22, 6, 2);
+      ctx.fill();
+      drawPlaneShape(ctx, 2, 0, 12);
       break;
     }
     case "bookworm": {
@@ -617,5 +671,54 @@ export function drawCannonIcon(ctx: CanvasRenderingContext2D, kind: TowerKind, w
   ctx.save();
   ctx.scale(s, s);
   drawCannon(ctx, w / s / 2, h / s / 2 + 2, kind === "ink" ? -0.4 : 0, kind, 0.4);
+  ctx.restore();
+}
+
+/** A curved bookend boomerang, centered at (x, y), about `size` px across, turned by `spin`. */
+export function drawBoomerangShape(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, spin: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(spin);
+  ctx.fillStyle = "#b8743a";
+  ctx.strokeStyle = "#3a2214";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(-size, size * 0.55);
+  ctx.quadraticCurveTo(-size * 0.2, -size * 0.2, 0, -size * 0.55);
+  ctx.quadraticCurveTo(size * 0.2, -size * 0.2, size, size * 0.55);
+  ctx.quadraticCurveTo(size * 0.55, size * 0.45, 0, -size * 0.05);
+  ctx.quadraticCurveTo(-size * 0.55, size * 0.45, -size, size * 0.55);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#e6c36a";
+  ctx.beginPath();
+  ctx.arc(0, -size * 0.25, size * 0.14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A folded paper plane pointing along +x, centered at (x, y), about `size` px long. */
+export function drawPlaneShape(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = "#f6efe2";
+  ctx.strokeStyle = "#7a6a52";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(size, 0);
+  ctx.lineTo(-size * 0.8, -size * 0.6);
+  ctx.lineTo(-size * 0.45, 0);
+  ctx.lineTo(-size * 0.8, size * 0.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#d8ccb4";
+  ctx.beginPath();
+  ctx.moveTo(size, 0);
+  ctx.lineTo(-size * 0.45, 0);
+  ctx.lineTo(-size * 0.8, size * 0.6);
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 }

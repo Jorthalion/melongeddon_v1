@@ -1,6 +1,6 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CELL, type TowerKind, type World } from "./engine";
-import { DRAWN_KINDS, drawCannon, drawShot } from "./drawCannons.ts";
+import { BOARDS, CANNON, CELL, type TowerKind, type World } from "./engine";
+import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawPlaneShape, drawShot } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
   melon: asset("sprites/melon.webp"),
@@ -179,6 +179,25 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.stroke();
   }
 
+  // Juice stains where fruit popped: a blob with a few droplets, fading out.
+  for (const st of world.stains) {
+    const a = Math.min(1, st.life / st.max / 0.5) * 0.55;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = st.color;
+    ctx.beginPath();
+    ctx.ellipse(st.x, st.y + 4, st.r, st.r * 0.62, 0, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 6; i++) {
+      const ang = st.seed * 0.37 + i * 1.07;
+      const d = st.r * (1.05 + ((st.seed * (i + 3)) % 7) / 14);
+      const dr = 1.5 + ((st.seed + i * 5) % 4);
+      ctx.beginPath();
+      ctx.arc(st.x + Math.cos(ang) * d, st.y + 4 + Math.sin(ang) * d * 0.62, dr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   for (const pool of world.pools) {
     const a = Math.max(0, pool.life / pool.max);
     if (pool.hot) {
@@ -317,7 +336,70 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   }
 
+  // Orrery: a faint orbit and the two planets.
+  for (const t of world.towers) {
+    if (t.kind !== "orrery") continue;
+    const orbit = t.orbit ?? 80;
+    const spin = t.spin ?? world.anim * 2.6;
+    ctx.save();
+    ctx.setLineDash([3, 6]);
+    ctx.strokeStyle = "rgba(230,195,106,0.28)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, orbit, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    for (let p = 0; p < CANNON.orreryPlanets; p++) {
+      const ang = spin + (p * Math.PI * 2) / CANNON.orreryPlanets;
+      const px = t.x + Math.cos(ang) * orbit;
+      const py = t.y + Math.sin(ang) * orbit;
+      // A short arc behind each planet shows which way it spins.
+      ctx.strokeStyle = "rgba(230,195,106,0.45)";
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, orbit, ang - 0.5, ang);
+      ctx.stroke();
+      const g = ctx.createRadialGradient(px - 2, py - 2, 1, px, py, 9);
+      g.addColorStop(0, ["#fff2c4", "#cfe6f2", "#f6c6b4"][p % 3]);
+      g.addColorStop(1, ["#b07a2a", "#3f7f9f", "#a0402a"][p % 3]);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(px, py, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(20,12,8,0.7)";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+  }
+
+  // Trick shots: a curved trail through their recent positions, then the thrown thing.
+  for (const f of world.flyers) {
+    if (f.trail.length > 1) {
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (let i = 1; i < f.trail.length; i++) {
+        const a = i / f.trail.length;
+        ctx.strokeStyle = f.kind === "plane" ? `rgba(246,239,226,${0.6 * a})` : `rgba(216,184,120,${0.7 * a})`;
+        ctx.lineWidth = 2 + 5 * a;
+        ctx.beginPath();
+        ctx.moveTo(f.trail[i - 1].x, f.trail[i - 1].y);
+        ctx.lineTo(f.trail[i].x, f.trail[i].y);
+        ctx.stroke();
+      }
+    }
+    if (f.kind === "boomerang") drawBoomerangShape(ctx, f.x, f.y, 13, f.t * 18);
+    else {
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.heading);
+      drawPlaneShape(ctx, 0, 0, 13);
+      ctx.restore();
+    }
+  }
+
   for (const s of world.shots) {
+    shotTrail(ctx, s.x, s.y, s.tx, s.ty, shotColor(s.element, s.orange || s.fromAlly));
     if (s.element === "potion") {
       drawShot(ctx, s.x, s.y, s.element, world.anim);
       continue;
@@ -330,7 +412,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         const heading = Math.atan2(s.ty - s.y, s.tx - s.x);
         const rot =
           s.element === "seed" ? heading + Math.PI / 2 : s.element === "worm" ? heading : s.element === "peel" ? world.anim * 14 : s.element === "fly" ? Math.sin(world.anim * 30) * 0.25 : 0;
-        blit(ctx, img, s.x, s.y, look.size, rot);
+        blit(ctx, img, s.x, s.y, look.size * 1.3, rot);
       } else drawShot(ctx, s.x, s.y, s.element, world.anim);
       continue;
     }
@@ -344,7 +426,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
             : s.orange || s.fromAlly
               ? art.allyShot
               : art.shot;
-    if (ready(img)) blit(ctx, img, s.x, s.y, s.element === "ice" ? 14 : 18);
+    if (ready(img)) blit(ctx, img, s.x, s.y, s.element === "ice" ? 18 : 23);
     else {
       ctx.fillStyle = s.fromAlly ? "#e8883a" : "#e23b4a";
       ctx.beginPath();
@@ -364,6 +446,25 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   }
   for (const r of world.rings) {
     const k = 1 - r.life / r.max;
+    if (r.fill) {
+      // Splash area: grows fast to its true radius, then fades.
+      const grow = Math.min(1, k * 4);
+      const rad = Math.max(1, r.r * (0.35 + 0.65 * grow));
+      const g = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, rad);
+      g.addColorStop(0, `rgba(${r.color},${0.42 * (1 - k)})`);
+      g.addColorStop(0.8, `rgba(${r.color},${0.3 * (1 - k)})`);
+      g.addColorStop(1, `rgba(${r.color},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, rad, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(${r.color},${(1 - k) * 0.95})`;
+      ctx.lineWidth = 3.5 * (1 - k) + 1.5;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, rad, 0, Math.PI * 2);
+      ctx.stroke();
+      continue;
+    }
     ctx.strokeStyle = `rgba(${r.color},${(1 - k) * 0.8})`;
     ctx.lineWidth = 3 * (1 - k) + 1;
     ctx.beginPath();
@@ -383,7 +484,9 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   for (const b of world.bits) {
     ctx.globalAlpha = Math.max(0, b.life / b.max);
     ctx.fillStyle = b.color;
-    ctx.fillRect(b.x, b.y, b.s, b.s);
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.s / 2 + 0.5, 0, Math.PI * 2);
+    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -964,4 +1067,69 @@ function drawEnemy(
   ctx.fillRect(x - bw / 2, y - r - 10, bw, 4);
   ctx.fillStyle = boss ? "#e6c36a" : "#f3e2c4";
   ctx.fillRect(x - bw / 2, y - r - 10, bw * Math.max(0, hp), 4);
+}
+
+/** Trail color for each kind of shot (r,g,b). */
+function shotColor(element: string, orange: boolean): string {
+  if (orange) return "232,136,58";
+  switch (element) {
+    case "fire":
+      return "255,150,60";
+    case "ice":
+      return "170,215,240";
+    case "mortar":
+      return "232,136,58";
+    case "potion":
+      return "120,220,110";
+    case "ink":
+      return "120,140,200";
+    case "seed":
+    case "peel":
+      return "240,210,120";
+    case "fly":
+      return "200,200,170";
+    case "worm":
+      return "231,154,176";
+    default:
+      return "255,90,100";
+  }
+}
+
+/**
+ * Make a shot easy to spot on the dark floor: a short fading streak behind it
+ * and a soft glow with a dark rim under it.
+ */
+function shotTrail(ctx: CanvasRenderingContext2D, x: number, y: number, tx: number, ty: number, color: string) {
+  const dx = tx - x;
+  const dy = ty - y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const tail = 34;
+  const g = ctx.createLinearGradient(x, y, x - ux * tail, y - uy * tail);
+  g.addColorStop(0, `rgba(${color},0.95)`);
+  g.addColorStop(0.4, `rgba(${color},0.55)`);
+  g.addColorStop(1, `rgba(${color},0)`);
+  ctx.strokeStyle = g;
+  ctx.lineCap = "round";
+  ctx.lineWidth = 9;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - ux * tail, y - uy * tail);
+  ctx.stroke();
+  const glow = ctx.createRadialGradient(x, y, 3, x, y, 22);
+  glow.addColorStop(0, `rgba(${color},0.7)`);
+  glow.addColorStop(1, `rgba(${color},0)`);
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, 22, 0, Math.PI * 2);
+  ctx.fill();
+  // Dark disc with a bright rim, so the sprite pops off any floor.
+  ctx.fillStyle = "rgba(10,6,8,0.6)";
+  ctx.beginPath();
+  ctx.arc(x, y, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = `rgba(${color},0.9)`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
 }

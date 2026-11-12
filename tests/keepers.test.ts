@@ -66,7 +66,7 @@ test("the new keepers start with their own seeds and stacks", () => {
 test("every keeper has a Keeper tab with their own tower", () => {
   for (const hero of HEROES) {
     const tabs = groupsFor(hero);
-    assert.equal(tabs.length, 4);
+    assert.equal(tabs.length, 5);
     assert.deepEqual(tabs[3].kinds, [SIGNATURE[hero]]);
     assert.equal(tabs[3].key, "r");
   }

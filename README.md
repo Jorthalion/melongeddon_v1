@@ -71,11 +71,14 @@ Pick **Endless** as the night on the setup screen (New night). You play act one'
 
 ## Cannons
 
-15 cannons in three build tabs (`Q`/`W`/`E`, then `1`–`5`):
+18 cannons in four build tabs (`Q`/`W`/`E`/`T`, then `1`–`5`; `R` is the keeper's own):
 
 - **Damage:** Melon, Mortar, Seed Spitter (rapid, pings off shells), Shelf Ballista (pierces a line), Long Reader (whole-board sniper, hits the toughest)
 - **Control:** Still, Fire, Freeze, Shush Bell (area stun; husks are deaf), Fly Hive (homing, whole board)
 - **Support:** Reading Lamp (boosts neighbours), Ink Well (+25% damage taken), Peeler (strips shells/husks/damp), Bookworm (damage over time on pumpkins and Karl), Compost Heap (seeds every wave)
+- **Trick:** Boomerang Bookend (elliptical loop out and back, pierces, one hit each way), Orrery (three planets orbit the tower and hit what they sweep, 0.5 s per planet per fruit), Paper Plane (a glider that steers toward the nearest fruit at a limited turn rate, so it swoops in arcs; 0.45 s between hits on the same fruit)
+
+**Trick shots.** Boomerangs and planes are `Flyer`s (`world.flyers`), moved by `moveFlyer` in the engine; the Orrery's planets are computed per tower in `spinOrrery`. Numbers are the `boomerang*`, `orrery*` and `plane*` keys in `CANNON` plus their `PROFILE` rows. In simulation (Midnight, the Stacks, bot builds melons plus one other kind), win rates are: melons only 58%, + Ballista 61%, + Paper Plane 69%, + Orrery 74%, + Boomerang 75%.
 
 **Cannon upgrades.** Five of the new cannons have an upgrade in the between-wave picks: Barbed Spears (Ballista: spear slows), Footnotes (Reader: hits ink the target), Stinging Flies (Hive: each fly hits a second fruit), Ink Blot (Ink Well: popped marked fruit splash ink, marks sting harder) and Interest (Compost: +20 per heap plus 10% of unspent seeds, up to 20). Each also makes its own cannon fire faster. One is offered only once you've built that cannon, never at the first pick, and it takes the middle slot so the keeper's own pick stays. It doesn't change which picks come next. Knobs are in `CANNON` (`upgradePace`, `readerUpgradePace`, `inkUpgradePace`, `blotInkBonus`, `blotRadius`, `interestBase`, `interestRate`, `interestCap`).
 
@@ -90,7 +93,7 @@ The build tabs (Damage / Control / Support) say what a tower is for. Each tower 
 | Type | Towers |
 |---|---|
 | Cannon | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet |
-| Precision | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Card Catalogue, Scales of Justice |
+| Precision | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Boomerang Bookend, Orrery, Paper Plane, Card Catalogue, Scales of Justice |
 | Alchemy | Still, Ink Well, Bubbling Cauldron |
 | Creature | Fly Hive, Bookworm, Mimic Chest |
 | Utility (no damage) | Shush Bell, Reading Lamp, Compost Heap, History Lectern |
@@ -128,6 +131,10 @@ Map unlock goals are `MAP_GOALS` in `src/game/meta.ts`. Map cards and the intro 
 
 The Overflow's setup screen offers up to three optional **late slips** (`src/game/slips.ts`): Heavy Returns (chute opens on wave 3), Damp Powder (−20% damage), No Refunds (selling pays 0), Short Shelf (−4 stacks) and Karl Is Early (extra Karl on wave 8). Each adds keeper XP (+10% to +25%, bonuses add). They replaced the old "How the first night ended" question: the Overflow now takes the last Midnight door answer from storage (`overflowDoor()`, "sent away" when there is none). Picks save with the setup record; the simulator takes them through `slips` in `RunConfig`.
 
+## Developer mode
+
+Settings › **Developer mode** (`melongeddon-dev` in localStorage) reloads the game with `ALL_UNLOCKED` stats and `maxedProgress(0)` keepers, a DEV badge, and `api.devSeeds()` (+`DEV_SEEDS`, 500) in the pause menu. While it is on, lifetime stats, best waves and keeper XP are not written (`persistStats`, `persistKeepers`), so switching it off restores the real progress. Tests can pass `dev: true` to `createWorld`.
+
 ## Keeper levels
 
 Each keeper levels from 1 to 10 by clearing waves as that keeper (10 XP a wave, +50 for a win, scaled by difficulty: Story ×0.5 up to Overdue ×2). Levels 2, 4, 6, 8 and 10 each open a choice of two perks, picked on the setup screen and swappable before any night. Level 10 offers a second copy of the keeper's signature tower or a keeper-specific capstone. Data, XP curve and storage live in `src/game/levels.ts`; the engine applies the merged effects (`perkFx`) when a run starts. The full perk list is in [docs/GUIDE.md](docs/GUIDE.md#keeper-levels-and-perks).
@@ -150,7 +157,7 @@ Effect sizes live in `BOOKMARK_VALUES`. The simulator can equip one (`bookmark` 
 
 ## Controls
 
-Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade, back-room and knight cards, 1–4 on the Doctor's picks, and 1–6 for the keeper on Setup), `Q`/`W`/`E`/`R` switch build tabs (R is the keeper's own tower), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Settings (on the Title and in the pause menu) has sound, music, default game speed, reduce motion, and "Show tips again". The Title's How to play covers controls, cannons, keepers, nights and rooms.
+Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade, back-room and knight cards, 1–4 on the Doctor's picks, and 1–6 for the keeper on Setup), `Q`/`W`/`E`/`R`/`T` switch build tabs (R is the keeper's own tower, T the trick shots), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Settings (on the Title and in the pause menu) has sound, music, default game speed, reduce motion, and "Show tips again". The Title's How to play covers controls, cannons, keepers, nights and rooms.
 
 The pause menu (`Esc` or the menu button) has Resume, Settings, Restart night and Leave to title. The game remembers your last setup: the Title's Continue starts it again, and the end cards offer Play again, Change setup and Title.
 

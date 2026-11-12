@@ -25,6 +25,18 @@ These six are the only towers still drawn with simple code shapes. Match the exi
 
 ---
 
+## 1b. Trick towers (new)
+
+Same style as the signature towers: one standalone object, 3/4 top-down view, small round base, transparent background. The thrown objects are separate small sprites, seen **straight from above** so they can spin or turn in flight.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `trick-boomerang.png` | A **bookend-throwing sling** on a round dark-wood base: a carved wooden arm with brass fittings, holding a curved **boomerang made from a wooden bookend** with gold inlay, crimson ribbon tied to the arm. 3/4 top-down view, transparent background. |
+| `trick-orrery.png` | A small antique **brass orrery** (planetarium model) on a round dark-wood base: thin brass rings, a glowing gold sun in the middle, crimson velvet trim. Leave the planets off (the game draws them orbiting). 3/4 top-down view, transparent background. |
+| `trick-plane.png` | A **paper-plane launcher**: a small wooden ramp with a brass spring catapult on a round base, a folded **paper plane made of an old book page** (faint printed text) sitting ready. 3/4 top-down view, transparent background. |
+| `fly-boomerang.png` | A single curved **wooden bookend boomerang** with gold inlay, seen **straight from above**, centered, transparent background, 256 × 256. |
+| `fly-plane.png` | A single **paper plane folded from an old book page**, seen **straight from above**, nose pointing **right**, transparent background, 256 × 256. |
+
 ## 2. Overflow floor tile
 
 The Overflow uses the plain library floor. A wet floor would sell the flood.

@@ -207,13 +207,13 @@ test("reaching a milestone unlocks a bookmark mid-run", () => {
   assert.match(api.world.hud.log, /New bookmark: Back-room Key/);
 });
 
-test("every shared cannon is in exactly one build tab of five; each keeper has one signature", () => {
+test("every shared cannon is in exactly one build tab of at most five; each keeper has one signature", () => {
   const all = TOWER_GROUPS.flatMap((g) => g.kinds);
   assert.equal(all.length + SIGNATURE_KINDS.length, Object.keys(T).length);
   assert.equal(new Set(SIGNATURE_KINDS).size, HEROES.length);
   for (const k of SIGNATURE_KINDS) assert.ok(!all.includes(k), `${k} is not in a shared tab`);
   assert.equal(new Set(all).size, all.length);
-  for (const g of TOWER_GROUPS) assert.equal(g.kinds.length, 5);
+  for (const g of TOWER_GROUPS) assert.ok(g.kinds.length >= 1 && g.kinds.length <= 5, g.id);
 });
 
 /** A board with lots of seeds and one cannon of `kind` at (4,3), right beside the Stacks carpet. */

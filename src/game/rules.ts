@@ -238,6 +238,10 @@ export type TowerKind =
   | "compost"
   | "peeler"
   | "bookworm"
+  // Trick shots: curved flight paths that pass through fruit.
+  | "boomerang"
+  | "orrery"
+  | "plane"
   // Keeper signature towers: one per keeper, only that keeper can build it, one on the board at a time.
   | "catalogue"
   | "cauldron"
@@ -259,7 +263,7 @@ export const SIGNATURE_KINDS: TowerKind[] = Object.values(SIGNATURE);
 export const isSignature = (kind: TowerKind) => SIGNATURE_KINDS.includes(kind);
 
 export interface TowerGroup {
-  id: "damage" | "control" | "support" | "keeper";
+  id: "damage" | "control" | "support" | "trick" | "keeper";
   name: string;
   key: string;
   kinds: TowerKind[];
@@ -270,6 +274,7 @@ export const TOWER_GROUPS: TowerGroup[] = [
   { id: "damage", name: "Damage", key: "q", kinds: ["melon", "mortar", "spitter", "ballista", "reader"] },
   { id: "control", name: "Control", key: "w", kinds: ["still", "fire", "freeze", "bell", "hive"] },
   { id: "support", name: "Support", key: "e", kinds: ["lantern", "ink", "peeler", "bookworm", "compost"] },
+  { id: "trick", name: "Trick", key: "t", kinds: ["boomerang", "orrery", "plane"] },
 ];
 
 /** The keeper's own tab: just their signature tower. */
@@ -279,7 +284,11 @@ export function keeperGroup(kind: TowerKind): TowerGroup {
 
 /** The tabs a keeper sees: the three shared ones plus their own. */
 export function groupsFor(hero: HeroId | null): TowerGroup[] {
-  return hero ? [...TOWER_GROUPS, keeperGroup(SIGNATURE[hero])] : TOWER_GROUPS;
+  if (!hero) return TOWER_GROUPS;
+  // Tabs follow their keys: Q W E, then the keeper's R, then T for trick shots.
+  const shared = TOWER_GROUPS.filter((g) => g.id !== "trick");
+  const trick = TOWER_GROUPS.filter((g) => g.id === "trick");
+  return [...shared, keeperGroup(SIGNATURE[hero]), ...trick];
 }
 
 export function groupOf(kind: TowerKind): TowerGroup {
@@ -310,6 +319,9 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   cauldron: "alchemy",
   hive: "creature",
   bookworm: "creature",
+  boomerang: "precision",
+  orrery: "precision",
+  plane: "precision",
   mimic: "creature",
   bell: "utility",
   lantern: "utility",
@@ -456,6 +468,24 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 75,
     role: "Pumpkins",
   },
+  boomerang: {
+    name: "Boomerang Bookend",
+    blurb: "Throws a bookend in a wide loop out to the lead fruit and back. Hits everything it passes, both ways.",
+    cost: 70,
+    role: "Loop",
+  },
+  orrery: {
+    name: "Orrery",
+    blurb: "Two brass planets circle it all night and smack any fruit they sweep through. Best on a corner.",
+    cost: 80,
+    role: "Orbit",
+  },
+  plane: {
+    name: "Paper Plane",
+    blurb: "Launches a paper plane that swoops in wide arcs for a few seconds, cutting through fruit as it turns.",
+    cost: 85,
+    role: "Glide",
+  },
   catalogue: {
     name: "Card Catalogue",
     blurb: "Mynxi's own. Long reach, and every shot is cross-referenced into two more fruit.",
@@ -507,6 +537,10 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   ink: { dmg: 0.3, pace: 1.2, range: 0.9 },
   peeler: { dmg: 0.6, pace: 1.1, range: 0.9 },
   bookworm: { dmg: 0.4, pace: 1.3, range: 1 },
+  boomerang: { dmg: 0.8, pace: 1.45, range: 1.15 },
+  // Orrery: range is the planets' orbit; pace sets how fast they spin.
+  orrery: { dmg: 1.1, pace: 1, range: 0.62 },
+  plane: { dmg: 0.85, pace: 2.5, range: 1.25 },
   catalogue: { dmg: 1.15, pace: 1.1, range: 1.4 },
   cauldron: { dmg: 0.5, pace: 1.7, range: 1.05 },
   trebuchet: { dmg: 1.5, pace: 2.8, range: 1.3 },
@@ -560,6 +594,20 @@ export const CANNON = {
   lecternBase: 0.25,
   lecternPerWave: 0.05,
   lecternMax: 0.6,
+  /** Trick shots. */
+  boomerangTime: 1.2,
+  /** How wide the loop is, as a share of the throw distance. */
+  boomerangWidth: 0.42,
+  orreryPlanets: 3,
+  /** Radians per second at the base pace. */
+  orrerySpin: 2.8,
+  /** Seconds before the same planet can hit the same fruit again. */
+  orreryGap: 0.5,
+  planeSpeed: 210,
+  /** Radians per second the plane can turn: low, so it swoops in wide arcs. */
+  planeTurn: 4,
+  planeLife: 3.5,
+  planeGap: 0.45,
 };
 
 export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) {
@@ -642,13 +690,13 @@ export interface ModDef {
 }
 
 export const MODS: ModDef[] = [
-  { id: "reach", name: "Longer barrel", blurb: "This cannon reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm"] },
+  { id: "reach", name: "Longer barrel", blurb: "This cannon reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane"] },
   { id: "chill", name: "Cold rind", blurb: "Its shot slows whatever it hits, for a moment.", kinds: ["melon", "spitter"] },
   {
     id: "haste",
     name: "Quick wick",
     blurb: "This cannon cycles a little faster. The others do not.",
-    kinds: ["melon", "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm"],
+    kinds: ["melon", "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane"],
   },
   { id: "loud", name: "Louder bell", blurb: "The shush carries farther.", kinds: ["bell"] },
   { id: "swarm", name: "Bigger swarm", blurb: "Two flies leave the hive each time.", kinds: ["hive"] },

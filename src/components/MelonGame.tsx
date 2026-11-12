@@ -26,6 +26,8 @@ import {
   towerReadout,
   UPGRADES,
   createWorld,
+  DEV_SEEDS,
+  writeDev,
   stepWorld,
   type Difficulty,
   type HeroId,
@@ -251,6 +253,14 @@ export function MelonGame() {
               {inRun ? ` · ${BOARDS[hud.map].name}${hud.night === "endless" ? " · Endless" : ""}` : ""}
             </p>
           </div>
+          {hud.dev ? (
+            <span
+              className="rounded border border-[#6fc6ef]/70 px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-[#6fc6ef]"
+              title="Developer mode: everything unlocked, nothing saved to your progress"
+            >
+              DEV
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center justify-end gap-1.5 text-sm sm:gap-2">
           {inRun ? (
@@ -578,6 +588,9 @@ function PauseMenu({
                 Resume
               </MenuButton>
               <MenuButton onClick={() => { onGesture(); api.menuSettings(true); }}>Settings</MenuButton>
+              {hud.dev && (hud.phase === "prep" || hud.phase === "combat") ? (
+                <MenuButton onClick={() => { onGesture(); api.devSeeds(); }}>Dev: +{DEV_SEEDS} seeds</MenuButton>
+              ) : null}
               <MenuButton onClick={() => { onGesture(); setConfirm("restart"); }}>Restart night</MenuButton>
               <MenuButton onClick={() => { onGesture(); setConfirm("leave"); }}>Leave to title</MenuButton>
             </div>
@@ -641,6 +654,9 @@ const SHORT_NAME: Record<TowerKind, string> = {
   compost: "Compost",
   peeler: "Peeler",
   bookworm: "Bookworm",
+  boomerang: "Boomerang",
+  orrery: "Orrery",
+  plane: "Plane",
   catalogue: "Catalogue",
   cauldron: "Cauldron",
   trebuchet: "Trebuchet",
@@ -658,6 +674,9 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   if (kind === "scales") return `DMG ${read.dmg} + ${Math.round(CANNON.scalesShare * 100)}% of max health · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "catalogue") return `DMG ${read.dmg} · chains ×${CANNON.catalogueChains} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "lantern") return `Boosts cannons within ${tiles}`;
+  if (kind === "orrery") return `DMG ${read.dmg} per sweep · orbit ${tiles}${lit}`;
+  if (kind === "boomerang") return `DMG ${read.dmg} out and back · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
+  if (kind === "plane") return `DMG ${read.dmg} per pass · glides ${CANNON.planeLife}s · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "bell") return `Stun · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "still") return `No shot · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   return `DMG ${read.dmg} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
@@ -1000,6 +1019,18 @@ function SettingsPanel({
           Tips will show on your next night.
         </p>
       ) : null}
+      <MenuButton
+        onClick={() => {
+          onGesture();
+          writeDev(!api.world.hud.dev);
+          window.location.reload();
+        }}
+      >
+        {api.world.hud.dev ? "Developer mode: on" : "Developer mode: off"}
+      </MenuButton>
+      <p className="-mt-1 text-xs text-muted">
+        Unlocks every map, bookmark and perk to try. Your real progress is kept and nothing you do counts toward it. Reloads the game.
+      </p>
       <p className="text-xs text-muted">Keys: {HOTKEY_HELP}</p>
     </div>
   );

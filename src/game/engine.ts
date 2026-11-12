@@ -10,6 +10,7 @@ export * from "./rules.ts";
 import {
   BOOKMARK,
   BOOKMARK_VALUES,
+  ALL_UNLOCKED,
   EMPTY_META,
   backRoomPrice,
   loadMeta,
@@ -26,6 +27,7 @@ import {
   emptyProgress,
   levelFor,
   loadProgress,
+  maxedProgress,
   normalizeRecord,
   perkFx,
   saveProgress,
@@ -90,6 +92,37 @@ interface Tower {
   pulpCd?: number;
   /** Waves cleared when it was built (the History Lectern grows with each wave since). */
   born?: number;
+  /** Orrery: the planets' current angle and orbit radius. */
+  spin?: number;
+  orbit?: number;
+  /** Orrery: per planet and fruit, the time it may hit again. */
+  orbitHits?: Map<string, number>;
+}
+
+/** A trick shot on a curved path that passes through fruit (Boomerang Bookend, Paper Plane). */
+export interface Flyer {
+  id: number;
+  kind: "boomerang" | "plane";
+  x: number;
+  y: number;
+  /** Boomerang: where it was thrown from, the throw direction, distance, loop width and side. */
+  ox: number;
+  oy: number;
+  ux: number;
+  uy: number;
+  dist: number;
+  width: number;
+  side: number;
+  /** Seconds in the air, and how long it flies. */
+  t: number;
+  dur: number;
+  /** Plane: heading in radians. */
+  heading: number;
+  dmg: number;
+  /** Boomerang: fruit hit on this pass (0 out, 1 back). Plane: fruit and when they may be hit again. */
+  hits: Map<number, number>;
+  /** Recent positions, for the curved trail. */
+  trail: Array<{ x: number; y: number }>;
 }
 
 interface Shot {
@@ -156,6 +189,20 @@ export interface Ring {
   life: number;
   max: number;
   color: string;
+  /** Area hit: a soft filled circle under the ring, so the splash area reads at a glance. */
+  fill?: boolean;
+}
+
+/** A juice stain left on the floor where a fruit popped. */
+export interface Stain {
+  x: number;
+  y: number;
+  r: number;
+  color: string;
+  life: number;
+  max: number;
+  /** Fixed per stain so its droplets don't jump around between frames. */
+  seed: number;
 }
 
 interface Spark {
@@ -243,7 +290,31 @@ export interface Hud {
   xpRun: number;
   /** The Overflow: late slips taken for this night (harder, more XP). */
   slips: SlipId[];
+  /** Developer mode is on (everything unlocked; stats, bests and XP are not saved). */
+  dev: boolean;
 }
+/** Developer mode: everything unlocked, nothing saved over the real progress. */
+const DEV_KEY = "melongeddon-dev";
+/** Seeds the developer button adds. */
+export const DEV_SEEDS = 500;
+
+export function readDev(): boolean {
+  try {
+    return localStorage.getItem(DEV_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function writeDev(on: boolean) {
+  try {
+    if (on) localStorage.setItem(DEV_KEY, "1");
+    else localStorage.removeItem(DEV_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 const BEST_KEY = "melongeddon-best-wave";
 const ENDLESS_BEST_KEY = "melongeddon-endless-best";
 const DOOR_KEY = "melongeddon-door";
@@ -413,6 +484,8 @@ export interface World {
   sparks: Spark[];
   lines: Line[];
   rings: Ring[];
+  flyers: Flyer[];
+  stains: Stain[];
   bits: Bit[];
   floaters: Floater[];
   shake: number;
@@ -434,6 +507,8 @@ export interface WorldOptions {
   setup?: Partial<SetupRecord> | null;
   /** Use these keeper levels instead of the saved ones, and never save them (simulator, tests). */
   keepers?: KeeperProgress;
+  /** Developer mode (default: the saved switch, for the real game only). */
+  dev?: boolean;
 }
 
 export function createWorld(
@@ -460,6 +535,8 @@ export function createWorld(
   setDoor: (choice: Exclude<Alliance, "none">) => void;
   /** Setup, Overflow only: take or drop a late slip (up to three). */
   toggleSlip: (id: SlipId) => void;
+  /** Developer mode: add DEV_SEEDS seeds (only while dev is on and a night is in play). */
+  devSeeds: () => void;
   ackMemory: () => void;
   openSetup: () => void;
   beginNight: () => void;
@@ -546,6 +623,7 @@ export function createWorld(
       xpStart: 0,
       xpRun: 0,
       slips: [],
+      dev: false,
     },
     hover: null,
     anim: 0,
@@ -556,6 +634,8 @@ export function createWorld(
     sparks: [],
     lines: [],
     rings: [],
+    flyers: [],
+    stains: [],
     bits: [],
     floaters: [],
     shake: 0,
@@ -572,6 +652,8 @@ export function createWorld(
   };
 
   let cleared = 0;
+  /** Seconds of combat so far (trick-shot hit timing). */
+  let clock = 0;
   let queue: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean }> = [];
   let absurdDrops = 0;
   let queueCursor = 0;
@@ -582,7 +664,17 @@ export function createWorld(
   const has = (u: UpgradeId) => world.hud.upgrades.includes(u);
 
   const persistMeta = !options.meta && typeof window !== "undefined";
-  const meta: MetaStats = options.meta ? { ...options.meta } : persistMeta ? loadMeta() : { ...EMPTY_META };
+  const dev = options.dev ?? (persistMeta && !options.keepers && readDev());
+  world.hud.dev = dev;
+  /** Lifetime stats and best waves are only saved outside developer mode. */
+  const persistStats = persistMeta && !dev;
+  const meta: MetaStats = dev
+    ? { ...ALL_UNLOCKED }
+    : options.meta
+      ? { ...options.meta }
+      : persistMeta
+        ? loadMeta()
+        : { ...EMPTY_META };
   world.hud.unlocked = unlockedIds(meta);
   world.hud.maps = unlockedMaps(meta);
   {
@@ -601,12 +693,14 @@ export function createWorld(
     world.hud.alliance = setup.night === "overflow" ? (setup.door !== "none" ? setup.door : overflowDoor()) : "none";
     world.hud.slips = setup.night === "overflow" ? cleanSlips(setup.slips) : [];
   }
-  const persistKeepers = !options.keepers && !options.meta && typeof window !== "undefined";
+  const persistKeepers = !options.keepers && !options.meta && !dev && typeof window !== "undefined";
   world.hud.keepers = options.keepers
     ? (Object.fromEntries(Object.entries(options.keepers).map(([h, r]) => [h, normalizeRecord(r)])) as KeeperProgress)
-    : persistKeepers
-      ? loadProgress()
-      : emptyProgress();
+    : dev
+      ? maxedProgress(0)
+      : persistKeepers
+        ? loadProgress()
+        : emptyProgress();
   /** Perk effects for the run in play (set when a run starts). */
   let fx = perkFx(null, undefined);
   /** Is this the playing keeper's own tower? */
@@ -634,7 +728,7 @@ export function createWorld(
   /** Update lifetime stats; announce any bookmark this unlocks. */
   const record = (change: (m: MetaStats) => void) => {
     change(meta);
-    if (persistMeta) saveMeta(meta);
+    if (persistStats) saveMeta(meta);
     const now = unlockedIds(meta);
     const fresh = now.filter((id) => !world.hud.unlocked.includes(id));
     world.hud.unlocked = now;
@@ -672,13 +766,13 @@ export function createWorld(
     if (world.hud.night === "endless") {
       if (cleared > world.hud.endlessBest) {
         world.hud.endlessBest = cleared;
-        writeBest(cleared, ENDLESS_BEST_KEY);
+        if (!dev) writeBest(cleared, ENDLESS_BEST_KEY);
       }
       return;
     }
     if (cleared > world.hud.best) {
       world.hud.best = cleared;
-      writeBest(cleared);
+      if (!dev) writeBest(cleared);
     }
   };
 
@@ -691,13 +785,25 @@ export function createWorld(
         y,
         vx: Math.cos(a) * sp,
         vy: Math.sin(a) * sp,
-        life: 0.35 + Math.random() * 0.35,
-        max: 0.7,
+        life: 0.4 + Math.random() * 0.35,
+        max: 0.75,
         color,
-        s: 2 + Math.random() * 3,
+        s: 2.5 + Math.random() * 3,
       });
     }
     if (world.bits.length > 240) world.bits.splice(0, world.bits.length - 240);
+  };
+
+  /** Show a splash area: a soft circle and a ring at its real radius. */
+  const splashFx = (x: number, y: number, r: number, color: string) => {
+    world.rings.push({ x, y, r, life: 0.45, max: 0.45, color, fill: true });
+    if (world.rings.length > 60) world.rings.splice(0, world.rings.length - 60);
+  };
+
+  /** Leave a juice stain on the floor that fades over a couple of seconds. */
+  const stain = (x: number, y: number, r: number, color: string) => {
+    world.stains.push({ x, y, r, color, life: 2.2, max: 2.2, seed: Math.floor(Math.random() * 1000) });
+    if (world.stains.length > 40) world.stains.splice(0, world.stains.length - 40);
   };
 
   const float = (x: number, y: number, text: string, color: string) => {
@@ -749,6 +855,138 @@ export function createWorld(
       interval: sig ? read.interval * fx.sigPace : read.interval,
     };
   };
+  /** Orrery: spin the planets and hit any fruit they sweep through. */
+  const spinOrrery = (tower: Tower, dt: number) => {
+    const stats = statsFor(tower);
+    const speed = CANNON.orrerySpin * (0.9 / Math.max(0.2, stats.interval));
+    tower.spin = ((tower.spin ?? Math.random() * Math.PI * 2) + speed * dt) % (Math.PI * 2);
+    tower.orbit = stats.range;
+    tower.orbitHits ??= new Map();
+    const now = clock;
+    for (let p = 0; p < CANNON.orreryPlanets; p++) {
+      const ang = tower.spin + (p * Math.PI * 2) / CANNON.orreryPlanets;
+      const px = tower.x + Math.cos(ang) * stats.range;
+      const py = tower.y + Math.sin(ang) * stats.range;
+      for (const e of world.enemies) {
+        if (e.hp <= 0) continue;
+        if ((e.x - px) ** 2 + (e.y - py) ** 2 > (e.r + 15) ** 2) continue;
+        const key = `${p}:${e.id}`;
+        if ((tower.orbitHits.get(key) ?? -1) > now) continue;
+        tower.orbitHits.set(key, now + CANNON.orreryGap);
+        hurt(e, null, stats.dmg);
+        burst(px, py, "#e6c36a", 3);
+        cue("fire", "orrery");
+      }
+    }
+    if (tower.orbitHits.size > 200) {
+      for (const [k, until] of tower.orbitHits) if (until <= now) tower.orbitHits.delete(k);
+    }
+  };
+
+  /** Throw a boomerang or launch a paper plane at `target`. */
+  const launchFlyer = (tower: Tower, target: Enemy, stats: { dmg: number; range: number; interval: number }) => {
+    cue("fire", tower.kind);
+    const dx = target.x - tower.x;
+    const dy = target.y - tower.y;
+    const d = Math.max(CELL, Math.hypot(dx, dy));
+    const base = {
+      id: id(),
+      x: tower.x,
+      y: tower.y,
+      ox: tower.x,
+      oy: tower.y,
+      ux: dx / d,
+      uy: dy / d,
+      t: 0,
+      dmg: stats.dmg,
+      hits: new Map<number, number>(),
+      trail: [] as Array<{ x: number; y: number }>,
+    };
+    if (tower.kind === "boomerang") {
+      // Throw a little past the fruit so the loop sweeps through it; one bookend out at a time.
+      const reach = Math.min(stats.range, d + CELL * 0.6);
+      tower.cd = Math.max(stats.interval, CANNON.boomerangTime);
+      world.flyers.push({
+        ...base,
+        kind: "boomerang",
+        dist: reach,
+        width: reach * CANNON.boomerangWidth,
+        side: Math.random() < 0.5 ? -1 : 1,
+        dur: CANNON.boomerangTime,
+        heading: 0,
+      });
+    } else {
+      tower.cd = stats.interval;
+      world.flyers.push({
+        ...base,
+        kind: "plane",
+        dist: stats.range,
+        width: 0,
+        side: 1,
+        dur: CANNON.planeLife,
+        // Launch off to one side, so the first pass is already a curve.
+        heading: Math.atan2(dy, dx) + (Math.random() < 0.5 ? -0.9 : 0.9),
+      });
+    }
+  };
+
+  const moveFlyer = (f: Flyer, dt: number) => {
+    f.t += dt;
+    if (f.kind === "boomerang") {
+      // An elliptical loop: out along the throw, curving to one side, and back home.
+      const p = Math.min(1, f.t / f.dur);
+      const a = p * Math.PI * 2;
+      const along = (f.dist * (1 - Math.cos(a))) / 2;
+      const across = f.width * Math.sin(a) * f.side;
+      f.x = f.ox + f.ux * along - f.uy * across;
+      f.y = f.oy + f.uy * along + f.ux * across;
+      const pass = p < 0.5 ? 0 : 1;
+      for (const e of world.enemies) {
+        if (e.hp <= 0) continue;
+        if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 12) ** 2) continue;
+        if (f.hits.get(e.id) === pass) continue;
+        f.hits.set(e.id, pass);
+        hurt(e, null, f.dmg);
+        burst(e.x, e.y, "#d8b878", 4);
+      }
+    } else {
+      // Steer toward the nearest fruit, but only so fast: the plane swoops in wide arcs.
+      let best: Enemy | null = null;
+      let bestD = Infinity;
+      for (const e of world.enemies) {
+        if (e.hp <= 0) continue;
+        const d = (e.x - f.x) ** 2 + (e.y - f.y) ** 2;
+        if (d < bestD) {
+          bestD = d;
+          best = e;
+        }
+      }
+      if (best) {
+        const want = Math.atan2(best.y - f.y, best.x - f.x);
+        let diff = want - f.heading;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const turn = CANNON.planeTurn * dt;
+        f.heading += Math.max(-turn, Math.min(turn, diff));
+      }
+      f.x += Math.cos(f.heading) * CANNON.planeSpeed * dt;
+      f.y += Math.sin(f.heading) * CANNON.planeSpeed * dt;
+      // Keep it over the room.
+      if (f.x < 0 || f.y < 0 || f.x > world.w || f.y > world.h) f.heading += Math.PI * dt * 2;
+      const now = clock;
+      for (const e of world.enemies) {
+        if (e.hp <= 0) continue;
+        if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 10) ** 2) continue;
+        if ((f.hits.get(e.id) ?? -1) > now) continue;
+        f.hits.set(e.id, now + CANNON.planeGap);
+        hurt(e, null, f.dmg);
+        burst(e.x, e.y, "#f3e2c4", 4);
+      }
+    }
+    f.trail.push({ x: f.x, y: f.y });
+    if (f.trail.length > 10) f.trail.shift();
+  };
+
   const statsFor = (tower: Tower) => {
     if (tower.ally) return ALLY_STATS;
     const read = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
@@ -946,6 +1184,8 @@ export function createWorld(
     world.sparks = [];
     world.lines = [];
     world.rings = [];
+    world.flyers = [];
+    world.stains = [];
     world.bits = [];
     world.floaters = [];
     world.shake = 0;
@@ -1061,7 +1301,9 @@ export function createWorld(
   const onDeath = (e: Enemy) => {
     world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
-    burst(e.x, e.y, e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : "#e23b4a", e.boss ? 28 : 10);
+    const juice = e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : e.kind === "corn" ? "#e6c36a" : "#e23b4a";
+    burst(e.x, e.y, juice, e.boss ? 28 : 12);
+    stain(e.x, e.y, e.boss ? e.r * 1.3 : e.r * 1.1, juice);
     cue(e.boss ? "bossPop" : "pop");
     if (e.split) spill(e);
     if (has("blot") && (e.ink ?? 0) > 0) {
@@ -1184,11 +1426,14 @@ export function createWorld(
     }
     if (shot.procs && has("juicy")) {
       for (const other of world.enemies) hurt(other, e, 8, 46, "splash");
+      splashFx(e.x, e.y, 46, "226,59,74");
     }
     if (has("splatter") && shot.procs) {
       for (const other of world.enemies) hurt(other, e, 9, 40, "splash");
+      splashFx(e.x, e.y, 40, "226,59,74");
     }
     if (shot.splash > 0 && !shot.fromAlly) {
+      if (!shot.knock) splashFx(e.x, e.y, shot.splash, "232,136,58");
       for (const other of world.enemies)
         hurt(other, e, Math.max(6, Math.round(shot.dmg * shot.splashRatio)), shot.splash, "splash");
     }
@@ -1198,7 +1443,7 @@ export function createWorld(
         if (other !== e && Math.hypot(other.x - e.x, other.y - e.y) > shot.splash) continue;
         pushBack(other, shot.knock);
       }
-      world.rings.push({ x: e.x, y: e.y, r: shot.splash, life: 0.35, max: 0.35, color: "232,136,58" });
+      splashFx(e.x, e.y, shot.splash, "232,136,58");
     }
     if (has("electric") && shot.procs) {
       let best: Enemy | null = null;
@@ -1348,6 +1593,7 @@ export function createWorld(
   };
 
   const tickCombat = (dt: number) => {
+    clock += dt;
     const scale = hpScaleFor(world.hud.night, cleared);
     spawnClock += dt;
     while (queueCursor < queue.length && spawnClock >= queue[queueCursor].t) {
@@ -1442,6 +1688,10 @@ export function createWorld(
       tower.cd -= dt;
       tower.pulpCd = (tower.pulpCd ?? 0) - dt;
       if (PASSIVE.includes(tower.kind)) continue;
+      if (tower.kind === "orrery") {
+        spinOrrery(tower, dt);
+        continue;
+      }
       let target: Enemy | null = null;
       let bestProg = -Infinity;
       const stats = statsFor(tower);
@@ -1555,6 +1805,10 @@ export function createWorld(
         }
         continue;
       }
+      if (tower.kind === "boomerang" || tower.kind === "plane") {
+        launchFlyer(tower, target, stats);
+        continue;
+      }
       tower.cd = stats.interval;
       const dmg = stats.dmg;
       // Pulp upgrades: only melon cannons leave puddles, and at most one per cannon every few seconds.
@@ -1652,6 +1906,9 @@ export function createWorld(
     }
     world.shots = world.shots.filter((s) => s.life > 0);
 
+    for (const f of world.flyers) moveFlyer(f, dt);
+    world.flyers = world.flyers.filter((f) => f.t < f.dur);
+
     world.enemies = world.enemies.filter((e) => e.hp > 0);
     world.hud.left = world.enemies.length + Math.max(0, queue.length - queueCursor);
 
@@ -1675,6 +1932,8 @@ export function createWorld(
     world.lines = world.lines.filter((l) => l.life > 0);
     for (const r of world.rings) r.life -= dt;
     world.rings = world.rings.filter((r) => r.life > 0);
+    for (const st of world.stains) st.life -= dt;
+    world.stains = world.stains.filter((st) => st.life > 0);
     world.sparks = world.sparks.filter((s) => s.life > 0);
     for (const f of world.floaters) {
       f.life -= dt;
@@ -1740,6 +1999,7 @@ export function createWorld(
         born: cleared,
       };
       world.towers.push(tower);
+      if (tower.kind === "orrery") tower.orbit = statsFor(tower).range;
       cue("build", buildKind);
       world.hud.seeds -= world.hud.towerCost;
       world.hud.selected = tower.id;
@@ -2094,6 +2354,13 @@ export function createWorld(
       world.hud.alliance = choice;
       writeDoor(choice);
       world.hud.log = doorMemory(choice);
+      notify();
+    },
+    devSeeds() {
+      if (!dev || (world.hud.phase !== "prep" && world.hud.phase !== "combat")) return;
+      world.hud.seeds += DEV_SEEDS;
+      world.hud.log = `Developer mode: +${DEV_SEEDS} seeds.`;
+      syncPrice();
       notify();
     },
     toggleSlip(id: SlipId) {

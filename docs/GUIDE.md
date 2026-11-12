@@ -194,7 +194,7 @@ Build cannons on the **floor** beside the carpet (never on it). Every fruit you 
    - **Start** (first visit) or **Continue** plays right away with your last setup. The line under it shows what that setup is.
    - **New night** opens Setup, where you pick everything yourself.
    - **How to play** is a quick reference inside the game.
-   - **Settings** has sound, music, game speed, reduce motion, and "Show tips again".
+   - **Settings** has sound, music, game speed, reduce motion, "Show tips again" and **Developer mode** (see below).
    - **Install app** appears when your browser can install the game; **Quit** appears in the desktop app.
 2. **Setup (New night).** Choose, top to bottom:
    - **Night**: Midnight (night one), The Overflow (night two) or Endless.
@@ -227,7 +227,7 @@ The first two waves show short tips. Bring them back any time with **Settings 鈫
 | Action | Mouse / touch | Keyboard |
 |---|---|---|
 | Build | Pick a cannon in the build bar, tap the floor | `1`鈥揱5` pick a cannon, then click |
-| Switch build tab | Tap the tab | `Q` Damage 路 `W` Control 路 `E` Support 路 `R` Keeper |
+| Switch build tab | Tap the tab | `Q` Damage 路 `W` Control 路 `E` Support 路 `R` Keeper 路 `T` Trick |
 | Select a cannon | Tap it (tap again to deselect) | `Esc` deselects |
 | Sell | **Sell** in the inspector (refunds 70% of what you spent on it) | `S` |
 | Fit a cannon (between waves) | **Back room** in the inspector | `B` |
@@ -253,6 +253,16 @@ Each keeper changes your start and has one **signature tower** that only they ca
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite |
 | **Dr. Samodovol**, The Scholar | 12 stacks, 150 seeds | Upgrade picks offer four choices instead of three | **History Lectern** (65): no shot; nearby cannons hit harder, and more so every wave it stands |
+
+## Developer mode
+
+For trying everything without earning it first. Open **Settings** (on the title screen or in the pause menu) and press **Developer mode**. The game reloads with:
+
+- every map, bookmark and keeper perk unlocked, and every keeper at level 10;
+- a blue **DEV** badge next to the game's name;
+- a **Dev: +500 seeds** button in the pause menu during a night.
+
+Nothing you do in developer mode counts: wins, best waves, lifetime stats and keeper XP are not saved. Press **Developer mode** again to switch it off; the game reloads with your real progress exactly as it was. Your last setup is kept, so if it uses a map you haven't unlocked yet, the game falls back to the Stacks and says so.
 
 ## Keeper levels and perks
 
@@ -337,6 +347,7 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 | **Control** (`W`) | Still, Fire cannon, Freeze cannon, Shush Bell, Fly Hive |
 | **Support** (`E`) | Reading Lamp, Ink Well, Peeler, Bookworm, Compost Heap |
 | **Keeper** (`R`) | Your keeper's signature tower |
+| **Trick** (`T`) | Boomerang Bookend, Orrery, Paper Plane: curved shots that pass through fruit |
 
 ### What each tower does
 
@@ -357,6 +368,9 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 | Peeler | 60 | Strips shells, husks and damp so other cannons hit normally |
 | Bookworm | 75 | Burrows into pumpkins and Karl for heavy damage over time |
 | Compost Heap | 70 | No shot; pays seeds at the end of every wave |
+| Boomerang Bookend | 70 | Throws a bookend in a wide loop out to the lead fruit and back; hits everything it passes, once each way |
+| Orrery | 80 | Three brass planets circle it nonstop and hit any fruit they sweep through. Put it on a corner so the carpet crosses the orbit twice |
+| Paper Plane | 85 | Launches a paper plane that glides for a few seconds in wide, swooping arcs, cutting through fruit each time it passes |
 
 ### Tower types
 
@@ -365,7 +379,7 @@ Every tower also has a **type**. The type decides which shared upgrades affect i
 | Type | Towers |
 |---|---|
 | **Cannon** | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet |
-| **Precision** | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Card Catalogue, Scales of Justice |
+| **Precision** | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Boomerang Bookend, Orrery, Paper Plane, Card Catalogue, Scales of Justice |
 | **Alchemy** | Still, Ink Well, Bubbling Cauldron |
 | **Creature** | Fly Hive, Bookworm, Mimic Chest |
 | **Utility** (no damage) | Shush Bell, Reading Lamp, Compost Heap, History Lectern |
