@@ -42,6 +42,10 @@ export function MenuButton({
   ref,
   disabled,
   title,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
 }: {
   gold?: boolean;
   onClick: () => void;
@@ -49,6 +53,10 @@ export function MenuButton({
   ref?: Ref<HTMLButtonElement>;
   disabled?: boolean;
   title?: string;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }) {
   return (
     <button
@@ -57,18 +65,23 @@ export function MenuButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onFocus={onFocus}
+      onBlur={onBlur}
       className={
-        (disabled ? "opacity-45 " : "") +
+        "group relative w-full overflow-hidden rounded-[5px] text-center transition-[transform,filter,box-shadow,background-color,border-color] duration-150 ease-out motion-safe:hover:-translate-y-[1px] motion-safe:active:translate-y-[1px] motion-safe:active:scale-[0.99] motion-reduce:transition-none " +
+        (disabled ? "pointer-events-none opacity-45 " : "") +
         (gold
-          ? "relative min-h-12 w-full rounded-[5px] bg-[linear-gradient(180deg,#f8ecc4_0%,#e6c87a_46%,#b89249_100%)] font-display text-[1.35rem] font-semibold tracking-wide text-[#24160e] shadow-[inset_0_1px_0_rgba(255,248,220,0.75)]"
-          : "relative min-h-11 w-full rounded-[5px] border border-[#e2c78a]/85 bg-[#100c10]/80 font-display text-lg tracking-wide text-[#f6efe2] shadow-[inset_0_0_0_1px_rgba(226,199,138,0.28)]")
+          ? "min-h-12 bg-[linear-gradient(180deg,#f8ecc4_0%,#e6c87a_46%,#b89249_100%)] font-display text-[1.35rem] font-semibold tracking-wide text-[#24160e] shadow-[inset_0_1px_0_rgba(255,248,220,0.75)] hover:brightness-110 hover:shadow-[0_0_24px_rgba(230,195,106,0.5)] focus-visible:brightness-110"
+          : "min-h-11 border border-[#e2c78a]/85 bg-[#100c10]/80 font-display text-lg tracking-wide text-[#f6efe2] shadow-[inset_0_0_0_1px_rgba(226,199,138,0.28)] hover:border-[#fff0bd] hover:bg-[#261920]/95 hover:shadow-[0_0_20px_rgba(230,195,106,0.3),inset_0_0_0_1px_rgba(226,199,138,0.38)] focus-visible:border-[#fff0bd] focus-visible:bg-[#261920]/95")
       }
     >
       <span
-        className={`pointer-events-none absolute top-1/2 left-3 size-1.5 -translate-y-1/2 rotate-45 ${gold ? "bg-[#24160e]/80" : "border border-[#e2c78a]"}`}
+        className={`pointer-events-none absolute top-1/2 left-3 size-1.5 -translate-y-1/2 rotate-45 transition-transform duration-150 group-hover:scale-125 group-focus-visible:scale-125 ${gold ? "bg-[#24160e]/80" : "border border-[#e2c78a]"}`}
       />
       <span
-        className={`pointer-events-none absolute top-1/2 right-3 size-1.5 -translate-y-1/2 rotate-45 ${gold ? "bg-[#24160e]/80" : "border border-[#e2c78a]"}`}
+        className={`pointer-events-none absolute top-1/2 right-3 size-1.5 -translate-y-1/2 rotate-45 transition-transform duration-150 group-hover:scale-125 group-focus-visible:scale-125 ${gold ? "bg-[#24160e]/80" : "border border-[#e2c78a]"}`}
       />
       {children}
     </button>
