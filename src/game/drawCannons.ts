@@ -9,7 +9,7 @@ export const DRAWN_KINDS: TowerKind[] = [
   "spitter", "ballista", "reader", "bell", "hive", "lantern", "ink", "compost", "peeler", "bookworm",
   "boomerang", "orrery", "plane", "quill", "globe",
   "press", "organ", "scope",
-  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern",
+  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber",
 ];
 
 const WOOD = "#5a3a22";
@@ -854,6 +854,53 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.stroke();
       ctx.fillStyle = "#7a2630";
       ctx.fillRect(3, -9, 1.2, 8 + Math.sin(t * 2) * 0.8);
+      break;
+    }
+    case "quackliber": {
+      // Quackarot: his orange-and-black backpack turret, two barrels, a duck on the side.
+      shadow(ctx, x, y, 18);
+      ctx.translate(x, y);
+      // The pack: black, orange straps.
+      ctx.fillStyle = "#1d1a1c";
+      rrect(ctx, -13, -4, 26, 18, 5);
+      ctx.fill();
+      ctx.fillStyle = "#e8742a";
+      ctx.fillRect(-9, -4, 3, 18);
+      ctx.fillRect(6, -4, 3, 18);
+      // Duck emblem.
+      ctx.fillStyle = "#f2c94c";
+      ctx.beginPath();
+      ctx.arc(0, 7, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(1.5, 3.4, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#e8742a";
+      ctx.beginPath();
+      ctx.moveTo(3.6, 3.2);
+      ctx.lineTo(6.4, 3.8);
+      ctx.lineTo(3.6, 4.6);
+      ctx.closePath();
+      ctx.fill();
+      // The turret on top turns; two barrels, the near one recoils a touch.
+      ctx.translate(0, -6);
+      ctx.rotate(aim);
+      ctx.fillStyle = "#e8742a";
+      rrect(ctx, -8, -7, 16, 14, 4);
+      ctx.fill();
+      ctx.fillStyle = "#2a2426";
+      const kick = Math.max(0, Math.sin(t * 6)) * 1.2;
+      rrect(ctx, 3 - kick, -6, 17, 4.5, 1.5);
+      ctx.fill();
+      rrect(ctx, 3, 1.5, 17, 4.5, 1.5);
+      ctx.fill();
+      ctx.fillStyle = "#e8742a";
+      ctx.fillRect(18 - kick, -6, 2, 4.5);
+      ctx.fillRect(18, 1.5, 2, 4.5);
+      ctx.fillStyle = "#1d1a1c";
+      ctx.beginPath();
+      ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      ctx.fill();
       break;
     }
     default:

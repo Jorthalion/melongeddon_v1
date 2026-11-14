@@ -2,7 +2,7 @@ import { asset } from "@/lib/asset";
 import type { HeroId } from "@/game/engine";
 
 /**
- * Setup-screen faces for the six keepers. Each gets one line: the thing you feel on wave one.
+ * Setup-screen faces for the seven keepers. Each gets one line: the thing you feel on wave one.
  * Stacks, seeds and the rest live in the guide. Portraits are shown in their own colours.
  */
 export const KEEPERS: Array<{
@@ -68,5 +68,14 @@ export const KEEPERS: Array<{
     line: "One of the books is wrong. He will not say which.",
     toneHz: 200,
     portrait: asset("sprites/portrait-scholar.webp"),
+  },
+  {
+    id: "quack",
+    name: "Quackarot",
+    role: "Field strategist",
+    flavor: "Small duck. Big plan. Never raises his voice.",
+    line: "His turret slows the carpet, and every tower beside it fires faster.",
+    toneHz: 280,
+    portrait: asset("sprites/portrait-quack.webp"),
   },
 ];

@@ -18,10 +18,10 @@ export type Phase =
   | "victory"
   | "defeat";
 
-export type HeroId = "mynxi" | "michael" | "vael" | "elf" | "ooze" | "scholar";
+export type HeroId = "mynxi" | "michael" | "vael" | "elf" | "ooze" | "scholar" | "quack";
 
-/** Keepers in Setup order (keys 1–6 pick in this order). */
-export const HEROES: HeroId[] = ["mynxi", "vael", "michael", "elf", "ooze", "scholar"];
+/** Keepers in Setup order (keys 1–7 pick in this order). */
+export const HEROES: HeroId[] = ["mynxi", "vael", "michael", "elf", "ooze", "scholar", "quack"];
 
 /** Names used in text. `short` is how the story cards address the keeper. */
 export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: string }> = {
@@ -31,6 +31,7 @@ export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: s
   elf: { name: "Legal Elf", short: "The Legal Elf", role: "Legal advisor" },
   ooze: { name: "Ooze Clues", short: "Ooze", role: "Astral adventurer" },
   scholar: { name: "Dr. Samodovol", short: "The Doctor", role: "The Scholar" },
+  quack: { name: "Quackarot", short: "Quackarot", role: "Field strategist" },
 };
 
 /** Starting seeds and stacks for the newer keepers (the first three are set in the engine). */
@@ -38,6 +39,7 @@ export const KEEPER_START: Partial<Record<HeroId, { seeds: number; lives: number
   elf: { seeds: 150, lives: 12 },
   ooze: { seeds: 140, lives: 13 },
   scholar: { seeds: 100, lives: 8 },
+  quack: { seeds: 130, lives: 11 },
 };
 
 export type UpgradeId =
@@ -248,7 +250,8 @@ export type TowerKind =
   | "honey"
   | "mimic"
   | "copycat"
-  | "lectern";
+  | "lectern"
+  | "quackliber";
 
 /** Each keeper's signature tower. */
 export const SIGNATURE: Record<HeroId, TowerKind> = {
@@ -258,6 +261,7 @@ export const SIGNATURE: Record<HeroId, TowerKind> = {
   elf: "scales",
   ooze: "mimic",
   scholar: "lectern",
+  quack: "quackliber",
 };
 /** Every tower in each keeper's own tab: the signature first, then any extras. */
 export const KEEPER_TOWERS: Record<HeroId, TowerKind[]> = {
@@ -267,6 +271,7 @@ export const KEEPER_TOWERS: Record<HeroId, TowerKind[]> = {
   elf: ["scales", "stomp", "honey"],
   ooze: ["mimic", "copycat"],
   scholar: ["lectern"],
+  quack: ["quackliber"],
 };
 /** All keeper-only towers. */
 export const SIGNATURE_KINDS: TowerKind[] = Object.values(KEEPER_TOWERS).flat();
@@ -323,6 +328,7 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   fire: "cannon",
   freeze: "cannon",
   trebuchet: "cannon",
+  quackliber: "cannon",
   spitter: "precision",
   ballista: "precision",
   reader: "precision",
@@ -647,6 +653,12 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 65,
     role: "Study",
   },
+  quackliber: {
+    name: "Quack-Liber",
+    blurb: "Quackarot's own. A two-barrel backpack turret that fires orange rockets: they burst over a small area and slow what they hit. Every other tower within two tiles fires 10% faster while it stands. Once, after placing it, you can change what it aims at.",
+    cost: 95,
+    role: "Rockets",
+  },
 };
 
 /**
@@ -680,6 +692,7 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   stomp: { dmg: 0.5, pace: 3.6, range: 1 },
   honey: { dmg: 0, pace: 3.6, range: 1.1 },
   mimic: { dmg: 0, pace: 4.5, range: 0.75 },
+  quackliber: { dmg: 1.1, pace: 1.7, range: 1.05 },
 };
 
 /** Tunable numbers for the newer cannons' special effects. */
@@ -770,6 +783,25 @@ export const CANNON = {
   lectureSlow: 0.85,
   /** Dr. Samodovol's false book: next combat his cannons deal (1 - this) damage and take (1 + this) time between shots. */
   misread: 0.15,
+  /** Quack-Liber: rocket burst radius (px) and share of the hit it deals there, and how long what it hits stays slowed (s). */
+  quackSplash: 44,
+  quackSplashRatio: 0.6,
+  quackSlow: 0.6,
+  /** Quack-Liber: towers within this reach (px) fire this much faster (1.1 = +10% attack speed). */
+  quackAura: 96,
+  quackHaste: 1.1,
+  /** Quiet Confidence: after a Quack-Liber kill, its aura is this much faster again for this long (s). */
+  quackRally: 1.2,
+  quackRallyTime: 2,
+  /** Lane Lockdown: every this many rockets, a suppression patch of this radius (px) and life (s) on the carpet. */
+  quackLockEvery: 4,
+  quackLockRadius: 34,
+  quackLockLife: 3,
+  /** Covering Fire: fruit a rocket hits are sticky (honey's damage taken) for this long (s). */
+  quackCover: 2,
+  /** Defensive Perimeter: fruit this close (px) to the line between two Quack-Libers walk at this speed. */
+  quackLine: 22,
+  quackLineSlow: 0.7,
   /** Trick shots. */
   boomerangTime: 1.2,
   /** How wide the loop is, as a share of the throw distance. */

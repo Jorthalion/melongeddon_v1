@@ -115,6 +115,11 @@ interface Tower {
   orbit?: number;
   /** Orrery: per planet and fruit, the time it may hit again. */
   orbitHits?: Map<string, number>;
+  /** Quack-Liber: what it aims at once retargeted (unset = the fruit furthest along; it can be changed only once). */
+  aimMode?: "strong" | "rear";
+  /** Quack-Liber: rockets fired (Lane Lockdown counts them), and seconds left of Quiet Confidence. */
+  volley?: number;
+  rally?: number;
 }
 
 /** A trick shot on a curved path that passes through fruit (Boomerang Bookend, Paper Plane, Serpent Quill, Rolling Globe). */
@@ -187,6 +192,10 @@ interface Shot {
   bounceRatio?: number;
   /** Pumpkin Trebuchet: push fruit this far back along the carpet. */
   knock?: number;
+  /** Quack-Liber rocket: everything in the burst is slowed this long (s); Covering Fire makes the target sticky this long (s); Lane Lockdown leaves a patch. */
+  splashChill?: number;
+  cover?: number;
+  lock?: boolean;
 }
 
 interface Pool {
@@ -629,6 +638,8 @@ export function createWorld(
   /** What the next back-room upgrade for `kind` costs. */
   shopPriceFor: (kind: TowerKind) => number;
   sellSelected: () => void;
+  /** Quack-Liber: change what the selected one aims at. Once per turret. */
+  retarget: (mode: "strong" | "rear") => void;
   dismissSelection: () => void;
   nudgeSpeed: (dir: -1 | 1) => void;
   togglePause: () => void;
@@ -678,7 +689,7 @@ export function createWorld(
   /** Setup: choose perk `pick` (0 or 1) for the chosen keeper's tier `tier` (0-4). Saved. */
   setPerk: (tier: number, pick: 0 | 1) => void;
   /** Live stats for a placed tower (includes a Reading Lamp's boost). */
-  statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean } | null;
+  statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean } | null;
   /** What a placed tower has done this night: damage dealt, fruit popped, and its share of all the damage. */
   tallyOf: (towerId: number) => { dmg: number; pops: number; share: number } | null;
 } {
@@ -1503,12 +1514,43 @@ export function createWorld(
     if (f.trail.length > 10) f.trail.shift();
   };
 
+  /**
+   * Quackarot's Quack-Liber: every other tower within its reach fires faster while it stands (the best one
+   * counts; two don't stack). Quiet Confidence: faster again for a moment after one of its kills.
+   */
+  const quackHaste = (tower: Tower) => {
+    if (tower.kind === "quackliber") return 1;
+    const reach = CANNON.quackAura * fx.auraReach;
+    let best = 1;
+    for (const q of world.towers) {
+      if (q.kind !== "quackliber") continue;
+      if ((q.x - tower.x) ** 2 + (q.y - tower.y) ** 2 > reach * reach) continue;
+      best = Math.max(best, (CANNON.quackHaste + fx.auraHaste) * ((q.rally ?? 0) > 0 ? CANNON.quackRally : 1));
+    }
+    return best;
+  };
+  /** Defensive Perimeter: with two Quack-Libers standing, fruit near the line between them walk slower. */
+  const perimeterAt = (e: Enemy) => {
+    if (!fx.perimeter) return 1;
+    const qs = world.towers.filter((t) => t.kind === "quackliber");
+    if (qs.length < 2) return 1;
+    const [a, b] = qs;
+    const vx = b.x - a.x;
+    const vy = b.y - a.y;
+    const len2 = vx * vx + vy * vy || 1;
+    const k = Math.max(0, Math.min(1, ((e.x - a.x) * vx + (e.y - a.y) * vy) / len2));
+    const d = Math.hypot(e.x - (a.x + vx * k), e.y - (a.y + vy * k));
+    return d <= CANNON.quackLine + e.r ? CANNON.quackLineSlow : 1;
+  };
+
   const statsFor = (tower: Tower) => {
     const read = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
     if (PASSIVE.includes(tower.kind)) return read;
     // Dr. Samodovol's wrong book: for the next combat his cannons hit softer and slower.
     const cut = misread ? CANNON.misread - fx.misreadCut : 0;
-    const base = cut > 0 ? { ...read, dmg: read.dmg * (1 - cut), interval: read.interval * (1 + cut) } : read;
+    const studied = cut > 0 ? { ...read, dmg: read.dmg * (1 - cut), interval: read.interval * (1 + cut) } : read;
+    const haste = quackHaste(tower);
+    const base = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true } : studied;
     if (base.range >= GLOBAL_RANGE) return base;
     // Reading Lamp: the best lamp in reach boosts this cannon (lamps do not stack).
     let boost: { range: number; pace: number } | null = null;
@@ -1913,6 +1955,8 @@ export function createWorld(
   const shotLife = (x: number, y: number, tx: number, ty: number) => Math.max(1.6, Math.hypot(tx - x, ty - y) / SHOT_SPEED + 1);
 
   const onShotHit = (shot: Shot, e: Enemy) => {
+    // Quiet Confidence counts this rocket's kills.
+    const popsBefore = shot.splashChill && shot.owner != null ? tallyFor(shot.owner).pops : null;
     if (shot.element === "seed" && e.guard === "rind" && e.shell > 0) {
       float(e.x, e.y - 16, "ping", "#d8c9a8");
       return false;
@@ -1978,6 +2022,26 @@ export function createWorld(
       if (!shot.knock) splashFx(e.x, e.y, shot.splash, "232,136,58");
       for (const other of world.enemies)
         hurt(other, e, Math.max(6, Math.round(shot.dmg * shot.splashRatio)), shot.splash, "splash");
+    }
+    if (shot.splashChill) {
+      // Quack-Liber rocket: everything in the burst is slowed for a moment (husks shrug it off).
+      for (const other of world.enemies) {
+        if (other.hp <= 0 || other.guard === "husk") continue;
+        if (Math.hypot(other.x - e.x, other.y - e.y) > shot.splash + other.r) continue;
+        other.chill = Math.max(other.chill, shot.splashChill);
+      }
+    }
+    if (shot.cover && e.hp > 0) {
+      if ((e.honeyed ?? 0) <= 0) float(e.x, e.y - 18, "covered", "#e8883a");
+      e.honeyed = Math.max(e.honeyed ?? 0, shot.cover);
+    }
+    if (shot.lock) {
+      const life = CANNON.quackLockLife * (wetAt(e.x, e.y) ? CANNON.wetPuddle : 1);
+      world.pools.push({ x: e.x, y: e.y, r: CANNON.quackLockRadius, life, max: life, hot: false, burn: 0, owner: shot.owner });
+    }
+    if (shot.owner != null && fx.confidence > 0 && popsBefore != null && tallyFor(shot.owner).pops > popsBefore) {
+      const q = world.towers.find((t) => t.id === shot.owner);
+      if (q) q.rally = CANNON.quackRallyTime;
     }
     if (shot.knock) {
       for (const other of world.enemies) {
@@ -2252,7 +2316,7 @@ export function createWorld(
       const dist = Math.hypot(dx, dy);
       // The History Lectern's note: the kind that got furthest last wave walks slower.
       const studied = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
-      const step = e.speed * e.slow * studied * dt;
+      const step = e.speed * e.slow * studied * perimeterAt(e) * dt;
       if (dist <= step + 0.5) {
         e.x = wp.x;
         e.y = wp.y;
@@ -2295,6 +2359,7 @@ export function createWorld(
       credit = tower.id;
       tower.cd -= dt;
       tower.pulpCd = (tower.pulpCd ?? 0) - dt;
+      if (tower.rally) tower.rally = Math.max(0, tower.rally - dt);
       if (PASSIVE.includes(tower.kind)) continue;
       if (tower.kind === "orrery") {
         spinOrrery(tower, dt);
@@ -2324,6 +2389,8 @@ export function createWorld(
           prog += 1e6;
         else if (tower.kind === "bookworm" && (e.kind === "pumpkin" || e.kind === "karl") && (e.worm ?? 0) < 1) prog += 1e6;
         else if (tower.kind === "ink" && (e.ink ?? 0) <= 0.5) prog += 1e6;
+        else if (tower.kind === "quackliber" && tower.aimMode === "strong") prog = e.hp;
+        else if (tower.kind === "quackliber" && tower.aimMode === "rear") prog = -prog;
         if (prog > bestProg) {
           bestProg = prog;
           target = e;
@@ -2529,10 +2596,14 @@ export function createWorld(
                         ? "worm"
                         : tower.kind === "cauldron"
                           ? "potion"
-                          : tower.kind === "trebuchet"
+                          : tower.kind === "trebuchet" || tower.kind === "quackliber"
                             ? "mortar"
                             : "shot";
       const flies = tower.kind === "hive" && hasMod(tower, "swarm") ? 2 : 1;
+      // Quack-Liber: Lane Lockdown marks the carpet with every fourth rocket.
+      const quack = tower.kind === "quackliber";
+      if (quack) tower.volley = (tower.volley ?? 0) + 1;
+      const lock = quack && fx.lockdown > 0 && (tower.volley ?? 0) % CANNON.quackLockEvery === 0;
       for (let f = 0; f < flies; f++) {
       const aimAt = f === 0 ? target : (inRange[Math.floor(Math.random() * inRange.length)] ?? target);
       world.shots.push({
@@ -2554,15 +2625,18 @@ export function createWorld(
               : 0,
         bounceRatio: tower.kind === "catalogue" ? Math.max(CANNON.catalogueChainRatio, fx.chainRatio) : 1,
         knock: tower.kind === "trebuchet" ? CANNON.trebuchetKnock * fx.knock : 0,
-        orange: tower.kind === "mortar" || tower.kind === "trebuchet" || tower.orange,
-        splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) + (hasMod(tower, "mimicstep") ? CANNON.mimicSplash : 0) : tower.kind === "trebuchet" ? Math.round(CANNON.trebuchetSplash * fx.splash) : 0,
+        orange: tower.kind === "mortar" || tower.kind === "trebuchet" || quack || tower.orange,
+        splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) + (hasMod(tower, "mimicstep") ? CANNON.mimicSplash : 0) : tower.kind === "trebuchet" ? Math.round(CANNON.trebuchetSplash * fx.splash) : quack ? Math.round(CANNON.quackSplash * fx.splash) : 0,
         element,
         // Juicy, Splatter and Electric go off from Cannon-type towers only.
         procs: TOWER_TYPE[tower.kind] === "cannon",
         inkTime: hasMod(tower, "indelible") ? CANNON.inkTime * 1.5 : CANNON.inkTime,
         inkMul: (hasMod(tower, "indelible") ? CANNON.inkBonus + 0.1 : CANNON.inkBonus) + (has("blot") ? CANNON.blotInkBonus : 0),
         wormDps: hasMod(tower, "venom") ? CANNON.wormDps * 1.5 : CANNON.wormDps,
-        splashRatio: hasMod(tower, "heavy") || tower.kind === "trebuchet" ? 0.8 : 0.55,
+        splashRatio: hasMod(tower, "heavy") || tower.kind === "trebuchet" ? 0.8 : quack ? CANNON.quackSplashRatio : 0.55,
+        splashChill: quack ? CANNON.quackSlow : 0,
+        cover: quack && fx.covering > 0 ? CANNON.quackCover : 0,
+        lock,
         chill: hasMod(tower, "chill") ? 0.75 : 0,
         freezeExtra: (hasMod(tower, "hold") ? 0.55 : 0) + (hasMod(tower, "mimicstep") ? CANNON.mimicFreeze : 0),
         fireLife: (hasMod(tower, "lasting") ? 3.6 : 2.4) + (hasMod(tower, "mimicstep") ? CANNON.mimicBurn : 0),
@@ -2829,6 +2903,15 @@ export function createWorld(
       world.hud.waveName = next.name;
       world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.`;
       if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
+      notify();
+    },
+    retarget(mode: "strong" | "rear") {
+      const tower = world.towers.find((t) => t.id === world.hud.selected);
+      if (!tower || tower.kind !== "quackliber" || tower.aimMode) return;
+      if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
+      tower.aimMode = mode;
+      cue("build");
+      world.hud.log = mode === "strong" ? "Quack-Liber locked onto the toughest fruit in reach." : "Quack-Liber covers the back of the line now.";
       notify();
     },
     sellSelected() {

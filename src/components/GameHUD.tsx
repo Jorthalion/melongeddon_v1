@@ -340,6 +340,7 @@ const SHORT_NAME: Record<TowerKind, string> = {
   mimic: "Memec",
   copycat: "Copycat",
   lectern: "Lectern",
+  quackliber: "Quack-Liber",
 };
 
 /** The build card's one-line number: damage (and pace, on wider screens) for anything that hits. */
@@ -366,9 +367,10 @@ function NightTally({ tally }: { tally: { dmg: number; pops: number; share: numb
   );
 }
 
-function describeStats(kind: TowerKind, read: { dmg: number; range: number; interval: number; lit?: boolean }) {
+function describeStats(kind: TowerKind, read: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean }) {
   const tiles = read.range >= 900 ? "whole board" : `${(read.range / 48).toFixed(1)} tiles`;
-  const lit = read.lit ? " · lit" : "";
+  // "lit" by a Reading Lamp; "quick" beside a Quack-Liber.
+  const lit = (read.lit ? " · lit" : "") + (read.quick ? " · quick" : "");
   if (kind === "compost") return "No shot · pays seeds every wave";
   if (kind === "flask") return `No shot · puddle every ${read.interval.toFixed(1)}s from each tile · ${tiles} · spills to ${CANNON.flaskMaxTiles} tiles`;
   if (kind === "desk") return `No shot · banks ${CANNON.deskBank} a wave · melons within ${tiles} eat it`;
@@ -377,6 +379,8 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   if (kind === "scales") return `DMG ${read.dmg} + ${Math.round(CANNON.scalesShare * 100)}% of max health · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "catalogue") return `DMG ${read.dmg} · chains ×${CANNON.catalogueChains} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "lantern") return `Boosts cannons within ${tiles}`;
+  if (kind === "quackliber")
+    return `DMG ${read.dmg} rockets · burst slows · ${tiles} · ${read.interval.toFixed(1)}s · towers within ${(CANNON.quackAura / 48).toFixed(0)} tiles fire ${Math.round((CANNON.quackHaste - 1) * 100)}% faster`;
   if (kind === "orrery") return `DMG ${read.dmg} per sweep · orbit ${tiles}${lit}`;
   if (kind === "boomerang") return `DMG ${read.dmg} out and back · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "quill") return `DMG ${read.dmg} per fruit · writes ${((read.range * CANNON.quillReach) / 48).toFixed(1)} tiles · ${read.interval.toFixed(1)}s${lit}`;
@@ -427,6 +431,38 @@ function TowerInspector({
         </p>
       </div>
       <div className="flex shrink-0 flex-col gap-1.5">
+        {tower.kind === "quackliber" ? (
+          tower.aimMode ? (
+            <span className="grid h-9 place-items-center rounded-lg border border-line px-3 text-xs text-muted" title="A Quack-Liber can be retargeted once">
+              {tower.aimMode === "strong" ? "Aims: toughest" : "Aims: rearmost"}
+            </span>
+          ) : (
+            <span className="flex gap-1" role="group" aria-label="Retarget once">
+              <button
+                type="button"
+                title="Retarget once: the toughest fruit in reach"
+                className="h-9 rounded-lg border border-[#c6a15a] px-2 text-xs"
+                onClick={() => {
+                  onGesture();
+                  api.retarget("strong");
+                }}
+              >
+                Toughest
+              </button>
+              <button
+                type="button"
+                title="Retarget once: the fruit furthest back in reach"
+                className="h-9 rounded-lg border border-[#c6a15a] px-2 text-xs"
+                onClick={() => {
+                  onGesture();
+                  api.retarget("rear");
+                }}
+              >
+                Rearmost
+              </button>
+            </span>
+          )
+        ) : null}
         {canFit ? (
           <button
             type="button"

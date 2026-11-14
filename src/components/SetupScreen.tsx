@@ -10,7 +10,7 @@ import { KEEPERS } from "@/components/keeperCards";
 import type { GameApi } from "@/components/ui";
 
 /**
- * New night, in two pages. "Who": six faces and the chosen keeper's one line and every tower only they can build.
+ * New night, in two pages. "Who": seven faces and the chosen keeper's one line and every tower only they can build.
  * "The night": night, room (or late slips), difficulty, bookmark, and perks once the keeper has any.
  */
 export function SetupScreen({
@@ -49,7 +49,7 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
           <h1 className="mt-2 font-display text-3xl font-semibold sm:mt-3 sm:text-5xl">Who holds the stacks?</h1>
           <p className="mt-2 max-w-xl text-base text-muted sm:mt-3 sm:text-lg">Pick the person first. The carpet can wait one screen.</p>
 
-          <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3" role="radiogroup" aria-label="Keeper">
+          <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-7 sm:gap-3" role="radiogroup" aria-label="Keeper">
             {KEEPERS.map((hero, i) => {
               const on = keeper === hero.id;
               return (
@@ -79,7 +79,7 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
                       {i + 1}
                     </kbd>
                   </span>
-                  <span className={`truncate px-2 py-1.5 text-center font-display text-sm font-semibold ${on ? "text-gold" : ""}`}>{hero.name}</span>
+                  <span className={`truncate px-1 py-1.5 text-center font-display text-sm font-semibold tracking-tight sm:text-[13px] ${on ? "text-gold" : ""}`}>{hero.name}</span>
                 </button>
               );
             })}
