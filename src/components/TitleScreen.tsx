@@ -4,6 +4,7 @@ import { BOARDS, KEEPER_TOWERS, MAP_GOALS, PICKABLE_MAPS, TOWERS, TOWER_GROUPS, 
 import { HOTKEY_HELP } from "@/components/hotkeys";
 import { KEEPERS } from "@/components/keeperCards";
 import { MenuButton, MenuCard } from "@/components/ui";
+import { tone, unlockAudio } from "@/game/audio";
 
 export function TitleScreen({
   settings,
@@ -33,6 +34,40 @@ export function TitleScreen({
   onKeeper: () => void;
 }) {
   const [view, setView] = useState<"menu" | "howto" | "settings">("menu");
+  type MenuItem = "continue" | "new" | "tutorial" | "howto" | "settings" | "install" | "quit" | "skip";
+  const [hovered, setHovered] = useState<MenuItem | null>(null);
+  const [focused, setFocused] = useState<MenuItem | null>(null);
+  const hints: Record<MenuItem, string> = {
+    continue: saved ? "Resume your saved night." : "Step inside the Midnight Library.",
+    new: "Choose a keeper, a room, and a difficulty for a new night.",
+    tutorial: "Practice the basics with Mynxi, head librarian.",
+    howto: "Browse the rules, controls, towers, and rooms.",
+    settings: "Adjust sound, music, and game preferences.",
+    install: "Install an offline-capable copy of Melongeddon.",
+    quit: "Close the desktop game.",
+    skip: "Skip the guided first night and open the full setup.",
+  };
+  const feedback = (key: MenuItem) => ({
+    onMouseEnter: () => {
+      if (hovered !== key) tone(540, 0.035, "sine", 0.013);
+      setHovered(key);
+    },
+    onMouseLeave: () => setHovered(null),
+    onFocus: () => {
+      if (focused !== key) tone(490, 0.035, "sine", 0.013);
+      setFocused(key);
+    },
+    onBlur: () => setFocused(null),
+  });
+  const openPanel = (next: "howto" | "settings") => {
+    unlockAudio(); // Called from the click, so browsers permit the audio context to start.
+    tone(410, 0.07, "triangle", 0.024);
+    setView(next);
+  };
+  const backToMenu = () => {
+    tone(330, 0.055, "triangle", 0.021);
+    setView("menu");
+  };
   const startRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   // Focus the main button whenever the menu shows, so Enter starts and arrows have a place to begin.
@@ -59,12 +94,13 @@ export function TitleScreen({
     items[(at < 0 ? 0 : at + step + items.length) % items.length].focus();
   };
   return (
-    <div className="absolute inset-0 z-20 bg-black">
+    <div className="absolute inset-0 z-20 overflow-hidden bg-black">
       <img src={asset("sprites/screen-title.webp")} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
-      <div className="absolute top-[43%] left-1/2 w-[min(20.5rem,74vw)] -translate-x-1/2">
+      <div className="title-ambient pointer-events-none absolute inset-0" aria-hidden="true" />
+      <div className="absolute top-[43%] left-1/2 max-h-[55dvh] w-[min(20.5rem,74vw)] -translate-x-1/2 overflow-x-hidden overflow-y-auto px-1 pb-2">
         {view === "menu" ? (
           <div ref={menuRef} className="flex flex-col gap-2.5" role="group" aria-label="Main menu" onKeyDown={onMenuKey}>
-            <MenuButton gold ref={startRef} onClick={onStart}>
+            <MenuButton gold ref={startRef} onClick={onStart} {...feedback("continue")}>
               {saved ? "Continue" : "Start"}
             </MenuButton>
             <p className="-mt-1 rounded bg-black/55 px-2 py-1 text-center text-xs leading-snug text-[#f4ead8]">
@@ -78,32 +114,44 @@ export function TitleScreen({
                 </MenuButton>
                 <button
                   type="button"
-                  className="-mt-1 rounded bg-black/55 px-2 py-1 text-xs text-[#f4ead8] underline underline-offset-2"
+                  className="-mt-1 rounded bg-black/55 px-2 py-1 text-xs text-[#f4ead8] underline underline-offset-2 transition-colors hover:text-gold focus-visible:text-gold"
                   onClick={guide.onSkip}
+                  {...feedback("skip")}
                 >
                   Played before? Skip the guide
                 </button>
               </>
             ) : (
-              <MenuButton onClick={onKeeper}>New night</MenuButton>
+              <MenuButton onClick={onKeeper} {...feedback("new")}>New night</MenuButton>
             )}
-            {onTutorial ? <MenuButton onClick={onTutorial}>Tutorial</MenuButton> : null}
-            <MenuButton onClick={() => setView("howto")}>How to play</MenuButton>
-            <MenuButton onClick={() => setView("settings")}>Settings</MenuButton>
-            {onInstall ? <MenuButton onClick={onInstall}>Install app</MenuButton> : null}
-            {onQuit ? <MenuButton onClick={onQuit}>Quit</MenuButton> : null}
+            {onTutorial ? <MenuButton onClick={onTutorial} {...feedback("tutorial")}>Tutorial</MenuButton> : null}
+            <MenuButton onClick={() => openPanel("howto")} {...feedback("howto")}>How to play</MenuButton>
+            <MenuButton onClick={() => openPanel("settings")} {...feedback("settings")}>Settings</MenuButton>
+            {onInstall ? <MenuButton onClick={onInstall} {...feedback("install")}>Install app</MenuButton> : null}
+            {onQuit ? <MenuButton onClick={onQuit} {...feedback("quit")}>Quit</MenuButton> : null}
+            <div
+              aria-live="polite"
+              aria-atomic="true"
+              className="min-h-12 rounded-md border border-[#d7b56a]/35 bg-[#100c0e]/85 px-3 py-2 text-center text-xs leading-relaxed text-[#f4ead8] shadow-[0_4px_18px_rgba(0,0,0,0.5)]"
+            >
+              <span className="mr-2 text-gold" aria-hidden="true">✦</span>
+              {hints[hovered ?? focused ?? "continue"]}
+              <span className="mt-1 block text-[10px] tracking-wide text-[#c4aa96]">
+                ↑ ↓ Navigate · Enter Select · Esc Back
+              </span>
+            </div>
           </div>
         ) : null}
       </div>
       {view !== "menu" ? (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 p-4">
           {view === "howto" ? (
-            <MenuCard title="How to play" onBack={() => setView("menu")} wide>
+            <MenuCard title="How to play" onBack={backToMenu} wide>
               <HowToPlay />
             </MenuCard>
           ) : null}
           {view === "settings" ? (
-            <MenuCard title="Settings" onBack={() => setView("menu")}>
+            <MenuCard title="Settings" onBack={backToMenu}>
               {settings}
             </MenuCard>
           ) : null}
