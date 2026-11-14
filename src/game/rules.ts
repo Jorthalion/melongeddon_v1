@@ -807,6 +807,8 @@ export const CANNON = {
   /** How wide the loop is, as a share of the throw distance. */
   boomerangWidth: 0.42,
   orreryPlanets: 3,
+  /** How far either side of the orbit (px) a planet can touch a fruit (its own size plus a fruit's), for showing its reach. */
+  orreryReach: 30,
   /** Radians per second at the base pace. */
   orrerySpin: 2.8,
   /** Seconds before the same planet can hit the same fruit again. */
@@ -1276,6 +1278,12 @@ export interface SpawnSpec {
   split?: boolean;
   raw?: boolean;
   chute?: boolean;
+  /** Act three. A pit is stone: splash, fire and puddles barely touch it (not a guard, so the Peeler leaves it). */
+  pit?: boolean;
+  /** Act three. Each one spawns its host plus a small corn rider that heals the host while it lives. */
+  gall?: boolean;
+  /** Act three. Fast and frail; at the door it takes seeds instead of a stack. */
+  borrower?: boolean;
 }
 
 export const WAVES: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> = [
@@ -1457,7 +1465,86 @@ export const OVERFLOW: Array<{ name: string; blurb: string; spawns: SpawnSpec[] 
   },
 ];
 
+/**
+ * The Overflow's length, the old Midnight finale index, and what the chute counts from.
+ * How long a given night runs is `nightLength`.
+ */
 export const WAVE_COUNT = 15;
+// ---------- reach on the carpet ----------
+
+/** One stretch of carpet centre line, from (x1, y1) to (x2, y2). */
+export type Stretch = { x1: number; y1: number; x2: number; y2: number };
+
+/** Where along p0→p1 (0..1) a point is within `r` of (cx, cy), or null. */
+function within(p0: { x: number; y: number }, p1: { x: number; y: number }, cx: number, cy: number, r: number): [number, number] | null {
+  const dx = p1.x - p0.x;
+  const dy = p1.y - p0.y;
+  const fx = p0.x - cx;
+  const fy = p0.y - cy;
+  const a = dx * dx + dy * dy;
+  if (a === 0) return fx * fx + fy * fy <= r * r ? [0, 1] : null;
+  const b = 2 * (fx * dx + fy * dy);
+  const c = fx * fx + fy * fy - r * r;
+  const disc = b * b - 4 * a * c;
+  if (disc < 0) return null;
+  const sq = Math.sqrt(disc);
+  const t0 = Math.max(0, (-b - sq) / (2 * a));
+  const t1 = Math.min(1, (-b + sq) / (2 * a));
+  return t1 > t0 ? [t0, t1] : null;
+}
+
+/**
+ * Exactly which stretches of carpet a tower at (x, y) can reach. Fruit walk the carpet's centre line
+ * (the board's points) and a tower aims at any fruit whose centre is within `outer`, so this is the
+ * whole answer, not a guess. `inner` cuts out a hole (the Orrery's planets only hit near their orbit).
+ * `length` is in px; divide by CELL for tiles.
+ */
+export function carpetInReach(points: Array<{ x: number; y: number }>, x: number, y: number, outer: number, inner = 0) {
+  const stretches: Stretch[] = [];
+  let length = 0;
+  const add = (p0: { x: number; y: number }, p1: { x: number; y: number }, t0: number, t1: number) => {
+    if (t1 - t0 < 1e-6) return;
+    const s = { x1: p0.x + (p1.x - p0.x) * t0, y1: p0.y + (p1.y - p0.y) * t0, x2: p0.x + (p1.x - p0.x) * t1, y2: p0.y + (p1.y - p0.y) * t1 };
+    stretches.push(s);
+    length += Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+  };
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+    const out = within(p0, p1, x, y, outer);
+    if (!out) continue;
+    const hole = inner > 0 ? within(p0, p1, x, y, inner) : null;
+    if (!hole || hole[1] <= out[0] || hole[0] >= out[1]) {
+      add(p0, p1, out[0], out[1]);
+      continue;
+    }
+    add(p0, p1, out[0], Math.max(out[0], hole[0]));
+    add(p0, p1, Math.min(out[1], hole[1]), out[1]);
+  }
+  return { stretches, length };
+}
+
+/**
+ * How to show a tower's reach. "carpet": the stretch of carpet it can hit (between `inner` and its range).
+ * "towers": it helps towers, not fruit (Reading Lamp), so show the towers in reach. "none": nothing to show.
+ * `aura` adds the towers a Quack-Liber speeds up.
+ */
+export function reachShape(kind: TowerKind, range: number): { mode: "carpet" | "towers" | "none"; inner: number; aura: boolean } {
+  if (range <= 0 || kind === "compost" || kind === "lectern") return { mode: "none", inner: 0, aura: false };
+  if (kind === "lantern") return { mode: "towers", inner: 0, aura: false };
+  // Orrery planets hit fruit within about a fruit's width of their orbit, not inside it.
+  if (kind === "orrery") return { mode: "carpet", inner: Math.max(0, range - CANNON.orreryReach), aura: false };
+  return { mode: "carpet", inner: 0, aura: kind === "quackliber" };
+}
+
+/** Midnight has a third act: six more waves after Unchaperoned. */
+export const MIDNIGHT_WAVES = 21;
+
+/** Waves in a night: Midnight 21, the Overflow 15, endless 0 (no last wave). */
+export function nightLength(night: NightId): number {
+  if (night === "endless") return 0;
+  return night === "midnight" ? MIDNIGHT_WAVES : WAVE_COUNT;
+}
 
 // ---------- endless ----------
 
@@ -1537,9 +1624,12 @@ export function nextBeat(cleared: number, night: NightId = "midnight"): Beat {
     if (cleared > 6 && (cleared - 6) % ENDLESS_PICK_EVERY === 0) return "upgrade";
     return "prep";
   }
-  if (cleared >= WAVE_COUNT) return "victory";
+  const length = nightLength(night);
+  if (cleared >= length) return "victory";
   if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
-  if (cleared === WAVE_COUNT - 1) return "consequence";
+  // Midnight's fourth shelf, before act three.
+  if (night === "midnight" && cleared === WAVE_COUNT) return "upgrade";
+  if (cleared === length - 1) return "consequence";
   return "prep";
 }
 
@@ -1631,8 +1721,62 @@ export function waveAt(
       ],
     },
   ];
-  return waves[act] ?? waves[waves.length - 1];
+  if (act < waves.length) return waves[act];
+  return ACT_THREE[Math.min(act - waves.length, ACT_THREE.length - 1)];
 }
+
+/** Midnight, act three (waves 16 to 21): one lesson each, at wave-15 health. */
+const ACT_THREE: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> = [
+  {
+    name: "Stone fruit",
+    blurb: "Pits in the crowd. Splash, fire and puddles roll off them. A direct shot is what cracks a pit.",
+    spawns: [
+      { kind: "melon", count: 6, every: 0.55 },
+      { kind: "melon", count: 4, every: 0.7, pit: true },
+    ],
+  },
+  {
+    name: "The aisle",
+    blurb: "Ordinary fruit. The stone ones are not in this wave.",
+    spawns: [
+      { kind: "corn", count: 8, every: 0.34, guard: "husk" },
+      { kind: "melon", count: 5, every: 0.5, guard: "rind" },
+    ],
+  },
+  {
+    name: "The gall",
+    blurb: "A small thing rides behind each pumpkin and keeps it alive. Shoot the rider, not the front.",
+    spawns: [
+      { kind: "pumpkin", count: 4, every: 1, gall: true },
+      { kind: "corn", count: 4, every: 0.45 },
+    ],
+  },
+  {
+    name: "Damp again",
+    blurb: "No riders. These pumpkins are wet, and fire will not do the work.",
+    spawns: [
+      { kind: "pumpkin", count: 4, every: 0.9, guard: "damp" },
+      { kind: "melon", count: 6, every: 0.48 },
+    ],
+  },
+  {
+    name: "Borrowers",
+    blurb: "Fast, and frail. One that reaches the door takes seeds. It does not cost a stack.",
+    spawns: [
+      { kind: "corn", count: 5, every: 0.7, borrower: true },
+      { kind: "melon", count: 6, every: 0.5 },
+    ],
+  },
+  {
+    name: "The stacks, again",
+    blurb: "Karl is back. The borrowers are ahead of him, and they still want the seeds.",
+    spawns: [
+      { kind: "corn", count: 4, every: 0.55, borrower: true },
+      { kind: "karl", count: 1, every: 1.2 },
+      { kind: "melon", count: 6, every: 0.45, guard: "rind" },
+    ],
+  },
+];
 
 /**
  * Global tuning knobs. Checked with the simulator (npm run sim).
@@ -1655,6 +1799,10 @@ export const BALANCE = {
   storyHpPace: 0.375,
   /** Endless only: enemy health growth per wave after wave 10 (1.15 = +15% a wave). */
   endlessGrowth: 1.15,
+  /** Act three: a pit takes this share of splash, burn and pulp damage; a gall heals its host this share of max health a second; a borrower at the door takes this many seeds. */
+  pitResist: 0.12,
+  gallHeal: 0.06,
+  borrowTake: 12,
   /** The Overflow: extra starting seeds for night two. */
   overflowSeeds: 45,
   michaelSeeds: 110,
@@ -1684,11 +1832,13 @@ export function softenSlow(speed: number) {
 }
 
 /**
- * Story nights are 15 waves. Act one (waves 1-6) climbs the health curve as written;
- * each later wave climbs BALANCE.storyHpPace of a step.
+ * Story health. Act one (waves 1-6) climbs the curve as written; each later wave climbs
+ * BALANCE.storyHpPace of a step, up to wave 15. From there it holds: Midnight's act three is
+ * not thicker just because the night is longer.
  */
 export function storyHpStep(cleared: number) {
-  return cleared <= 6 ? cleared : 6 + (cleared - 6) * BALANCE.storyHpPace;
+  const c = Math.min(cleared, WAVE_COUNT - 1);
+  return c <= 6 ? c : 6 + (c - 6) * BALANCE.storyHpPace;
 }
 
 /** Health multiplier for enemies spawned after `cleared` waves. */

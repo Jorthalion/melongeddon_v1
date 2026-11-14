@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_UNLOCKED, CANNON, CELL, EMPTY_META, WAVE_COUNT, createWorld, groupsFor, sellValue, stepWorld, type MetaStats } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, CANNON, CELL, EMPTY_META, MIDNIGHT_WAVES, createWorld, groupsFor, sellValue, stepWorld, type MetaStats } from "../src/game/engine.ts";
 
 const center = (n: number) => n * CELL + CELL / 2;
 
@@ -90,7 +90,7 @@ test("winning pays the bank out and counts toward the 200-seed goal, which opens
   assert.ok(api.world.hud.lockedTowers.includes("desk"));
   for (let n = 0; n < 200 && api.world.hud.phase !== "victory"; n++) clearWave(api);
   assert.equal(api.world.hud.phase, "victory");
-  assert.equal(api.world.hud.wave, WAVE_COUNT);
+  assert.equal(api.world.hud.wave, MIDNIGHT_WAVES);
   // 5000 seeds in hand at the win: the goal is met and the desk opens.
   assert.ok(!api.world.hud.lockedTowers.includes("desk"));
   assert.match(api.world.hud.log, /New keeper tower: Reserve Desk/);

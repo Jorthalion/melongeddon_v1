@@ -355,6 +355,17 @@ function CardStat({ kind, read }: { kind: TowerKind; read: { dmg: number; interv
   );
 }
 
+/** "Reaches 6.5 tiles of carpet · ": what this tower can hit where it stands (the board lights the same stretch). */
+function ReachNote({ reach }: { reach: { tiles: number | "all" | null; towers: number } | null }) {
+  if (!reach) return null;
+  const parts: string[] = [];
+  if (reach.tiles === "all") parts.push("Reaches the whole carpet");
+  else if (reach.tiles != null) parts.push(reach.tiles > 0 ? `Reaches ${reach.tiles} ${reach.tiles === 1 ? "tile" : "tiles"} of carpet` : "No carpet in reach");
+  if (reach.towers) parts.push(`${reach.tiles == null ? "Boosts" : "speeds up"} ${reach.towers} ${reach.towers === 1 ? "tower" : "towers"}`);
+  if (!parts.length) return null;
+  return <span className="text-gold" title="What this tower can reach from here: the lit stretch of carpet on the board">{parts.join(" · ")} · </span>;
+}
+
 /** "Tonight: 1,240 dmg · 18 pops · 31% of all": what a placed tower has done so far tonight. */
 function NightTally({ tally }: { tally: { dmg: number; pops: number; share: number } | null }) {
   if (!tally) return null;
@@ -426,6 +437,7 @@ function TowerInspector({
             : describeStats(tower.kind, read)}
         </p>
         <p className="mt-0.5 h-4 truncate text-xs">
+          <ReachNote reach={api.reachOf(tower.id)} />
           <NightTally tally={api.tallyOf(tower.id)} />
           {tower.mods.length ? <span className="text-gold"> · {tower.mods.map((id) => MODS.find((m) => m.id === id)?.name).join(" · ")}</span> : null}
         </p>

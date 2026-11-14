@@ -1,5 +1,5 @@
 import {
-  CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
+  CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
   BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
@@ -49,6 +49,9 @@ interface Waypoint {
   y: number;
 }
 
+/** Act three: how far (px) a gall rides behind its host along the carpet. */
+const CANNON_GALL_GAP = 36;
+
 interface Enemy {
   id: number;
   kind: EnemyKind;
@@ -82,6 +85,11 @@ interface Enemy {
   wormDps?: number;
   /** The tower whose bookworm is burrowing (for its damage count). */
   wormBy?: number;
+  /** Act three. Pit: stone, shrugs off splash, burn and pulp. Gall: a rider healing the enemy `mends` while that one lives. Borrower: takes seeds at the door instead of a stack. */
+  pit?: boolean;
+  gall?: boolean;
+  mends?: number;
+  borrower?: boolean;
 }
 
 interface Tower {
@@ -338,6 +346,8 @@ export interface Hud {
   setupNote: string;
   /** The Overflow: the current or next wave sends fruit up the chute (they walk the carpet backwards). */
   chuteWave: boolean;
+  /** Quack-Liber speed-up reach in px for the run in play (perks can widen it), for drawing it. */
+  quackAura: number;
   /** Keeper levels: XP and perk picks for every keeper. */
   keepers: KeeperProgress;
   /** The keeper's XP when this run started, and the XP earned in it. */
@@ -690,6 +700,8 @@ export function createWorld(
   setPerk: (tier: number, pick: 0 | 1) => void;
   /** Live stats for a placed tower (includes a Reading Lamp's boost). */
   statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean } | null;
+  /** What a placed tower reaches: carpet tiles it can hit (null if it doesn't hit fruit), or "all" for the whole board; and how many towers it helps. */
+  reachOf: (towerId: number) => { tiles: number | "all" | null; towers: number } | null;
   /** What a placed tower has done this night: damage dealt, fruit popped, and its share of all the damage. */
   tallyOf: (towerId: number) => { dmg: number; pops: number; share: number } | null;
 } {
@@ -703,7 +715,7 @@ export function createWorld(
       lives: 12,
       maxLives: 12,
       wave: 1,
-      waveCount: WAVE_COUNT,
+      waveCount: nightLength("midnight"),
       waveName: WAVES[0].name,
       blurb: "Place melon cannons on the open floor. The carpet is the only road in.",
       upgrades: [],
@@ -739,6 +751,7 @@ export function createWorld(
       saved: false,
       setupNote: "",
       chuteWave: false,
+      quackAura: CANNON.quackAura,
       keepers: emptyProgress(),
       xpStart: 0,
       xpRun: 0,
@@ -787,7 +800,7 @@ export function createWorld(
   let cleared = 0;
   /** Seconds of combat so far (trick-shot hit timing). */
   let clock = 0;
-  let queue: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean }> = [];
+  let queue: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean; pit: boolean; gall: boolean; borrower: boolean }> = [];
   let absurdDrops = 0;
   /** Has a Still been built this night? (The Unstoppered's unlock.) */
   let stillBuilt = false;
@@ -888,7 +901,7 @@ export function createWorld(
     world.hud.saved = Boolean(stored);
     world.hud.setupNote = stored ? notes.join(" ") : "";
     world.hud.night = setup.night;
-    world.hud.waveCount = setup.night === "endless" ? 0 : WAVE_COUNT;
+    world.hud.waveCount = nightLength(setup.night);
     world.hud.map = setup.map;
     world.hud.difficulty = setup.difficulty;
     world.hud.bookmark = setup.bookmark;
@@ -1018,7 +1031,7 @@ export function createWorld(
   /** Start the guided first night: Midnight, the Stacks, Mynxi, Normal, no bookmark. */
   const startGuide = () => {
     world.hud.night = "midnight";
-    world.hud.waveCount = WAVE_COUNT;
+    world.hud.waveCount = nightLength("midnight");
     world.hud.map = "stacks";
     world.hud.difficulty = "normal";
     world.hud.bookmark = null;
@@ -1608,7 +1621,15 @@ export function createWorld(
     kind: EnemyKind,
     bonusHp = 1,
     guard: Guard = "none",
-    flags: { split?: boolean; raw?: boolean; chute?: boolean; at?: { x: number; y: number; wp: number } } = {},
+    flags: {
+      split?: boolean;
+      raw?: boolean;
+      chute?: boolean;
+      pit?: boolean;
+      gall?: boolean;
+      borrower?: boolean;
+      at?: { x: number; y: number; wp: number };
+    } = {},
   ) => {
     const st = STATS[kind];
     const start = world.points[0];
@@ -1650,6 +1671,44 @@ export function createWorld(
       bread: false,
       reverse: chute,
     });
+    const host = world.enemies[world.enemies.length - 1];
+    if (flags.pit) host.pit = true;
+    if (flags.borrower) {
+      host.borrower = true;
+      host.hp = host.maxHp = Math.max(1, Math.round(host.maxHp * 0.4));
+      host.speed *= 1.35;
+      host.gold = killReward(4);
+      host.r = 10;
+    }
+    if (flags.gall) {
+      // A small corn rides a step behind the host and heals it while both live.
+      const rider = Math.max(1, Math.round(STATS.corn.hp * 0.45 * bonusHp * tuned.hp * (BOARDS[world.hud.map].hp ?? 1)));
+      const spot = stepBehind(host, CANNON_GALL_GAP);
+      world.enemies.push({
+        id: id(),
+        kind: "corn",
+        x: spot.x,
+        y: spot.y,
+        hp: rider,
+        maxHp: rider,
+        speed: host.speed,
+        slow: 1,
+        gold: killReward(4),
+        r: 8,
+        wp: spot.wp,
+        boss: false,
+        chill: 0,
+        freeze: 0,
+        guard: "none",
+        shell: 0,
+        split: false,
+        raw: false,
+        bread: false,
+        reverse: host.reverse,
+        gall: true,
+        mends: host.id,
+      });
+    }
   };
 
   const spill = (parent: Enemy) => {
@@ -1692,7 +1751,7 @@ export function createWorld(
   const buildQueue = (extra: SpawnSpec[] = []) => {
     const spec = waveAt(cleared, world.hud.night);
     const list = [...spec.spawns, ...extra];
-    const items: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean }> = [];
+    const items: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean; pit: boolean; gall: boolean; borrower: boolean }> = [];
     let t = 0.35;
     for (const group of list) {
       for (let i = 0; i < group.count; i++) {
@@ -1704,6 +1763,9 @@ export function createWorld(
           split: Boolean(group.split),
           raw: Boolean(group.raw),
           chute: Boolean(group.chute),
+          pit: Boolean(group.pit),
+          gall: Boolean(group.gall),
+          borrower: Boolean(group.borrower),
         });
         t += group.every;
       }
@@ -1793,10 +1855,11 @@ export function createWorld(
       sicCard: null,
       paused: false,
       menu: null,
-      waveCount: world.hud.night === "endless" ? 0 : WAVE_COUNT,
+      waveCount: nightLength(world.hud.night),
       newUnlocks: [],
       newMaps: [],
       chuteWave: false,
+      quackAura: CANNON.quackAura,
     };
   };
 
@@ -1807,6 +1870,14 @@ export function createWorld(
       index >= WAVE_COUNT - 2 ||
       (slip("heavy") && index >= SLIP_VALUES.heavyFrom && index <= SLIP_VALUES.heavyTo));
 
+  /** A borrower at the door: takes seeds, not a stack, and pays no kill gold. */
+  const borrow = (e: Enemy) => {
+    const took = Math.min(world.hud.seeds, BALANCE.borrowTake);
+    world.hud.seeds -= took;
+    e.hp = 0;
+    float(e.x, e.y - 16, took > 0 ? `−${took} seeds` : "borrow", "#e6c36a");
+    world.hud.log = took > 0 ? `A borrower reached the door and left with ${took} seeds.` : "A borrower reached the door. The purse was empty.";
+  };
   const loseLife = (n: number, x: number, y: number) => {
     if (world.hud.hero === "ooze" && absorbed < 1 + fx.absorb && n === 1) {
       absorbed += 1;
@@ -1850,6 +1921,28 @@ export function createWorld(
   };
 
   /** Pumpkin Trebuchet: push a fruit back along the carpet, never past where it came in. */
+  /** Where `e` would be `distance` px back along the carpet it came from (the same walk as pushBack, but `e` stays put). */
+  const stepBehind = (e: Enemy, distance: number) => {
+    const at = { x: e.x, y: e.y, wp: e.wp };
+    let left = distance;
+    for (let guard = 0; left > 0 && guard < 8; guard++) {
+      const prevIdx = e.reverse ? at.wp + 1 : at.wp - 1;
+      const prev = world.points[prevIdx];
+      if (!prev) break;
+      const d = Math.hypot(prev.x - at.x, prev.y - at.y);
+      if (d <= left) {
+        at.x = prev.x;
+        at.y = prev.y;
+        left -= d;
+        at.wp = prevIdx;
+      } else {
+        at.x += ((prev.x - at.x) / d) * left;
+        at.y += ((prev.y - at.y) / d) * left;
+        left = 0;
+      }
+    }
+    return at;
+  };
   const pushBack = (e: Enemy, distance: number) => {
     let left = distance;
     for (let guard = 0; left > 0 && guard < 8; guard++) {
@@ -1938,6 +2031,8 @@ export function createWorld(
     if (e.guard === "husk" && via === "shot") amount *= 0.75;
     if (e.guard === "damp" && via === "burn") amount *= 0.15;
     if (e.guard === "damp" && via === "shot") amount *= 1.15;
+    // A pit is stone: splash, fire and puddles barely touch it. Direct shots, pierce and worms do.
+    if (e.pit && (via === "splash" || via === "burn" || via === "pulp")) amount *= BALANCE.pitResist;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
     const before = e.hp;
@@ -2098,12 +2193,12 @@ export function createWorld(
     record((m) => {
       if (endless) m.endlessBest = Math.max(m.endlessBest, cleared);
       else m.bestWave = Math.max(m.bestWave, cleared);
-      if (!endless && cleared >= WAVE_COUNT) {
+      if (!endless && cleared >= nightLength(world.hud.night)) {
         m.wins += 1;
         if (world.hud.difficulty === "hard" || world.hud.difficulty === "overdue") m.hardWins += 1;
       }
     });
-    const won = !endless && cleared >= WAVE_COUNT;
+    const won = !endless && cleared >= nightLength(world.hud.night);
     const base = waveXp(world.hud.difficulty) + (won ? winXp(world.hud.difficulty) : 0);
     const bonus = world.hud.night === "overflow" ? slipXp(world.hud.slips) : 0;
     giveXp(Math.round(base * (1 + bonus)));
@@ -2114,7 +2209,7 @@ export function createWorld(
     world.hud.chuteWave = usesChute(cleared);
     bumpBest();
     const endless = world.hud.night === "endless";
-    world.hud.wave = endless ? cleared + 1 : Math.min(WAVE_COUNT, cleared + 1);
+    world.hud.wave = endless ? cleared + 1 : Math.min(nightLength(world.hud.night), cleared + 1);
     world.enemies = [];
     world.shots = [];
     if (world.hud.lives <= 0) return;
@@ -2161,7 +2256,7 @@ export function createWorld(
       float(desk.x, desk.y - 50, `+${CANNON.deskBank}`, "#e6c36a");
     }
     const beat = nextBeat(cleared, world.hud.night);
-    const upcoming = waveAt(endless ? cleared : Math.min(cleared, WAVE_COUNT - 1), world.hud.night);
+    const upcoming = waveAt(endless ? cleared : Math.min(cleared, nightLength(world.hud.night) - 1), world.hud.night);
     if (beat !== "victory") cue("clear");
     if (beat === "victory") {
       cue("victory");
@@ -2196,6 +2291,8 @@ export function createWorld(
       world.hud.log =
         endless && cleared > 6
           ? "Another shelf opens. The carpet keeps going."
+          : world.hud.night === "midnight" && cleared === WAVE_COUNT
+          ? "One more shelf. The fruit after this is not just thicker."
           : step === 3
           ? world.hud.night === "overflow"
             ? "One more shelf. Then the meter starts spending."
@@ -2230,6 +2327,9 @@ export function createWorld(
         split: queue[queueCursor].split,
         raw: queue[queueCursor].raw,
         chute: queue[queueCursor].chute,
+        pit: queue[queueCursor].pit,
+        gall: queue[queueCursor].gall,
+        borrower: queue[queueCursor].borrower,
       });
       queueCursor += 1;
     }
@@ -2309,6 +2409,18 @@ export function createWorld(
       credit = burnBy ?? null;
       if (burn) hurt(e, null, burn * dt, 0, "burn");
       credit = null;
+      // A gall rides its host: heals it and stays a step behind. With the host gone it is only a corn.
+      if (e.gall && e.hp > 0) {
+        const host = world.enemies.find((o) => o.id === e.mends && o.hp > 0);
+        if (host) {
+          host.hp = Math.min(host.maxHp, host.hp + host.maxHp * BALANCE.gallHeal * dt);
+          const spot = stepBehind(host, CANNON_GALL_GAP);
+          e.x = spot.x;
+          e.y = spot.y;
+          e.wp = spot.wp;
+          continue;
+        }
+      }
       const wp = world.points[e.wp];
       if (!wp) continue;
       const dx = wp.x - e.x;
@@ -2324,14 +2436,16 @@ export function createWorld(
           e.wp -= 1;
           if (e.wp < 0) {
             noteReach(e, 1);
-            loseLife(e.boss ? 3 : 1, e.x, e.y);
+            if (e.borrower) borrow(e);
+            else loseLife(e.boss ? 3 : 1, e.x, e.y);
             e.hp = 0;
           }
         } else {
           e.wp += 1;
           if (e.wp >= world.points.length) {
             noteReach(e, 1);
-            loseLife(e.boss ? 3 : 1, e.x, e.y);
+            if (e.borrower) borrow(e);
+            else loseLife(e.boss ? 3 : 1, e.x, e.y);
             e.hp = 0;
           }
         }
@@ -2951,6 +3065,7 @@ export function createWorld(
       world.hud.phase = "poster";
       world.hud.tutorial = false;
       fx = perkFx(hero, world.hud.keepers[hero]);
+      world.hud.quackAura = CANNON.quackAura * fx.auraReach;
       world.hud.runLevel = levelFor(world.hud.keepers[hero].xp);
       world.hud.xpStart = world.hud.keepers[hero].xp;
       world.hud.xpRun = 0;
@@ -3163,7 +3278,7 @@ export function createWorld(
     chooseNight(night: NightId) {
       if (world.hud.phase !== "select") return;
       world.hud.night = night;
-      world.hud.waveCount = night === "endless" ? 0 : WAVE_COUNT;
+      world.hud.waveCount = nightLength(night);
       if (night === "overflow") {
         applyBoard("overflow");
         world.hud.log = "The returns come up the chute. Take late slips for more XP, or none.";
@@ -3334,6 +3449,20 @@ export function createWorld(
       let all = 0;
       for (const t of tally.values()) all += t.dmg;
       return { dmg: mine.dmg, pops: mine.pops, share: all > 0 ? mine.dmg / all : 0 };
+    },
+    reachOf(towerId: number) {
+      const tower = world.towers.find((t) => t.id === towerId);
+      if (!tower) return null;
+      const kind = tower.kind === "copycat" && tower.copy ? tower.copy.kind : tower.kind;
+      const range = towerRange(tower.kind === "copycat" && tower.copy ? tower.copy : tower);
+      const shape = reachShape(kind, range);
+      const near = (r: number) =>
+        world.towers.filter((t) => t !== tower && !PASSIVE.includes(t.kind) && (t.x - tower.x) ** 2 + (t.y - tower.y) ** 2 <= r * r).length;
+      if (shape.mode === "none") return { tiles: null, towers: 0 };
+      if (shape.mode === "towers") return { tiles: null, towers: near(range) };
+      if (range >= GLOBAL_RANGE) return { tiles: "all" as const, towers: 0 };
+      const { length } = carpetInReach(world.points, tower.x, tower.y, range, shape.inner);
+      return { tiles: Math.round((length / CELL) * 2) / 2, towers: shape.aura ? near(world.hud.quackAura) : 0 };
     },
     statsOf(towerId: number) {
       const tower = world.towers.find((t) => t.id === towerId);

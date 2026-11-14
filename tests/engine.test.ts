@@ -8,6 +8,9 @@ import {
   ROWS,
   STATS,
   WAVE_COUNT,
+  MIDNIGHT_WAVES,
+  nightLength,
+  storyHpStep,
   buildBoard,
   createWorld,
   endlessWave,
@@ -114,19 +117,62 @@ test("big maps are bigger, and whole-board range still covers them", () => {
 test("every wave on every night is defined and uses known enemies", () => {
   const nights: NightId[] = ["midnight", "overflow"];
   for (const night of nights)
-    for (let i = 0; i < WAVE_COUNT; i++) {
+    for (let i = 0; i < nightLength(night); i++) {
       const wave = waveAt(i, night);
       assert.ok(wave.spawns.length > 0, `${night} wave ${i + 1} is empty`);
       for (const s of wave.spawns) assert.ok(s.kind in STATS, `unknown enemy ${s.kind}`);
     }
 });
 
-test("no one comes to the door: picks after waves 1, 2 and 6, the finale card after 14", () => {
-  for (const night of ["midnight", "overflow"] as const)
-    for (let c = 1; c <= WAVE_COUNT; c++) {
-      const want = c === WAVE_COUNT ? "victory" : c === WAVE_COUNT - 1 ? "consequence" : c === 1 || c === 2 || c === 6 ? "upgrade" : "prep";
+test("Midnight is 21 waves, the Overflow 15, and health holds from wave 15", () => {
+  assert.equal(nightLength("midnight"), 21);
+  assert.equal(MIDNIGHT_WAVES, 21);
+  assert.equal(nightLength("overflow"), WAVE_COUNT);
+  assert.equal(nightLength("endless"), 0);
+  assert.equal(storyHpStep(14), storyHpStep(18));
+  assert.equal(storyHpStep(14), storyHpStep(20));
+  assert.ok(storyHpStep(13) < storyHpStep(14), "still climbing up to wave 15");
+});
+
+test("act three: one lesson per wave, and none of it on the Overflow", () => {
+  const flags = (i: number) => {
+    const sp = waveAt(i, "midnight").spawns;
+    return { pit: sp.some((s) => s.pit), gall: sp.some((s) => s.gall), borrower: sp.some((s) => s.borrower), sp };
+  };
+  const w16 = flags(15);
+  assert.ok(w16.pit && !w16.gall && !w16.borrower, "wave 16 is pits only");
+  const w18 = flags(17);
+  assert.ok(w18.gall && !w18.pit && !w18.borrower, "wave 18 is galls only");
+  assert.ok(flags(19).borrower, "wave 20 has borrowers");
+  const w21 = flags(20);
+  assert.ok(w21.sp.some((s) => s.borrower && s.kind === "corn"), "wave 21 has borrower corn");
+  assert.ok(w21.sp.some((s) => s.kind === "karl"), "wave 21 has Karl");
+  assert.ok(!w21.pit && !w21.gall);
+  assert.equal(waveAt(14, "overflow").name, "Up the chute");
+  for (let i = 0; i < WAVE_COUNT; i++)
+    assert.ok(!waveAt(i, "overflow").spawns.some((s) => s.pit || s.gall || s.borrower), `overflow wave ${i + 1}`);
+  for (let i = 0; i < 30; i++)
+    assert.ok(!waveAt(i, "endless").spawns.some((s) => s.pit || s.gall || s.borrower), `endless wave ${i + 1}`);
+});
+
+test("beats: picks after 1, 2 and 6 (and 15 on Midnight), the finale card before the last wave", () => {
+  for (const night of ["midnight", "overflow"] as const) {
+    const length = nightLength(night);
+    for (let c = 1; c <= length; c++) {
+      const want =
+        c >= length
+          ? "victory"
+          : c === 1 || c === 2 || c === 6 || (night === "midnight" && c === WAVE_COUNT)
+            ? "upgrade"
+            : c === length - 1
+              ? "consequence"
+              : "prep";
       assert.equal(nextBeat(c, night), want, `${night} after wave ${c}`);
     }
+  }
+  assert.equal(nextBeat(14, "midnight"), "prep", "Midnight's old finale card is gone");
+  assert.equal(nextBeat(20, "midnight"), "consequence");
+  assert.equal(nextBeat(14, "overflow"), "consequence");
 });
 
 test("a whole Midnight plays through with no knight and no visitor card", () => {

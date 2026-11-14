@@ -186,7 +186,7 @@ Optional: once you know your final address, change `og:image` in `index.html` to
 
 Fruit walk the **carpet** from the entrance on the left to the door at the far end. Each fruit that gets through costs you a **stack** (Karl, the boss, costs 3). Lose all your stacks and the night is over.
 
-Build cannons on the open **floor** beside the carpet: never on the carpet itself, and never on a **bookshelf** (the shelves are part of the room). Every fruit you pop pays **seeds**; spend them on more cannons, fittings and upgrades. Survive all **15 waves** of a night to win.
+Build cannons on the open **floor** beside the carpet: never on the carpet itself, and never on a **bookshelf** (the shelves are part of the room). Every fruit you pop pays **seeds**; spend them on more cannons, fittings and upgrades. Survive all **21 waves** of Midnight, or all **15** of the Overflow, to win.
 
 ## Getting started
 
@@ -545,12 +545,21 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | Damp pumpkins | Melon, Ballista, Long Reader, Freeze | Fire |
 | Raw pumpkins | One touch of fire, then direct hits | Fire alone |
 | Split pumpkins | Splash and fast cannons for the four melons | One slow, big hitter |
+| Pits (stone melons) | Direct shots: Melon, Ballista, Long Reader, Telescope | Mortar, fire, Still, Cauldron |
+| Galls (the small green thing riding behind a pumpkin) | Kill the rider: anything that hits the small fruit a step behind | Shooting only the pumpkin in front |
+| Borrowers (running pea pods with a sack of seeds) | Kill the fast, frail corn early | Letting them through because they cost no stack: each one takes 12 seeds |
 
 ## Nights
 
 ### Midnight (night one)
 
-Fifteen waves. You get an upgrade pick after waves 1, 2 and 6. After wave 14, a card warns you the finale is next: Unchaperoned, the busiest wave of the night.
+Twenty-one waves. You get an upgrade pick after waves 1, 2, 6 and 15. Fruit health stops climbing after wave 15: the last six waves (act three) are not thicker, they are different.
+
+- **Pits** are stone melons. Splash, fire and puddles barely touch them; a direct shot cracks them.
+- **Galls** ride a step behind a pumpkin and heal it while they live. Shoot the rider, not the front.
+- **Borrowers** are fast, frail corn. One that reaches the door costs no stack, but it takes 12 seeds.
+
+After wave 20, a card warns you the finale is next: Karl, with borrowers ahead of him.
 
 Winning Midnight offers **Continue to the Overflow** on the victory screen. It opens the setup screen with the Overflow chosen and your keeper kept, so you can take late slips first.
 

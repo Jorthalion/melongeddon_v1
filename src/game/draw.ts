@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, CELL, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, CELL, GLOBAL_RANGE, PASSIVE, carpetInReach, reachShape, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
@@ -7,6 +7,10 @@ const SPRITE_SRC = {
   corn: asset("sprites/corn.webp"),
   pumpkin: asset("sprites/pumpkin.webp"),
   karl: asset("sprites/karl.webp"),
+  // Act three fruit: flags on the kinds above, with their own faces.
+  pit: asset("sprites/enemy-pit.webp"),
+  gall: asset("sprites/enemy-gall.webp"),
+  borrower: asset("sprites/enemy-borrower.webp"),
   base: asset("sprites/cannon-base.webp"),
   barrel: asset("sprites/cannon-barrel.webp"),
   allyBarrel: asset("sprites/pumpkin-barrel.webp"),
@@ -193,13 +197,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.globalAlpha = 0.5;
       drawTower(ctx, cx, cy, 0, world.hud.build, world.hud.build === "mortar", false, art, world.anim);
       ctx.restore();
-      ctx.beginPath();
-      ctx.arc(cx, cy, world.hud.placeRange, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(198,161,90,0.05)";
-      ctx.fill();
-      ctx.strokeStyle = "rgba(198,161,90,0.4)";
-      ctx.lineWidth = 1.25;
-      ctx.stroke();
+      drawReach(ctx, world, cx, cy, world.hud.build, world.hud.placeRange, null, true);
       ctx.strokeStyle = "rgba(198,161,90,0.85)";
       ctx.lineWidth = 1.5;
       ctx.strokeRect(hover.c * CELL + 3, hover.r * CELL + 3, CELL - 6, CELL - 6);
@@ -212,13 +210,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   const selected = world.towers.find((t) => t.id === world.hud.selected);
   if (selected) {
-    ctx.beginPath();
-    ctx.arc(selected.x, selected.y, world.hud.range, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(198,161,90,0.045)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(198,161,90,0.42)";
-    ctx.lineWidth = 1.25;
-    ctx.stroke();
+    const kind = selected.kind === "copycat" && selected.copy ? selected.copy.kind : selected.kind;
+    drawReach(ctx, world, selected.x, selected.y, kind, world.hud.range, selected, false);
   }
 
   // Juice stains where fruit popped: a blob with a few droplets, fading out.
@@ -302,7 +295,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   }
 
-  for (const e of world.enemies) {
+  // Galls last, so a rider is never hidden under the pumpkin walking behind its host.
+  for (const e of [...world.enemies.filter((f) => !f.gall), ...world.enemies.filter((f) => f.gall)]) {
     if (e.chill > 0) {
       ctx.strokeStyle = "rgba(106,74,138,0.85)";
       ctx.lineWidth = 2;
@@ -311,7 +305,30 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.stroke();
     }
     const next = world.points[Math.min(e.wp, world.points.length - 1)];
-    drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, next ? next.x < e.x - 4 : false);
+    const look = e.pit ? "pit" : e.gall ? "gall" : e.borrower ? "borrower" : null;
+    const painted = look != null && ready(art[look]);
+    drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, next ? next.x < e.x - 4 : false, painted ? look : null);
+    // Act three marks, while their art loads: a stone ring on a pit, a green dot on a gall, a gold ring on a borrower.
+    if (painted) {
+      // The art says it.
+    } else if (e.pit) {
+      ctx.strokeStyle = "rgba(176,168,150,0.95)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 3, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (e.gall) {
+      ctx.fillStyle = "#6fbf4a";
+      ctx.beginPath();
+      ctx.arc(e.x, e.y - e.r - 4, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (e.borrower) {
+      ctx.strokeStyle = "#e6c36a";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     if (e.guard === "rind" && e.shell > 0) {
       ctx.strokeStyle = "rgba(243,226,196,0.9)";
       ctx.lineWidth = 2;
@@ -979,6 +996,125 @@ function fit(
   ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
 }
 
+/**
+ * A tower's reach, shown as what it can actually hit: the stretch of carpet inside its range glows and the
+ * rest of the carpet dims (fruit only walk the carpet's centre line, so this is exact). Towers that help
+ * other towers ring the towers in reach. The range circle stays, faint. While placing, a label says how
+ * many tiles of carpet that spot covers.
+ */
+function drawReach(
+  ctx: CanvasRenderingContext2D,
+  world: World,
+  x: number,
+  y: number,
+  kind: TowerKind,
+  range: number,
+  self: World["towers"][number] | null,
+  placing: boolean,
+) {
+  const shape = reachShape(kind, range);
+  const points = world.points;
+  const whole = range >= GLOBAL_RANGE;
+  ctx.save();
+  if (shape.mode !== "none" && !whole) {
+    ctx.beginPath();
+    ctx.arc(x, y, range, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(198,161,90,0.22)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  let label = "";
+  if (shape.mode === "carpet" && points.length > 1) {
+    const reach = whole
+      ? { stretches: points.slice(1).map((p, i) => ({ x1: points[i].x, y1: points[i].y, x2: p.x, y2: p.y })), length: 0 }
+      : carpetInReach(points, x, y, range, shape.inner);
+    // Dim the carpet it can't reach...
+    if (!whole) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (const p of points.slice(1)) ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = "rgba(10,6,8,0.5)";
+      ctx.lineWidth = CELL - 8;
+      ctx.lineJoin = "miter";
+      ctx.lineCap = "butt";
+      ctx.stroke();
+    }
+    // ...and light the stretches it can: a warm band, a bright centre line, and a tick at each end.
+    // Stretches that meet at a bend are drawn as one run, so the bend isn't lit twice.
+    const runs: Array<Array<{ x: number; y: number }>> = [];
+    for (const s of reach.stretches) {
+      const run = runs[runs.length - 1];
+      const end = run?.[run.length - 1];
+      if (end && Math.hypot(end.x - s.x1, end.y - s.y1) < 0.5) run.push({ x: s.x2, y: s.y2 });
+      else runs.push([{ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 }]);
+    }
+    for (const run of runs) {
+      ctx.beginPath();
+      ctx.moveTo(run[0].x, run[0].y);
+      for (const p of run.slice(1)) ctx.lineTo(p.x, p.y);
+      ctx.lineJoin = "miter";
+      ctx.strokeStyle = "rgba(230,195,106,0.24)";
+      ctx.lineWidth = CELL - 8;
+      ctx.lineCap = "butt";
+      ctx.stroke();
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(243,226,196,0.85)";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.stroke();
+    }
+    if (!whole) {
+      ctx.fillStyle = "rgba(243,226,196,0.95)";
+      for (const s of reach.stretches)
+        for (const [px, py] of [
+          [s.x1, s.y1],
+          [s.x2, s.y2],
+        ]) {
+          // Only where coverage starts or stops (not at a carpet bend inside reach).
+          if (points.some((p) => Math.hypot(p.x - px, p.y - py) < 0.5)) continue;
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+    }
+    const tiles = Math.round((reach.length / CELL) * 2) / 2;
+    label = whole ? "Whole carpet" : tiles > 0 ? `${tiles} ${tiles === 1 ? "tile" : "tiles"} of carpet` : "No carpet in reach";
+  }
+  // Towers it helps: the Reading Lamp's reach, or the Quack-Liber's speed-up.
+  const helps = shape.mode === "towers" ? range : shape.aura ? world.hud.quackAura : 0;
+  if (helps > 0) {
+    let n = 0;
+    for (const t of world.towers) {
+      if (t === self || PASSIVE.includes(t.kind)) continue;
+      if ((t.x - x) ** 2 + (t.y - y) ** 2 > helps * helps) continue;
+      n++;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 20, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(111,198,239,0.85)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    if (shape.mode === "towers") label = n ? `Boosts ${n} ${n === 1 ? "tower" : "towers"}` : "No towers in reach";
+    else if (n) label += ` · speeds up ${n}`;
+  }
+  if (placing && label) {
+    ctx.font = "600 11px 'Outfit Variable', Outfit, sans-serif";
+    const w = ctx.measureText(label).width + 12;
+    const lx = Math.max(w / 2 + 2, Math.min(world.w - w / 2 - 2, x));
+    const ly = y - CELL * 0.5 - 12 < 10 ? y + CELL * 0.5 + 12 : y - CELL * 0.5 - 12;
+    ctx.fillStyle = "rgba(20,12,16,0.85)";
+    roundRect(ctx, lx - w / 2, ly - 9, w, 18, 9);
+    ctx.fill();
+    ctx.fillStyle = "#f3e2c4";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, lx, ly);
+  }
+  ctx.restore();
+}
+
 /** Rooms with their own furniture on the shelf cells and their own exit (the rest use the Stacks' shelves and door). */
 const ROOM_ART: Partial<Record<string, { shelf: SpriteName; door: SpriteName }>> = {
   archive: { shelf: "archiveCabinet", door: "archiveVault" },
@@ -1171,6 +1307,8 @@ const NEW_SHOT = {
 } as const satisfies Record<string, { sprite: SpriteName; size: number }>;
 
 const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108 } as const;
+/** Act three: the stone melon is a little squat and heavy, the gall small, the borrower a lanky runner. */
+const LOOK_H = { pit: 50, gall: 26, borrower: 46 } as const;
 
 function drawTower(
   ctx: CanvasRenderingContext2D,
@@ -1269,9 +1407,10 @@ function drawEnemy(
   boss: boolean,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
   faceLeft: boolean,
+  look: "pit" | "gall" | "borrower" | null = null,
 ) {
-  const img = art[kind];
-  const height = UNIT_H[kind];
+  const img = art[look ?? kind];
+  const height = look ? LOOK_H[look] : UNIT_H[kind];
   if (ready(img)) {
     const bob = Math.sin(anim * 3 + x * 0.05) * (boss ? 0 : 1.2);
     ctx.fillStyle = "rgba(0,0,0,0.38)";

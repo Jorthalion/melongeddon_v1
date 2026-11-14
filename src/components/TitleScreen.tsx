@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { asset } from "@/lib/asset";
-import { BOARDS, KEEPER_TOWERS, MAP_GOALS, PICKABLE_MAPS, TOWERS, TOWER_GROUPS, TOWER_TYPE, TYPE_INFO, WAVE_COUNT } from "@/game/engine";
+import { BOARDS, KEEPER_TOWERS, MAP_GOALS, PICKABLE_MAPS, TOWERS, TOWER_GROUPS, TOWER_TYPE, TYPE_INFO, MIDNIGHT_WAVES, WAVE_COUNT } from "@/game/engine";
 import { HOTKEY_HELP } from "@/components/hotkeys";
 import { KEEPERS } from "@/components/keeperCards";
 import { MenuButton, MenuCard } from "@/components/ui";
@@ -121,7 +121,7 @@ export function HowToPlay() {
       <p className={h}>The basics</p>
       <p>
         Produce walks the carpet. Build cannons on the floor beside it; anything that reaches the far end costs a stack.
-        Kills pay seeds. A story night is {WAVE_COUNT} waves, with an upgrade pick now and then.
+        Kills pay seeds. Midnight is {MIDNIGHT_WAVES} waves. The Overflow is {WAVE_COUNT}. There is an upgrade pick now and then.
       </p>
       <p className="mt-1">
         Tap a cannon to see its stats or sell it. The Back room tab on the right upgrades every cannon of a kind (between waves). Esc or the ☰ button pauses.

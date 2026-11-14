@@ -41,7 +41,9 @@ export function CardOverlay({
           <>
             <h2 id="card-title" className="font-display text-2xl font-semibold">Between the waves</h2>
             <p className="mt-1 text-sm text-muted">
-              {hud.night === "overflow" && hud.upgrades.length >= 2
+              {hud.night === "midnight" && hud.upgrades.length >= 3
+                ? "One more shelf. The fruit after this is not just thicker."
+                : hud.night === "overflow" && hud.upgrades.length >= 2
                 ? "One more shelf. Then the meter starts spending."
                 : hud.upgrades.length >= 2
                   ? "One more shelf. Then the last waves."
