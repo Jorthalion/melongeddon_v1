@@ -89,7 +89,7 @@ test("every board stays inside its own size and keeps fixed spots off the carpet
       assert.ok(inside(c, r), `${board.id}: path cell ${key} off map`);
     }
     assert.equal(board.corners[0][0], 0, `${board.id}: fruit enter on the left edge`);
-    for (const [c, r] of [board.knight]) {
+    for (const [c, r] of [board.michaelCannon]) {
       assert.ok(inside(c, r), `${board.id}: fixed tower spot ${c},${r} off map`);
       assert.ok(!cells.has(`${c},${r}`), `${board.id}: fixed tower spot ${c},${r} is on the carpet`);
     }

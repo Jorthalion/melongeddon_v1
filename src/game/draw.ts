@@ -348,6 +348,16 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.arc(e.x + e.r * 0.5 + 4, e.y - e.r * 0.6 + 3, 2, 0, Math.PI * 2);
       ctx.fill();
     }
+    if ((e.honeyed ?? 0) > 0) {
+      // Honeyed Heel: an amber drip on top of the fruit.
+      ctx.fillStyle = "rgba(232,176,64,0.9)";
+      ctx.beginPath();
+      ctx.ellipse(e.x - e.r * 0.3, e.y - e.r * 0.75, 5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(e.x - e.r * 0.3 + 2, e.y - e.r * 0.75 + 5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
     if ((e.worm ?? 0) > 0) {
       ctx.fillStyle = "#e79ab0";
       for (let i = 0; i < 3; i++) {
@@ -378,7 +388,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   for (const t of world.towers) {
     if (t.kind === "copycat" && t.copy) {
-      // The Mimic draws as what it copies, with a thin gold line to the original and Memec's eye on top.
+      // The Copycat draws as what it copies, with a thin gold line to the original and Memec's eye on top.
       const src = world.towers.find((o) => o.id === t.copyFrom);
       if (src) {
         ctx.strokeStyle = "rgba(230,195,106,0.7)";

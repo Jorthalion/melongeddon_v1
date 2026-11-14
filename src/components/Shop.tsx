@@ -81,7 +81,8 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
   return (
     <aside
       aria-label="Back room"
-      className="absolute inset-y-0 right-0 z-10 flex w-80 max-w-[88%] flex-col border-l border-[#c6a15a]/60 bg-[#1c1216]/97 shadow-2xl sm:inset-y-0 sm:right-3 sm:rounded-r-xl"
+      // Phones: a sheet up from the bottom, so the carpet above stays in view. Wider: a panel down the right side.
+      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[58%] flex-col rounded-t-xl border-t border-[#c6a15a]/60 bg-[#1c1216]/97 shadow-2xl sm:inset-x-auto sm:inset-y-0 sm:right-3 sm:max-h-none sm:w-80 sm:rounded-t-none sm:rounded-r-xl sm:border-t-0 sm:border-l"
     >
       <div className="flex items-start gap-2 border-b border-line/60 px-3 py-2.5">
         <div className="min-w-0 flex-1">

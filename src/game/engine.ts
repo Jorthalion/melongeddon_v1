@@ -1,6 +1,6 @@
 import {
   CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
-  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
@@ -74,6 +74,8 @@ interface Enemy {
   /** Ink Well mark: seconds left, and the damage multiplier while marked. */
   ink?: number;
   inkMul?: number;
+  /** Honeyed Heel: seconds left sticky (takes more damage from everything). */
+  honeyed?: number;
   /** Bookworm burrow: seconds left, and damage per second. */
   worm?: number;
   wormDps?: number;
@@ -94,7 +96,7 @@ interface Tower {
   mods: ModId[];
   /** Reserve Desk: seeds banked so far (paid out on sale or at a win, eaten by a passing melon). */
   bank?: number;
-  /** The Mimic: the copy it is running right now (fires in its place), and the cannon it copies. */
+  /** The Copycat: the copy it is running right now (fires in its place), and the cannon it copies. */
   copy?: Tower;
   copyFrom?: number;
   /** Pipe Organ: chords played (every third is a crescendo). */
@@ -339,6 +341,8 @@ export interface Hud {
   runLevel: number;
   /** Keeper towers not unlocked yet (see TOWER_GOALS). */
   lockedTowers: TowerKind[];
+  /** The Heavy tab opens at wave 6, or once you have held 200 seeds tonight. */
+  heavyOpen: boolean;
   /** The guided first night: the step the player is on, or null when no guide is running. */
   guide: GuideStep | null;
   /** This night is Mynxi's tutorial (her tips carry on after the lessons). */
@@ -719,6 +723,7 @@ export function createWorld(
       guideDone: true,
       runLevel: 1,
       lockedTowers: [],
+      heavyOpen: false,
     },
     hover: null,
     anim: 0,
@@ -893,6 +898,15 @@ export function createWorld(
   };
   /** A trick cannon the playing keeper's level hasn't opened yet. */
   const levelLocked = (kind: TowerKind) => !options.allTricks && (TRICK_LEVEL[kind] ?? 0) > world.hud.runLevel;
+  /** Heavy cannons wait for wave 6, or for 200 seeds in hand at some point tonight. */
+  const syncHeavy = () => {
+    if (!world.hud.heavyOpen && (world.hud.wave >= HEAVY_WAVE || world.hud.seeds >= HEAVY_SEEDS)) world.hud.heavyOpen = true;
+  };
+  const heavyLocked = (kind: TowerKind) => {
+    if (options.allTricks || !groupOf(kind) || groupOf(kind).id !== "heavy") return false;
+    syncHeavy();
+    return !world.hud.heavyOpen;
+  };
   /** A keeper tower whose unlock goal hasn't been met. */
   const goalLocked = (kind: TowerKind) => world.hud.lockedTowers.includes(kind);
   /** The Reserve Desk has to sit right beside the carpet, so melons really do walk past it. */
@@ -1115,10 +1129,10 @@ export function createWorld(
     world.hud.log = `The Unstoppered spills onto another tile (${covered.length + 1} of ${CANNON.flaskMaxTiles}).`;
   };
 
-  /** What The Mimic can copy. */
+  /** What The Copycat can copy. */
   const MIMIC_KINDS: TowerKind[] = ["melon", "mortar", "still", "fire", "freeze"];
   /**
-   * The Mimic: copy the newest cannon right beside it (not on a corner), with that cannon's upgrades
+   * The Copycat: copy the newest cannon right beside it (not on a corner), with that cannon's upgrades
    * plus one hidden step. With nothing to copy it goes blank. `refit` also picks up upgrades bought
    * for the original since the copy was made (done at the start of each wave).
    */
@@ -1143,7 +1157,7 @@ export function createWorld(
       }
     }
   };
-  /** The towers that act this frame: a Mimic acts through its copy (and not at all while blank). */
+  /** The towers that act this frame: a Copycat acts through its copy (and not at all while blank). */
   const actingTowers = () => world.towers.flatMap((t) => (t.kind === "copycat" ? (t.copy ? [t.copy] : []) : [t]));
 
   /** Orrery: spin the planets and hit any fruit they sweep through. */
@@ -1661,6 +1675,7 @@ export function createWorld(
       shopVisits: 0,
       fitted: {},
       workshop: null,
+      heavyOpen: false,
       paused: false,
       menu: null,
       waveCount: world.hud.night === "endless" ? 0 : WAVE_COUNT,
@@ -1802,6 +1817,7 @@ export function createWorld(
     if (e.guard === "damp" && via === "burn") amount *= 0.15;
     if (e.guard === "damp" && via === "shot") amount *= 1.15;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
+    if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
     const before = e.hp;
     e.hp -= amount;
     if (amount >= 1) float(e.x, e.y - 10, String(Math.round(amount)), "#f3e2c4");
@@ -2061,14 +2077,14 @@ export function createWorld(
       let slow = 1;
       let dot = 0;
       let burn = 0;
-      /** Honey: sticky, not cold, so husks feel it too (applied after the husk rule below). */
-      let stuck = 1;
       let dotBy: number | undefined;
       let burnBy: number | undefined;
       for (const pool of world.pools) {
         if (Math.hypot(e.x - pool.x, e.y - pool.y) > pool.r) continue;
         if (pool.honey) {
-          stuck = Math.min(stuck, softenSlow(CANNON.honeySlow));
+          // Honey doesn't slow: it sticks, and sticky fruit take more damage from everything.
+          if ((e.honeyed ?? 0) <= 0) float(e.x, e.y - 18, "sticky", "#e8b84a");
+          e.honeyed = CANNON.honeyTime;
           continue;
         }
         if (pool.hot) {
@@ -2103,7 +2119,6 @@ export function createWorld(
         e.freeze = 0;
         slow = 1;
       }
-      slow = Math.min(slow, stuck);
       // Pinned under the Foot of the Law: the one stop a husk can't shrug off.
       if ((e.stomped ?? 0) > 0) {
         e.stomped = (e.stomped ?? 0) - dt;
@@ -2113,6 +2128,7 @@ export function createWorld(
       credit = dotBy ?? null;
       if (dot) hurt(e, null, dot * dt, 0, "pulp");
       if ((e.ink ?? 0) > 0) e.ink = (e.ink ?? 0) - dt;
+      if ((e.honeyed ?? 0) > 0) e.honeyed = (e.honeyed ?? 0) - dt;
       if ((e.worm ?? 0) > 0) {
         e.worm = (e.worm ?? 0) - dt;
         credit = e.wormBy ?? null;
@@ -2227,7 +2243,6 @@ export function createWorld(
           rot: d > 0 ? Math.atan2(next.y - target.y, next.x - target.x) : 0,
           owner: tower.id,
         });
-        float(fx2, fy2 - 20, "sticky", "#e8b84a");
         continue;
       }
       if (tower.kind === "still") {
@@ -2532,6 +2547,7 @@ export function createWorld(
         !signatureBlocked(world.hud.build) &&
         !levelLocked(world.hud.build) &&
         !goalLocked(world.hud.build) &&
+        !heavyLocked(world.hud.build) &&
         !offCarpet(world.hud.build, c, r) &&
         world.hud.seeds >= world.hud.towerCost &&
         (world.hud.phase === "prep" || world.hud.phase === "combat");
@@ -2569,6 +2585,11 @@ export function createWorld(
       if (levelLocked(buildKind)) {
         const who = world.hud.hero ? KEEPER_NAMES[world.hud.hero].name : "Your keeper";
         world.hud.log = `The ${TOWERS[buildKind].name} opens when ${who} reaches level ${TRICK_LEVEL[buildKind]}.`;
+        notify();
+        return;
+      }
+      if (heavyLocked(buildKind)) {
+        world.hud.log = `Heavy cannons open at wave ${HEAVY_WAVE}, or once you have ${HEAVY_SEEDS} seeds in hand.`;
         notify();
         return;
       }
@@ -2749,7 +2770,7 @@ export function createWorld(
         world.hud.seeds = BALANCE.michaelSeeds;
         world.hud.lives = BALANCE.michaelLives;
         world.hud.maxLives = BALANCE.michaelLives;
-        const [kc, kr] = BOARDS[world.hud.map].knight;
+        const [kc, kr] = BOARDS[world.hud.map].michaelCannon;
         const p = cellCenter(kc, kr);
         world.towers.push({
           id: id(),
@@ -2770,9 +2791,9 @@ export function createWorld(
           : `His cannon is already set. ${stacksWord(BALANCE.michaelLives)} stacks, and the shots hit harder.`;
       }
       if (overflow) {
-        // Night two starts with a little extra (it used to come from sending the knight away).
+        // Night two starts with a little extra. Added after the keeper's opening line, not over it.
         world.hud.seeds += BALANCE.overflowSeeds;
-        world.hud.log = `The crates by the chute were never eaten. +${BALANCE.overflowSeeds} seeds.`;
+        world.hud.log = `${world.hud.log} The crates by the chute were never eaten: +${BALANCE.overflowSeeds} seeds.`.trim();
       }
       world.hud.newUnlocks = [];
       world.hud.newMaps = [];
@@ -2859,7 +2880,7 @@ export function createWorld(
       world.hud.seeds -= price;
       world.hud.shopVisits += 1;
       world.hud.fitted = { ...world.hud.fitted, [kind]: [...owned, modId] };
-      // Every tower of this kind gets it, and so does a Mimic copying one.
+      // Every tower of this kind gets it, and so does a Copycat copying one.
       const mine = world.towers.filter((t) => t.kind === kind);
       for (const t of mine) t.mods = [...(world.hud.fitted[kind] ?? [])];
       syncMimics(true);
@@ -3105,6 +3126,10 @@ export function createWorld(
   };
 
   const loopTick = (dt: number) => {
+    if (!world.hud.heavyOpen && (world.hud.phase === "prep" || world.hud.phase === "combat")) {
+      syncHeavy();
+      if (world.hud.heavyOpen) notify();
+    }
     tickFx(dt);
     if (world.hud.phase === "combat") tickCombat(dt);
   };

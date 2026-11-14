@@ -183,15 +183,19 @@ function play(config: RunConfig, rng: () => number): RunResult {
 
   const tryMod = () => {
     if (config.strategy !== "mixed+mods" || world.hud.phase !== "prep") return false;
-    // The cheapest kind on the floor that still has an upgrade to buy (it reaches every tower of that kind).
-    let best: { kind: TowerKind; price: number } | null = null;
+    // An upgrade reaches every tower of its kind, so it's worth most on the kind there are most of.
+    // Buy for a kind with at least two on the floor, when the price per tower is under 60% of a new
+    // tower and the upgrade doesn't eat the seeds for the next one.
+    let best: { kind: TowerKind; price: number; count: number } | null = null;
     for (const kind of new Set(world.towers.map((t) => t.kind))) {
       const left = fittingsFor(kind).filter((m) => !(world.hud.fitted[kind] ?? []).includes(m.id));
       if (!left.length) continue;
+      const count = world.towers.filter((t) => t.kind === kind).length;
+      if (count < 2) continue;
       const price = api.shopPriceFor(kind);
-      if (!best || price < best.price) best = { kind, price };
+      if (!best || price / count < best.price / best.count) best = { kind, price, count };
     }
-    if (!best || world.hud.seeds < best.price || best.price >= world.hud.towerCost * 1.5) return false;
+    if (!best || world.hud.seeds < best.price || best.price / best.count > world.hud.towerCost * 0.6) return false;
     api.openShop(best.kind);
     const left = fittingsFor(best.kind).filter((m) => !(world.hud.fitted[best.kind] ?? []).includes(m.id));
     api.pickMod(left[Math.floor(rng() * left.length)].id);

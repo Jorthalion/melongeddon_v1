@@ -11,7 +11,7 @@ test("every map has bookshelves, none on the carpet or on Sir Michael's spot", (
     const shelves = shelfCells(map, path);
     assert.ok(shelves.size > 0, `${map} has shelves`);
     for (const key of shelves) assert.ok(!path.has(key), `${map}: shelf ${key} is not on the carpet`);
-    for (const [c, r] of [BOARDS[map].knight]) assert.ok(!shelves.has(`${c},${r}`), `${map}: ${c},${r} stays buildable`);
+    for (const [c, r] of [BOARDS[map].michaelCannon]) assert.ok(!shelves.has(`${c},${r}`), `${map}: ${c},${r} stays buildable`);
   }
 });
 

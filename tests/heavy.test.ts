@@ -13,6 +13,7 @@ function withHeavy(kind: TowerKind) {
   api.chooseHero("mynxi");
   api.beginNight();
   api.world.hud.seeds = 99999;
+  stepWorld(api.world, 1 / 60); // 200+ seeds in hand opens the Heavy tab
   api.chooseBuild(kind);
   api.pointer(center(5), center(3), "down");
   api.dismissSelection();
@@ -151,4 +152,33 @@ test("trying to build something you can't afford says so", () => {
       assert.match(w.hud.log, /Not enough seeds: the Brass Telescope costs 250/);
       return;
     }
+});
+
+test("the Heavy tab waits for wave 6, or for 200 seeds in hand tonight", () => {
+  const api = createWorld(() => {}, {});
+  api.openSetup();
+  api.chooseHero("vael");
+  api.beginNight();
+  const w = api.world;
+  assert.equal(w.hud.heavyOpen, false, "closed at the start");
+  w.hud.seeds = 199;
+  stepWorld(w, 1 / 60);
+  api.chooseBuild("press");
+  api.pointer(center(5), center(3), "down");
+  assert.equal(w.towers.length, 0, "no Press yet");
+  assert.match(w.hud.log, /Heavy cannons open at wave 6/);
+  w.hud.seeds = 200;
+  stepWorld(w, 1 / 60);
+  assert.equal(w.hud.heavyOpen, true, "200 in hand opens it");
+  w.hud.seeds = 50;
+  stepWorld(w, 1 / 60);
+  assert.equal(w.hud.heavyOpen, true, "and it stays open after spending");
+
+  const later = createWorld(() => {}, {});
+  later.openSetup();
+  later.chooseHero("vael");
+  later.beginNight();
+  later.world.hud.wave = 6;
+  stepWorld(later.world, 1 / 60);
+  assert.equal(later.world.hud.heavyOpen, true, "wave 6 opens it");
 });

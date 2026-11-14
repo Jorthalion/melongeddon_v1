@@ -6,6 +6,8 @@ import {
   KEEPER_NAMES,
   MODS,
   PASSIVE,
+  HEAVY_SEEDS,
+  HEAVY_WAVE,
   fittingsFor,
   TRICK_LEVEL,
   TOWER_GOALS,
@@ -246,7 +248,9 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
             const needs = TRICK_LEVEL[id] ?? 0;
             // Keeper towers with an unlock goal (the Reserve Desk) stay locked until it's met.
             const goal = hud.lockedTowers.includes(id) ? TOWER_GOALS[id]?.goal : undefined;
-            const locked = needs > hud.runLevel || goal != null;
+            // Heavy cannons wait for wave 6, or 200 seeds in hand tonight.
+            const heavyWait = groupOf(id).id === "heavy" && !hud.heavyOpen;
+            const locked = needs > hud.runLevel || goal != null || heavyWait;
             // Its numbers before you build it (with the upgrades you hold that reach it).
             const read = towerReadout(hud.hero, id, [], hud.upgrades);
             return (
@@ -256,6 +260,8 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
                 title={
                   goal
                     ? `${TOWERS[id].name}: locked. ${goal} ${TOWERS[id].blurb}`
+                    : heavyWait
+                    ? `${TOWERS[id].name}: opens at wave ${HEAVY_WAVE}, or once you have ${HEAVY_SEEDS} seeds in hand. ${TOWERS[id].blurb}`
                     : locked
                     ? `${TOWERS[id].name}: opens at keeper level ${needs}. ${TOWERS[id].blurb}`
                     : `${TOWERS[id].name} (${slot + 1}) · ${TYPE_INFO[TOWER_TYPE[id]].name}: ${TOWERS[id].blurb}\n${describeStats(id, read)}`
@@ -274,7 +280,7 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
                 <span className="mt-0.5 block truncate text-xs leading-tight font-semibold">{SHORT_NAME[id]}</span>
                 <span className="block truncate text-[11px] leading-tight text-parchment"><CardStat kind={id} read={read} /></span>
                 <span className="block truncate text-[11px] leading-tight text-muted">
-                  {goal ? "Locked" : locked ? `Level ${needs}` : built ? "Built" : cost}
+                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                 </span>
               </button>
@@ -332,7 +338,7 @@ const SHORT_NAME: Record<TowerKind, string> = {
   stomp: "Foot",
   honey: "Honey",
   mimic: "Memec",
-  copycat: "Mimic",
+  copycat: "Copycat",
   lectern: "Lectern",
 };
 
@@ -380,7 +386,7 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   if (kind === "press") return `DMG ${read.dmg} per fruit along a sheet · inks · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "organ") return `DMG ${read.dmg} to all within ${tiles} · slows · every ${CANNON.organEvery}rd chord stops · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "scope") return `DMG ${read.dmg} · pierces armour · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
-  if (kind === "honey") return `No damage · sticky footprint every ${read.interval.toFixed(1)}s, ${Math.round(CANNON.honeySlow * 100)}% speed for ${CANNON.honeyLife}s · ${tiles}`;
+  if (kind === "honey") return `No damage · sticky footprint every ${read.interval.toFixed(1)}s: +${Math.round((CANNON.honeyAmp - 1) * 100)}% damage taken for ${CANNON.honeyTime}s · ${tiles}`;
   if (kind === "stomp") return `DMG ${read.dmg} + ${CANNON.stompStun}s stop · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "still") return `No shot · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   return `DMG ${read.dmg} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;

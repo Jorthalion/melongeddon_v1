@@ -261,8 +261,8 @@ Each keeper changes your start and has a **signature tower** that only they can 
 - **Mynxi's Reserve Desk** (30 seeds). Locked at first: **finish a night with at least 200 seeds still in hand** to open it. It has no shot, and it must be built right beside the carpet. After every wave you survive it banks 8 seeds (the gold tag above it shows how much). Sell it to collect the bank plus the usual refund, or win the night and it pays out on its own. But if a **melon walks past the desk** (comes within about a tile of it), the melon eats the whole bank. Corn and pumpkins leave it alone. Put it beside the last stretch of carpet, behind your cannons, where few melons ever get to. On the Overflow, remember that fruit come up the chute at the door end, so that stretch isn't safe there.
 - **Vaelithra's Unstoppered** (150 seeds). Locked at first: **win a night as Vaelithra after building a Still and taking Trial Vial or Distilled Batch**. It's a tipped flask that never shoots: it drips her slow puddle onto the carpet like a Still, and it drips from every tile it covers. After each wave there's a 1 in 3 chance it spills onto a neighbouring floor tile, up to four tiles. It only spills where the new tile can reach the carpet, never onto the carpet, a bookshelf or a tile with a cannon, and it heads for carpet it doesn't cover yet. Spill tiles can't be built on. The Still's back-room fittings work on it and on every tile. Puddle slows don't stack, so four tiles mean more fruit slowed at once, not a stronger slow. Selling it pays a flat 35, however far it spilled.
 - **The Legal Elf's Foot of the Law** (85 seeds): see the table above.
-- **The Legal Elf's Honeyed Heel** (75 seeds). A big bare foot dipped in honey. Every few seconds it steps onto the carpet just ahead of the fruit and leaves a **sticky footprint** that lasts 7 seconds (up to three at once). Anything walking through crawls at about a third of its speed, **husks included**, since honey is sticky, not cold. It does no damage, so pair it with something that does.
-- **Ooze Clues' The Mimic** (160 seeds). Not to be confused with Memec's Mimic Chest. On its own it does nothing. Put it on the floor **right beside** (not on a corner of) a Melon, Mortar, Still, Fire or Freeze cannon and it becomes a copy of that cannon, fittings and all, **one step harder**: a Melon copy reaches farther, a Mortar copy splashes wider, a Still copy drips a broader puddle sooner, a Fire copy's patch burns longer, a Freeze copy holds longer. It never hits harder than the original. If two cannons touch it, it copies the newer one, and a thin gold line shows which. Sell that one and it switches to the other, or goes blank. A fitting you buy later for the original shows up on the copy when the next wave starts. It won't copy anything else (Ballistas, trick cannons, keeper towers).
+- **The Legal Elf's Honeyed Heel** (75 seeds). A big bare foot dipped in honey. Every few seconds it steps onto the carpet just ahead of the fruit and leaves a **sticky footprint** that lasts 7 seconds (up to three at once). It doesn't slow anything. Anything walking through gets honey on it (a little amber drip on top) and **takes 25% more damage from everything for 4 seconds**, husks included. It does no damage of its own, so put it where your hardest hitters are aiming.
+- **Ooze Clues' Copycat** (160 seeds). On its own it does nothing. Put it on the floor **right beside** (not on a corner of) a Melon, Mortar, Still, Fire or Freeze cannon and it becomes a copy of that cannon, back-room upgrades and all, **one step harder**: a Melon copy reaches farther, a Mortar copy splashes wider, a Still copy drips a broader puddle sooner, a Fire copy's patch burns longer, a Freeze copy holds longer. It never hits harder than the original. If two cannons touch it, it copies the newer one, and a thin gold line shows which. Sell that one and it switches to the other, or goes blank. An upgrade you buy later for that kind shows up on the copy straight away. It won't copy anything else (Ballistas, trick cannons, keeper towers).
 
 Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't affect the Foot.
 
@@ -272,7 +272,7 @@ Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't 
 | **Vaelithra**, Potions division | 11 stacks, 120 seeds | Her shots slow what they hit | **Bubbling Cauldron** (85): a potion puddle that slows and poisons. Also **Unstoppered** (150): see below |
 | **Sir Michael**, Pumpkin Knight | 10 stacks, 110 seeds, one cannon already built | His shots hit harder | **Pumpkin Trebuchet** (110): a huge, slow splash that knocks fruit back down the carpet |
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
-| **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Mimic** (160): see below |
+| **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Copycat** (160): see below |
 | **Dr. Samodovol**, The Scholar | 12 stacks, 150 seeds | Upgrade picks offer four choices instead of three | **History Lectern** (65): no shot; nearby cannons hit harder, and more so every wave it stands |
 
 ## Developer mode
@@ -398,7 +398,7 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 
 ### Heavy cannons
 
-The **Heavy** tab (`Y`) holds three expensive cannons, open to every keeper. Each one does two jobs at once:
+The **Heavy** tab (`Y`) holds three expensive cannons, open to every keeper. They're locked at the start of a night: they open at **wave 6**, or as soon as you have **200 seeds in hand**, whichever comes first, and stay open for the rest of the night. Each one does two jobs at once:
 
 | Tower | Cost | What it does |
 |---|---|---|
@@ -431,12 +431,12 @@ Every tower also has a **type**. The type decides which shared upgrades affect i
 | **Cannon** | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet, Printing Press |
 | **Precision** | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Boomerang Bookend, Orrery, Paper Plane, Serpent Quill, Rolling Globe, Brass Telescope, Card Catalogue, Scales of Justice |
 | **Alchemy** | Still, Ink Well, Bubbling Cauldron, Unstoppered |
-| **Creature** | Fly Hive, Bookworm, Mimic Chest, The Mimic |
+| **Creature** | Fly Hive, Bookworm, Mimic Chest, Copycat |
 | **Utility** (no upgrade picks apply) | Shush Bell, Reading Lamp, Compost Heap, History Lectern, Foot of the Law, Honeyed Heel, Reserve Desk, Pipe Organ |
 
 ### Back room (upgrades for a whole kind)
 
-The **Back room** is a tab on the right edge of the board. Open it with the tab, with `B`, or with **Upgrades** in a cannon's inspector (that opens it on the cannon's kind). At the top are the same groups as the build bar (Damage, Control, Support, Trick, Heavy, and Keeper when a keeper tower takes upgrades). Tap one to fold it open and pick a tower kind; a small ×2 under a kind means two are on the floor, and a gold number shows how many upgrades it has. Below are **all** of that kind's upgrades, each with its price.
+The **Back room** is a tab on the right edge of the board (on a phone it opens as a sheet from the bottom, so the carpet above stays in view). Open it with the tab, with `B`, or with **Upgrades** in a cannon's inspector (that opens it on the cannon's kind). At the top are the same groups as the build bar (Damage, Control, Support, Trick, Heavy, and Keeper when a keeper tower takes upgrades). Tap one to fold it open and pick a tower kind; a small ×2 under a kind means two are on the floor, and a gold number shows how many upgrades it has. Below are **all** of that kind's upgrades, each with its price.
 
 - **An upgrade belongs to the kind, not to one tower.** Buy Longer barrel for the Melon cannon and every Melon cannon on the floor reaches farther, and so does every one you build later tonight. A Mimic copying a Melon cannon gets it too.
 - **Each kind has its own price.** A kind's first upgrade costs 40 seeds, then 30 more for each upgrade it already has (40, 70, 100…). Upgrading Melon cannons never makes Mortar upgrades dearer.
@@ -505,12 +505,12 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | Armour | Direct hit | Splash | Fire | Puddle | Bookworm | Slows, freezes, stuns |
 |---|---|---|---|---|---|---|
 | **Shell** (until cracked) | First hit blocked, cracks it ("crack") | First hit blocked, cracks it | 40% | 40% | 100% | Work normally |
-| **Husk** | 75% | 140% | 140% | 100% | 100% | **Immune to all of them**, except the Legal Elf's feet (Foot of the Law, Honeyed Heel) |
+| **Husk** | 75% | 140% | 140% | 100% | 100% | **Immune to all of them**, except the Legal Elf's Foot of the Law |
 | **Damp** | 115% | 100% | 15% | 100% | 100% | Freezes last 40% longer |
 | **Raw** | 100% | 100% | First burn bakes it into "bread" instead of hurting it | 100% | 100% | Work normally |
 
 - **Shell:** whatever lands first is wasted, however big it is, but the hit after that does full damage. Seed Spitter seeds **bounce off** ("ping") without cracking it, so a spitter on its own never gets through. One Mortar blast cracks every shell it touches at once.
-- **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, Vaelithra's slowing shots, the Cold rind upgrade and the Cauldron's slow. Four things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, his **Honeyed Heel**'s honey sticks to them, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
+- **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, Vaelithra's slowing shots, the Cold rind upgrade and the Cauldron's slow. Three things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
 - **Raw:** once baked, the pumpkin crawls at 55% speed for the rest of its walk, but fire can't hurt it any more. Finish it with anything else.
 - **Split:** not armour. When popped, it breaks into four small melons with about half a melon's health, which have no armour.
 
@@ -609,7 +609,7 @@ Bookmarks are permanent unlocks you earn across runs. Equip one at a time on the
 - **Corners are gold.** A cannon on the inside of a bend covers two stretches of carpet.
 - **Mix your tabs.** Damage pops fruit, Control slows them so damage has time to work, and Support makes everything else better. A Freeze or Still in front of a Mortar is a classic pair.
 - **Read the guards.** Shelled melons laugh at Seed Spitters; husked corn ignores slows; damp pumpkins don't burn. One Peeler fixes all three.
-- **Use your keeper's tower.** Place the Mimic Chest right next to the carpet, the History Lectern among your cannons, and the Card Catalogue where its long reach covers the most carpet.
+- **Use your keeper's tower.** Place Memec's Mimic Chest right next to the carpet, the History Lectern among your cannons, and the Card Catalogue where its long reach covers the most carpet.
 - **Pick upgrades that match your towers.** The small tag beside each card's name says what it reaches ("Cannons", "Puddles", "The ledger"): Heavy Caliber does nothing for a board of Fly Hives.
 - **Save for Karl.** He has a lot of health and costs 3 stacks if he gets through. A Long Reader or Bookworm helps.
 - **On the Overflow, guard both ends.** Put at least one cannon and a Peeler near the chute before wave 6.

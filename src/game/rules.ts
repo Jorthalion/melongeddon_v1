@@ -433,6 +433,10 @@ export function upgradeTargetLabel(id: UpgradeId) {
   return types.map((t) => TYPE_INFO[t].name).join(", ");
 }
 
+/** The Heavy tab opens at this wave, or once you hold this many seeds in a night. */
+export const HEAVY_WAVE = 6;
+export const HEAVY_SEEDS = 200;
+
 /** Cannons that never shoot. */
 export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern", "desk"];
 /** Whole-board range: more than the diagonal of the largest board (22 x 14 cells is about 1250 px). */
@@ -615,7 +619,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   honey: {
     name: "Honeyed Heel",
-    blurb: "The Legal Elf's third. A big bare foot dipped in honey steps onto the carpet just ahead of the fruit and leaves a sticky footprint. Anything that walks through crawls, husks included. No damage.",
+    blurb: "The Legal Elf's third. A big bare foot dipped in honey steps onto the carpet just ahead of the fruit and leaves a sticky footprint. Anything that walks through gets honey on it and takes 25% more damage from everything for 4 s. No damage of its own.",
     cost: 75,
     role: "Sticky",
   },
@@ -626,8 +630,8 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     role: "Stomp",
   },
   copycat: {
-    name: "The Mimic",
-    blurb: "Memec's second. Blank until it sits right beside a Melon, Mortar, Still, Fire or Freeze cannon (corners don't count). Then it becomes a copy, fittings and all, one step harder: farther, wider, sooner, longer. Never more damage.",
+    name: "The Copycat",
+    blurb: "Ooze Clues' second. Blank until it sits right beside a Melon, Mortar, Still, Fire or Freeze cannon (corners don't count). Then it becomes a copy, upgrades and all, one step harder: farther, wider, sooner, longer. Never more damage.",
     cost: 160,
     role: "Copy",
   },
@@ -694,11 +698,12 @@ export const CANNON = {
   bellStunBoss: 0.35,
   /** Foot of the Law: how wide the foot lands, and how long what it lands on stays put (Karl: less). */
   stompRadius: 54,
-  /** Honeyed Heel: footprint size (px) and life (s), the speed fruit crawl at in it (0.35 = 35%), and how many it keeps down at once. */
+  /** Honeyed Heel: footprint size (px) and life (s), how many it keeps down at once, and what walking through does: extra damage taken (1.25 = +25%) for this long (s). */
   honeyRadius: 30,
   honeyLife: 7,
-  honeySlow: 0.35,
   honeyMax: 3,
+  honeyAmp: 1.25,
+  honeyTime: 4,
   stompStun: 1.1,
   stompStunBoss: 0.4,
   lanternRadius: 72,
@@ -713,7 +718,7 @@ export const CANNON = {
   flaskSpillChance: 1 / 3,
   flaskMaxTiles: 4,
   flaskRefund: 35,
-  /** The Mimic: the "one step harder" each copy gets. Melon reach (px), mortar splash (px), still puddle
+  /** The Copycat: the "one step harder" each copy gets. Melon reach (px), mortar splash (px), still puddle
    * radius (px) and drip time (×), fire patch life (s), freeze hold (s). */
   mimicReach: 30,
   mimicSplash: 16,
@@ -798,7 +803,7 @@ export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) 
 export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]) {
   // The Unstoppered drips exactly like a Still, from every tile it covers.
   if (kind === "flask") return towerReadout(hero, "still", mods, upgradesOwned);
-  // The Mimic itself does nothing; the copy it makes uses the copied kind's numbers.
+  // The Copycat itself does nothing; the copy it makes uses the copied kind's numbers.
   if (kind === "copycat") return { dmg: 0, range: 0, interval: 0 };
   // Only the upgrades that affect this tower's type count.
   const upgrades = upgradesOwned.filter((id) => upgradeAffects(id, kind));
@@ -852,7 +857,7 @@ export type ModId =
   | "heavy"
   | "arc"
   | "drip"
-  /** Hidden: the step The Mimic adds to whatever it copies. Never sold in the back room. */
+  /** Hidden: the step The Copycat adds to whatever it copies. Never sold in the back room. */
   | "mimicstep"
   | "longsheet"
   | "wetink"
@@ -928,7 +933,7 @@ export function shopPrice(hero: HeroId | null, owned: number, visits: number, ex
   return rate === 1 ? price : Math.round(price * rate);
 }
 
-/** The back-room upgrades a tower kind can have (the Mimic's hidden step is never one). */
+/** The back-room upgrades a tower kind can have (the Copycat's hidden step is never one). */
 export function fittingsFor(kind: TowerKind) {
   return MODS.filter((m) => m.kinds.includes(kind));
 }
@@ -954,7 +959,8 @@ export interface Board {
   name: string;
   blurb: string;
   corners: Array<[number, number]>;
-  knight: [number, number];
+  /** Where Sir Michael's free melon cannon stands (kept clear of shelves on every board). */
+  michaelCannon: [number, number];
   /** Dark room: cannons lose range unless a Reading Lamp reaches them. */
   dark?: boolean;
   /** Enemy health multiplier on this map (1 if unset). */
@@ -995,7 +1001,7 @@ export const DEFAULT_SHELVES: Array<[number, number]> = [
 export function shelfCells(map: MapId, path: Set<string>): Set<string> {
   const b = BOARDS[map];
   const { cols, rows } = boardSize(map);
-  const fixed = new Set([b.knight].map(([c, r]) => `${c},${r}`));
+  const fixed = new Set([b.michaelCannon].map(([c, r]) => `${c},${r}`));
   const out = new Set<string>();
   for (const [c, r] of b.shelves ?? DEFAULT_SHELVES) {
     const key = `${c},${r}`;
@@ -1026,7 +1032,7 @@ export const BOARDS: Record<MapId, Board> = {
       [12, 7],
       [15, 7],
     ],
-    knight: [3, 6],
+    michaelCannon: [3, 6],
   },
   annex: {
     id: "annex",
@@ -1042,7 +1048,7 @@ export const BOARDS: Record<MapId, Board> = {
       [12, 5],
       [15, 5],
     ],
-    knight: [2, 5],
+    michaelCannon: [2, 5],
   },
   mezzanine: {
     id: "mezzanine",
@@ -1054,7 +1060,7 @@ export const BOARDS: Record<MapId, Board> = {
       [13, 7],
       [1, 7],
     ],
-    knight: [3, 2],
+    michaelCannon: [3, 2],
   },
   rarebooks: {
     id: "rarebooks",
@@ -1068,7 +1074,7 @@ export const BOARDS: Record<MapId, Board> = {
       [4, 4],
       [8, 4],
     ],
-    knight: [2, 2],
+    michaelCannon: [2, 2],
     hp: 1.25,
   },
   archive: {
@@ -1085,7 +1091,7 @@ export const BOARDS: Record<MapId, Board> = {
       [13, 3],
       [15, 3],
     ],
-    knight: [2, 5],
+    michaelCannon: [2, 5],
     dark: true,
   },
   greathall: {
@@ -1110,7 +1116,7 @@ export const BOARDS: Record<MapId, Board> = {
       [17, 2],
       [21, 2],
     ],
-    knight: [4, 9],
+    michaelCannon: [4, 9],
     shelves: [
       [0, 0], [1, 0], [2, 0], [8, 0], [9, 0], [10, 0], [11, 0], [12, 0], [19, 0], [20, 0],
       [0, 13], [1, 13], [5, 13], [6, 13], [7, 13], [11, 13], [12, 13], [15, 13], [16, 13], [20, 13],
@@ -1133,7 +1139,7 @@ export const BOARDS: Record<MapId, Board> = {
       [2, 10],
       [21, 10],
     ],
-    knight: [5, 8],
+    michaelCannon: [5, 8],
     shelves: [
       [1, 0], [2, 0], [3, 0], [7, 0], [8, 0], [9, 0], [13, 0], [14, 0], [15, 0], [20, 0],
       [0, 13], [1, 13], [5, 13], [6, 13], [7, 13], [12, 13], [13, 13], [14, 13], [19, 13], [20, 13],
@@ -1154,7 +1160,7 @@ export const BOARDS: Record<MapId, Board> = {
       [11, 4],
       [14, 4],
     ],
-    knight: [1, 5],
+    michaelCannon: [1, 5],
   },
 };
 
@@ -1500,8 +1506,8 @@ export function waveAt(
   const act = index - WAVES.length;
   const waves = [
     {
-      name: "Unattended stacks",
-      blurb: "Act two. The produce noticed nobody was watching the door.",
+      name: "After hours",
+      blurb: "Act two. The lamps are low and the produce has stopped pretending to browse.",
       spawns: [
         { kind: "melon" as const, count: 8, every: 0.5 },
         { kind: "corn" as const, count: 6, every: 0.4 },
@@ -1509,7 +1515,7 @@ export function waveAt(
     },
     {
       name: "The binding splits",
-      blurb: "Thicker than act one. Still no one wearing a helmet.",
+      blurb: "Thicker than act one, and some of it arrives wet.",
       spawns: [
         { kind: "pumpkin" as const, count: 4, every: 0.85 },
         { kind: "pumpkin" as const, count: 2, every: 1, guard: "damp" as const },
@@ -1527,7 +1533,7 @@ export function waveAt(
     },
     {
       name: "Open house",
-      blurb: "Nobody is guarding the door, so everybody is using it.",
+      blurb: "Corn by the armful, and melons with their rinds on.",
       spawns: [
         { kind: "corn" as const, count: 10, every: 0.32 },
         { kind: "melon" as const, count: 5, every: 0.45, guard: "rind" as const },

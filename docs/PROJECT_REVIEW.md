@@ -1,6 +1,6 @@
 # Melongeddon: project overview for review
 
-This document describes the whole project so an outside reviewer can judge the game design, the code and the release setup without opening the repository. The numbers come from the code at **v0.5.0** (commit 714814c, 12 November 2026). Section 12 lists the questions we would most like answered.
+This document describes the whole project so an outside reviewer can judge the game design, the code and the release setup without opening the repository. The numbers come from the **`dev` branch** after v0.5.0 (14 November 2026). v0.5.0 itself is commit 714814c on `master`; `dev` adds the Heavy tab, more keeper towers, the per-kind back room, damage stats, and removes the knight's door. Section 12 lists the questions we would most like answered.
 
 - **Repository:** https://github.com/Jorthalion/melongeddon_v1
 - **Latest release:** [v0.5.0](https://github.com/Jorthalion/melongeddon_v1/releases/tag/v0.5.0), a Windows installer of about 116 MB
@@ -18,7 +18,7 @@ It runs in three places:
 - as a Windows desktop app (Electron, NSIS installer);
 - on itch.io as an HTML5 game. The upload kit is ready, but nothing has been uploaded yet.
 
-**Tone:** dry and absurd. The knight is a pumpkin, the boss is a melon called Karl, and the "Absurdity" meter fills up as you pop fruit.
+**Tone:** dry and absurd. One keeper is a pumpkin knight, the boss is a melon called Karl, and the "Absurdity" meter fills up as you pop fruit.
 
 ---
 
@@ -49,7 +49,8 @@ rules.ts  (pure data: towers, enemies, waves, maps, upgrades, balance knobs)
    │
 engine.ts (createWorld → world state + api; combat, phases, saves)  ← tests/, scripts/sim-core.ts
    │
-MelonGame.tsx (React HUD, menus, cards)  ──►  draw.ts / drawCannons.ts (canvas)   audio.ts (Web Audio)
+MelonGame.tsx (game shell + loop) → GameHUD, Shop, CardPicker, SetupScreen, TitleScreen, PauseMenu, …
+   └──► draw.ts / drawCannons.ts (canvas)   audio.ts (Web Audio)
 ```
 
 ### Game loop
@@ -67,36 +68,38 @@ The board is drawn at one uniform scale, centered, with `fitBoard(w, h, …)`, s
 `createWorld(onChange, options)` returns an object holding `world` plus action methods. All UI input goes through these, for example:
 
 - building and selecting: `pointer`, `chooseBuild`, `sellSelected`;
-- running a night: `startWave`, `pickUpgrade`, `chooseAlliance`;
-- the back room: `openShop`, `pickMod`;
+- running a night: `startWave`, `pickUpgrade`;
+- the back room (side tab): `openShop(kind?)`, `shopKind`, `pickMod`, `closeShop`, `shopPriceFor`;
+- reading a tower: `statsOf` (live numbers), `tallyOf` (tonight's damage, pops and share);
 - setup choices: `chooseHero`, `chooseMap`, `setDifficulty`, `chooseNight`, `toggleSlip`, `setPerk`, `setBookmark`;
 - moving between screens: `openSetup`, `beginNight`, `restartNight`, `continueOverflow`, `tryEndless`;
 - controls and tools: `setSpeed`, `togglePause`, `devSeeds`.
 
 `world.hud` is the state the React layer reads. The game's phases are a string union:
 
-`select → coldopen → poster → prep ⇄ combat → upgrade | alliance | betrayal | consequence | memory | shop → victory | defeat`
+`select → coldopen → poster → prep ⇄ combat → upgrade | consequence → victory | defeat`
 
-`nextBeat(cleared, alliance, night)` in rules.ts decides what comes after each wave.
+`nextBeat(cleared, night)` in rules.ts decides what comes after each wave. The back room is not a phase: it's a side tab (`hud.workshop`) over the board during prep and combat.
 
-### File map (about 11,800 lines of TypeScript)
+### File map (about 11,900 lines of TypeScript, plus about 3,100 lines of tests)
 
 | File | Lines | Role |
 |---|---|---|
-| `src/game/engine.ts` | 2,519 | World state, combat, targeting, phases, saving |
-| `src/components/MelonGame.tsx` | 1,854 | Whole React UI: title, setup, HUD, build bar, inspector, cards, settings |
-| `src/game/rules.ts` | 1,630 | All game data and balance knobs |
-| `src/game/draw.ts` | 1,135 | Canvas renderer: board, enemies, shots, effects |
-| `src/game/drawCannons.ts` | 724 | Code-drawn cannons and the fallbacks for missing art |
+| `src/game/engine.ts` | 3,145 | World state, combat, targeting, phases, saving |
+| `src/game/rules.ts` | 1,662 | All game data and balance knobs |
+| `src/game/draw.ts` | 1,326 | Canvas renderer: board, enemies, shots, effects |
+| `src/game/drawCannons.ts` | 1,128 | Code-drawn cannons and the fallbacks for missing art |
+| `src/components/GameHUD.tsx` | 470 | Header, build bar, tower inspector |
+| `src/components/MelonGame.tsx` | 307 | Game shell: the loop, canvas input, which screen shows |
+| `src/components/SetupScreen.tsx`, `TitleScreen.tsx`, `CardPicker.tsx`, `Shop.tsx`, `PauseMenu.tsx`, … | ~1,900 | One component per screen or panel (`Shop.tsx` is the back-room side tab) |
 | `src/game/levels.ts` | 348 | Keeper XP curve, perk data, `perkFx` |
-| `src/game/audio.ts` | 310 | Synthesized sound effects and music |
-| `scripts/sim-core.ts` | 270 | Headless bot player for balance runs |
-| `src/game/keys.ts`, `components/hotkeys.ts` | 257 | Keyboard handling |
-| `src/game/meta.ts` | 143 | Lifetime stats, bookmarks, map unlock goals |
-| `src/game/slips.ts` | 51 | Late slips (optional Overflow modifiers) |
-| `tests/*.test.ts` | ~1,600 | 112 tests in 11 files |
+| `src/game/audio.ts` | 324 | Synthesized sound effects and music |
+| `scripts/sim-core.ts` | 277 | Headless bot player for balance runs |
+| `src/game/keys.ts`, `components/hotkeys.ts` | ~250 | Keyboard handling |
+| `src/game/meta.ts`, `src/lib/saves.ts` | ~300 | Lifetime stats, bookmarks, unlock goals; save versioning and migrations |
+| `tests/*.test.ts` | ~3,100 | 176 tests in 25 files |
 
-Art is 50 painted `.webp` sprites in `public/sprites/`: towers, shots, enemies, portraits, floor tiles and the title screen. A tower with no painted sprite is drawn with canvas paths instead.
+Art is 71 painted `.webp` sprites in `public/sprites/`: towers, shots, enemies, portraits, floor tiles and the title screen. A tower with no painted sprite is drawn with canvas paths instead.
 
 ---
 
@@ -141,43 +144,37 @@ Two variants are pumpkin-only:
   | Melongeddon | 1.2× | 1.12× |
   | Overdue | 1.45× | 1.15× |
 
-### 4.2 Towers (18 regular + 6 signature)
+### 4.2 Towers (23 shared + 11 keeper towers)
 
-There are five build tabs (keys Q, W, E, R, T), and each tab holds up to five towers (keys 1 to 5).
+There are six build tabs (keys Q, W, E, R, T, Y), and each tab holds up to five towers (keys 1 to 5).
 
 | Tab | Towers (cost) |
 |---|---|
 | Damage (Q) | Melon cannon 60, Pumpkin mortar 75, Seed Spitter 50, Shelf Ballista 80, Long Reader 95 |
 | Control (W) | Still 45, Fire cannon 70, Freeze cannon 65, Shush Bell 70, Fly Hive 65 |
 | Support (E) | Reading Lamp 60, Ink Well 55, Peeler 60, Bookworm 75, Compost Heap 70 |
-| Keeper (R) | The chosen keeper's signature tower, one at a time (two with a level-10 perk) |
-| Trick (T) | Boomerang Bookend 70, Orrery 80, Paper Plane 85 |
+| Keeper (R) | The chosen keeper's own towers, one of each at a time (section 4.3) |
+| Trick (T) | Boomerang Bookend 70, Orrery 80, Paper Plane 85, Serpent Quill 75, Rolling Globe 100; each opens at a keeper level |
+| Heavy (Y) | Printing Press 200, Pipe Organ 220, Brass Telescope 250; locked until wave 6, or 200 seeds in hand that night |
 
-**Trick towers** (added in v0.5.0) have curved shot paths:
+**Trick towers** have curved shot paths (boomerang loops, orbiting planets, a steering paper plane, a weaving quill, a globe that lands and rolls back up the carpet). They are `Flyer` objects moved by `moveFlyer`; the Orrery's planets are computed per tower in `spinOrrery`.
 
-- **Boomerang Bookend:** flies an elliptical loop out to the lead fruit and back. It hits each fruit once on the way out and once on the way back.
-- **Orrery:** three planets orbit the tower all the time and hit whatever they sweep through. The same planet can hit the same fruit at most once every 0.5 s.
-- **Paper Plane:** a glider that steers toward the nearest fruit with a limited turn rate, so it swoops in arcs. It lasts 3.5 s and can hit the same fruit at most once every 0.45 s.
+**Heavy cannons** each do two jobs: the Press slides a sheet down the carpet that hits every fruit once and inks it (+25% damage taken); the Organ hits everything in reach and slows it, and every third chord stops it; the Telescope fires an instant beam that ignores all armour and aims for armoured fruit first.
 
-Boomerangs and planes are `Flyer` objects moved by `moveFlyer`. The Orrery's planets are computed per tower in `spinOrrery`.
+**Tower types** decide which shared upgrade picks affect a tower: Cannon, Precision, Alchemy, Creature, Utility (no damage). The upgrade card shows this as a plain-words tag ("Cannons", "Puddles", "The ledger").
 
-**Tower types** decide which shared upgrades affect a tower:
+Each tower's stats come from a base cannon and a `PROFILE` row (damage, fire rate and range multipliers), with upgrade picks, back-room upgrades and perks applied by `towerReadout`. The build cards show each tower's damage before you build it, and the inspector shows what a placed tower has done tonight (`tallyOf`: damage, pops, share of all damage; puddles, fire and worms count for the tower that made them).
 
-| Type | Towers |
-|---|---|
-| Cannon | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet |
-| Precision | Seed Spitter, Shelf Ballista, Long Reader, Peeler, the three trick towers, Card Catalogue, Scales of Justice |
-| Alchemy | Still, Ink Well, Bubbling Cauldron |
-| Creature | Fly Hive, Bookworm, Mimic Chest |
-| Utility (no damage) | Shush Bell, Reading Lamp, Compost Heap, History Lectern |
-
-Each tower's stats come from a base cannon and a `PROFILE` row (damage, fire rate and range multipliers), with upgrades, fittings and perks applied by `towerReadout`.
-
-**Selling** refunds 70% of what you paid.
+**Selling** refunds 70% of the build price (`sellValue`). Two exceptions: the Unstoppered sells for a flat 35 however far it spilled (the Sell button says "Sell 35"), and the Reserve Desk adds its banked seeds.
 
 ### 4.3 Keepers (heroes)
 
-There are six keepers. Each has a starting kit, a perk and a signature tower that only they can build.
+There are six keepers. Each has a starting kit, a perk and a signature tower that only they can build. Four have more keeper towers on the same tab (`KEEPER_TOWERS`):
+
+- **Mynxi:** Reserve Desk (30; banks 8 seeds a wave, a passing melon eats the bank; unlocks after a night ending with 200+ seeds).
+- **Vaelithra:** Unstoppered (150; a tipped flask that drips slow puddles and may spill onto more floor tiles; unlocks after a win with a Still and a puddle pick).
+- **Legal Elf:** Foot of the Law (85; stamps the carpet, pinning everything under it, husks included) and Honeyed Heel (75; sticky footprints: fruit that step in take +25% damage for 4 s; no slow).
+- **Ooze Clues:** the Copycat (160; copies the cannon right beside it, one step harder). Not Memec's Mimic Chest.
 
 | Keeper | Start | Perk | Signature tower |
 |---|---|---|---|
@@ -196,34 +193,31 @@ There are six keepers. Each has a starting kit, a perk and a signature tower tha
 - At levels 2, 4, 6, 8 and 10 the keeper chooses one of two perks. The choice can be swapped before any night.
 - Level 10 offers either a second signature tower or a keeper-specific capstone.
 
-### 4.4 Upgrades and fittings
+### 4.4 Upgrade picks and the back room
 
-**Upgrade picks** come after waves 1, 2 and 6. The player picks one of three cards (four for Dr. Samodovol), and each card says which tower types it affects. There are 17 upgrades:
+**Upgrade picks** come after waves 1, 2 and 6. The player picks one of three cards (four for Dr. Samodovol). There are 17 upgrades:
 
 - General: Rapid Rind, Reading Lamp, Heavy Caliber, Juicy Explosions, Knight's Splatter, Electrified Melons, Bouncing Melons, three slowing-puddle upgrades, Seed Cache and Overdue Fines.
 - Tower-specific: five upgrades, each offered only once that tower is on the board.
+- A keeper's own cards (Mynxi: Overdue Fines, Reading Lamp; Sir Michael: Heavy Caliber, Knight's Splatter; Vaelithra: Trial Vial, Distilled Batch) have a gold edge and the keeper's name.
 
-**Back room fittings** are bought between waves:
+**The back room** is a side tab over the board (a bottom sheet on phones):
 
-- There are 22 fittings, each for particular towers, such as Longer barrel, Quick wick or Deeper frost.
-- Each fitting stays on one tower, and a tower holds two.
-- The price starts at 25 seeds and rises 15 with each purchase.
-- Signature towers can't be fitted.
+- **Upgrades belong to a tower kind.** Buying one gives it to every tower of that kind on the floor and every one built later that night (and to a Copycat copying one). There are 26 back-room upgrades, such as Longer barrel, Quick wick or Deeper frost.
+- **Each kind has its own price:** 40 seeds, then 30 more for each upgrade that kind already has. Other kinds' upgrades don't raise it. No cap; each upgrade once.
+- **Between waves only.** The tab can be opened and read during a wave.
+- Mynxi's first upgrade of the night costs 15, the Legal Elf pays 30% less, and the Back-room Key bookmark makes the first one free. Keeper towers have none, except the Unstoppered, which takes the Still's.
+- Upgrades aren't part of a tower's sell price.
 
 ### 4.5 Nights and story
 
-- **Midnight (night one, 15 waves).** After wave 4, Sir Michael the Pumpkin Knight comes to the door. The player chooses:
-  - **Accept:** he helps for a wave, then betrays you after wave 5, costing stacks.
-  - **Betray him:** you get an immediate upgrade instead of the wave-6 pick, and he returns with a grudge.
-  - **Send him away:** nothing happens now.
-
-  After wave 14, "The choice comes due", and the finale depends on that choice.
+- **Midnight (night one, 15 waves).** Two acts: waves 1–6 teach the fruit and their armour; act two (waves 7–15) is thicker and mixes the armour types, ending on "The last wave" card before Karl. There is no mid-night choice any more: the knight's door (accept, betray or send away, with three endings) was removed on `dev`. Sir Michael is now only a keeper you can pick.
 - **The Overflow (night two, 15 waves).** A flooded map with a **returns chute**:
   - From wave 6, some fruit come up the chute and walk the carpet *backwards*.
   - Fire is weaker on the wet floor.
   - The last two waves add a shelled melon up the chute for every 25 Absurdity.
   - Karl comes up the chute on wave 15.
-  - The Midnight door choice carries over: household cannons, husked corn already on the carpet, or +45 seeds.
+  - It starts with 45 extra seeds (the crates by the chute), added after the keeper's opening line.
 - **Late slips (Overflow only).** The player may take up to three optional handicaps, each adding keeper XP:
 
   | Slip | Effect | XP |
@@ -254,7 +248,7 @@ Each board is a list of carpet corners plus fixed spots for ally cannons. A boar
 ### 4.7 Meta progression
 
 - **Bookmarks:** five permanent perks, one equipped at a time. They are Seed Fund, Spare Stack, Back-room Key, Bulk Order and Late Fees.
-- **Lifetime stats:** wins, hard wins, Karl pops, fittings bought and best waves. These unlock maps and bookmarks.
+- **Lifetime stats:** wins, hard wins, Karl pops, back-room upgrades bought and best waves. These unlock maps and bookmarks.
 - **Developer mode:** a Settings switch that reloads the game with everything unlocked, every keeper at level 10, and a "+500 seeds" button. While it is on, nothing is saved, so switching it off restores the real progress.
 
 ### 4.8 Presentation and controls
@@ -284,9 +278,9 @@ Each board is a list of carpet corners plus fixed spots for ally cannons. A boar
 
 A headless **bot simulator** (`npm run sim`) plays thousands of runs through the real engine:
 
-- It covers keepers × difficulties × strategies × maps × door choices.
+- It covers keepers × difficulties × strategies × maps.
 - `Math.random` is replaced with a seeded `mulberry32` generator, so runs can be repeated.
-- The bot places towers where they cover the most carpet and picks upgrades at random.
+- The bot places towers where they cover the most carpet and picks upgrades at random. The `mixed+mods` bot also buys back-room upgrades, but only for a kind it has at least two of, and only when the price per tower is under 60% of a new tower. On `dev` (Midnight, three maps, all keepers, 72 runs each) it won 83% on Normal and 57% on Hard, against 86% and 53% for the same bot without upgrades, so the per-kind back room doesn't drain a night.
 - `RunConfig` also accepts keeper levels, a bookmark, late slips and a custom upgrade chooser.
 
 **Targets:**
@@ -294,7 +288,7 @@ A headless **bot simulator** (`npm run sim`) plays thousands of runs through the
 - A cautious bot (2 towers per wave) should win about 90% on Story, 60–70% on Normal and 35–45% on Melongeddon.
 - An aggressive bot should win about 90% on Normal and 50% on Melongeddon.
 
-**Recent results** (Midnight on the Stacks unless noted):
+**Recent results** (measured at v0.5.0, before the Heavy tab and the per-kind back room; Midnight on the Stacks unless noted):
 
 | Scenario | Normal | Melongeddon |
 |---|---|---|
@@ -325,7 +319,7 @@ Trick tower check: the bot built melon cannons plus one other kind. Win rates we
 
 ## 6. Testing
 
-There are **112 tests**, all passing, in about 8 seconds (`npm test`). They cover:
+There are **176 tests**, all passing, in about 11 seconds (`npm test`). They cover:
 
 - engine flow (phases, waves, leaks, victory and defeat);
 - keyboard and menu navigation;
@@ -334,9 +328,10 @@ There are **112 tests**, all passing, in about 8 seconds (`npm test`). They cove
 - late slips;
 - tower types and upgrade targeting;
 - developer mode;
-- trick tower behaviour, for example the boomerang hitting a fruit once on the way out and once on the way back.
+- trick tower behaviour, for example the boomerang hitting a fruit once on the way out and once on the way back;
+- Heavy cannons and their wave-6 / 200-seed gate, every keeper tower, the per-kind back room and its prices, damage tallies, the upgrade card's scope tags, and save migrations.
 
-**Not automated:** visual rendering, audio, touch input and the installed desktop app. Rendering was checked by hand, by drawing the canvas in a page and looking at screenshots. CI smoke-tests the packaged Electron app: it must load the title screen and print `"ok":true`. Nobody has hand-installed the v0.5.0 .exe yet.
+**Not automated:** visual rendering, audio, touch input and the installed desktop app. Rendering was checked by hand, by drawing the canvas in a page and looking at screenshots. CI smoke-tests the packaged Electron app: it must load the title screen and print `"ok":true`. Nobody has hand-installed the v0.5.0 .exe yet, and `dev` has no release build.
 
 ---
 
@@ -384,10 +379,10 @@ This is what we already know about.
 
 **Code:**
 
-- **Large files.** `engine.ts` (2,500 lines) and `MelonGame.tsx` (1,850 lines) each do too much. The engine has one closure-based `createWorld` holding every system, and the UI is one component file with every screen in it.
+- **Large engine.** `engine.ts` (3,100 lines) still does too much: one closure-based `createWorld` holds every system. The UI has been split into one component per screen (`MelonGame.tsx` is now a 300-line shell).
 - **Global randomness.** The engine calls `Math.random` directly (17 call sites), and the simulator makes runs repeatable by overwriting the global. An injected random number generator would be cleaner.
 - **`stepWorld` reaches into a hidden `step` property** on the world through a type cast rather than a typed API.
-- **Saved data.** Saves are several separate `localStorage` keys with hand validation (`validateSetup`, `cleanSlips`). There is no save version number or migration path.
+- **Saved data.** Saves are several separate `localStorage` keys with hand validation (`validateSetup`, `cleanSlips`). They now carry a version number with migrations (`src/lib/saves.ts`; version 2 removed the knight's door).
 
 **Game:**
 
@@ -396,7 +391,7 @@ This is what we already know about.
 
 **Art and docs:**
 
-- **Missing art.** The three trick towers and their thrown objects are still drawn in code, and the Overflow has no wet-floor tile. Prompts are written in `docs/art/PROMPTS.md`.
+- **Missing art.** The Honeyed Heel, Mynxi's four faces, the Rolling Globe's ball and some floor tiles are still drawn in code. Prompts are written in `docs/art/PROMPTS.md`.
 
 **Release:**
 
@@ -410,10 +405,11 @@ This is what we already know about.
 ## 10. Roadmap ideas under consideration
 
 - **Night Three:** a new story night with a new mechanic. This was the recommended next major goal.
-- Painted art for the trick towers and the Overflow floor.
+- Painted art for the last code-drawn towers and floor tiles.
 - Publishing on itch.io and switching on GitHub Pages.
-- Splitting `engine.ts` into systems (targeting, projectiles, effects, phases, persistence), and `MelonGame.tsx` into one component per screen.
-- A smarter simulator bot that plans support towers and fittings.
+- Splitting `engine.ts` into systems (targeting, projectiles, effects, phases, persistence).
+- A smarter simulator bot that plans support towers.
+- Possibly a small mid-night choice to replace the removed knight's door (section 4.5).
 
 ---
 
@@ -424,7 +420,7 @@ git clone https://github.com/Jorthalion/melongeddon_v1.git
 cd melongeddon_v1
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 112 tests, ~8 s (Node 24)
+npm test           # 176 tests, ~11 s (Node 24)
 npm run sim        # balance report -> sim-results/report.md
 npm run build      # typecheck + production build
 ```
@@ -437,15 +433,15 @@ Please be specific: name files, functions and numbers where you can.
 
 1. **Game design:**
    - Does the core loop (build, wave, upgrade pick, back room) have enough decisions?
-   - Which systems overlap or feel redundant? Possible examples: upgrades vs fittings vs perks vs bookmarks.
+   - Which systems overlap or feel redundant? Possible examples: upgrade picks vs back-room upgrades vs perks vs bookmarks.
 2. **Difficulty and pacing:**
    - Are the win-rate targets in section 5 sensible for a casual tower defense?
    - Is 15 waves per night the right length?
 3. **Trick towers:** are the boomerang, orrery and plane distinct enough from the existing 15 regular towers? Is there a better fourth idea?
-4. **Night Three:** what new mechanic would best follow the knight's betrayal (Midnight) and the backwards chute (the Overflow)?
+4. **Night Three:** what new mechanic would best follow the backwards chute (the Overflow)? Midnight no longer has a story choice.
 5. **Architecture:**
    - Given section 9, what refactor would pay off most before adding Night Three?
    - Is the closure-based engine a problem worth fixing?
-6. **Onboarding:** with 6 keepers, 24 towers, 17 upgrades, 22 fittings and 8 maps, where will a new player get lost first?
+6. **Onboarding:** with 6 keepers, 34 towers, 17 upgrade picks, 26 back-room upgrades and 8 maps, where will a new player get lost first?
 7. **itch.io launch:** what should be in place before the first public upload? For example: a save-version scheme, analytics, a feedback link, or a trailer GIF.
 8. **Anything else** that looks risky, unclear or unfinished from this description.
