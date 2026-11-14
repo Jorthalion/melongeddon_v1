@@ -92,7 +92,7 @@ Moved to [TRICK_PROMPTS.md](TRICK_PROMPTS.md): ready-to-paste ChatGPT prompts fo
 
 ## 2. Floor tiles (not yet drawn)
 
-Rare Books and the Archive have floors of their own. The Overflow and the two big maps still use the plain library floor. Each of these is a **seamless tileable texture** the game repeats under the whole board, so: straight top-down view, even lighting, no vignette, no single object in the middle, and **edges that tile**. 1024 × 1024, no transparency. Keep them fairly dark and low-contrast, so cannons and fruit stay readable on top.
+Rare Books, the Archive and the Overflow (`tile-floor-overflow.webp`, in the game) have floors of their own. The two big maps still use the plain library floor. Each of these is a **seamless tileable texture** the game repeats under the whole board, so: straight top-down view, even lighting, no vignette, no single object in the middle, and **edges that tile**. 1024 × 1024, no transparency. Keep them fairly dark and low-contrast, so cannons and fruit stay readable on top.
 
 | File name | Prompt (after the style line) |
 |---|---|
@@ -102,7 +102,7 @@ Rare Books and the Archive have floors of their own. The Overflow and the two bi
 
 ### 2b. The Overflow's returns chute (not yet drawn)
 
-The Overflow marks the end of its carpet, where fruit come back up the chute, with a small code-drawn "CHUTE" plate. A painted hatch would look better there. The game adds the glow when the chute is active, so draw it unlit.
+**Done:** the Overflow now shows a painted returns chute (`prop-returns-chute.webp`) beside the door, glowing blue on chute waves; the code-drawn "CHUTE" plate is only a fallback. The game adds the glow when the chute is active, so draw it unlit.
 
 | File name | Prompt (after the style line) |
 |---|---|

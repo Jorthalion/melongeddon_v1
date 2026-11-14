@@ -99,7 +99,7 @@ The board is drawn at one uniform scale, centered, with `fitBoard(w, h, …)`, s
 | `src/game/meta.ts`, `src/lib/saves.ts` | ~300 | Lifetime stats, bookmarks, unlock goals; save versioning and migrations |
 | `tests/*.test.ts` | ~3,100 | 176 tests in 25 files |
 
-Art is 78 painted `.webp` sprites in `public/sprites/`: towers, shots, enemies, portraits, floor tiles and the title screen. A tower with no painted sprite is drawn with canvas paths instead.
+Art is 80 painted `.webp` sprites in `public/sprites/`: towers, shots, enemies, portraits, floor tiles and the title screen. A tower with no painted sprite is drawn with canvas paths instead.
 
 ---
 
@@ -391,7 +391,7 @@ This is what we already know about.
 
 **Art and docs:**
 
-- **Missing art.** A few floor tiles (Overflow, Great Hall, Reading Room) and the chute prop are still drawn in code. Prompts are written in `docs/art/PROMPTS.md`.
+- **Missing art.** The Great Hall and Reading Room still use the plain library floor. Prompts are written in `docs/art/PROMPTS.md`.
 
 **Release:**
 

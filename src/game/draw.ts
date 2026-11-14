@@ -31,6 +31,8 @@ const SPRITE_SRC = {
   floor: asset("sprites/tile-floor.webp"),
   floorRarebooks: asset("sprites/tile-floor-rarebooks.webp"),
   floorArchive: asset("sprites/tile-floor-archive.webp"),
+  floorOverflow: asset("sprites/tile-floor-overflow.webp"),
+  chuteProp: asset("sprites/prop-returns-chute.webp"),
   shotSeed: asset("sprites/shot-seed.webp"),
   shotFly: asset("sprites/shot-fly.webp"),
   shotInk: asset("sprites/shot-ink.webp"),
@@ -147,7 +149,14 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   ctx.fillRect(-8, -8, world.w + 16, world.h + 16);
 
   const art = getSprites();
-  const ownFloor = world.hud.map === "rarebooks" ? art.floorRarebooks : world.hud.map === "archive" ? art.floorArchive : undefined;
+  const ownFloor =
+    world.hud.map === "rarebooks"
+      ? art.floorRarebooks
+      : world.hud.map === "archive"
+        ? art.floorArchive
+        : world.hud.map === "overflow"
+          ? art.floorOverflow
+          : undefined;
   const floor = ready(ownFloor) ? ownFloor : art.floor;
   if (ready(floor)) {
     const pattern = ctx.createPattern(floor, "repeat");
@@ -826,7 +835,7 @@ function drawCarpet(
     ctx.fillText("STACKS", end.x, end.y + 4);
   }
 
-  if (world.hud.map === "overflow" && world.points.length >= 2) drawChute(ctx, world, end);
+  if (world.hud.map === "overflow" && world.points.length >= 2) drawChute(ctx, world, end, getSprites().chuteProp);
 }
 
 /**
@@ -834,7 +843,7 @@ function drawCarpet(
  * backwards. A "CHUTE" plate by the door and chevrons pointing back toward the entrance show where.
  * They glow and move while the current or next wave uses the chute, and sit dim otherwise.
  */
-function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number; y: number }) {
+function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number; y: number }, prop?: HTMLImageElement) {
   const prev = world.points[world.points.length - 2];
   const len = Math.hypot(end.x - prev.x, end.y - prev.y) || 1;
   // Unit vector pointing back along the carpet, the way chute fruit walk.
@@ -875,7 +884,27 @@ function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number
     ctx.stroke();
   }
 
-  // "CHUTE" plate beside the door, kept inside the board.
+  // The returns chute beside the door (painted when the art is loaded, a "CHUTE" plate otherwise), kept inside the board.
+  if (ready(prop)) {
+    // Up and back from the door (along the carpet), so it never covers the door itself.
+    const size = 50;
+    const side = end.y - CELL * 1.05 - size / 2 >= 2 ? -1 : 1;
+    const x = Math.max(size / 2 + 2, Math.min(world.w - size / 2 - 2, end.x + bx * CELL * 1.1));
+    const y = end.y + side * CELL * 1.05;
+    if (active) {
+      const halo = ctx.createRadialGradient(x, y, 6, x, y, size * 0.8);
+      halo.addColorStop(0, `rgba(111,198,239,${0.3 + pulse * 0.3})`);
+      halo.addColorStop(1, "rgba(111,198,239,0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(x, y, size * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = active ? 1 : 0.85;
+    blitFit(ctx, prop, x, y, size, size);
+    ctx.restore();
+    return;
+  }
   const w = 50;
   const h = 16;
   const side = end.y - CELL * 0.85 - h / 2 >= 2 ? -1 : 1;
