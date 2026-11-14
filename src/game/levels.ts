@@ -78,13 +78,17 @@ export interface PerkFx {
   absorb?: number;
   /** Mimic Chest: extra seeds per meal. */
   loot?: number;
-  /** History Lectern: starting bonus, growth per wave, and cap, added; reach multiplier. */
-  lecternBase?: number;
-  lecternGrow?: number;
-  lecternMax?: number;
-  lecternReach?: number;
-  /** Extra upgrade choices on every shelf. */
-  offer?: number;
+  /** Dr. Samodovol's false book: penalty taken off the 15% (Erratum), and 1 = it ends halfway through the wave (Shorter Lecture). */
+  misreadCut?: number;
+  shortLecture?: number;
+  /** History Lectern: extra slow on the noted kind (Cited Edition), 1 = notes fruit past halfway (Midpoint), extra waves the note lasts (Carried Note). */
+  lectureSlow?: number;
+  midpoint?: number;
+  carriedNote?: number;
+  /** False book: 1 = never the previous shelf's name (Different Hand), 1 = its blurb is one line shorter (Margin), 1 = "sic" once he's been fooled (Marginalia). */
+  differentHand?: number;
+  margin?: number;
+  marginalia?: number;
 }
 
 export interface Perk {
@@ -93,8 +97,8 @@ export interface Perk {
   fx: PerkFx;
 }
 
-/** Per keeper: five tiers (levels 2, 4, 6, 8, 10), each a choice of two perks. */
-export const PERKS: Record<HeroId, Array<[Perk, Perk]>> = {
+/** Per keeper: five tiers (levels 2, 4, 6, 8, 10), each a choice of two perks (Dr. Samodovol's last tier has one). */
+export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
   mynxi: [
     [
       { name: "Petty Cash", blurb: "Start with 30 more seeds.", fx: { seeds: 30 } },
@@ -206,28 +210,25 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk]>> = {
       { name: "Bottomless", blurb: "Absorbs one more leak each wave.", fx: { absorb: 1 } },
     ],
   ],
-  // Dr. Samodovol wins the fewest nights, so his perks are a little bigger.
+  // Dr. Samodovol is the weakest keeper on purpose: his perks add no damage, seeds or stacks.
   scholar: [
     [
-      { name: "Research Grant", blurb: "Start with 50 more seeds.", fx: { seeds: 50 } },
-      { name: "Sabbatical", blurb: "Start with three more stacks.", fx: { lives: 3 } },
+      { name: "Erratum", blurb: "The wrong book's penalty is 8% instead of 15%.", fx: { misreadCut: 0.07 } },
+      { name: "Shorter Lecture", blurb: "The wrong book's penalty ends halfway through the next wave.", fx: { shortLecture: 1 } },
     ],
     [
-      { name: "Annotated", blurb: "The Lectern's bonus starts at 35% instead of 25%.", fx: { lecternBase: 0.1 } },
-      { name: "Wide Reading", blurb: "The Lectern reaches 30% farther.", fx: { lecternReach: 1.3 } },
+      { name: "Cited Edition", blurb: "The kind the Lectern remembers is 20% slower instead of 15%.", fx: { lectureSlow: 0.05 } },
+      { name: "Midpoint", blurb: "The Lectern speaks if a fruit got halfway along the carpet.", fx: { midpoint: 1 } },
     ],
     [
-      { name: "Tenure", blurb: "+15 seeds after every wave.", fx: { waveSeeds: 15 } },
-      { name: "Peer Review", blurb: "All your cannons hit 12% harder.", fx: { allDmg: 1.12 } },
+      { name: "Carried Note", blurb: "The Lectern's slow lasts one extra wave.", fx: { carriedNote: 1 } },
+      { name: "Different Hand", blurb: "The wrong book never repeats the previous shelf's.", fx: { differentHand: 1 } },
     ],
     [
-      { name: "Thesis", blurb: "The Lectern grows faster and caps at 85% instead of 60%.", fx: { lecternGrow: 0.03, lecternMax: 0.25 } },
       { name: "Lecture Notes", blurb: "The Lectern costs 25 seeds less.", fx: { sigCost: 25 } },
+      { name: "Margin", blurb: "The wrong book's description is one line shorter. A careful reader can tell.", fx: { margin: 1 } },
     ],
-    [
-      { name: "Second Lectern", blurb: "You can build two History Lecterns.", fx: { sigExtra: 1 } },
-      { name: "Fifth Book", blurb: "Every shelf offers one more upgrade.", fx: { offer: 1 } },
-    ],
+    [{ name: "Marginalia", blurb: "Once he has been fooled, he pencils a small note on later wrong books. Easy to miss.", fx: { marginalia: 1 } }],
   ],
 };
 
@@ -237,6 +238,8 @@ export type PerkPicks = Array<0 | 1 | null>;
 export interface KeeperRecord {
   xp: number;
   picks: PerkPicks;
+  /** Dr. Samodovol: he has taken a wrong book at least once (kept across nights). */
+  misread?: boolean;
 }
 
 export type KeeperProgress = Record<HeroId, KeeperRecord>;
@@ -260,6 +263,7 @@ export function normalizeRecord(rec: KeeperRecord): KeeperRecord {
   return {
     xp: rec.xp,
     picks: PERK_LEVELS.map((at, i) => (level >= at ? (rec.picks[i] === 1 ? 1 : 0) : null)),
+    ...(rec.misread ? { misread: true } : {}),
   };
 }
 
@@ -267,7 +271,8 @@ export function normalizeRecord(rec: KeeperRecord): KeeperRecord {
 export function activePerks(hero: HeroId | null, rec: KeeperRecord | undefined): Perk[] {
   if (!hero || !rec) return [];
   const { picks } = normalizeRecord(rec);
-  return picks.flatMap((p, i) => (p == null ? [] : [PERKS[hero][i][p]]));
+  // A one-perk tier always gives its one perk.
+  return picks.flatMap((p, i) => (p == null ? [] : [PERKS[hero][i][p] ?? PERKS[hero][i][0]]));
 }
 
 /** All active perk effects merged: multipliers multiply, everything else adds. */
@@ -296,13 +301,16 @@ export function perkFx(hero: HeroId | null, rec: KeeperRecord | undefined): Requ
     fee: 0,
     absorb: 0,
     loot: 0,
-    lecternBase: 0,
-    lecternGrow: 0,
-    lecternMax: 0,
-    lecternReach: 1,
-    offer: 0,
+    misreadCut: 0,
+    shortLecture: 0,
+    lectureSlow: 0,
+    midpoint: 0,
+    carriedNote: 0,
+    differentHand: 0,
+    margin: 0,
+    marginalia: 0,
   };
-  const MUL = new Set<keyof PerkFx>(["allDmg", "allRange", "sigDmg", "sigRange", "sigPace", "poolLife", "poolWide", "chill", "knock", "splash", "lecternReach"]);
+  const MUL = new Set<keyof PerkFx>(["allDmg", "allRange", "sigDmg", "sigRange", "sigPace", "poolLife", "poolWide", "chill", "knock", "splash"]);
   for (const perk of activePerks(hero, rec)) {
     for (const [k, v] of Object.entries(perk.fx) as Array<[keyof PerkFx, number]>) {
       if (k === "chainRatio") out.chainRatio = Math.max(out.chainRatio, v);
@@ -331,6 +339,7 @@ export function loadProgress(): KeeperProgress {
       out[hero] = normalizeRecord({
         xp: Number.isFinite(xp) && xp > 0 ? Math.floor(xp) : 0,
         picks: PERK_LEVELS.map((_, i) => (picks[i] === 1 ? 1 : picks[i] === 0 ? 0 : null)),
+        misread: r.misread === true,
       });
     }
   } catch {

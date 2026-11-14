@@ -62,9 +62,10 @@ test("levels run 1 to 10 and each costs a little more than the last", () => {
   assert.ok(xpForLevel(MAX_LEVEL) / win >= 8);
 });
 
-test("every keeper has five tiers of two perks, each with a name and an effect", () => {
+test("every keeper has five tiers of two perks (the Doctor's last has one), each with a name and an effect", () => {
   for (const hero of HEROES) {
     assert.equal(PERKS[hero].length, PERK_LEVELS.length, hero);
+    PERKS[hero].forEach((pair, tier) => assert.equal(pair.length, hero === "scholar" && tier === 4 ? 1 : 2, `${hero} tier ${tier}`));
     for (const pair of PERKS[hero])
       for (const perk of pair) {
         assert.ok(perk.name && perk.blurb, hero);
@@ -96,13 +97,13 @@ test("clearing a wave gives the keeper XP, more on harder difficulties", () => {
 });
 
 test("starting perks add seeds and stacks", () => {
-  const plain = start("scholar", emptyProgress()).world.hud;
-  assert.equal(plain.seeds, KEEPER_START.scholar!.seeds);
-  const grant = start("scholar", at("scholar", 2, 0)).world.hud;
-  assert.equal(grant.seeds, KEEPER_START.scholar!.seeds + 50);
-  const sabbatical = start("scholar", at("scholar", 2, 1)).world.hud;
-  assert.equal(sabbatical.lives, KEEPER_START.scholar!.lives + 3);
-  assert.equal(sabbatical.maxLives, KEEPER_START.scholar!.lives + 3);
+  const plain = start("elf", emptyProgress()).world.hud;
+  assert.equal(plain.seeds, KEEPER_START.elf!.seeds);
+  const grant = start("elf", at("elf", 2, 0)).world.hud;
+  assert.equal(grant.seeds, KEEPER_START.elf!.seeds + 30);
+  const sabbatical = start("elf", at("elf", 2, 1)).world.hud;
+  assert.equal(sabbatical.lives, KEEPER_START.elf!.lives + 2);
+  assert.equal(sabbatical.maxLives, KEEPER_START.elf!.lives + 2);
 });
 
 test("setPerk only works on open tiers, and only on the setup screen", () => {
@@ -132,8 +133,8 @@ test("signature perks change the keeper's own tower in the inspector numbers", (
   assert.equal(desk.statsOf(melonB.id)!.range, base.statsOf(melonA.id)!.range);
 });
 
-test("the level 10 perk allows a second signature tower", () => {
-  for (const hero of HEROES) {
+test("the level 10 perk allows a second signature tower (not for the Doctor)", () => {
+  for (const hero of HEROES.filter((h) => h !== "scholar")) {
     const one = start(hero, emptyProgress());
     const two = start(hero, at(hero, 10, 0));
     const kind = SIGNATURE[hero];
@@ -151,10 +152,15 @@ test("the level 10 perk allows a second signature tower", () => {
   }
 });
 
-test("Fifth Book gives the Doctor one more upgrade on every shelf", () => {
-  const fx = perkFx("scholar", maxedProgress(1).scholar);
-  assert.equal(fx.offer, 1);
-  assert.equal(perkFx("scholar", maxedProgress(0).scholar).offer, 0);
+test("none of the Doctor's perks add damage, seeds, stacks, range or a second Lectern", () => {
+  for (const pick of [0, 1] as const) {
+    const fx = perkFx("scholar", maxedProgress(pick).scholar);
+    assert.equal(fx.allDmg, 1);
+    assert.equal(fx.sigDmg, 1);
+    assert.equal(fx.allRange, 1);
+    assert.equal(fx.seeds + fx.lives + fx.killSeeds + fx.waveSeeds + fx.sigExtra, 0, `picks ${pick}`);
+  }
+  assert.equal(perkFx("scholar", maxedProgress(1).scholar).marginalia, 1, "Marginalia is the level 10 perk either way");
 });
 
 test("Ooze's Gelatinous perk absorbs two leaks a wave", () => {

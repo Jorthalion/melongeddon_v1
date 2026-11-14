@@ -249,7 +249,7 @@ After the guide, the next waves show short tips. Bring them back any time with *
 | Pause | Pause button in the header | `P`, or `Space` during a wave |
 | Pause menu | ☰ button | `Esc` (when nothing is selected) |
 | Game speed | − / + in the header (0.5×, 1×, 2×, 3×) | `-` / `+` |
-| Pick a card choice | Tap it | `1`–`3` (`1`–`4` for Dr. Samodovol's upgrade picks) |
+| Pick a card choice | Tap it | `1`–`3` (`1`–`4` on Dr. Samodovol's shelves, which hold one wrong book) |
 | Press a card's main button | Tap it | `Enter` |
 | Sound on/off | Speaker button | `M` |
 
@@ -274,7 +274,7 @@ Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't 
 | **Sir Michael**, Pumpkin Knight | 10 stacks, 110 seeds, one cannon already built | His shots hit harder | **Pumpkin Trebuchet** (110): a huge, slow splash that knocks fruit back down the carpet |
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Copycat** (160): see below |
-| **Dr. Samodovol**, The Scholar | 12 stacks, 150 seeds | Upgrade picks offer four choices instead of three | **History Lectern** (65): no shot; nearby cannons hit harder, and more so every wave it stands |
+| **Dr. Samodovol**, The Scholar | 8 stacks, 100 seeds. He's the weakest keeper, on purpose | **One of the books is wrong.** Each shelf shows four cards: three real upgrades and one that only looks real. It names a real upgrade, gives nothing, and in the next wave his cannons hit 15% softer and 15% slower. He will not say which | **History Lectern** (65): no shot, and it helps no cannon. After each wave it looks at how far the fruit got: if any got three-quarters of the way along the carpet (or leaked), the kind that got furthest walks 15% slower next wave, and the Doctor says so ("The corn got furthest. They will be slower."). If none did: "Nothing reached the stacks. I have nothing to add." One kind, one wave, one Lectern |
 
 ## Developer mode
 
@@ -353,11 +353,13 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 
 | Level | Option A | Option B |
 |---|---|---|
-| 2 | **Research Grant**: Start with 50 more seeds. | **Sabbatical**: Start with three more stacks. |
-| 4 | **Annotated**: The Lectern's bonus starts at 35% instead of 25%. | **Wide Reading**: The Lectern reaches 30% farther. |
-| 6 | **Tenure**: +15 seeds after every wave. | **Peer Review**: All your cannons hit 12% harder. |
-| 8 | **Thesis**: The Lectern grows faster and caps at 85% instead of 60%. | **Lecture Notes**: The Lectern costs 25 seeds less. |
-| 10 | **Second Lectern**: You can build two History Lecterns. | **Fifth Book**: Every shelf offers one more upgrade. |
+| 2 | **Erratum**: The wrong book's penalty is 8% instead of 15%. | **Shorter Lecture**: The penalty ends halfway through the next wave. |
+| 4 | **Cited Edition**: The kind the Lectern remembers is 20% slower instead of 15%. | **Midpoint**: The Lectern speaks if a fruit got halfway along the carpet. |
+| 6 | **Carried Note**: The Lectern's slow lasts one extra wave. | **Different Hand**: The wrong book never repeats the previous shelf's. |
+| 8 | **Lecture Notes**: The Lectern costs 25 seeds less. | **Margin**: The wrong book's description is one line shorter. A careful reader can tell. |
+| 10 | **Marginalia**: Once he has been fooled, later wrong books carry a small pencilled "sic". Easy to miss. | (no second choice) |
+
+None of his perks add damage, seeds, stacks or a second Lectern.
 
 ## Towers
 
@@ -449,7 +451,7 @@ Mynxi's first upgrade of the night costs 15, the Legal Elf pays 30% less, and th
 
 ## Upgrade picks
 
-After waves **1**, **2** and **6**, you choose one upgrade from three (four for Dr. Samodovol). Upgrades last for the whole night, and each choice shapes which ones come next.
+After waves **1**, **2** and **6**, you choose one upgrade from three. Dr. Samodovol's shelves show four, but one of them is a wrong book (see [Keepers](#keepers)). Upgrades last for the whole night, and each choice shapes which ones come next.
 
 | Upgrade | What it does | Affects |
 |---|---|---|
@@ -610,7 +612,7 @@ Bookmarks are permanent unlocks you earn across runs. Equip one at a time on the
 - **Corners are gold.** A cannon on the inside of a bend covers two stretches of carpet.
 - **Mix your tabs.** Damage pops fruit, Control slows them so damage has time to work, and Support makes everything else better. A Freeze or Still in front of a Mortar is a classic pair.
 - **Read the guards.** Shelled melons laugh at Seed Spitters; husked corn ignores slows; damp pumpkins don't burn. One Peeler fixes all three.
-- **Use your keeper's tower.** Place Memec's Mimic Chest right next to the carpet, the History Lectern among your cannons, and the Card Catalogue where its long reach covers the most carpet.
+- **Use your keeper's tower.** Place Memec's Mimic Chest right next to the carpet, the History Lectern anywhere safe (it only watches), and the Card Catalogue where its long reach covers the most carpet.
 - **Pick upgrades that match your towers.** The small tag beside each card's name says what it reaches ("Cannons", "Puddles", "The ledger"): Heavy Caliber does nothing for a board of Fly Hives.
 - **Save for Karl.** He has a lot of health and costs 3 stacks if he gets through. A Long Reader or Bookworm helps.
 - **On the Overflow, guard both ends.** Put at least one cannon and a Peeler near the chute before wave 6.

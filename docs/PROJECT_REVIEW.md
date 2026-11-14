@@ -183,7 +183,7 @@ There are six keepers. Each has a starting kit, a perk and a signature tower tha
 | Sir Michael | 10 stacks, 110 seeds, a free cannon | Shots hit harder | Pumpkin Trebuchet (110): a huge splash that knocks non-boss fruit back 34 px |
 | Legal Elf | 12 stacks, 150 seeds | Back room costs 30% less | Scales of Justice (95): damage plus 12% of the target's max health (4% on Karl); kills pay a 5-seed fee |
 | Ooze Clues | 13 stacks, 140 seeds | Absorbs the first single-fruit leak each wave | Mimic Chest (100): swallows one nearby fruit whole about every 4 s (Karl only loses a 120 bite) |
-| Dr. Samodovol | 12 stacks, 150 seeds | Upgrade picks offer 4 choices instead of 3 | History Lectern (65): no shot; nearby cannons deal +25% damage, rising 5% per wave up to +60% |
+| Dr. Samodovol | 8 stacks, 100 seeds (weakest on purpose) | One of the four books on each shelf is wrong: it gives nothing and his cannons are 15% softer and slower next combat | History Lectern (65): no shot, no buff; the kind that got furthest last wave (75%+ or leaked) walks 15% slower next wave |
 
 **Keeper levels (1–10)** are saved per keeper:
 
@@ -195,7 +195,7 @@ There are six keepers. Each has a starting kit, a perk and a signature tower tha
 
 ### 4.4 Upgrade picks and the back room
 
-**Upgrade picks** come after waves 1, 2 and 6. The player picks one of three cards (four for Dr. Samodovol). There are 17 upgrades:
+**Upgrade picks** come after waves 1, 2 and 6. The player picks one of three cards. Dr. Samodovol's shelves add a fourth, wrong one. There are 17 upgrades:
 
 - General: Rapid Rind, Reading Lamp, Heavy Caliber, Juicy Explosions, Knight's Splatter, Electrified Melons, Bouncing Melons, three slowing-puddle upgrades, Seed Cache and Overdue Fines.
 - Tower-specific: five upgrades, each offered only once that tower is on the board.

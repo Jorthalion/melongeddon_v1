@@ -79,6 +79,12 @@ export function CardOverlay({
                     <kbd className="absolute top-2 right-2 hidden min-w-[1.25rem] rounded-[4px] border border-b-2 border-line bg-ink/40 px-1 text-center font-sans text-[10px] leading-4 text-muted sm:block">
                       {i + 1}
                     </kbd>
+                    {/* Marginalia: the Doctor's own pencilled "sic" on a wrong book. Small, no tooltip, easy to miss. */}
+                    {hud.sicCard === id ? (
+                      <span className="pointer-events-none absolute bottom-1.5 right-2.5 font-display text-[10px] text-gold/70 italic" aria-hidden="true">
+                        sic
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}

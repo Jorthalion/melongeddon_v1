@@ -109,13 +109,15 @@ test("Ooze Clues absorbs the first leak of each wave", () => {
   assert.ok(ooze.absorbed);
 });
 
-test("Dr. Samodovol sees four upgrade choices", () => {
+test("Dr. Samodovol's shelf: three real books and one wrong one", () => {
   const api = start("scholar");
+  api.world.hud.seeds = 999;
   build(api, "melon");
   build(api, "melon", 6, 3);
   runWave(api);
   assert.equal(api.world.hud.phase, "upgrade");
   assert.equal(api.world.hud.offer.length, 4);
+  assert.ok(api.world.hud.falseCard);
 });
 
 test("Card Catalogue shots chain into more fruit", () => {
@@ -149,17 +151,11 @@ test("Mimic Chest swallows a fruit whole", () => {
   assert.ok(runWave(api, () => saw(api, /gulp/)));
 });
 
-test("History Lectern boosts nearby cannons, more each wave", () => {
+test("History Lectern doesn't boost nearby cannons", () => {
   const api = start("scholar");
+  api.world.hud.seeds = 999;
   const melon = build(api, "melon")!;
   const plain = api.statsOf(melon.id)!.dmg;
   build(api, "lectern", 5, 3);
-  const boosted = api.statsOf(melon.id)!.dmg;
-  assert.ok(boosted > plain, "lectern boosts a neighbour");
-  runWave(api);
-  if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer[0].id);
-  assert.ok(api.statsOf(melon.id)!.dmg >= boosted, "the boost does not shrink after a wave");
-  const spot = freeCell(api);
-  const far = build(api, "melon", spot.c, spot.r);
-  if (far) assert.equal(api.statsOf(far.id)!.dmg, plain, "a cannon out of reach gets nothing");
+  assert.equal(api.statsOf(melon.id)!.dmg, plain, "same damage beside a lectern");
 });

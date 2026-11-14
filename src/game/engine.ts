@@ -37,6 +37,7 @@ import {
   waveXp,
   winXp,
   PERK_LEVELS,
+  PERKS,
   type KeeperProgress,
 } from "./levels.ts";
 export * from "./levels.ts";
@@ -343,6 +344,12 @@ export interface Hud {
   lockedTowers: TowerKind[];
   /** The Heavy tab opens at wave 6, or once you have held 200 seeds tonight. */
   heavyOpen: boolean;
+  /**
+   * Dr. Samodovol's shelves: the id of the wrong book on the current shelf (it looks like a real
+   * upgrade but gives nothing), and the one the UI pencils "sic" on (Marginalia, once he's been fooled).
+   */
+  falseCard: UpgradeId | null;
+  sicCard: UpgradeId | null;
   /** Tower kinds placed at least once this night (Vaelithra's first-of-a-kind premium). */
   builtKinds: TowerKind[];
   /** Setup has two pages: who holds the stacks, then the night (room, difficulty, bookmark, perks). */
@@ -734,6 +741,8 @@ export function createWorld(
       heavyOpen: false,
       setupPage: "who",
       builtKinds: [],
+      falseCard: null,
+      sicCard: null,
     },
     hover: null,
     anim: 0,
@@ -785,6 +794,61 @@ export function createWorld(
   let queueCursor = 0;
   let spawnClock = 0;
   let karlReward = false;
+  /** Dr. Samodovol: a wrong book was taken (applies next combat), and it is in force this combat. */
+  let misreadNext = false;
+  let misread = false;
+  /** The wrong book on the previous shelf (Different Hand). */
+  let lastFalse: UpgradeId | null = null;
+  /**
+   * History Lectern: the kind it noted and how many more waves it stays slow, the kind slowed this
+   * wave, and how far each kind got this wave (0 = the entrance, 1 = leaked).
+   */
+  let lecture: { kind: EnemyKind; waves: number } | null = null;
+  let lectureNow: EnemyKind | null = null;
+  const reached = new Map<EnemyKind, number>();
+  /** How far along its own way a fruit is (0 at its entrance, 1 at the stacks). */
+  const progressOf = (e: Enemy) => {
+    const pts = world.points;
+    let total = 0;
+    const cum = [0];
+    for (let k = 1; k < pts.length; k++) {
+      total += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
+      cum.push(total);
+    }
+    if (total <= 0) return 0;
+    let along: number;
+    if (e.reverse) {
+      // Coming back up the chute: from the end toward the start.
+      const k = Math.max(0, Math.min(pts.length - 1, e.wp + 1));
+      along = cum[k] - Math.hypot(e.x - pts[k].x, e.y - pts[k].y);
+      return Math.max(0, Math.min(1, 1 - along / total));
+    }
+    const k = Math.max(0, Math.min(pts.length - 1, e.wp - 1));
+    along = cum[k] + Math.hypot(e.x - pts[k].x, e.y - pts[k].y);
+    return Math.max(0, Math.min(1, along / total));
+  };
+  const noteReach = (e: Enemy, p: number) => reached.set(e.kind, Math.max(reached.get(e.kind) ?? 0, p));
+  /**
+   * Dr. Samodovol's shelf: after the three real upgrades, one wrong book, shown exactly like a real
+   * upgrade not on the shelf and not owned. Taking it gives nothing (see pickUpgrade).
+   */
+  const withWrongBook = (real: UpgradeDef[]): UpgradeDef[] => {
+    world.hud.falseCard = null;
+    world.hud.sicCard = null;
+    if (world.hud.hero !== "scholar" || !real.length) return real;
+    const pool = (Object.keys(UPGRADES) as UpgradeId[]).filter(
+      (id) => !real.some((u) => u.id === id) && !has(id) && !(fx.differentHand && id === lastFalse),
+    );
+    if (!pool.length) return real;
+    const id = pool[Math.floor(Math.random() * pool.length)];
+    const shown = UPGRADES[id];
+    const card: UpgradeDef = { ...shown, blurb: fx.margin ? shorterBlurb(shown.blurb) : shown.blurb };
+    lastFalse = id;
+    world.hud.falseCard = id;
+    if (fx.marginalia && world.hud.keepers.scholar.misread) world.hud.sicCard = id;
+    const at = Math.floor(Math.random() * (real.length + 1));
+    return [...real.slice(0, at), card, ...real.slice(at)];
+  };
   /** Ooze Clues: leaks absorbed this wave (one a wave, more with perks). */
   let absorbed = 0;
   const has = (u: UpgradeId) => world.hud.upgrades.includes(u);
@@ -1036,24 +1100,8 @@ export function createWorld(
   };
   // All player tower stats come from towerReadout(), the same function the
   // inspector panel shows, so the numbers on screen are the numbers in play.
-  /** History Lectern: damage multiplier for a cannon in a lectern's reach (the best lectern counts). */
-  const lecternMul = (tower: Tower) => {
-    let best = 0;
-    for (const lec of world.towers) {
-      if (lec.kind !== "lectern" || lec === tower) continue;
-      const reach = CANNON.lecternRadius * fx.lecternReach;
-      if ((lec.x - tower.x) ** 2 + (lec.y - tower.y) ** 2 > reach ** 2) continue;
-      const grown = Math.min(
-        CANNON.lecternMax + fx.lecternMax,
-        CANNON.lecternBase + fx.lecternBase + (CANNON.lecternPerWave + fx.lecternGrow) * Math.max(0, cleared - (lec.born ?? cleared)),
-      );
-      best = Math.max(best, grown);
-    }
-    return 1 + best;
-  };
   /** Keeper perks on a tower's base stats. */
   const withPerks = <T extends { dmg: number; range: number; interval: number }>(kind: TowerKind, read: T): T => {
-    if (kind === "lectern") return { ...read, range: Math.round(read.range * fx.lecternReach) };
     if (PASSIVE.includes(kind)) return read;
     // Signature perks name one tower ("The Scales fire 25% faster"), so a keeper's extra towers skip them.
     const sig = ownSignature(kind);
@@ -1458,8 +1506,9 @@ export function createWorld(
   const statsFor = (tower: Tower) => {
     const read = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
     if (PASSIVE.includes(tower.kind)) return read;
-    const mul = lecternMul(tower);
-    const base = mul > 1 ? { ...read, dmg: Math.round(read.dmg * mul), studied: true } : read;
+    // Dr. Samodovol's wrong book: for the next combat his cannons hit softer and slower.
+    const cut = misread ? CANNON.misread - fx.misreadCut : 0;
+    const base = cut > 0 ? { ...read, dmg: read.dmg * (1 - cut), interval: read.interval * (1 + cut) } : read;
     if (base.range >= GLOBAL_RANGE) return base;
     // Reading Lamp: the best lamp in reach boosts this cannon (lamps do not stack).
     let boost: { range: number; pace: number } | null = null;
@@ -1641,6 +1690,12 @@ export function createWorld(
    */
   const resetRunState = () => {
     world.wet = new Set();
+    misread = false;
+    misreadNext = false;
+    lastFalse = null;
+    lecture = null;
+    lectureNow = null;
+    reached.clear();
     world.enemies = [];
     world.towers = [];
     world.shots = [];
@@ -1692,6 +1747,8 @@ export function createWorld(
       heavyOpen: false,
       setupPage: "who",
       builtKinds: [],
+      falseCard: null,
+      sicCard: null,
       paused: false,
       menu: null,
       waveCount: world.hud.night === "endless" ? 0 : WAVE_COUNT,
@@ -2008,6 +2065,29 @@ export function createWorld(
       world.rings.push({ x: heap.x, y: heap.y, r: 30, life: 0.6, max: 0.6, color: "120,170,90" });
     }
     if (fx.waveSeeds) world.hud.seeds += fx.waveSeeds;
+    // Dr. Samodovol: the wrong book's penalty is over; the Lectern's note from this wave counts down,
+    // and if a lectern stands it notes the kind that got furthest (one kind, the newest note wins).
+    misread = false;
+    if (lectureNow && lecture) {
+      lecture.waves -= 1;
+      if (lecture.waves <= 0) lecture = null;
+    }
+    lectureNow = null;
+    let lectureLine = "";
+    if (world.towers.some((t) => t.kind === "lectern")) {
+      const bar = fx.midpoint ? 0.5 : CANNON.lectureAt;
+      let best: EnemyKind | null = null;
+      let far = -1;
+      for (const [kind, p] of reached) if (p >= bar && p > far) [best, far] = [kind, p];
+      if (best) {
+        lecture = { kind: best, waves: 1 + fx.carriedNote };
+        const name = { melon: ["The melons", "They"], corn: ["The corn", "They"], pumpkin: ["The pumpkins", "They"], karl: ["Karl", "He"] }[best];
+        lectureLine = `${name[0]} got furthest. ${name[1]} will be slower.`;
+      } else {
+        lectureLine = "Nothing reached the stacks. I have nothing to add.";
+      }
+    }
+    reached.clear();
     // The Unstoppered's spill line rides after whatever the wave-end message is, so it isn't lost.
     let spilled = false;
     for (const flask of world.towers) if (flask.kind === "flask" && spillFlask(flask)) spilled = true;
@@ -2043,7 +2123,7 @@ export function createWorld(
     const step = cleared === 1 ? 1 : cleared === 2 ? 2 : 3;
     const offer =
       beat === "upgrade"
-        ? buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds(), fx.offer)
+        ? withWrongBook(buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds()))
         : [];
     if (beat === "upgrade" && offer.length) {
       world.hud.offer = offer;
@@ -2071,12 +2151,14 @@ export function createWorld(
       world.hud.log = `Wave ${cleared} cleared.`;
     }
     if (spilled) world.hud.log = `${world.hud.log} That was not in the notes.`;
+    if (lectureLine) world.hud.log = `${world.hud.log} ${lectureLine}`;
     recordWave();
     notify();
   };
 
   const tickCombat = (dt: number) => {
     clock += dt;
+    if (misread && fx.shortLecture && queueCursor * 2 >= queue.length) misread = false;
     const scale = hpScaleFor(world.hud.night, cleared);
     spawnClock += dt;
     while (queueCursor < queue.length && spawnClock >= queue[queueCursor].t) {
@@ -2168,19 +2250,23 @@ export function createWorld(
       const dx = wp.x - e.x;
       const dy = wp.y - e.y;
       const dist = Math.hypot(dx, dy);
-      const step = e.speed * e.slow * dt;
+      // The History Lectern's note: the kind that got furthest last wave walks slower.
+      const studied = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
+      const step = e.speed * e.slow * studied * dt;
       if (dist <= step + 0.5) {
         e.x = wp.x;
         e.y = wp.y;
         if (e.reverse) {
           e.wp -= 1;
           if (e.wp < 0) {
+            noteReach(e, 1);
             loseLife(e.boss ? 3 : 1, e.x, e.y);
             e.hp = 0;
           }
         } else {
           e.wp += 1;
           if (e.wp >= world.points.length) {
+            noteReach(e, 1);
             loseLife(e.boss ? 3 : 1, e.x, e.y);
             e.hp = 0;
           }
@@ -2189,6 +2275,7 @@ export function createWorld(
         e.x += (dx / dist) * step;
         e.y += (dy / dist) * step;
       }
+      if (e.hp > 0) noteReach(e, progressOf(e));
     }
 
     // Reserve Desk: a melon that comes past eats whatever is banked.
@@ -2682,6 +2769,10 @@ export function createWorld(
       }
       world.hud.paused = false;
       absorbed = 0;
+      misread = misreadNext;
+      misreadNext = false;
+      lectureNow = lecture && lecture.waves > 0 ? lecture.kind : null;
+      reached.clear();
       syncMimics(true);
       const extra: SpawnSpec[] = [];
       if (slip("heavy") && cleared >= SLIP_VALUES.heavyFrom && cleared <= SLIP_VALUES.heavyTo) {
@@ -2704,6 +2795,28 @@ export function createWorld(
     pickUpgrade(upgradeId: UpgradeId) {
       if (world.hud.phase !== "upgrade") return;
       if (!world.hud.offer.some((u) => u.id === upgradeId)) return;
+      if (upgradeId === world.hud.falseCard) {
+        // The wrong book: nothing is added, and the next combat goes worse. It reads like any other pick.
+        misreadNext = true;
+        const rec = world.hud.keepers.scholar;
+        if (!rec.misread) {
+          world.hud.keepers = { ...world.hud.keepers, scholar: { ...rec, misread: true } };
+          if (persistKeepers) saveProgress(world.hud.keepers);
+        }
+        world.hud.falseCard = null;
+        world.hud.sicCard = null;
+        world.hud.offer = [];
+        world.hud.phase = "prep";
+        const next = waveAt(cleared, world.hud.night);
+        world.hud.blurb = next.blurb;
+        world.hud.waveName = next.name;
+        world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.`;
+        if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
+        notify();
+        return;
+      }
+      world.hud.falseCard = null;
+      world.hud.sicCard = null;
       if (!has(upgradeId)) world.hud.upgrades = [...world.hud.upgrades, upgradeId];
       // Cannon upgrades don't choose the keeper's path (see buildOffer).
       if (!world.hud.branch && !Object.values(CANNON_UPGRADES).includes(upgradeId)) world.hud.branch = upgradeId;
@@ -2794,7 +2907,7 @@ export function createWorld(
             ? "The back room takes his retainer: upgrades cost less. The Scales are on the Keeper tab."
             : hero === "ooze"
               ? "The first fruit to leak each wave gets absorbed. Memec is on the Keeper tab."
-              : "Four books on every shelf: each pick offers one more. The Lectern is on the Keeper tab.";
+              : "One of the books is wrong. He will not say which. The Lectern is on the Keeper tab.";
       } else {
         world.hud.seeds = BALANCE.michaelSeeds;
         world.hud.lives = BALANCE.michaelLives;
@@ -3157,9 +3270,10 @@ export function createWorld(
       if (!hero || tier < 0 || tier >= PERK_LEVELS.length || (pick !== 0 && pick !== 1)) return;
       const rec = world.hud.keepers[hero];
       if (levelFor(rec.xp) < PERK_LEVELS[tier]) return;
+      if (pick >= PERKS[hero][tier].length) return;
       const picks = rec.picks.slice();
       picks[tier] = pick;
-      world.hud.keepers = { ...world.hud.keepers, [hero]: normalizeRecord({ xp: rec.xp, picks }) };
+      world.hud.keepers = { ...world.hud.keepers, [hero]: normalizeRecord({ ...rec, picks }) };
       if (persistKeepers) saveProgress(world.hud.keepers);
       notify();
     },
@@ -3177,6 +3291,16 @@ export function createWorld(
   (world as World & { step?: (dt: number) => void }).step = loopTick;
 
   return api;
+}
+
+/** Margin: the wrong book's description, one line shorter (its last sentence, or its last clause, gone). */
+export function shorterBlurb(text: string) {
+  const sentences = text.match(/[^.!?]+[.!?]+/g)?.map((t) => t.trim()) ?? [text];
+  if (sentences.length > 1) return sentences.slice(0, -1).join(" ");
+  const cut = Math.max(text.lastIndexOf(", "), text.lastIndexOf(" and "));
+  if (cut > text.length * 0.35) return `${text.slice(0, cut)}.`;
+  const words = text.split(" ");
+  return `${words.slice(0, Math.max(3, Math.ceil(words.length * 0.6))).join(" ")}.`;
 }
 
 export function stepWorld(world: World, dt: number) {

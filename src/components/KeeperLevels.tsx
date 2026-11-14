@@ -100,7 +100,7 @@ export function PerkPicker({ api, onGesture }: { api: ReturnType<typeof createWo
                     aria-checked={on}
                     aria-disabled={locked}
                     title={locked ? `Opens at level ${at}. ${perk.blurb}` : perk.blurb}
-                    className={`min-h-12 rounded-lg border px-2 py-1.5 text-left ${
+                    className={`min-h-12 rounded-lg border px-2 py-1.5 text-left ${pair.length === 1 ? "col-span-2" : ""} ${
                       on
                         ? "border-[#c6a15a] bg-[linear-gradient(180deg,#d4b06a_0%,#9a7438_100%)] text-ink"
                         : locked

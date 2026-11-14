@@ -37,7 +37,7 @@ export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: s
 export const KEEPER_START: Partial<Record<HeroId, { seeds: number; lives: number }>> = {
   elf: { seeds: 150, lives: 12 },
   ooze: { seeds: 140, lives: 13 },
-  scholar: { seeds: 150, lives: 12 },
+  scholar: { seeds: 100, lives: 8 },
 };
 
 export type UpgradeId =
@@ -181,7 +181,7 @@ export function buildOffer(
   /** Extra choices from keeper perks. */
   extra = 0,
 ): UpgradeDef[] {
-  const size = (hero === "scholar" ? 4 : 3) + extra;
+  const size = 3 + extra;
   const first: UpgradeId[] =
     hero === "michael" ? ["juicy", "rapid", "caliber"] : hero === "vael" ? ["juicy", "rapid", "vial"] : ["juicy", "rapid", "fines"];
   let wanted = first;
@@ -643,7 +643,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   lectern: {
     name: "History Lectern",
-    blurb: "The Doctor's own. No shot. Cannons near it hit harder, and more so every wave it stands.",
+    blurb: "The Doctor's own. No shot, and it helps no cannon. After each wave it notes which fruit got furthest along the carpet; next wave that kind walks slower. If nothing got far, it has nothing to add.",
     cost: 65,
     role: "Study",
   },
@@ -763,11 +763,13 @@ export const CANNON = {
   /** Mimic Chest: damage to Karl instead of swallowing him, and seeds found in what it eats. */
   mimicBossBite: 120,
   mimicLoot: 3,
-  /** History Lectern: damage boost to cannons in reach, growing per wave it has stood. */
+  /** History Lectern: the ring it draws (it boosts nothing). */
   lecternRadius: 80,
-  lecternBase: 0.25,
-  lecternPerWave: 0.05,
-  lecternMax: 0.6,
+  /** History Lectern: a fruit this far along the carpet (or leaked) gets noted; its kind walks at this speed next wave. */
+  lectureAt: 0.75,
+  lectureSlow: 0.85,
+  /** Dr. Samodovol's false book: next combat his cannons deal (1 - this) damage and take (1 + this) time between shots. */
+  misread: 0.15,
   /** Trick shots. */
   boomerangTime: 1.2,
   /** How wide the loop is, as a share of the throw distance. */

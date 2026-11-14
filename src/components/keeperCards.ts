@@ -65,7 +65,7 @@ export const KEEPERS: Array<{
     name: "Dr. Samodovol",
     role: "The Scholar",
     flavor: "History is not a collection of victories. It is a collection of lessons.",
-    line: "Every shelf offers four books, not three.",
+    line: "One of the books is wrong. He will not say which.",
     toneHz: 200,
     portrait: asset("sprites/portrait-scholar.webp"),
   },

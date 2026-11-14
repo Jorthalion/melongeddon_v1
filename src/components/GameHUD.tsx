@@ -372,7 +372,7 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   if (kind === "compost") return "No shot · pays seeds every wave";
   if (kind === "flask") return `No shot · puddle every ${read.interval.toFixed(1)}s from each tile · ${tiles} · spills to ${CANNON.flaskMaxTiles} tiles`;
   if (kind === "desk") return `No shot · banks ${CANNON.deskBank} a wave · melons within ${tiles} eat it`;
-  if (kind === "lectern") return `No shot · boosts damage within ${tiles}, more each wave`;
+  if (kind === "lectern") return "No shot · notes the fruit that got furthest; that kind is slower next wave";
   if (kind === "mimic") return `Swallows one fruit · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "scales") return `DMG ${read.dmg} + ${Math.round(CANNON.scalesShare * 100)}% of max health · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "catalogue") return `DMG ${read.dmg} · chains ×${CANNON.catalogueChains} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
