@@ -33,6 +33,13 @@ const SPRITE_SRC = {
   floorArchive: asset("sprites/tile-floor-archive.webp"),
   floorOverflow: asset("sprites/tile-floor-overflow.webp"),
   chuteProp: asset("sprites/prop-returns-chute.webp"),
+  // Each room's own furniture (on its shelf cells) and exit.
+  archiveCabinet: asset("sprites/prop-archive-cabinet.webp"),
+  archiveVault: asset("sprites/prop-archive-vault.webp"),
+  rarebooksCase: asset("sprites/prop-rarebooks-case.webp"),
+  rarebooksDoor: asset("sprites/prop-rarebooks-door.webp"),
+  annexStorage: asset("sprites/prop-annex-storage.webp"),
+  annexHatch: asset("sprites/prop-annex-hatch.webp"),
   shotSeed: asset("sprites/shot-seed.webp"),
   shotFly: asset("sprites/shot-fly.webp"),
   shotInk: asset("sprites/shot-ink.webp"),
@@ -824,7 +831,15 @@ function drawCarpet(
   ctx.beginPath();
   ctx.ellipse(start.x - 18, start.y, 22, 12, 0, 0, Math.PI * 2);
   ctx.fill();
-  if (ready(art.door)) {
+  // The room's own exit if it has one (Archive vault, Rare Books door, Annex hatch), else the stacks.
+  const ownDoor = ROOM_ART[world.hud.map]?.door;
+  const roomDoor = ownDoor ? art[ownDoor] : undefined;
+  if (ready(roomDoor)) {
+    // Wider than the Stacks' door: keep it on the board when the carpet ends at an edge.
+    const h = 70;
+    const half = (h * roomDoor.naturalWidth) / roomDoor.naturalHeight / 2;
+    blit(ctx, roomDoor, Math.max(half + 2, Math.min(world.w - half - 2, end.x - 2)), Math.max(h / 2 + 2, end.y - 12), h);
+  } else if (ready(art.door)) {
     blit(ctx, art.door, end.x - 2, end.y - 16, 88);
   } else {
     ctx.fillStyle = "#e6c36a";
@@ -964,6 +979,13 @@ function fit(
   ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
 }
 
+/** Rooms with their own furniture on the shelf cells and their own exit (the rest use the Stacks' shelves and door). */
+const ROOM_ART: Partial<Record<string, { shelf: SpriteName; door: SpriteName }>> = {
+  archive: { shelf: "archiveCabinet", door: "archiveVault" },
+  rarebooks: { shelf: "rarebooksCase", door: "rarebooksDoor" },
+  annex: { shelf: "annexStorage", door: "annexHatch" },
+};
+
 function drawShelves(
   ctx: CanvasRenderingContext2D,
   world: World,
@@ -971,10 +993,22 @@ function drawShelves(
 ) {
   // The same cells the engine keeps clear of cannons.
   const spots = [...world.shelfCells].map((k) => k.split(",").map(Number) as [number, number]);
+  const ownShelf = ROOM_ART[world.hud.map]?.shelf;
+  const furniture = ownShelf ? art[ownShelf] : undefined;
   const shelf = art.shelf;
   for (const [c, r] of spots) {
     const x = c * CELL + CELL / 2;
     const y = r * CELL + CELL / 2;
+    if (ready(furniture)) {
+      // Furniture stands square (no tilt), a touch bigger or smaller cell to cell.
+      ctx.save();
+      ctx.translate(x, y + 1);
+      const scale = 0.94 + ((c * 7 + r * 3) % 3) * 0.03;
+      ctx.scale(scale, scale);
+      fit(ctx, furniture, 0, 0, CELL - 2, CELL - 2);
+      ctx.restore();
+      continue;
+    }
     if (ready(shelf)) {
       ctx.save();
       ctx.translate(x, y + 2);
