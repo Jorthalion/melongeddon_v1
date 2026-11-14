@@ -722,7 +722,7 @@ export const CANNON = {
   wetFire: 0.6,
   wetPuddle: 1.5,
   /** Vaelithra pays this much more for the first tower of each kind she places in a night. */
-  vaelFirstPremium: 40,
+  vaelFirstPremium: 20,
   /** The Copycat: the "one step harder" each copy gets. Melon reach (px), mortar splash (px), still puddle
    * radius (px) and drip time (×), fire patch life (s), freeze hold (s). */
   mimicReach: 30,

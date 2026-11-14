@@ -254,7 +254,7 @@ test("on wet carpet, fire burns at 0.6 for 0.6 as long, and a Still's puddle las
   assert.ok(Math.abs(wetLife - dryLife * CANNON.wetPuddle) < 1e-9, `puddle ${wetLife} vs ${dryLife}`);
 });
 
-test("Vaelithra pays 40 more for the first of each kind tonight; the second is the normal price", () => {
+test("Vaelithra pays 20 more for the first of each kind tonight; the second is the normal price", () => {
   const api = onBoard({ ...ALL_UNLOCKED });
   const w = api.world;
   const paid = (kind: "melon" | "still") => {
@@ -262,10 +262,10 @@ test("Vaelithra pays 40 more for the first of each kind tonight; the second is t
     assert.ok(build(api, kind), kind);
     return before - w.hud.seeds;
   };
-  assert.equal(TOWERS.melon.cost + CANNON.vaelFirstPremium, 100);
-  assert.equal(paid("melon"), 100, "first melon");
+  assert.equal(TOWERS.melon.cost + CANNON.vaelFirstPremium, 80);
+  assert.equal(paid("melon"), 80, "first melon");
   assert.equal(paid("melon"), 60, "second melon");
-  assert.equal(paid("still"), TOWERS.still.cost + 40, "first Still");
+  assert.equal(paid("still"), TOWERS.still.cost + 20, "first Still");
   assert.equal(paid("still"), TOWERS.still.cost, "second Still");
   // Selling the first doesn't bring the premium back.
   const melon = w.towers.find((t) => t.kind === "melon")!;
@@ -274,9 +274,9 @@ test("Vaelithra pays 40 more for the first of each kind tonight; the second is t
   assert.equal(paid("melon"), 60, "after selling one, still the normal price");
   // The build bar shows the price she'll pay, keeper towers included.
   api.chooseBuild("mortar");
-  assert.equal(w.hud.towerCost, TOWERS.mortar.cost + 40);
+  assert.equal(w.hud.towerCost, TOWERS.mortar.cost + 20);
   api.chooseBuild("cauldron");
-  assert.equal(w.hud.towerCost, TOWERS.cauldron.cost + 40);
+  assert.equal(w.hud.towerCost, TOWERS.cauldron.cost + 20);
 });
 
 test("a new night clears the list of kinds she has built", () => {
@@ -288,7 +288,7 @@ test("a new night clears the list of kinds she has built", () => {
   assert.deepEqual(api.world.hud.builtKinds, []);
   api.world.hud.seeds = 5000;
   api.chooseBuild("melon");
-  assert.equal(api.world.hud.towerCost, 100, "the premium is back");
+  assert.equal(api.world.hud.towerCost, 80, "the premium is back");
 });
 
 test("Vaelithra's back room: 25, then 15 more per upgrade the kind has; the Elf's and others' prices don't change", () => {
