@@ -1,5 +1,5 @@
 import { Lock } from "lucide-react";
-import { BOARDS, DIFFICULTIES, KEEPER_TOWERS, MAP_GOALS, PERK_LEVELS, PICKABLE_MAPS, TOWERS, levelFor, type Difficulty } from "@/game/engine";
+import { BOARDS, DIFFICULTIES, KEEPER_TOWERS, MAP_GOALS, PERK_LEVELS, PICKABLE_MAPS, TOWER_GOALS, TOWERS, levelFor, type Difficulty } from "@/game/engine";
 import { tone } from "@/game/audio";
 import { BookmarkPicker } from "@/components/Bookmarks";
 import { LevelBadge, PerkPicker } from "@/components/KeeperLevels";
@@ -10,7 +10,7 @@ import { KEEPERS } from "@/components/keeperCards";
 import type { GameApi } from "@/components/ui";
 
 /**
- * New night, in two pages. "Who": six faces and the chosen keeper's one line and signature tower.
+ * New night, in two pages. "Who": six faces and the chosen keeper's one line and every tower only they can build.
  * "The night": night, room (or late slips), difficulty, bookmark, and perks once the keeper has any.
  */
 export function SetupScreen({
@@ -40,7 +40,7 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
   const hud = api.world.hud;
   const keeper = hud.hero;
   const chosen = KEEPERS.find((k) => k.id === keeper) ?? null;
-  const signature = chosen ? KEEPER_TOWERS[chosen.id][0] : null;
+  const towers = chosen ? KEEPER_TOWERS[chosen.id] : [];
   return (
     <>
       <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 sm:pt-6">
@@ -87,7 +87,7 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
 
           {/* The chosen keeper: who they are, the one thing you'll feel on wave one, and their own tower. */}
           <div className="mt-3 min-h-[8.5rem] rounded-lg border border-line/60 bg-panel/60 px-4 py-3" aria-live="polite">
-            {chosen && signature ? (
+            {chosen ? (
               <>
                 <div className="flex flex-wrap items-baseline gap-x-3">
                   <p className="font-display text-2xl font-semibold">{chosen.name}</p>
@@ -95,13 +95,31 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
                 </div>
                 <p className="mt-1 text-lg leading-snug">{chosen.line}</p>
                 <p className="mt-1 text-sm text-muted italic">{chosen.flavor}</p>
-                <div className="mt-2.5 flex items-center gap-2.5 border-t border-line/50 pt-2.5">
-                  <TowerIcon kind={signature} className="size-9 shrink-0" />
-                  <p className="min-w-0 text-sm">
-                    <span className="font-semibold text-gold">{TOWERS[signature].name}.</span>{" "}
-                    <span className="text-muted">{TOWERS[signature].blurb}</span>
-                  </p>
-                </div>
+                {/* Every tower only this keeper can build: the signature first, then the rest of the Keeper tab. */}
+                <p className="mt-2.5 border-t border-line/50 pt-2.5 text-[10px] tracking-[0.22em] text-gold uppercase">
+                  {towers.length > 1 ? `${chosen.name}'s towers` : `${chosen.name}'s tower`}
+                </p>
+                <ul className="mt-1.5 flex flex-col gap-2">
+                  {towers.map((kind, i) => {
+                    const goal = hud.lockedTowers.includes(kind) ? TOWER_GOALS[kind]?.goal : undefined;
+                    return (
+                      <li key={kind} className="flex items-start gap-2.5">
+                        <span className="relative shrink-0">
+                          <TowerIcon kind={kind} className={`size-9 ${goal ? "opacity-50 grayscale" : ""}`} />
+                          {goal ? <Lock className="absolute top-1/2 left-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-gold" aria-hidden="true" /> : null}
+                        </span>
+                        <p className="min-w-0 text-sm">
+                          <span className="font-semibold text-gold">{TOWERS[kind].name}</span>
+                          <span className="text-muted">
+                            {" "}
+                            · {TOWERS[kind].cost} seeds{i === 0 ? " · signature" : ""}. {TOWERS[kind].blurb}
+                          </span>
+                          {goal ? <span className="mt-0.5 block text-xs text-flesh">Locked: {goal}</span> : null}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
               </>
             ) : (
               <p className="text-sm text-muted">Tap a face to see what each keeper brings.</p>

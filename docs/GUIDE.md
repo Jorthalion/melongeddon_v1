@@ -197,7 +197,7 @@ Build cannons on the open **floor** beside the carpet: never on the carpet itsel
    - **Settings** has sound, music, game speed, reduce motion, "Show tips again" and **Developer mode** (see below).
    - **Install app** appears when your browser can install the game; **Quit** appears in the desktop app.
 2. **Setup (New night)** has two pages.
-   - **Who holds the stacks?** Six faces (keys `1`–`6`). Tap one to see that keeper's one line (the thing you'll feel on wave one) and their signature tower; the **Lv** badge is their level. Their other keeper towers are on the Keeper tab in the game (see [Keepers](#keepers)). Press **Next: the night** (`Enter`).
+   - **Who holds the stacks?** Six faces (keys `1`–`6`). Tap one to see that keeper's one line (the thing you'll feel on wave one) and every tower only they can build, with its cost (the signature first; locked ones show a padlock and how to unlock them). The **Lv** badge is their level (see [Keepers](#keepers)). Press **Next: the night** (`Enter`).
    - **The night**, with your keeper's face in the corner (tap it, or press `Esc`, to change keeper):
      - **Night**: Midnight (night one), The Overflow (night two) or Endless.
      - **Room**: the map. More unlock as you play. On the Overflow, you choose **late slips** instead (see [Late slips](#late-slips)).
