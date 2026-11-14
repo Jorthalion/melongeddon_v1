@@ -241,7 +241,7 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
         <div className="grid h-[5.5rem] grid-cols-5 gap-2">
           {groupOf(hud.build).kinds.map((id, slot) => {
             const placed = api.world.towers.length;
-            const cost = Math.max(0, buildCost(hud.hero, placed, id) - (hud.bookmark === "discount" ? 5 : 0));
+            const cost = Math.max(0, buildCost(hud.hero, placed, id, hud.builtKinds) - (hud.bookmark === "discount" ? 5 : 0));
             const on = hud.build === id;
             const built = groupOf(id).id === "keeper" && api.world.towers.some((t) => t.kind === id);
             // Trick cannons open with the keeper's level (as it was when this night started).

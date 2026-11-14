@@ -172,7 +172,7 @@ Each tower's stats come from a base cannon and a `PROFILE` row (damage, fire rat
 There are six keepers. Each has a starting kit, a perk and a signature tower that only they can build. Four have more keeper towers on the same tab (`KEEPER_TOWERS`):
 
 - **Mynxi:** Reserve Desk (30; banks 8 seeds a wave, a passing melon eats the bank; unlocks after a night ending with 200+ seeds).
-- **Vaelithra:** Unstoppered (150; a tipped flask that drips slow puddles and may spill onto more floor tiles; unlocks after a win with a Still and a puddle pick).
+- **Vaelithra:** Unstoppered (150; a tipped flask that drips a slow puddle; its spills soak the carpet for the night, so fire there is weaker and shorter and other puddles last longer; unlocks after a win with a Still and a puddle pick). She also pays 40 more for the first tower of each kind each night, and her back-room upgrades are cheaper (25, +15).
 - **Legal Elf:** Foot of the Law (85; stamps the carpet, pinning everything under it, husks included) and Honeyed Heel (75; sticky footprints: fruit that step in take +25% damage for 4 s; no slow).
 - **Ooze Clues:** the Copycat (160; copies the cannon right beside it, one step harder). Not Memec's Mimic Chest.
 
@@ -206,7 +206,7 @@ There are six keepers. Each has a starting kit, a perk and a signature tower tha
 - **Upgrades belong to a tower kind.** Buying one gives it to every tower of that kind on the floor and every one built later that night (and to a Copycat copying one). There are 26 back-room upgrades, such as Longer barrel, Quick wick or Deeper frost.
 - **Each kind has its own price:** 40 seeds, then 30 more for each upgrade that kind already has. Other kinds' upgrades don't raise it. No cap; each upgrade once.
 - **Between waves only.** The tab can be opened and read during a wave.
-- Mynxi's first upgrade of the night costs 15, the Legal Elf pays 30% less, and the Back-room Key bookmark makes the first one free. Keeper towers have none, except the Unstoppered, which takes the Still's.
+- Mynxi's first upgrade of the night costs 15, the Legal Elf pays 30% less, Vaelithra pays 25 then 15 more per upgrade the kind has, and the Back-room Key bookmark makes the first one free. Keeper towers have none, except the Unstoppered, which takes the Still's.
 - Upgrades aren't part of a tower's sell price.
 
 ### 4.5 Nights and story

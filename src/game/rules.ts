@@ -595,7 +595,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   flask: {
     name: "Unstoppered",
-    blurb: "Vael's second. No shot: a tipped flask that drips her slow puddle onto the carpet, like a Still. After each wave it may spill onto a neighbouring tile that reaches the carpet (1 in 3), up to four tiles, and every tile drips. Sells for a flat 35.",
+    blurb: "Vael's second. A tipped flask that drips a slow puddle from where it stands. After each wave it may spill onto a neighbouring floor tile (1 in 3, up to four tiles), and every stretch of carpet a spill can reach is wet for the rest of the night: fire there burns 40% weaker and shorter, and every other puddle lasts half again as long. Selling it doesn't dry the carpet. Sells for a flat 35.",
     cost: 150,
     role: "Spill",
   },
@@ -718,6 +718,11 @@ export const CANNON = {
   flaskSpillChance: 1 / 3,
   flaskMaxTiles: 4,
   flaskRefund: 35,
+  /** Unstoppered wet carpet: fire damage and duration there (×), and how much longer other puddles last (×). */
+  wetFire: 0.6,
+  wetPuddle: 1.5,
+  /** Vaelithra pays this much more for the first tower of each kind she places in a night. */
+  vaelFirstPremium: 40,
   /** The Copycat: the "one step harder" each copy gets. Melon reach (px), mortar splash (px), still puddle
    * radius (px) and drip time (×), fire patch life (s), freeze hold (s). */
   mimicReach: 30,
@@ -795,13 +800,19 @@ export const CANNON = {
  */
 export const TRICK_LEVEL: Partial<Record<TowerKind, number>> = { boomerang: 2, orrery: 3, plane: 5, quill: 7, globe: 9 };
 
-export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) {
+/**
+ * What the next tower of `kind` costs. Mynxi's first build of the night is 40. Vaelithra pays
+ * `CANNON.vaelFirstPremium` more for the first of each kind she places tonight (`builtKinds` lists
+ * the kinds already placed this night; selling one doesn't take it off the list).
+ */
+export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind, builtKinds: readonly TowerKind[] = []) {
   if (hero === "mynxi" && placed === 0) return 40;
+  if (hero === "vael" && !builtKinds.includes(kind)) return TOWERS[kind].cost + CANNON.vaelFirstPremium;
   return TOWERS[kind].cost;
 }
 
 export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]) {
-  // The Unstoppered drips exactly like a Still, from every tile it covers.
+  // The Unstoppered drips like a Still from its own tile (its spills wet the carpet instead).
   if (kind === "flask") return towerReadout(hero, "still", mods, upgradesOwned);
   // The Copycat itself does nothing; the copy it makes uses the copied kind's numbers.
   if (kind === "copycat") return { dmg: 0, range: 0, interval: 0 };
@@ -927,6 +938,8 @@ export const MODS: ModDef[] = [
  */
 export function shopPrice(hero: HeroId | null, owned: number, visits: number, extraOff = 0) {
   if (hero === "mynxi" && visits === 0) return 15;
+  // Vaelithra's formula is cheaper and climbs slower: 25, then 15 more per upgrade the kind has.
+  if (hero === "vael") return Math.round((25 + owned * 15) * (1 - extraOff));
   const price = 40 + owned * 30;
   // The Legal Elf negotiates: the back room costs 30% less (more with his Hard Bargain perk).
   const rate = (hero === "elf" ? 0.7 : 1) - extraOff;
@@ -941,9 +954,9 @@ export function fittingsFor(kind: TowerKind) {
 /** Share of spent seeds returned when a tower is sold. */
 export const SELL_PERCENT = 70;
 
-/** What selling a tower returns. The Unstoppered is a flat 35 (plus the usual share of any fittings), so its spill is no refund. */
+/** What selling a tower returns: 70% of what it cost to build. The Unstoppered is a flat 35, however far it spilled. */
 export function refundFor(kind: TowerKind, paid: number) {
-  if (kind === "flask") return CANNON.flaskRefund + sellValue(Math.max(0, paid - TOWERS.flask.cost));
+  if (kind === "flask") return CANNON.flaskRefund;
   return sellValue(paid);
 }
 

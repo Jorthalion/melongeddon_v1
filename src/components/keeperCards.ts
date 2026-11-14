@@ -29,7 +29,7 @@ export const KEEPERS: Array<{
     name: "Vaelithra",
     role: "Potions division",
     flavor: "The formula slows them. It does not apologize.",
-    line: "Every shot slows the line.",
+    line: "The glass costs more. The formula costs less.",
     toneHz: 250,
     portrait: asset("sprites/portrait-vael.webp"),
   },

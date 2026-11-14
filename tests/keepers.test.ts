@@ -88,7 +88,7 @@ test("a signature tower is the keeper's own, and only one at a time", () => {
 test("Legal Elf: the back room costs 30% less", () => {
   assert.equal(backRoomPrice("elf", 0, 1, null), Math.round(40 * 0.7));
   assert.equal(backRoomPrice("elf", 2, 3, null), Math.round(100 * 0.7));
-  assert.equal(backRoomPrice("vael", 2, 3, null), 100);
+  assert.equal(backRoomPrice("scholar", 2, 3, null), 100);
 });
 
 test("Ooze Clues absorbs the first leak of each wave", () => {

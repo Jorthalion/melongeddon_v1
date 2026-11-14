@@ -170,6 +170,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   drawShelves(ctx, world, art);
   drawCarpet(ctx, world, art);
+  drawWet(ctx, world);
   if (BOARDS[world.hud.map].dark) drawDark(ctx, world);
 
   const hover = world.hover;
@@ -922,6 +923,26 @@ function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("CHUTE", x, y + 0.5);
+  ctx.restore();
+}
+
+/** The Unstoppered's wet carpet: a cool sheen and a few slow ripples on each soaked cell. */
+function drawWet(ctx: CanvasRenderingContext2D, world: World) {
+  if (!world.wet.size) return;
+  ctx.save();
+  for (const key of world.wet) {
+    const [c, r] = key.split(",").map(Number);
+    const x = c * CELL;
+    const y = r * CELL;
+    ctx.fillStyle = "rgba(70,120,150,0.22)";
+    ctx.fillRect(x, y, CELL, CELL);
+    const t = (world.anim * 0.6 + ((c * 7 + r * 13) % 10) / 10) % 1;
+    ctx.strokeStyle = `rgba(170,215,235,${0.35 * (1 - t)})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(x + CELL * 0.5, y + CELL * 0.55, 4 + t * 14, 2 + t * 6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 

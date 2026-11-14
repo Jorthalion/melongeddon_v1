@@ -343,6 +343,8 @@ export interface Hud {
   lockedTowers: TowerKind[];
   /** The Heavy tab opens at wave 6, or once you have held 200 seeds tonight. */
   heavyOpen: boolean;
+  /** Tower kinds placed at least once this night (Vaelithra's first-of-a-kind premium). */
+  builtKinds: TowerKind[];
   /** Setup has two pages: who holds the stacks, then the night (room, difficulty, bookmark, perks). */
   setupPage: "who" | "night";
   /** The guided first night: the step the player is on, or null when no guide is running. */
@@ -564,6 +566,8 @@ export interface World {
   lines: Line[];
   rings: Ring[];
   stomps: Stomp[];
+  /** Carpet cells the Unstoppered's spills have soaked ("c,r"), for the rest of the night. */
+  wet: Set<string>;
   flyers: Flyer[];
   stains: Stain[];
   bits: Bit[];
@@ -729,6 +733,7 @@ export function createWorld(
       lockedTowers: [],
       heavyOpen: false,
       setupPage: "who",
+      builtKinds: [],
     },
     hover: null,
     anim: 0,
@@ -740,6 +745,7 @@ export function createWorld(
     lines: [],
     rings: [],
     stomps: [],
+    wet: new Set<string>(),
     flyers: [],
     stains: [],
     bits: [],
@@ -1068,12 +1074,10 @@ export function createWorld(
     const stats = statsFor(tower);
     const spread = hasMod(tower, "spread");
     const cling = hasMod(tower, "cling");
+    // It drips from its own tile only: its spills wet the carpet instead of dripping (see spillFlask).
+    void dt;
     const tiles: Array<{ x: number; y: number; cd: number; set: (cd: number) => void }> = [
       { x: tower.x, y: tower.y, cd: tower.cd, set: (cd) => (tower.cd = cd) },
-      ...(tower.spill ?? []).map((s) => {
-        s.cd -= dt;
-        return { x: s.x, y: s.y, cd: s.cd, set: (cd: number) => (s.cd = cd) };
-      }),
     ];
     for (const tile of tiles) {
       if (tile.cd > 0) continue;
@@ -1094,10 +1098,13 @@ export function createWorld(
     }
   };
 
-  /** Unstoppered: after a wave, maybe spill onto a neighbouring floor tile that reaches carpet the flask doesn't yet. */
-  const spillFlask = (tower: Tower) => {
+  /**
+   * Unstoppered: after a wave, maybe spill onto a neighbouring floor tile (toward carpet it hasn't
+   * soaked yet). Every carpet cell the new tile can reach is wet for the rest of the night.
+   */
+  const spillFlask = (tower: Tower): boolean => {
     const covered = [{ c: tower.c, r: tower.r }, ...(tower.spill ?? [])];
-    if (covered.length >= CANNON.flaskMaxTiles || Math.random() >= CANNON.flaskSpillChance) return;
+    if (covered.length >= CANNON.flaskMaxTiles || Math.random() >= CANNON.flaskSpillChance) return false;
     const range = statsFor(tower).range;
     const reach = (c: number, r: number) => {
       const p = cellCenter(c, r);
@@ -1122,16 +1129,17 @@ export function createWorld(
         if (!cells.length) continue; // a tile that can't reach the carpet would be wasted
         options.push({ c, r, fresh: cells.filter((k) => !have.has(k)).length });
       }
-    if (!options.length) return;
+    if (!options.length) return false;
     // Spill toward new carpet when it can; otherwise anywhere that still reaches it.
     const most = Math.max(...options.map((o) => o.fresh));
     const best = options.filter((o) => o.fresh === most);
     const pick = best[Math.floor(Math.random() * best.length)];
     const p = cellCenter(pick.c, pick.r);
     (tower.spill ??= []).push({ c: pick.c, r: pick.r, x: p.x, y: p.y, cd: 0.4 });
+    for (const key of reach(pick.c, pick.r)) world.wet.add(key);
     float(p.x, p.y - 20, "spill!", "#9fd27a");
     world.rings.push({ x: p.x, y: p.y, r: 26, life: 0.6, max: 0.6, color: "120,180,90" });
-    world.hud.log = `The Unstoppered spills onto another tile (${covered.length + 1} of ${CANNON.flaskMaxTiles}).`;
+    return true;
   };
 
   /** What The Copycat can copy. */
@@ -1476,7 +1484,7 @@ export function createWorld(
   const priceNext = () =>
     Math.max(
       0,
-      buildCost(world.hud.hero, placedCount(), world.hud.build) -
+      buildCost(world.hud.hero, placedCount(), world.hud.build, world.hud.builtKinds) -
         (bm("discount") ? BOOKMARK_VALUES.discount : 0) -
         (ownSignature(world.hud.build) ? fx.sigCost : 0),
     );
@@ -1632,6 +1640,7 @@ export function createWorld(
    * preference and is kept too.
    */
   const resetRunState = () => {
+    world.wet = new Set();
     world.enemies = [];
     world.towers = [];
     world.shots = [];
@@ -1682,6 +1691,7 @@ export function createWorld(
       workshop: null,
       heavyOpen: false,
       setupPage: "who",
+      builtKinds: [],
       paused: false,
       menu: null,
       waveCount: world.hud.night === "endless" ? 0 : WAVE_COUNT,
@@ -1718,6 +1728,8 @@ export function createWorld(
     }
   };
 
+  /** Is (x, y) on carpet the Unstoppered has soaked? */
+  const wetAt = (x: number, y: number) => world.wet.has(`${Math.floor(x / CELL)},${Math.floor(y / CELL)}`);
   const addPool = (x: number, y: number, wide = false, cling = false, extra = 0) => {
     const sticky = has("sticky");
     const vial = has("vial") || has("distill");
@@ -1726,10 +1738,15 @@ export function createWorld(
     if (wide) r += 16;
     r += extra;
     if (cling) life += 1.2;
+    if (wetAt(x, y)) life *= CANNON.wetPuddle;
     world.pools.push({ x, y, r, life, max: life, hot: false, burn: 0, owner: credit ?? undefined });
   };
 
   const addFire = (x: number, y: number, life = 2.4, burn = 22) => {
+    if (wetAt(x, y)) {
+      life *= CANNON.wetFire;
+      burn *= CANNON.wetFire;
+    }
     world.pools.push({ x, y, r: 34, life, max: life, hot: true, burn, owner: credit ?? undefined });
   };
 
@@ -1879,7 +1896,7 @@ export function createWorld(
     }
     if (shot.element === "potion") {
       // Puddle upgrades (Alchemy) reach the cauldron: Sticky spreads it, Vial and Distilled make it bite.
-      const life = CANNON.cauldronLife * (has("sticky") ? 1.4 : 1) * fx.poolLife;
+      const life = CANNON.cauldronLife * (has("sticky") ? 1.4 : 1) * fx.poolLife * (wetAt(e.x, e.y) ? CANNON.wetPuddle : 1);
       world.pools.push({
         x: e.x,
         y: e.y,
@@ -1991,7 +2008,9 @@ export function createWorld(
       world.rings.push({ x: heap.x, y: heap.y, r: 30, life: 0.6, max: 0.6, color: "120,170,90" });
     }
     if (fx.waveSeeds) world.hud.seeds += fx.waveSeeds;
-    for (const flask of world.towers) if (flask.kind === "flask") spillFlask(flask);
+    // The Unstoppered's spill line rides after whatever the wave-end message is, so it isn't lost.
+    let spilled = false;
+    for (const flask of world.towers) if (flask.kind === "flask" && spillFlask(flask)) spilled = true;
     for (const desk of world.towers) {
       if (desk.kind !== "desk") continue;
       desk.bank = (desk.bank ?? 0) + CANNON.deskBank;
@@ -2051,6 +2070,7 @@ export function createWorld(
       world.hud.waveName = upcoming.name;
       world.hud.log = `Wave ${cleared} cleared.`;
     }
+    if (spilled) world.hud.log = `${world.hud.log} That was not in the notes.`;
     recordWave();
     notify();
   };
@@ -2641,6 +2661,7 @@ export function createWorld(
       if (buildKind === "still") stillBuilt = true;
       cue("build", buildKind);
       world.hud.seeds -= world.hud.towerCost;
+      if (!world.hud.builtKinds.includes(buildKind)) world.hud.builtKinds = [...world.hud.builtKinds, buildKind];
       // Stay in build mode with the same kind picked, so the next tap places another.
       // (Tap a built tower to open its stats.)
       world.hud.selected = null;

@@ -40,7 +40,7 @@ test("sellValue refunds 70% of what was paid", () => {
 });
 
 test("selling a tower refunds 70% of its build cost (back-room upgrades belong to the kind, not the tower)", () => {
-  const api = startGame("vael");
+  const api = startGame("scholar");
   const { world } = api;
   world.hud.seeds = 1000;
 
@@ -192,7 +192,7 @@ test("bookmarks change the run start and prices", () => {
     const api = createWorld(() => {}, { meta: ALL_UNLOCKED });
     api.openSetup();
     api.setBookmark(id);
-    api.chooseHero("vael");
+    api.chooseHero("scholar");
     api.beginNight();
     return api;
   };
@@ -200,8 +200,8 @@ test("bookmarks change the run start and prices", () => {
   assert.equal(start("seedfund").world.hud.seeds, plain.seeds + 30);
   assert.equal(start("sparestack").world.hud.maxLives, plain.maxLives + 2);
   assert.equal(start("discount").world.hud.towerCost, T.melon.cost - 5);
-  assert.equal(backRoomPrice("vael", 0, 0, "backroom"), 0);
-  assert.equal(backRoomPrice("vael", 0, 1, "backroom"), shopPrice("vael", 0, 1));
+  assert.equal(backRoomPrice("scholar", 0, 0, "backroom"), 0);
+  assert.equal(backRoomPrice("scholar", 0, 1, "backroom"), shopPrice("scholar", 0, 1));
 
   // Back-room Key: the first upgrade costs nothing.
   const api = start("backroom");

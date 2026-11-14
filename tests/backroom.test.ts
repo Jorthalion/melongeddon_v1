@@ -52,7 +52,7 @@ test("an upgrade reaches every tower of that kind, and the ones built after it, 
 });
 
 test("each kind has its own price: 40, then 30 more per upgrade it has, and other kinds don't raise it", () => {
-  const api = board("vael");
+  const api = board("scholar");
   build(api, "melon");
   build(api, "mortar");
   assert.equal(api.shopPriceFor("melon"), 40);
