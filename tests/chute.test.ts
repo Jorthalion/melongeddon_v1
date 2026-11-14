@@ -9,9 +9,7 @@ function playTo(api: Api, wave: number) {
   for (let guard = 0; guard < 40 && !(api.world.hud.phase === "prep" && api.world.hud.wave === wave); guard++) {
     const h = api.world.hud;
     if (h.phase === "upgrade") api.pickUpgrade(h.offer[0].id as UpgradeId);
-    else if (h.phase === "memory") api.ackMemory();
-    else if (h.phase === "alliance") api.chooseAlliance("reject");
-    else if (h.phase === "prep" || h.phase === "consequence" || h.phase === "betrayal") {
+    else if (h.phase === "prep" || h.phase === "consequence") {
       api.startWave();
       for (let i = 0; i < 60 * 120 && api.world.hud.phase === "combat"; i++) {
         for (const e of api.world.enemies) e.hp = 0;
@@ -32,7 +30,7 @@ test("Midnight never flags the chute", () => {
 });
 
 test("the Overflow flags the chute before wave 6, not wave 1, and a reset clears it", () => {
-  const api = createWorld(() => {}, { setup: { night: "overflow", hero: "vael", door: "reject" } });
+  const api = createWorld(() => {}, { setup: { night: "overflow", hero: "vael" } });
   api.continueRun();
   assert.equal(api.world.hud.night, "overflow");
   assert.equal(api.world.hud.chuteWave, false, "wave 1 comes in the front door");

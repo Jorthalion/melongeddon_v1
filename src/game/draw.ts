@@ -1,6 +1,6 @@
 import { asset } from "../lib/asset.ts";
 import { BOARDS, CANNON, CELL, type TowerKind, type World } from "./engine";
-import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawPlaneShape, drawShot } from "./drawCannons.ts";
+import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
   melon: asset("sprites/melon.webp"),
@@ -44,8 +44,30 @@ const SPRITE_SRC = {
   cauldron: asset("sprites/sig-cauldron.webp"),
   trebuchet: asset("sprites/sig-trebuchet.webp"),
   scales: asset("sprites/sig-scales.webp"),
+  desk: asset("sprites/sig-desk.webp"),
+  flask: asset("sprites/sig-flask.webp"),
+  copycat: asset("sprites/sig-copycat.webp"),
+  stomp: asset("sprites/sig-stomp.webp"),
   mimic: asset("sprites/sig-mimic.webp"),
   lectern: asset("sprites/sig-lectern.webp"),
+  // Trick cannons, and what they throw (the globe in flight is still drawn in code).
+  boomerang: asset("sprites/trick-boomerang.webp"),
+  orrery: asset("sprites/trick-orrery.webp"),
+  plane: asset("sprites/trick-plane.webp"),
+  quill: asset("sprites/trick-quill.webp"),
+  globe: asset("sprites/trick-globe.webp"),
+  press: asset("sprites/heavy-press.webp"),
+  organ: asset("sprites/heavy-organ.webp"),
+  scope: asset("sprites/heavy-scope.webp"),
+  flyBoomerang: asset("sprites/fly-boomerang.webp"),
+  flyPlane: asset("sprites/fly-plane.webp"),
+  flyQuill: asset("sprites/fly-quill.webp"),
+  flySheet: asset("sprites/fly-sheet.webp"),
+  flyStomp: asset("sprites/fly-stomp.webp"),
+  spillFlask: asset("sprites/spill-flask.webp"),
+  planetGold: asset("sprites/fly-planet-gold.webp"),
+  planetBlue: asset("sprites/fly-planet-blue.webp"),
+  planetRed: asset("sprites/fly-planet-red.webp"),
 } as const;
 
 type SpriteName = keyof typeof SPRITE_SRC;
@@ -149,7 +171,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     if (open && world.hud.canPlace) {
       ctx.save();
       ctx.globalAlpha = 0.5;
-      drawTower(ctx, cx, cy, 0, world.hud.build, false, world.hud.build === "mortar", false, art, world.anim);
+      drawTower(ctx, cx, cy, 0, world.hud.build, world.hud.build === "mortar", false, art, world.anim);
       ctx.restore();
       ctx.beginPath();
       ctx.arc(cx, cy, world.hud.placeRange, 0, Math.PI * 2);
@@ -169,7 +191,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   }
 
   const selected = world.towers.find((t) => t.id === world.hud.selected);
-  if (selected && !selected.ally) {
+  if (selected) {
     ctx.beginPath();
     ctx.arc(selected.x, selected.y, world.hud.range, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(198,161,90,0.045)";
@@ -209,6 +231,30 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.beginPath();
       ctx.arc(pool.x, pool.y - 2, pool.r * 0.45, 0, Math.PI * 2);
       ctx.fill();
+    } else if (pool.honey) {
+      // Honeyed Heel: a glossy amber footprint, toes pointing the way the fruit walk.
+      ctx.save();
+      ctx.translate(pool.x, pool.y);
+      ctx.rotate(pool.rot ?? 0);
+      ctx.globalAlpha = Math.min(1, a * 1.6);
+      ctx.fillStyle = "rgba(214,150,40,0.55)";
+      ctx.beginPath();
+      ctx.ellipse(-3, 0, pool.r * 0.72, pool.r * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(240,184,74,0.75)";
+      ctx.beginPath();
+      ctx.ellipse(-4, 0, pool.r * 0.55, pool.r * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      [-8, -3, 2, 6, 10].forEach((dy, i) => {
+        ctx.beginPath();
+        ctx.arc(pool.r * 0.62 - Math.abs(dy) * 0.25, dy * 0.9, i === 0 ? 4 : 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.fillStyle = "rgba(255,240,200,0.55)";
+      ctx.beginPath();
+      ctx.ellipse(-8, -4, 5, 2, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     } else if (pool.toxic) {
       // Bubbling Cauldron puddle.
       ctx.fillStyle = `rgba(80,190,90,${0.32 * a})`;
@@ -324,8 +370,53 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.fill();
   }
 
+  // Unstoppered spill tiles sit on the floor under everything else.
+  for (const t of world.towers)
+    for (const s of t.spill ?? []) {
+      if (ready(art.spillFlask)) blitFit(ctx, art.spillFlask, s.x, s.y + 2, 50, 42);
+      else drawSpillTile(ctx, s.x, s.y, world.anim);
+    }
   for (const t of world.towers) {
-    drawTower(ctx, t.x, t.y, t.aim, t.kind, t.ally, t.orange, t.id === world.hud.selected, art, world.anim);
+    if (t.kind === "copycat" && t.copy) {
+      // The Mimic draws as what it copies, with a thin gold line to the original and Memec's eye on top.
+      const src = world.towers.find((o) => o.id === t.copyFrom);
+      if (src) {
+        ctx.strokeStyle = "rgba(230,195,106,0.7)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(t.x, t.y);
+        ctx.lineTo(src.x, src.y);
+        ctx.stroke();
+      }
+      drawTower(ctx, t.x, t.y, t.copy.aim, t.copy.kind, t.copy.orange, t.id === world.hud.selected, art, world.anim);
+      ctx.fillStyle = "rgba(20,12,16,0.85)";
+      ctx.beginPath();
+      ctx.arc(t.x + 14, t.y - 16, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#6fc6ef";
+      ctx.beginPath();
+      ctx.ellipse(t.x + 14, t.y - 16, 3.5, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim);
+    if (t.kind === "desk" && t.bank) {
+      // What the Reserve Desk is holding, on a small gold tag.
+      const label = String(t.bank);
+      ctx.font = "bold 11px system-ui, sans-serif";
+      const w = ctx.measureText(label).width + 10;
+      ctx.fillStyle = "rgba(20,12,16,0.85)";
+      ctx.fillRect(t.x - w / 2, t.y - 40, w, 15);
+      ctx.strokeStyle = "#c6a15a";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(t.x - w / 2, t.y - 40, w, 15);
+      ctx.fillStyle = "#e6c36a";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, t.x, t.y - 32.5);
+      ctx.textAlign = "start";
+      ctx.textBaseline = "alphabetic";
+    }
     if (t.mods.length) {
       ctx.fillStyle = "#e6c36a";
       for (let i = 0; i < t.mods.length; i++) {
@@ -360,6 +451,11 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.beginPath();
       ctx.arc(t.x, t.y, orbit, ang - 0.5, ang);
       ctx.stroke();
+      const planet = [art.planetGold, art.planetBlue, art.planetRed][p % 3];
+      if (ready(planet)) {
+        blit(ctx, planet, px, py, 17);
+        continue;
+      }
       const g = ctx.createRadialGradient(px - 2, py - 2, 1, px, py, 9);
       g.addColorStop(0, ["#fff2c4", "#cfe6f2", "#f6c6b4"][p % 3]);
       g.addColorStop(1, ["#b07a2a", "#3f7f9f", "#a0402a"][p % 3]);
@@ -380,16 +476,57 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.lineJoin = "round";
       for (let i = 1; i < f.trail.length; i++) {
         const a = i / f.trail.length;
-        ctx.strokeStyle = f.kind === "plane" ? `rgba(246,239,226,${0.6 * a})` : `rgba(216,184,120,${0.7 * a})`;
-        ctx.lineWidth = 2 + 5 * a;
+        ctx.strokeStyle =
+          f.kind === "plane"
+            ? `rgba(246,239,226,${0.6 * a})`
+            : f.kind === "quill"
+              ? `rgba(40,58,120,${0.8 * a})`
+              : f.kind === "globe"
+                ? `rgba(120,90,50,${0.35 * a})`
+                : f.kind === "sheet"
+                  ? `rgba(30,26,48,${0.45 * a})`
+                : `rgba(216,184,120,${0.7 * a})`;
+        ctx.lineWidth = f.kind === "globe" ? 6 + 6 * a : 2 + 5 * a;
         ctx.beginPath();
         ctx.moveTo(f.trail[i - 1].x, f.trail[i - 1].y);
         ctx.lineTo(f.trail[i].x, f.trail[i].y);
         ctx.stroke();
       }
     }
-    if (f.kind === "boomerang") drawBoomerangShape(ctx, f.x, f.y, 13, f.t * 18);
-    else {
+    if (f.kind === "boomerang" && ready(art.flyBoomerang)) blit(ctx, art.flyBoomerang, f.x, f.y, 28, f.t * 18);
+    else if (f.kind === "plane" && ready(art.flyPlane)) blitFit(ctx, art.flyPlane, f.x, f.y, 32, 24, f.heading);
+    else if (f.kind === "quill" && ready(art.flyQuill)) blitFit(ctx, art.flyQuill, f.x, f.y, 36, 12, f.heading);
+    else if (f.kind === "boomerang") drawBoomerangShape(ctx, f.x, f.y, 13, f.t * 18);
+    else if (f.kind === "quill") {
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.heading);
+      drawQuillShape(ctx, 0, 0, 16);
+      ctx.restore();
+    } else if (f.kind === "globe") {
+      // In the air it rises on an arc with its shadow on the floor; on the carpet it spins as it rolls.
+      const h = f.rolling ? 0 : Math.sin(Math.min(1, f.t / CANNON.globeLob) * Math.PI) * 46;
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y + 10, 12 - h * 0.08, 4.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      drawGlobeShape(ctx, f.x, f.y - h, 13, f.t * (f.rolling ? 9 : 3));
+    } else if (f.kind === "sheet" && ready(art.flySheet)) {
+      blitFit(ctx, art.flySheet, f.x, f.y, 26, 30);
+    } else if (f.kind === "sheet") {
+      // A pressed sheet sliding along the carpet, fresh ink lines on it.
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.heading);
+      ctx.fillStyle = "#efe2c2";
+      ctx.strokeStyle = "#8d6730";
+      ctx.lineWidth = 1;
+      ctx.fillRect(-11, -14, 22, 28);
+      ctx.strokeRect(-11, -14, 22, 28);
+      ctx.fillStyle = "#2a2440";
+      for (let i = 0; i < 5; i++) ctx.fillRect(-8, -10 + i * 5, i === 4 ? 9 : 16, 1.6);
+      ctx.restore();
+    } else {
       ctx.save();
       ctx.translate(f.x, f.y);
       ctx.rotate(f.heading);
@@ -399,7 +536,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   }
 
   for (const s of world.shots) {
-    shotTrail(ctx, s.x, s.y, s.tx, s.ty, shotColor(s.element, s.orange || s.fromAlly));
+    shotTrail(ctx, s.x, s.y, s.tx, s.ty, shotColor(s.element, s.orange));
     if (s.element === "potion") {
       drawShot(ctx, s.x, s.y, s.element, world.anim);
       continue;
@@ -423,14 +560,14 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
           ? art.shotIce
           : s.element === "mortar"
             ? art.shotMortar
-            : s.orange || s.fromAlly
+            : s.orange
               ? art.allyShot
               : art.shot;
     if (ready(img)) blit(ctx, img, s.x, s.y, s.element === "ice" ? 18 : 23);
     else {
-      ctx.fillStyle = s.fromAlly ? "#e8883a" : "#e23b4a";
+      ctx.fillStyle = "#e23b4a";
       ctx.beginPath();
-      ctx.arc(s.x, s.y, s.fromAlly ? 6 : 7, 0, Math.PI * 2);
+      ctx.arc(s.x, s.y, 7, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -443,6 +580,26 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.moveTo(l.x, l.y);
     ctx.lineTo(l.x2, l.y2);
     ctx.stroke();
+  }
+  // Foot of the Law: the foot drops onto the carpet, then lifts away.
+  for (const st of world.stomps) {
+    const k = 1 - st.life / st.max;
+    const drop = k < 0.35 ? (1 - k / 0.35) * 46 : 0;
+    const fade = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, fade);
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(st.x, st.y + 8, 30 * (0.6 + 0.4 * Math.min(1, k / 0.35)), 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (ready(art.flyStomp)) {
+      // The painted foot: its sole sits about a fifth of the way up from the bottom, so lift the centre to land it on the spot.
+      blitFit(ctx, art.flyStomp, st.x, st.y - drop - 26, 104, 90);
+    } else {
+      ctx.translate(st.x, st.y - drop);
+      drawFootShape(ctx, 1.9);
+    }
+    ctx.restore();
   }
   for (const r of world.rings) {
     const k = 1 - r.life / r.max;
@@ -735,29 +892,10 @@ function drawShelves(
   world: World,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
 ) {
-  const spots: Array<[number, number]> = BOARDS[world.hud.map].shelves ?? [
-    [1, 1],
-    [2, 1],
-    [3, 1],
-    [8, 0],
-    [9, 0],
-    [10, 0],
-    [1, 8],
-    [2, 8],
-    [3, 8],
-    [4, 8],
-    [13, 1],
-    [14, 1],
-    [8, 8],
-    [9, 8],
-    [13, 4],
-    [14, 4],
-    [0, 2],
-    [1, 2],
-  ];
+  // The same cells the engine keeps clear of cannons.
+  const spots = [...world.shelfCells].map((k) => k.split(",").map(Number) as [number, number]);
   const shelf = art.shelf;
   for (const [c, r] of spots) {
-    if (world.pathCells.has(`${c},${r}`)) continue;
     const x = c * CELL + CELL / 2;
     const y = r * CELL + CELL / 2;
     if (ready(shelf)) {
@@ -800,8 +938,21 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   cauldron: { aim: false, w: 46, h: 54 },
   trebuchet: { aim: false, w: 48, h: 56 },
   scales: { aim: false, w: 44, h: 58 },
+  desk: { aim: false, w: 56, h: 48 },
+  press: { aim: false, w: 54, h: 54 },
+  organ: { aim: false, w: 42, h: 62 },
+  scope: { aim: false, w: 56, h: 56 },
+  flask: { aim: false, w: 54, h: 50 },
+  copycat: { aim: false, w: 42, h: 58 },
+  stomp: { aim: false, w: 44, h: 60 },
   mimic: { aim: false, w: 44, h: 54 },
   lectern: { aim: false, w: 46, h: 56 },
+  // Trick cannons.
+  boomerang: { aim: false, w: 46, h: 50 },
+  orrery: { aim: false, w: 38, h: 58 },
+  plane: { aim: false, w: 44, h: 54 },
+  quill: { aim: false, w: 42, h: 56 },
+  globe: { aim: false, w: 46, h: 56 },
 };
 
 /** Draw an image fitted into a w×h box around (x, y), turned by rot. Flips upright when aiming left. */
@@ -818,6 +969,33 @@ function blitFit(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number
   if (rot) ctx.rotate(rot);
   if (Math.cos(rot) < 0) ctx.scale(1, -1);
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+/**
+ * The Brass Telescope's art in two pieces: the tripod stays put, and the tube turns on its mount
+ * toward the target (mirrored when the target is to the left, and kept to a believable tilt).
+ */
+function drawScopeArt(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cx: number, cy: number, maxW: number, maxH: number, aim: number) {
+  const W = img.naturalWidth;
+  const H = img.naturalHeight;
+  const k = Math.min(maxW / W, maxH / H);
+  const left = Math.cos(aim) < 0;
+  // In the painting the tube points up and to the right at about this angle.
+  const rest = -0.245;
+  const want = left ? Math.atan2(Math.sin(aim), -Math.cos(aim)) : aim;
+  const turn = Math.max(-1, Math.min(0.75, want)) - rest;
+  const cut = 0.41 * H; // where the tube's mount meets the tripod
+  const legX = 0.12 * W; // leave out the dangling lens cap, which belongs to the tube
+  const px = 0.445 * W; // the mount the tube turns on
+  const py = 0.38 * H;
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (left) ctx.scale(-1, 1);
+  ctx.drawImage(img, legX, cut, W - legX, H - cut, (legX - W / 2) * k, (cut - H / 2) * k, (W - legX) * k, (H - cut) * k);
+  ctx.translate((px - W / 2) * k, (py - H / 2) * k);
+  ctx.rotate(turn);
+  ctx.drawImage(img, 0, 0, W, cut, -px * k, -py * k, W * k, cut * k);
   ctx.restore();
 }
 
@@ -853,6 +1031,10 @@ function drawPaintedCannon(
     blitFit(ctx, img, x, y - 2, spec.w, spec.h, aim);
     return true;
   }
+  if (kind === "scope") {
+    drawScopeArt(ctx, img, x, y + 18 - spec.h / 2, spec.w, spec.h, aim);
+    return true;
+  }
   const sway = kind === "bell" ? Math.sin(t * 2) * 0.04 : 0;
   blitFit(ctx, img, x, y + 18 - spec.h / 2, spec.w, spec.h, sway);
   if (kind === "hive") {
@@ -884,7 +1066,6 @@ function drawTower(
   y: number,
   aim: number,
   kind: TowerKind,
-  ally: boolean,
   orange: boolean,
   selected: boolean,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
@@ -926,7 +1107,7 @@ function drawTower(
       ? art.fireBarrel
       : kind === "freeze" && ready(art.freezeBarrel)
         ? art.freezeBarrel
-        : kind === "mortar" || ally || orange
+        : kind === "mortar" || orange
           ? art.allyBarrel
           : art.barrel;
   if (ready(base) && ready(barrel)) {
@@ -935,7 +1116,7 @@ function drawTower(
     ctx.ellipse(x, y + 16, 16, 6, 0, 0, Math.PI * 2);
     ctx.fill();
     blit(ctx, base, x, y + 6, 46);
-    const tall = kind === "fire" || kind === "freeze" ? 32 : kind === "mortar" ? 34 : ally ? 30 : 28;
+    const tall = kind === "fire" || kind === "freeze" ? 32 : kind === "mortar" ? 34 : 28;
     blit(ctx, barrel, x, y - 2, tall, aim);
   } else {
     ctx.save();
@@ -945,10 +1126,10 @@ function drawTower(
     ctx.arc(0, 0, 16, 0, Math.PI * 2);
     ctx.fill();
     ctx.rotate(aim);
-    ctx.fillStyle = kind === "mortar" || ally ? "#c46a28" : "#2f6b3e";
+    ctx.fillStyle = kind === "mortar" ? "#c46a28" : "#2f6b3e";
     roundRect(ctx, 0, -6, 22, 12, 4);
     ctx.fill();
-    ctx.fillStyle = kind === "mortar" || ally ? "#e8883a" : "#e23b4a";
+    ctx.fillStyle = kind === "mortar" ? "#e8883a" : "#e23b4a";
     ctx.beginPath();
     ctx.arc(16, 0, 7, 0, Math.PI * 2);
     ctx.fill();

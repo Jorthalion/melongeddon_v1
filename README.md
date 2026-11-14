@@ -31,24 +31,24 @@ Optional: once you know the final URL, make `og:image` in `index.html` an absolu
 
 ## Nights
 
-Each story night is 15 waves. Midnight plays act one (waves 1-6), the knight's choice, then nine waves for that choice ending in its finale (The Household, The Grudge or Unchaperoned). The Overflow ends with "The meter spends" and "Up the chute", when absurdity drops rinds down the chute. Enemy health climbs the full curve through wave 6, then `BALANCE.storyHpPace` (0.375) of a step per wave after that, so wave 15 is as tough as the old 10-wave finale. The Overflow multiplies enemy health by `BALANCE.overflowHp` (1.4): at 1.0 the simulator won 96% of Overflow nights on Normal against 69% for Midnight; at 1.4 it is 72% on Normal and 35% on Melongeddon (Midnight: 38%).
+Each story night is 15 waves. Midnight plays act one (waves 1-6), then nine act-two waves ending in the finale, Unchaperoned. Nobody comes to the door: the knight's visit, its alliance and its betrayal were removed. The Overflow ends with "The meter spends" and "Up the chute", when absurdity drops rinds down the chute. Enemy health climbs the full curve through wave 6, then `BALANCE.storyHpPace` (0.375) of a step per wave after that, so wave 15 is as tough as the old 10-wave finale. The Overflow multiplies enemy health by `BALANCE.overflowHp` (1.4): at 1.0 the simulator won 96% of Overflow nights on Normal against 69% for Midnight; at 1.4 it is 72% on Normal and 35% on Melongeddon (Midnight: 38%).
 
 **The Overflow's chute.** From wave 6, some fruit come up the returns chute: they appear past the far end of the carpet and walk it backwards, and one that reaches the entrance costs a stack. Waves 6–9, 11, 13 and 14 send shelled melons up it; waves 14 and 15 also drop a shelled melon per 25 absurdity, and wave 15 sends Karl. A **CHUTE** plate and arrows mark that end of the carpet: they glow blue and move while the current or next wave uses the chute (`hud.chuteWave`), and sit dim otherwise. The first chute wave also shows a one-time tip (`melongeddon:chute-tip`; Settings › Show tips again brings it back).
 
 ## Keepers
 
-Six keepers, picked on the setup screen (keys 1–6). Each has a perk and a **signature tower**: only that keeper can build it, one at a time, from the **Keeper** tab (key R). Signature towers can't be fitted in the back room.
+Six keepers, picked on the setup screen (keys 1–6). Each has a perk and a **signature tower**: only that keeper can build it, one at a time, from the **Keeper** tab (key R). Mynxi's, Vaelithra's, the Legal Elf's and Ooze Clues' tabs also hold more keeper towers (the Legal Elf has three): the Reserve Desk, the Unstoppered, the Foot of the Law and The Mimic (`KEEPER_TOWERS` in `rules.ts`; `SIGNATURE` is the first of each list). A keeper tower can have an unlock goal (`TOWER_GOALS` in `meta.ts`, tracked in `MetaStats`); until it's met the tower shows a lock on the build bar. Keeper perks that name the signature tower apply to it only. Keeper towers can't be fitted in the back room, except the Unstoppered, which takes a Still's fittings.
 
 | Keeper | Start | Perk | Signature tower |
 |---|---|---|---|
-| Mynxi | 12 stacks, 150 seeds | First build 40 seeds, longer reach | **Card Catalogue** (90): long reach, each shot chains into 2 more fruit at 70% |
-| Vaelithra | 11 stacks, 120 seeds | Shots slow | **Bubbling Cauldron** (85): potion puddle that slows and deals 18/s for 3 s |
+| Mynxi | 12 stacks, 150 seeds | First build 40 seeds, longer reach | **Card Catalogue** (90): long reach, each shot chains into 2 more fruit at 70%. Also **Reserve Desk** (30, locked until a night is won with 200+ seeds in hand): no shot, built only beside the carpet; banks 8 seeds after every wave survived, paid out when sold or at a win; a melon within 60 px eats the bank |
+| Vaelithra | 11 stacks, 120 seeds | Shots slow | **Bubbling Cauldron** (85): potion puddle that slows and deals 18/s for 3 s. Also **Unstoppered** (150, locked until she wins a night with a Still built and Trial Vial or Distilled Batch taken; `MetaStats.brews`): no shot; drips a Still's puddle from every tile it covers; after each wave a 1 in 3 chance (`CANNON.flaskSpillChance`) to spill onto a neighbouring open tile that reaches the carpet, preferring one that reaches new carpet, up to 4 tiles; takes the Still's fittings; sells for a flat 35 (`refundFor`) |
 | Sir Michael | 10 stacks, 110 seeds, a free cannon | Shots hit harder | **Pumpkin Trebuchet** (110): huge splash that knocks non-boss fruit back 34 px |
-| Legal Elf | 12 stacks, 150 seeds | Back room 30% cheaper | **Scales of Justice** (95): hits the heaviest fruit in reach for its damage plus 12% of the target's max health (4% on Karl); kills pay a 5-seed fee |
-| Ooze Clues | 13 stacks, 140 seeds | The first single-fruit leak each wave is absorbed | **Mimic Chest / Memec** (100): about every 4 s swallows one nearby fruit whole (+3 seeds); Karl takes a 120 bite instead |
+| Legal Elf | 12 stacks, 150 seeds | Back room 30% cheaper | **Scales of Justice** (95): hits the heaviest fruit in reach for its damage plus 12% of the target's max health (4% on Karl); kills pay a 5-seed fee. Also **Foot of the Law** (85): every 3.2 s a giant foot stamps the most crowded spot of carpet in reach, for 7 damage (splash) and a 1.1 s stop (0.4 s on Karl) on everything under it, husks included. And **Honeyed Heel** (75): no damage; every 3.2 s it leaves a sticky honey footprint on the carpet just ahead of the fruit (radius 30, lasts 7 s, up to 3 at once); anything in it crawls at 35% speed, husks included (`CANNON.honey*`) |
+| Ooze Clues | 13 stacks, 140 seeds | The first single-fruit leak each wave is absorbed | **Mimic Chest / Memec** (100): about every 4 s swallows one nearby fruit whole (+3 seeds); Karl takes a 120 bite instead. Also **The Mimic** (160, kind `copycat`): blank until a Melon, Mortar, Still, Fire or Freeze cannon sits orthogonally beside it; then it acts as a copy of the newest such neighbour (a shadow tower in `Tower.copy`, synced by `syncMimics`), with that cannon's fittings plus a hidden `mimicstep` fitting: melon +30 reach, mortar +16 splash, still +12 puddle and drips 25% sooner, fire patch +1.2 s, freeze +0.4 s (`CANNON.mimic*`). Never more damage. Fittings bought later for the original copy over at the start of the next wave; a thin gold line shows the source |
 | Dr. Samodovol | 12 stacks, 150 seeds | Upgrade picks offer 4 choices | **History Lectern** (65): no shot; cannons within 80 px deal +25% damage, +5% per wave since it was built, up to +60% |
 
-Tower numbers are in `CANNON` and `PROFILE` in `src/game/rules.ts`; starting stacks and seeds for the newer keepers are in `KEEPER_START`. Portraits for the three newer keepers are `public/sprites/portrait-elf.webp`, `-ooze` and `-scholar` (square crops of their portrait art); the signature towers are drawn in code (`src/game/drawCannons.ts`) until painted sprites exist.
+Tower numbers are in `CANNON` and `PROFILE` in `src/game/rules.ts`; starting stacks and seeds for the newer keepers are in `KEEPER_START`. Portraits for the three newer keepers are `public/sprites/portrait-elf.webp`, `-ooze` and `-scholar` (square crops of their portrait art); the signature towers are painted sprites (`public/sprites/sig-*.webp`), with code-drawn fallbacks in `src/game/drawCannons.ts`.
 
 **Simulated balance** (bots, 1 seed per setup, so ±7 points of noise): every keeper lands in the same range as the original three. The bots pick upgrades at random and rarely use the back room, so they undersell the Doctor's fourth choice and the Elf's discount.
 
@@ -63,7 +63,7 @@ Four levels on the setup screen. They scale enemy health and speed (`DIFFICULTIE
 | Melongeddon | 1.2× | 1.12× | ~41–49% |
 | Overdue | 1.45× | 1.15× | ~25% |
 
-Bots are not smart players, so read these as relative. Wins on Melongeddon and Overdue are counted in the saved stats (`hardWins`), but nothing unlocks from them yet.
+Bots are not smart players, so read these as relative. Wins on Melongeddon and Overdue are counted in the saved stats (`hardWins`); the first one unlocks the Reading Room.
 
 ## Endless mode
 
@@ -71,14 +71,17 @@ Pick **Endless** as the night on the setup screen (New night). You play act one'
 
 ## Cannons
 
-18 cannons in four build tabs (`Q`/`W`/`E`/`T`, then `1`–`5`; `R` is the keeper's own):
+23 cannons in five build tabs (`Q`/`W`/`E`/`T`/`Y`, then `1`–`5`; `R` is the keeper's own):
 
 - **Damage:** Melon, Mortar, Seed Spitter (rapid, pings off shells), Shelf Ballista (pierces a line), Long Reader (whole-board sniper, hits the toughest)
-- **Control:** Still, Fire, Freeze, Shush Bell (area stun; husks are deaf), Fly Hive (homing, whole board)
+- **Control:** Still, Fire, Freeze, Shush Bell (area stun; husks are deaf), Fly Hive (homing, whole board; each fly does 60% of a melon shot). Shots live as long as their trip needs (`shotLife` in the engine: the distance at `SHOT_SPEED`, plus a second), so the hive and the Reader land anywhere on the biggest maps.
 - **Support:** Reading Lamp (boosts neighbours), Ink Well (+25% damage taken), Peeler (strips shells/husks/damp), Bookworm (damage over time on pumpkins and Karl), Compost Heap (seeds every wave)
-- **Trick:** Boomerang Bookend (elliptical loop out and back, pierces, one hit each way), Orrery (three planets orbit the tower and hit what they sweep, 0.5 s per planet per fruit), Paper Plane (a glider that steers toward the nearest fruit at a limited turn rate, so it swoops in arcs; 0.45 s between hits on the same fruit)
+- **Trick:** Boomerang Bookend (elliptical loop out and back, pierces, one hit each way), Orrery (three planets orbit the tower and hit what they sweep, 0.5 s per planet per fruit), Paper Plane (a glider that steers toward the nearest fruit at a limited turn rate, so it swoops in arcs; 0.45 s between hits on the same fruit), Serpent Quill (a quill that flies out in a sine wave to 1.6× its range, hitting each fruit it crosses once), Rolling Globe (lobs a globe onto the carpet just ahead of the lead fruit; the landing thuds everything within 34 px, then it rolls back along the carpet toward the entrance, hitting each fruit in its way once)
+- **Heavy** (`Y`, every keeper): Printing Press (200: every 2.9 s a sheet lands on the lead fruit and slides back up the carpet 220 px, hitting each fruit once for 70 and inking it: +25% damage taken for 4 s), Pipe Organ (220: every 2.5 s a chord hits every fruit within 1.25× reach for 59 and slows it 1.2 s; every third chord also stops it 1 s, 0.35 s on Karl; husks take the damage but ignore the slow and the stop), Brass Telescope (250: 3.2× reach, instant shots of 168 every 0.77 s that ignore shells, husks and damp; aims for Karl, then armoured fruit, then the toughest). Each has its own fittings: Broadsheet and Wet ink for the Press, Bigger pipes and Crescendo stop for the Organ, Longer barrel and Quick wick for the Telescope. Tuned in the simulator (melons plus one kind, all keepers, 3 maps) to about the Ballista's level, before counting the ink, slows and armour piercing the bots don't use: Press 67% Normal / 33% Hard, Organ 65% / 28%, Telescope 67% / 22% (melons alone 59% / 24%, melons + Ballista 76% / 33%). Knobs: `PROFILE.press/organ/scope` and `CANNON.press*` / `CANNON.organ*` in `rules.ts`.
 
-**Trick shots.** Boomerangs and planes are `Flyer`s (`world.flyers`), moved by `moveFlyer` in the engine; the Orrery's planets are computed per tower in `spinOrrery`. Numbers are the `boomerang*`, `orrery*` and `plane*` keys in `CANNON` plus their `PROFILE` rows. In simulation (Midnight, the Stacks, bot builds melons plus one other kind), win rates are: melons only 58%, + Ballista 61%, + Paper Plane 69%, + Orrery 74%, + Boomerang 75%.
+**Trick shots.** Boomerangs, planes, quills and globes are `Flyer`s (`world.flyers`), moved by `moveFlyer` in the engine; the Orrery's planets are computed per tower in `spinOrrery`. Numbers are the `boomerang*`, `orrery*`, `plane*`, `quill*` and `globe*` keys in `CANNON` plus their `PROFILE` rows. In simulation (Midnight, the Stacks, bot builds melons plus one other kind), win rates are: melons only 58%, + Ballista 61%, + Paper Plane 69–70%, + Serpent Quill 72%, + Orrery 74%, + Boomerang 75–80%, + Rolling Globe 76%.
+
+**Trick cannons open with keeper levels** (`TRICK_LEVEL` in `src/game/rules.ts`): Boomerang Bookend at level 2, Orrery 3, Paper Plane 5, Serpent Quill 7, Rolling Globe 9. It's the playing keeper's level when the night starts (`hud.runLevel`), so each keeper opens them separately, and a level reached mid-night counts from the next night (the level-up message names the cannon). Locked cards show a lock and "Level N" in the build bar. Developer mode has every keeper at level 10. The simulator and most tests pass `allTricks: true` to `createWorld` so bots can build any of them. The trick cannons, the boomerang, plane and quill in flight, and the three orrery planets are painted sprites (`public/sprites/trick-*.webp`, `fly-*.webp`); the globe in flight is still drawn in code. Image prompts are in [docs/art/TRICK_PROMPTS.md](docs/art/TRICK_PROMPTS.md).
 
 **Cannon upgrades.** Five of the new cannons have an upgrade in the between-wave picks: Barbed Spears (Ballista: spear slows), Footnotes (Reader: hits ink the target), Stinging Flies (Hive: each fly hits a second fruit), Ink Blot (Ink Well: popped marked fruit splash ink, marks sting harder) and Interest (Compost: +20 per heap plus 10% of unspent seeds, up to 20). Each also makes its own cannon fire faster. One is offered only once you've built that cannon, never at the first pick, and it takes the middle slot so the keeper's own pick stays. It doesn't change which picks come next. Knobs are in `CANNON` (`upgradePace`, `readerUpgradePace`, `inkUpgradePace`, `blotInkBonus`, `blotRadius`, `interestBase`, `interestRate`, `interestCap`).
 
@@ -92,11 +95,11 @@ The build tabs (Damage / Control / Support) say what a tower is for. Each tower 
 
 | Type | Towers |
 |---|---|
-| Cannon | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet |
-| Precision | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Boomerang Bookend, Orrery, Paper Plane, Card Catalogue, Scales of Justice |
-| Alchemy | Still, Ink Well, Bubbling Cauldron |
-| Creature | Fly Hive, Bookworm, Mimic Chest |
-| Utility (no damage) | Shush Bell, Reading Lamp, Compost Heap, History Lectern |
+| Cannon | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet, Printing Press |
+| Precision | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Boomerang Bookend, Orrery, Paper Plane, Serpent Quill, Rolling Globe, Brass Telescope, Card Catalogue, Scales of Justice |
+| Alchemy | Still, Ink Well, Bubbling Cauldron, Unstoppered |
+| Creature | Fly Hive, Bookworm, Mimic Chest, The Mimic |
+| Utility (no upgrade picks apply) | Shush Bell, Reading Lamp, Compost Heap, History Lectern, Foot of the Law, Honeyed Heel, Reserve Desk, Pipe Organ |
 
 | Upgrade | Affects |
 |---|---|
@@ -107,11 +110,11 @@ The build tabs (Damage / Control / Support) say what a tower is for. Each tower 
 | Seed Cache, Overdue Fines | Seeds only |
 | Barbed Spears, Footnotes, Stinging Flies, Ink Blot, Interest | Their own cannon |
 
-Every upgrade card shows "Affects: …", and the cannon inspector shows the tower's type.
+Every upgrade card has a 40px mark (the tower's picture, or a drawn mark for shared upgrades) and a small tag in player words saying what it reaches ("Melon cannons", "Cannons and precision", "The ledger"). The keeper's own cards (Mynxi: Overdue Fines and Reading Lamp; Sir Michael: Heavy Caliber and Knight's Splatter; Vaelithra: Trial Vial and Distilled Batch) have a gold edge and the keeper's name; hover and keyboard focus show the same gold edge. Hotkeys 1–3 are keycaps in each card's top corner. The cannon inspector shows the tower's type.
 
 ## Maps
 
-Night one (and Endless) can be played on any unlocked map. Night two is always the Overflow. Boards are defined in `BOARDS` in `src/game/rules.ts` as a list of carpet corners, plus fixed spots for ally and knight cannons.
+Night one (and Endless) can be played on any unlocked map. Night two is always the Overflow. Boards are defined in `BOARDS` in `src/game/rules.ts` as a list of carpet corners, plus the fixed spot for Sir Michael's cannon and the bookshelf cells (`shelves`, default `DEFAULT_SHELVES`). **Bookshelves block building:** `shelfCells(map, path)` gives the blocked cells (never on the carpet or on Sir Michael's spot), the world keeps them as `world.shelfCells`, the build marker and `pointer` refuse them ("That's a bookshelf"), the bots skip them, and the board draws its shelves from the same set. With shelves blocking, melon-only bots on the Stacks win 54% (58% before) and melon + Boomerang 76% (80%), within the simulator's noise.
 
 | Map | What's different | Unlocked by |
 |---|---|---|
@@ -129,7 +132,25 @@ Map unlock goals are `MAP_GOALS` in `src/game/meta.ts`. Map cards and the intro 
 
 ## Late slips
 
-The Overflow's setup screen offers up to three optional **late slips** (`src/game/slips.ts`): Heavy Returns (chute opens on wave 3), Damp Powder (−20% damage), No Refunds (selling pays 0), Short Shelf (−4 stacks) and Karl Is Early (extra Karl on wave 8). Each adds keeper XP (+10% to +25%, bonuses add). They replaced the old "How the first night ended" question: the Overflow now takes the last Midnight door answer from storage (`overflowDoor()`, "sent away" when there is none). Picks save with the setup record; the simulator takes them through `slips` in `RunConfig`.
+The Overflow's setup screen offers up to three optional **late slips** (`src/game/slips.ts`): Heavy Returns (chute opens on wave 3), Damp Powder (−20% damage), No Refunds (selling pays 0), Short Shelf (−4 stacks) and Karl Is Early (extra Karl on wave 8). Each adds keeper XP (+10% to +25%, bonuses add). Picks save with the setup record; the simulator takes them through `slips` in `RunConfig`.
+
+## Mynxi's tutorial (guided first night)
+
+A new player's first **Start** plays Mynxi's tutorial: Midnight on the Stacks as Mynxi, on Normal, made very easy. Fruit have 30% of their health and 80% of their speed, and the night starts with +80 seeds and +8 stacks (`tutorialHp`, `tutorialSpeed`, `tutorialSeeds`, `tutorialStacks` in `BALANCE`; applied through `tune()` and `tutorialStart()` while `hud.tutorial` is on, restarts included). In simulation, a player who builds only the two cannons the lessons ask for holds with no leaks to wave 8; one who adds a cannon every third or fourth wave wins; one who adds a cannon a wave wins without a leak. She talks the player through 13 lessons in a speech box (`src/components/MynxiTutor.tsx`):
+
+1. **Talk** (Next): welcome, the carpet and stacks, seeds.
+2. **Build** a Damage cannon, then the range ring (talk).
+3. **Build** a Control or Support tower, then the five tabs, the keeper tower and trick cannons (talk).
+4. **Start** the wave, then speed and pause (Next, or change the speed), and holding the carpet.
+5. **Pick** an upgrade card after wave 1.
+6. **Open** the back-room tab before wave 2 and buy an upgrade (that one is free).
+7. A last word on selling (talk).
+
+Talk steps have a Next button; the others wait for the player, and building early skips the lessons it covers. The wave won't start while a step before it is open (`GUIDE_HOLDS`); pressing Start wave says why. Leaving the back room saves `melongeddon-guide` = `done` and opens **New night**. For the rest of that night (`hud.tutorial`) she chips in once each for a leak, Karl, affording her Card Catalogue, and the win or loss. **Skip** (on the box, or **Skip the guide** on the Title) ends it, and **Tutorial** on the Title replays it (`api.startTutorial()`). The steps are `GuideStep` / `GUIDE_STEPS` / `GUIDE_TALK` in the engine; her lines are `LESSON` and `TIPS` in the component. Her four expressions (`FACE`) all use the portrait until the art in [docs/art/MYNXI_PROMPTS.md](docs/art/MYNXI_PROMPTS.md) arrives. Tests and the simulator never see the tutorial unless they pass `guide: true` to `createWorld`.
+
+## Saves
+
+Saves are separate `localStorage` keys; `melongeddon-save-version` says which layout they are in (`SAVE_VERSION` in `src/lib/saves.ts`, now 1). `migrateSaves()` runs before anything reads them: saves with no version (v0.5.0 and earlier) count as version 0 and are migrated (players with progress skip the guided night); an unreadable version clears progress but keeps preferences; a newer version is left alone; a save that isn't valid JSON is dropped. To change a save layout, bump `SAVE_VERSION` and add a step to `MIGRATIONS`.
 
 ## Developer mode
 
@@ -149,7 +170,7 @@ Milestones across runs unlock bookmarks: small perks you equip one at a time on 
 |---|---|---|
 | Seed Fund | +30 starting seeds | clearing wave 3 |
 | Spare Stack | +2 stacks | popping Karl |
-| Back-room Key | first fitting each run is free | buying 5 fittings |
+| Back-room Key | first back-room upgrade each run is free | buying 5 back-room upgrades |
 | Bulk Order | cannons cost 5 less | winning a night |
 | Late Fees | +1 seed per kill | reaching wave 15 in Endless |
 
@@ -157,7 +178,7 @@ Effect sizes live in `BOOKMARK_VALUES`. The simulator can equip one (`bookmark` 
 
 ## Controls
 
-Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade, back-room and knight cards, 1–4 on the Doctor's picks, and 1–6 for the keeper on Setup), `Q`/`W`/`E`/`R`/`T` switch build tabs (R is the keeper's own tower, T the trick shots), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` back room, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Settings (on the Title and in the pause menu) has sound, music, default game speed, reduce motion, and "Show tips again". The Title's How to play covers controls, cannons, keepers, nights and rooms.
+Mouse or touch to build and select. Keys: `1`–`5` pick a cannon (or choice 1–3 on upgrade cards, an upgrade while the back-room tab is open, 1–4 on the Doctor's picks, and 1–6 for the keeper on Setup), `Q`/`W`/`E`/`R`/`T`/`Y` switch build tabs (R is the keeper's own towers, T the trick shots, Y the heavy cannons), `Enter` presses the main button on Setup, the intro, story cards and end cards, arrows move through the Title menu, `Space` starts the wave or pauses, `P` pause, `S` sell, `B` opens or closes the back-room tab, `Esc` close or open the pause menu (Back on Setup and the intro), `+`/`-` speed, `M` sound. Settings (on the Title and in the pause menu) has sound, music, default game speed, reduce motion, and "Show tips again". The Title's How to play covers controls, cannons, keepers, nights and rooms.
 
 The pause menu (`Esc` or the menu button) has Resume, Settings, Restart night and Leave to title. The game remembers your last setup: the Title's Continue starts it again, and the end cards offer Play again, Change setup and Title.
 
@@ -169,7 +190,12 @@ All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `worl
 - `src/game/engine.ts` – the simulation: world state, combat, phases (no DOM)
 - `src/game/draw.ts` – canvas renderer
 - `src/game/audio.ts` – Web Audio tones
-- `src/components/MelonGame.tsx` – HUD, menus, overlays
+- `src/components/MelonGame.tsx` – the shell: game loop, canvas input, Back gesture, and which screen shows
+- `src/components/TitleScreen.tsx`, `SetupScreen.tsx`, `RoomScreen.tsx` – Title (with How to play), New night setup, the intro
+- `src/components/GameHUD.tsx` – header, build footer and tower inspector; `PauseMenu.tsx`, `SettingsPanel.tsx`
+- `src/components/CardPicker.tsx` – the between-wave cards and end cards; `Shop.tsx` – the back-room side tab (upgrades per tower kind: every tower of that kind gets them; each kind's price is 40, then +30 per upgrade it has; bought between waves)
+- `src/components/ui.tsx` – shared buttons, the `GameApi` type and labels; `keeperCards.ts` – keeper card data
+- `src/lib/saves.ts` – save version and migrations (runs at startup)
 - `public/sprites/` – art
 - `scripts/sim.ts`, `scripts/sim-core.ts` – headless bot runs for balance testing
 - `tests/` – engine tests (`node --test`)
@@ -178,6 +204,6 @@ All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `worl
 
 ## Tuning
 
-The main knobs are in `BALANCE` in `src/game/rules.ts` (enemy health curve, story-night pace, kill rewards, pulp puddle rate, slow strength, Sir Michael's start, the betrayal payout, endless health growth), plus `DIFFICULTIES` in the same file. After changing them, run `npm run sim` and compare against `docs/balance-current.md`.
+The main knobs are in `BALANCE` in `src/game/rules.ts` (enemy health curve, story-night pace, kill rewards, pulp puddle rate, slow strength, Sir Michael's start, endless health growth), plus `DIFFICULTIES` in the same file. After changing them, run `npm run sim` and compare against `docs/balance-current.md`.
 
 Targets used for the current numbers: a cautious player (2 towers per wave) wins ~90% on Story, ~60–70% on Stacks, ~35–45% on Melongeddon; a player who builds whenever they can wins ~90% on Stacks and ~50% on Melongeddon.

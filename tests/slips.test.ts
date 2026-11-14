@@ -21,7 +21,7 @@ const center = (c: number) => c * CELL + CELL / 2;
 
 /** An Overflow run with these slips, on the Intro poster. */
 function overflow(slips: SlipId[] = [], hero: "vael" | "mynxi" = "vael"): Api {
-  const api = createWorld(() => {}, { keepers: emptyProgress(), setup: { night: "overflow", hero, door: "reject" } });
+  const api = createWorld(() => {}, { keepers: emptyProgress(), setup: { night: "overflow", hero } });
   api.openSetup();
   for (const id of slips) api.toggleSlip(id);
   api.chooseHero(hero);
@@ -47,7 +47,6 @@ function playTo(api: Api, wave: number) {
   for (let guard = 0; guard < 40 && !(api.world.hud.phase === "prep" && api.world.hud.wave === wave); guard++) {
     const h = api.world.hud;
     if (h.phase === "upgrade") api.pickUpgrade(h.offer[0].id as UpgradeId);
-    else if (h.phase === "memory") api.ackMemory();
     else if (h.phase === "prep" || h.phase === "consequence") {
       const kinds = new Set<string>();
       seen[h.wave] = kinds;

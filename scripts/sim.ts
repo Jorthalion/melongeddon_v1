@@ -13,7 +13,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { simulateRun, type RunConfig, type RunResult, type Strategy } from "./sim-core.ts";
 import { WAVE_COUNT } from "../src/game/engine.ts";
-import type { Alliance, Difficulty, HeroId, MapId, NightId } from "../src/game/engine.ts";
+import type { Difficulty, HeroId, MapId, NightId } from "../src/game/engine.ts";
 
 const args = process.argv.slice(2);
 const seedArg = args.indexOf("--seeds");
@@ -22,7 +22,6 @@ const SEEDS = seedArg >= 0 ? Math.max(1, Number(args[seedArg + 1]) || 3) : 3;
 const HEROES: HeroId[] = ["mynxi", "michael", "vael", "elf", "ooze", "scholar"];
 const DIFFS: Difficulty[] = ["easy", "normal", "hard", "overdue"];
 const STRATEGIES: Strategy[] = ["melon", "mixed", "mixed+mods", "lean"];
-const DOORS: Exclude<Alliance, "none">[] = ["accept", "betray", "reject"];
 const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "stacks" },
   { night: "midnight", map: "annex" },
@@ -37,9 +36,8 @@ for (const hero of HEROES)
   for (const difficulty of DIFFS)
     for (const strategy of STRATEGIES)
       for (const sc of SCENARIOS)
-        for (const door of DOORS)
-          for (let seed = 1; seed <= SEEDS; seed++)
-            configs.push({ hero, difficulty, strategy, night: sc.night, map: sc.map, door, seed });
+        for (let seed = 1; seed <= SEEDS; seed++)
+          configs.push({ hero, difficulty, strategy, night: sc.night, map: sc.map, seed });
 
 const started = Date.now();
 const results: RunResult[] = [];
@@ -62,8 +60,8 @@ function table(title: string, rowsKey: (r: RunResult) => string, colsKey: (r: Ru
   return out.join("\n");
 }
 
-const scenarioOf = (r: RunResult) => `${r.config.night === "overflow" ? "overflow" : r.config.map} / ${r.config.door}`;
-const scenarioNames = SCENARIOS.flatMap((s) => DOORS.map((d) => `${s.night === "overflow" ? "overflow" : s.map} / ${d}`));
+const scenarioOf = (r: RunResult) => (r.config.night === "overflow" ? "overflow" : r.config.map);
+const scenarioNames = SCENARIOS.map((s) => (s.night === "overflow" ? "overflow" : s.map));
 
 const lines: string[] = [];
 lines.push("# Melongeddon balance report", "");
@@ -82,7 +80,7 @@ lines.push(
 lines.push("## Win rates", "");
 lines.push(table("Hero × difficulty", (r) => r.config.hero, (r) => r.config.difficulty, HEROES, DIFFS), "");
 lines.push(table("Strategy × difficulty", (r) => r.config.strategy, (r) => r.config.difficulty, STRATEGIES, DIFFS), "");
-lines.push(table("Map / knight choice × difficulty", scenarioOf, (r) => r.config.difficulty, scenarioNames, DIFFS), "");
+lines.push(table("Map × difficulty", scenarioOf, (r) => r.config.difficulty, scenarioNames, DIFFS), "");
 
 lines.push("### Towers on the board at the end (average)", "");
 lines.push(`| strategy | ${DIFFS.join(" | ")} |`, `|---|${DIFFS.map(() => "---").join("|")}|`);

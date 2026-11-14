@@ -14,11 +14,7 @@ export type Phase =
   | "prep"
   | "combat"
   | "upgrade"
-  | "alliance"
-  | "betrayal"
   | "consequence"
-  | "memory"
-  | "shop"
   | "victory"
   | "defeat";
 
@@ -64,8 +60,6 @@ export type UpgradeId =
   | "interest";
 
 export type EnemyKind = "melon" | "corn" | "pumpkin" | "karl";
-
-export type Alliance = "none" | "accept" | "betray" | "reject";
 
 export interface UpgradeDef {
   id: UpgradeId;
@@ -182,7 +176,6 @@ export function buildOffer(
   step: 1 | 2 | 3,
   owned: UpgradeId[],
   branch: UpgradeId | null,
-  alliance: Alliance = "none",
   /** Cannon kinds the player has built, most-built first. */
   built: TowerKind[] = [],
   /** Extra choices from keeper perks. */
@@ -202,11 +195,7 @@ export function buildOffer(
     else wanted = ["sticky", "bounce", "electric"];
   } else if (step === 3) {
     wanted =
-      alliance === "betray"
-        ? ["bounce", "rapid", "electric", "juicy", "sticky", "seeds"]
-        : alliance === "reject"
-          ? ["juicy", "sticky", "seeds", "rapid", "electric", "bounce"]
-          : ["electric", "sticky", "bounce", "juicy", "rapid", "seeds"];
+["juicy", "sticky", "seeds", "rapid", "electric", "bounce"];
   }
   const out: UpgradeId[] = [];
   for (const id of [...wanted, ...PAD]) {
@@ -242,12 +231,23 @@ export type TowerKind =
   | "boomerang"
   | "orrery"
   | "plane"
-  // Keeper signature towers: one per keeper, only that keeper can build it, one on the board at a time.
+  | "quill"
+  | "globe"
+  // Heavy cannons: expensive, and each does two jobs.
+  | "press"
+  | "organ"
+  | "scope"
+  // Keeper towers: only that keeper can build them, one of each on the board at a time.
   | "catalogue"
+  | "desk"
   | "cauldron"
+  | "flask"
   | "trebuchet"
   | "scales"
+  | "stomp"
+  | "honey"
   | "mimic"
+  | "copycat"
   | "lectern";
 
 /** Each keeper's signature tower. */
@@ -259,11 +259,24 @@ export const SIGNATURE: Record<HeroId, TowerKind> = {
   ooze: "mimic",
   scholar: "lectern",
 };
-export const SIGNATURE_KINDS: TowerKind[] = Object.values(SIGNATURE);
+/** Every tower in each keeper's own tab: the signature first, then any extras. */
+export const KEEPER_TOWERS: Record<HeroId, TowerKind[]> = {
+  mynxi: ["catalogue", "desk"],
+  vael: ["cauldron", "flask"],
+  michael: ["trebuchet"],
+  elf: ["scales", "stomp", "honey"],
+  ooze: ["mimic", "copycat"],
+  scholar: ["lectern"],
+};
+/** All keeper-only towers. */
+export const SIGNATURE_KINDS: TowerKind[] = Object.values(KEEPER_TOWERS).flat();
 export const isSignature = (kind: TowerKind) => SIGNATURE_KINDS.includes(kind);
+/** The keeper a keeper-only tower belongs to. */
+export const keeperOf = (kind: TowerKind): HeroId | null =>
+  (Object.keys(KEEPER_TOWERS) as HeroId[]).find((h) => KEEPER_TOWERS[h].includes(kind)) ?? null;
 
 export interface TowerGroup {
-  id: "damage" | "control" | "support" | "trick" | "keeper";
+  id: "damage" | "control" | "support" | "trick" | "heavy" | "keeper";
   name: string;
   key: string;
   kinds: TowerKind[];
@@ -274,25 +287,27 @@ export const TOWER_GROUPS: TowerGroup[] = [
   { id: "damage", name: "Damage", key: "q", kinds: ["melon", "mortar", "spitter", "ballista", "reader"] },
   { id: "control", name: "Control", key: "w", kinds: ["still", "fire", "freeze", "bell", "hive"] },
   { id: "support", name: "Support", key: "e", kinds: ["lantern", "ink", "peeler", "bookworm", "compost"] },
-  { id: "trick", name: "Trick", key: "t", kinds: ["boomerang", "orrery", "plane"] },
+  { id: "trick", name: "Trick", key: "t", kinds: ["boomerang", "orrery", "plane", "quill", "globe"] },
+  { id: "heavy", name: "Heavy", key: "y", kinds: ["press", "organ", "scope"] },
 ];
 
-/** The keeper's own tab: just their signature tower. */
-export function keeperGroup(kind: TowerKind): TowerGroup {
-  return { id: "keeper", name: "Keeper", key: "r", kinds: [kind] };
+/** The keeper's own tab: their signature tower, plus any extras. */
+export function keeperGroup(kinds: TowerKind[]): TowerGroup {
+  return { id: "keeper", name: "Keeper", key: "r", kinds };
 }
 
 /** The tabs a keeper sees: the three shared ones plus their own. */
 export function groupsFor(hero: HeroId | null): TowerGroup[] {
   if (!hero) return TOWER_GROUPS;
-  // Tabs follow their keys: Q W E, then the keeper's R, then T for trick shots.
-  const shared = TOWER_GROUPS.filter((g) => g.id !== "trick");
-  const trick = TOWER_GROUPS.filter((g) => g.id === "trick");
-  return [...shared, keeperGroup(SIGNATURE[hero]), ...trick];
+  // Tabs follow their keys: Q W E, then the keeper's R, then T for trick shots and Y for the heavy cannons.
+  const shared = TOWER_GROUPS.filter((g) => g.id !== "trick" && g.id !== "heavy");
+  const after = TOWER_GROUPS.filter((g) => g.id === "trick" || g.id === "heavy");
+  return [...shared, keeperGroup(KEEPER_TOWERS[hero]), ...after];
 }
 
 export function groupOf(kind: TowerKind): TowerGroup {
-  if (isSignature(kind)) return keeperGroup(kind);
+  const keeper = keeperOf(kind);
+  if (keeper) return keeperGroup(KEEPER_TOWERS[keeper]);
   return TOWER_GROUPS.find((g) => g.kinds.includes(kind)) ?? TOWER_GROUPS[0];
 }
 
@@ -314,19 +329,29 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   peeler: "precision",
   catalogue: "precision",
   scales: "precision",
+  stomp: "utility",
+  honey: "utility",
   still: "alchemy",
   ink: "alchemy",
   cauldron: "alchemy",
+  flask: "alchemy",
   hive: "creature",
   bookworm: "creature",
   boomerang: "precision",
   orrery: "precision",
   plane: "precision",
+  quill: "precision",
+  globe: "precision",
+  press: "cannon",
+  organ: "utility",
+  scope: "precision",
   mimic: "creature",
+  copycat: "creature",
   bell: "utility",
   lantern: "utility",
   compost: "utility",
   lectern: "utility",
+  desk: "utility",
 };
 
 export const TYPE_INFO: Record<TowerType, { name: string; blurb: string }> = {
@@ -363,6 +388,42 @@ export function upgradeAffects(id: UpgradeId, kind: TowerKind) {
   return UPGRADE_TARGETS[id]?.includes(TOWER_TYPE[kind]) ?? false;
 }
 
+/**
+ * What an upgrade card says it reaches, in player words, as one short chip on its title row
+ * ("Melon cannons", "Cannons and precision", "The ledger").
+ */
+export const UPGRADE_SCOPE: Record<UpgradeId, string> = {
+  juicy: "Cannons",
+  rapid: "Cannons and precision",
+  seeds: "Seeds, once",
+  sticky: "Puddles",
+  bounce: "Melon cannons",
+  electric: "Cannons",
+  fines: "The ledger",
+  caliber: "Cannons",
+  lamp: "Cannons and precision",
+  splatter: "Cannons",
+  vial: "Puddles",
+  distill: "Puddles",
+  barbed: "Ballistas",
+  footnotes: "Long Readers",
+  stinging: "Fly Hives",
+  blot: "Ink Wells",
+  interest: "Compost Heaps",
+};
+
+/** The upgrades that are a keeper's own: the first pick only they are offered, and their later one. */
+export const KEEPER_UPGRADES: Partial<Record<HeroId, UpgradeId[]>> = {
+  mynxi: ["fines", "lamp"],
+  michael: ["caliber", "splatter"],
+  vael: ["vial", "distill"],
+};
+
+/** Is upgrade `id` the playing keeper's own card? */
+export function isKeeperUpgrade(hero: HeroId | null, id: UpgradeId) {
+  return hero != null && (KEEPER_UPGRADES[hero]?.includes(id) ?? false);
+}
+
 /** Short "affects" label for an upgrade card. */
 export function upgradeTargetLabel(id: UpgradeId) {
   const own = UPGRADE_KIND[id] ?? (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === id);
@@ -373,7 +434,7 @@ export function upgradeTargetLabel(id: UpgradeId) {
 }
 
 /** Cannons that never shoot. */
-export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern"];
+export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern", "desk"];
 /** Whole-board range: more than the diagonal of the largest board (22 x 14 cells is about 1250 px). */
 export const GLOBAL_RANGE = 1400;
 
@@ -438,6 +499,24 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 65,
     role: "Homing",
   },
+  press: {
+    name: "Printing Press",
+    blurb: "Presses a sheet that slides back up the carpet, hitting every fruit along a long stretch. Everything it touches is inked: your other cannons hit it harder for a while.",
+    cost: 200,
+    role: "Line + ink",
+  },
+  organ: {
+    name: "Pipe Organ",
+    blurb: "Plays a chord that hits every fruit in a wide circle and slows them. Every third chord is a crescendo that stops them for a moment. Husks don't hear the slow or the stop.",
+    cost: 220,
+    role: "Area + control",
+  },
+  scope: {
+    name: "Brass Telescope",
+    blurb: "Very long reach. Aims for Karl, then armoured fruit, then the toughest. Its shots pierce armour: shells, husks and damp count for nothing.",
+    cost: 250,
+    role: "Pierce",
+  },
   lantern: {
     name: "Reading Lamp",
     blurb: "No shot. Cannons next to it see farther and fire faster.",
@@ -449,6 +528,12 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     blurb: "Splashes ink. Marked fruit takes a quarter more damage from everything.",
     cost: 55,
     role: "Mark",
+  },
+  desk: {
+    name: "Reserve Desk",
+    blurb: "Mynxi's second. No shot; builds beside the carpet. Banks 8 seeds after each wave you survive; sell it, or win the night, to collect. A melon that walks past the desk eats the bank.",
+    cost: 30,
+    role: "Savings",
   },
   compost: {
     name: "Compost Heap",
@@ -476,7 +561,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   orrery: {
     name: "Orrery",
-    blurb: "Two brass planets circle it all night and smack any fruit they sweep through. Best on a corner.",
+    blurb: "Three brass planets circle it all night and smack any fruit they sweep through. Best on a corner.",
     cost: 80,
     role: "Orbit",
   },
@@ -486,11 +571,29 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 85,
     role: "Glide",
   },
+  quill: {
+    name: "Serpent Quill",
+    blurb: "Flicks an enchanted quill that writes a wavy line through the fruit: it snakes out and back across the carpet, hitting each fruit it crosses.",
+    cost: 75,
+    role: "Wave",
+  },
+  globe: {
+    name: "Rolling Globe",
+    blurb: "Lobs a library globe onto the carpet ahead of the lead fruit. It lands with a thud and rolls back toward the entrance, flattening everything in its way.",
+    cost: 100,
+    role: "Roll",
+  },
   catalogue: {
     name: "Card Catalogue",
     blurb: "Mynxi's own. Long reach, and every shot is cross-referenced into two more fruit.",
     cost: 90,
     role: "Chain",
+  },
+  flask: {
+    name: "Unstoppered",
+    blurb: "Vael's second. No shot: a tipped flask that drips her slow puddle onto the carpet, like a Still. After each wave it may spill onto a neighbouring tile that reaches the carpet (1 in 3), up to four tiles, and every tile drips. Sells for a flat 35.",
+    cost: 150,
+    role: "Spill",
   },
   cauldron: {
     name: "Bubbling Cauldron",
@@ -509,6 +612,24 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     blurb: "The Legal Elf's own. Weighs the heaviest fruit in reach and takes a share of its health. Kills pay a fee.",
     cost: 95,
     role: "Heavy hitter",
+  },
+  honey: {
+    name: "Honeyed Heel",
+    blurb: "The Legal Elf's third. A big bare foot dipped in honey steps onto the carpet just ahead of the fruit and leaves a sticky footprint. Anything that walks through crawls, husks included. No damage.",
+    cost: 75,
+    role: "Sticky",
+  },
+  stomp: {
+    name: "Foot of the Law",
+    blurb: "The Legal Elf's second. A giant foot stamps the busiest stretch of carpet in reach: a little damage, and everything under it stops. Even husks feel this one.",
+    cost: 85,
+    role: "Stomp",
+  },
+  copycat: {
+    name: "The Mimic",
+    blurb: "Memec's second. Blank until it sits right beside a Melon, Mortar, Still, Fire or Freeze cannon (corners don't count). Then it becomes a copy, fittings and all, one step harder: farther, wider, sooner, longer. Never more damage.",
+    cost: 160,
+    role: "Copy",
   },
   mimic: {
     name: "Mimic Chest",
@@ -533,7 +654,10 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   ballista: { dmg: 1.6, pace: 2.1, range: 1.25 },
   reader: { dmg: 8, pace: 2.4, range: 0 },
   bell: { dmg: 0, pace: 4.4, range: 0.8 },
-  hive: { dmg: 0.7, pace: 0.65, range: 0 },
+  hive: { dmg: 0.6, pace: 0.65, range: 0 },
+  press: { dmg: 5, pace: 3.2, range: 1.1 },
+  organ: { dmg: 4.2, pace: 2.8, range: 1.25 },
+  scope: { dmg: 12, pace: 0.85, range: 3.2 },
   ink: { dmg: 0.3, pace: 1.2, range: 0.9 },
   peeler: { dmg: 0.6, pace: 1.1, range: 0.9 },
   bookworm: { dmg: 0.4, pace: 1.3, range: 1 },
@@ -541,23 +665,63 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   // Orrery: range is the planets' orbit; pace sets how fast they spin.
   orrery: { dmg: 1.1, pace: 1, range: 0.62 },
   plane: { dmg: 0.85, pace: 2.5, range: 1.25 },
+  // Serpent Quill: range is how far it aims; the quill itself writes on past the fruit (quillReach).
+  quill: { dmg: 0.95, pace: 1.1, range: 1 },
+  // Rolling Globe: slow, but every fruit on the carpet behind its landing spot is in the way.
+  globe: { dmg: 1.5, pace: 3.4, range: 1.3 },
   catalogue: { dmg: 1.15, pace: 1.1, range: 1.4 },
   cauldron: { dmg: 0.5, pace: 1.7, range: 1.05 },
   trebuchet: { dmg: 1.5, pace: 2.8, range: 1.3 },
   scales: { dmg: 0.6, pace: 1.4, range: 1.15 },
+  stomp: { dmg: 0.5, pace: 3.6, range: 1 },
+  honey: { dmg: 0, pace: 3.6, range: 1.1 },
   mimic: { dmg: 0, pace: 4.5, range: 0.75 },
 };
 
 /** Tunable numbers for the newer cannons' special effects. */
 export const CANNON = {
   bellStun: 0.9,
+  /** Printing Press: how far a sheet slides (px), how fast, and the ink it leaves (damage taken ×, seconds). */
+  pressSheet: 220,
+  pressSpeed: 300,
+  pressInk: 1.25,
+  pressInkTime: 4,
+  /** Pipe Organ: the slow every chord leaves (s), which chord is the crescendo, and how long that stops fruit (Karl: less). */
+  organChill: 1.2,
+  organEvery: 3,
+  organStun: 1,
+  organStunBoss: 0.35,
   bellStunBoss: 0.35,
+  /** Foot of the Law: how wide the foot lands, and how long what it lands on stays put (Karl: less). */
+  stompRadius: 54,
+  /** Honeyed Heel: footprint size (px) and life (s), the speed fruit crawl at in it (0.35 = 35%), and how many it keeps down at once. */
+  honeyRadius: 30,
+  honeyLife: 7,
+  honeySlow: 0.35,
+  honeyMax: 3,
+  stompStun: 1.1,
+  stompStunBoss: 0.4,
   lanternRadius: 72,
   lanternRange: 1.15,
   lanternPace: 0.85,
   inkTime: 4,
   inkBonus: 1.25,
   compostSeeds: 15,
+  /** Reserve Desk: seeds banked per wave survived, and how close a melon must come to eat the bank (px). */
+  deskBank: 8,
+  /** Unstoppered: chance to spill onto one more tile after each wave, the most tiles it can cover, and its flat sell price. */
+  flaskSpillChance: 1 / 3,
+  flaskMaxTiles: 4,
+  flaskRefund: 35,
+  /** The Mimic: the "one step harder" each copy gets. Melon reach (px), mortar splash (px), still puddle
+   * radius (px) and drip time (×), fire patch life (s), freeze hold (s). */
+  mimicReach: 30,
+  mimicSplash: 16,
+  mimicPuddle: 12,
+  mimicDrip: 0.75,
+  mimicBurn: 1.2,
+  mimicFreeze: 0.4,
+  deskReach: 60,
   wormDps: 26,
   wormTime: 4,
   /** Cannon upgrades. */
@@ -608,7 +772,23 @@ export const CANNON = {
   planeTurn: 4,
   planeLife: 3.5,
   planeGap: 0.45,
+  /** Serpent Quill: it flies this many times its range, at this speed (px/s), weaving this far (px) to each side every quillWavelength px. */
+  quillReach: 1.6,
+  quillSpeed: 240,
+  quillWave: 30,
+  quillWavelength: 110,
+  /** Rolling Globe: seconds in the air, then how long and how fast (px/s) it rolls; the landing thud's radius (px). */
+  globeLob: 0.6,
+  globeRoll: 3.2,
+  globeSpeed: 150,
+  globeThud: 34,
 };
+
+/**
+ * Trick cannons open with the playing keeper's level (read when the night starts). Each keeper
+ * levels separately, so a new keeper starts with the Trick tab locked again.
+ */
+export const TRICK_LEVEL: Partial<Record<TowerKind, number>> = { boomerang: 2, orrery: 3, plane: 5, quill: 7, globe: 9 };
 
 export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) {
   if (hero === "mynxi" && placed === 0) return 40;
@@ -616,6 +796,10 @@ export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind) 
 }
 
 export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]) {
+  // The Unstoppered drips exactly like a Still, from every tile it covers.
+  if (kind === "flask") return towerReadout(hero, "still", mods, upgradesOwned);
+  // The Mimic itself does nothing; the copy it makes uses the copied kind's numbers.
+  if (kind === "copycat") return { dmg: 0, range: 0, interval: 0 };
   // Only the upgrades that affect this tower's type count.
   const upgrades = upgradesOwned.filter((id) => upgradeAffects(id, kind));
   const lamp = upgrades.includes("lamp");
@@ -623,11 +807,12 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
     return { dmg: 0, range: CANNON.lanternRadius + (mods.includes("wick") ? 30 : 0), interval: 0 };
   }
   if (kind === "compost") return { dmg: 0, range: 0, interval: 0 };
+  if (kind === "desk") return { dmg: 0, range: CANNON.deskReach, interval: 0 };
   if (kind === "lectern") return { dmg: 0, range: CANNON.lecternRadius, interval: 0 };
   const profile = PROFILE[kind];
   if (profile) {
     const base = hero === "mynxi" ? 176 : 132;
-    const far = mods.some((id) => id === "reach" || id === "loud");
+    const far = mods.some((id) => id === "reach" || id === "loud" || id === "bigpipes");
     const range = profile.range === 0 ? GLOBAL_RANGE : Math.round(base * profile.range) + (lamp ? 32 : 0) + (far ? 28 : 0);
     let pace = profile.pace;
     if (mods.includes("haste")) pace *= 0.85;
@@ -644,11 +829,12 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   const farther = mods.some((id) => id === "reach" || id === "arc" || id === "flare" || id === "coldreach");
   const range =
     (kind === "still" ? (hero === "mynxi" ? 118 : 96) + (lamp ? 20 : 0) : (hero === "mynxi" ? 176 : 132) + (lamp ? 32 : 0)) +
-    (farther ? 28 : 0);
+    (farther ? 28 : 0) +
+    (kind === "melon" && mods.includes("mimicstep") ? CANNON.mimicReach : 0);
   let pace = kind === "mortar" ? 1.8 : kind === "fire" ? 1.15 : kind === "freeze" ? 1.25 : 1;
   if (mods.includes("haste")) pace *= 0.85;
   let interval = ((upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1)) * pace;
-  if (kind === "still") interval = mods.includes("drip") ? 1 : 1.45;
+  if (kind === "still") interval = (mods.includes("drip") ? 1 : 1.45) * (mods.includes("mimicstep") ? CANNON.mimicDrip : 1);
   let dmg = hero === "michael" ? BALANCE.michaelShot : 14;
   if (upgrades.includes("caliber")) dmg += 8;
   if (kind === "mortar") dmg = Math.round(dmg * 0.8);
@@ -666,6 +852,12 @@ export type ModId =
   | "heavy"
   | "arc"
   | "drip"
+  /** Hidden: the step The Mimic adds to whatever it copies. Never sold in the back room. */
+  | "mimicstep"
+  | "longsheet"
+  | "wetink"
+  | "bigpipes"
+  | "crescendo"
   | "spread"
   | "cling"
   | "lasting"
@@ -690,15 +882,19 @@ export interface ModDef {
 }
 
 export const MODS: ModDef[] = [
-  { id: "reach", name: "Longer barrel", blurb: "This cannon reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane"] },
+  { id: "reach", name: "Longer barrel", blurb: "Reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane", "quill", "globe", "press", "scope"] },
   { id: "chill", name: "Cold rind", blurb: "Its shot slows whatever it hits, for a moment.", kinds: ["melon", "spitter"] },
   {
     id: "haste",
     name: "Quick wick",
-    blurb: "This cannon cycles a little faster. The others do not.",
-    kinds: ["melon", "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane"],
+    blurb: "Cycles a little faster.",
+    kinds: ["melon", "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane", "quill", "globe", "press", "organ", "scope"],
   },
   { id: "loud", name: "Louder bell", blurb: "The shush carries farther.", kinds: ["bell"] },
+  { id: "longsheet", name: "Broadsheet", blurb: "Each sheet slides half again as far.", kinds: ["press"] },
+  { id: "wetink", name: "Wet ink", blurb: "The ink stays on twice as long.", kinds: ["press"] },
+  { id: "bigpipes", name: "Bigger pipes", blurb: "The chord carries farther.", kinds: ["organ"] },
+  { id: "crescendo", name: "Crescendo stop", blurb: "Every second chord is a crescendo, not every third.", kinds: ["organ"] },
   { id: "swarm", name: "Bigger swarm", blurb: "Two flies leave the hive each time.", kinds: ["hive"] },
   { id: "wick", name: "Longer wick", blurb: "The lamp lights more of the room.", kinds: ["lantern"] },
   { id: "bright", name: "Brighter flame", blurb: "Cannons in its light get a bigger boost.", kinds: ["lantern"] },
@@ -707,43 +903,49 @@ export const MODS: ModDef[] = [
   { id: "venom", name: "Hungrier worms", blurb: "The burrowing does half again as much damage.", kinds: ["bookworm"] },
   { id: "wide", name: "Wide lob", blurb: "The splash covers more of the fold.", kinds: ["mortar"] },
   { id: "heavy", name: "Heavy lob", blurb: "The splash bites harder.", kinds: ["mortar"] },
-  { id: "arc", name: "High arc", blurb: "This mortar lobs farther.", kinds: ["mortar"] },
-  { id: "drip", name: "Fast drip", blurb: "The still leaves puddles sooner.", kinds: ["still"] },
-  { id: "spread", name: "Broad bowl", blurb: "Each puddle covers more carpet.", kinds: ["still"] },
-  { id: "cling", name: "Thick mix", blurb: "The puddle stays on the carpet longer.", kinds: ["still"] },
+  { id: "arc", name: "High arc", blurb: "Lobs farther.", kinds: ["mortar"] },
+  { id: "drip", name: "Fast drip", blurb: "The still leaves puddles sooner.", kinds: ["still", "flask"] },
+  { id: "spread", name: "Broad bowl", blurb: "Each puddle covers more carpet.", kinds: ["still", "flask"] },
+  { id: "cling", name: "Thick mix", blurb: "The puddle stays on the carpet longer.", kinds: ["still", "flask"] },
   { id: "lasting", name: "Banked fire", blurb: "The fire on the carpet burns longer.", kinds: ["fire"] },
   { id: "hotter", name: "Hotter fire", blurb: "Anything standing in the patch burns faster.", kinds: ["fire"] },
-  { id: "flare", name: "Long flare", blurb: "This cannon throws the fire farther.", kinds: ["fire"] },
+  { id: "flare", name: "Long flare", blurb: "Throws the fire farther.", kinds: ["fire"] },
   { id: "hold", name: "Deeper frost", blurb: "The freeze holds for another beat.", kinds: ["freeze"] },
   { id: "brittle", name: "Brittle ice", blurb: "The frozen shot hits harder.", kinds: ["freeze"] },
-  { id: "coldreach", name: "Long chill", blurb: "This cannon freezes farther down the carpet.", kinds: ["freeze"] },
+  { id: "coldreach", name: "Long chill", blurb: "Freezes farther down the carpet.", kinds: ["freeze"] },
 ];
 
-export function shopPrice(hero: HeroId | null, visits: number, extraOff = 0) {
+/**
+ * The back room's price for the next upgrade to one tower kind: 40, then 30 more for each upgrade
+ * that kind already has. Other kinds' upgrades don't raise it. Mynxi's very first upgrade of the
+ * night is 15.
+ */
+export function shopPrice(hero: HeroId | null, owned: number, visits: number, extraOff = 0) {
   if (hero === "mynxi" && visits === 0) return 15;
-  const price = 25 + visits * 15;
+  const price = 40 + owned * 30;
   // The Legal Elf negotiates: the back room costs 30% less (more with his Hard Bargain perk).
   const rate = (hero === "elf" ? 0.7 : 1) - extraOff;
   return rate === 1 ? price : Math.round(price * rate);
 }
 
+/** The back-room upgrades a tower kind can have (the Mimic's hidden step is never one). */
+export function fittingsFor(kind: TowerKind) {
+  return MODS.filter((m) => m.kinds.includes(kind));
+}
+
 /** Share of spent seeds returned when a tower is sold. */
 export const SELL_PERCENT = 70;
+
+/** What selling a tower returns. The Unstoppered is a flat 35 (plus the usual share of any fittings), so its spill is no refund. */
+export function refundFor(kind: TowerKind, paid: number) {
+  if (kind === "flask") return CANNON.flaskRefund + sellValue(Math.max(0, paid - TOWERS.flask.cost));
+  return sellValue(paid);
+}
 
 export function sellValue(paid: number) {
   return Math.round((paid * SELL_PERCENT) / 100); // integer math: 45 * 0.7 would round to 31
 }
 
-export function rollMods(kind: TowerKind, owned: ModId[]) {
-  const pool = MODS.filter((m) => m.kinds.includes(kind) && !owned.includes(m.id));
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const swap = pool[i];
-    pool[i] = pool[j];
-    pool[j] = swap;
-  }
-  return pool.slice(0, 3);
-}
 export type MapId = "stacks" | "annex" | "mezzanine" | "rarebooks" | "archive" | "greathall" | "readingroom" | "overflow";
 export type NightId = "midnight" | "overflow" | "endless";
 
@@ -752,7 +954,6 @@ export interface Board {
   name: string;
   blurb: string;
   corners: Array<[number, number]>;
-  allies: Array<[number, number]>;
   knight: [number, number];
   /** Dark room: cannons lose range unless a Reading Lamp reaches them. */
   dark?: boolean;
@@ -761,8 +962,47 @@ export interface Board {
   /** Board size in cells (default COLS x ROWS). Bigger boards draw smaller so they still fit the screen. */
   cols?: number;
   rows?: number;
-  /** Decorative shelf cells (default: the classic layout). */
+  /** Bookshelf cells: cannons can't be built on them (default: the classic layout). */
   shelves?: Array<[number, number]>;
+}
+
+/** The classic bookshelf layout, used by boards that don't list their own. */
+export const DEFAULT_SHELVES: Array<[number, number]> = [
+  [1, 1],
+  [2, 1],
+  [3, 1],
+  [8, 0],
+  [9, 0],
+  [10, 0],
+  [1, 8],
+  [2, 8],
+  [3, 8],
+  [4, 8],
+  [13, 1],
+  [14, 1],
+  [8, 8],
+  [9, 8],
+  [13, 4],
+  [14, 4],
+  [0, 2],
+  [1, 2],
+];
+
+/**
+ * The bookshelf cells on a board, as "c,r" keys. Cannons can't go there. A shelf listed on the
+ * carpet, outside the board, or on Sir Michael's cannon spot is left out.
+ */
+export function shelfCells(map: MapId, path: Set<string>): Set<string> {
+  const b = BOARDS[map];
+  const { cols, rows } = boardSize(map);
+  const fixed = new Set([b.knight].map(([c, r]) => `${c},${r}`));
+  const out = new Set<string>();
+  for (const [c, r] of b.shelves ?? DEFAULT_SHELVES) {
+    const key = `${c},${r}`;
+    if (c < 0 || r < 0 || c >= cols || r >= rows || path.has(key) || fixed.has(key)) continue;
+    out.add(key);
+  }
+  return out;
 }
 
 /** A board's size in cells and in world pixels. */
@@ -786,11 +1026,6 @@ export const BOARDS: Record<MapId, Board> = {
       [12, 7],
       [15, 7],
     ],
-    allies: [
-      [4, 3],
-      [8, 4],
-      [10, 5],
-    ],
     knight: [3, 6],
   },
   annex: {
@@ -807,11 +1042,6 @@ export const BOARDS: Record<MapId, Board> = {
       [12, 5],
       [15, 5],
     ],
-    allies: [
-      [6, 6],
-      [10, 3],
-      [6, 2],
-    ],
     knight: [2, 5],
   },
   mezzanine: {
@@ -823,11 +1053,6 @@ export const BOARDS: Record<MapId, Board> = {
       [13, 1],
       [13, 7],
       [1, 7],
-    ],
-    allies: [
-      [5, 2],
-      [14, 4],
-      [8, 6],
     ],
     knight: [3, 2],
   },
@@ -842,11 +1067,6 @@ export const BOARDS: Record<MapId, Board> = {
       [4, 7],
       [4, 4],
       [8, 4],
-    ],
-    allies: [
-      [6, 2],
-      [12, 4],
-      [6, 6],
     ],
     knight: [2, 2],
     hp: 1.25,
@@ -864,11 +1084,6 @@ export const BOARDS: Record<MapId, Board> = {
       [13, 7],
       [13, 3],
       [15, 3],
-    ],
-    allies: [
-      [6, 3],
-      [11, 5],
-      [2, 3],
     ],
     knight: [2, 5],
     dark: true,
@@ -895,11 +1110,6 @@ export const BOARDS: Record<MapId, Board> = {
       [17, 2],
       [21, 2],
     ],
-    allies: [
-      [7, 8],
-      [11, 7],
-      [15, 8],
-    ],
     knight: [4, 9],
     shelves: [
       [0, 0], [1, 0], [2, 0], [8, 0], [9, 0], [10, 0], [11, 0], [12, 0], [19, 0], [20, 0],
@@ -923,11 +1133,6 @@ export const BOARDS: Record<MapId, Board> = {
       [2, 10],
       [21, 10],
     ],
-    allies: [
-      [10, 4],
-      [10, 8],
-      [16, 8],
-    ],
     knight: [5, 8],
     shelves: [
       [1, 0], [2, 0], [3, 0], [7, 0], [8, 0], [9, 0], [13, 0], [14, 0], [15, 0], [20, 0],
@@ -948,10 +1153,6 @@ export const BOARDS: Record<MapId, Board> = {
       [11, 8],
       [11, 4],
       [14, 4],
-    ],
-    allies: [
-      [12, 2],
-      [13, 6],
     ],
     knight: [1, 5],
   },
@@ -1099,8 +1300,8 @@ export const OVERFLOW: Array<{ name: string; blurb: string; spawns: SpawnSpec[] 
     ],
   },
   {
-    name: "No visitor",
-    blurb: "The west door stays shut. The produce did not get the message.",
+    name: "Night two",
+    blurb: "The chute is damp and quiet. The produce did not get the message.",
     spawns: [
       { kind: "melon", count: 6, every: 0.6 },
       { kind: "corn", count: 5, every: 0.5 },
@@ -1274,9 +1475,9 @@ export function hpScaleFor(night: NightId, cleared: number) {
   return waveHpScale(9) * BALANCE.endlessGrowth ** (cleared - 9);
 }
 
-export type Beat = "upgrade" | "alliance" | "betrayal" | "consequence" | "memory" | "victory" | "prep";
+export type Beat = "upgrade" | "consequence" | "victory" | "prep";
 
-export function nextBeat(cleared: number, alliance: Alliance, night: NightId = "midnight"): Beat {
+export function nextBeat(cleared: number, night: NightId = "midnight"): Beat {
   if (night === "endless") {
     // No story and no last wave: a pick after waves 1, 2 and 6, then every fifth wave.
     if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
@@ -1284,274 +1485,96 @@ export function nextBeat(cleared: number, alliance: Alliance, night: NightId = "
     return "prep";
   }
   if (cleared >= WAVE_COUNT) return "victory";
-  if (night === "overflow") {
-    if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
-    if (cleared === 4) return "memory";
-    if (cleared === WAVE_COUNT - 1) return "consequence";
-    return "prep";
-  }
-  if (cleared === 1 || cleared === 2) return "upgrade";
-  // Betraying the knight pays out early (Bouncing Melons) instead of this pick.
-  if (cleared === 6) return alliance === "betray" ? "prep" : "upgrade";
-  if (cleared === 4) return "alliance";
-  if (cleared === 5 && alliance === "accept") return "betrayal";
+  if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
   if (cleared === WAVE_COUNT - 1) return "consequence";
   return "prep";
 }
 
 export function waveAt(
   index: number,
-  alliance: Alliance,
   night: NightId = "midnight",
 ): { name: string; blurb: string; spawns: SpawnSpec[] } {
   if (night === "overflow") return OVERFLOW[Math.min(index, OVERFLOW.length - 1)];
   if (night === "endless") return endlessWave(index);
   if (index < WAVES.length) return WAVES[index];
   const act = index - WAVES.length;
-  if (alliance === "betray") {
-    const waves = [
-      {
-        name: "He remembers",
-        blurb: "You shot first. The corn comes back like it took it personally.",
-        spawns: [
-          { kind: "corn" as const, count: 8, every: 0.4 },
-          { kind: "melon" as const, count: 6, every: 0.5 },
-        ],
-      },
-      {
-        name: "Personal",
-        blurb: "The grudge is not an army yet. It is already rude.",
-        spawns: [
-          { kind: "corn" as const, count: 4, every: 0.38 },
-          { kind: "corn" as const, count: 4, every: 0.42, guard: "husk" as const },
-          { kind: "pumpkin" as const, count: 4, every: 0.9, guard: "damp" as const },
-        ],
-      },
-      {
-        name: "No more courtesy",
-        blurb: "He stopped pretending this was a visit.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 4, every: 0.8, tough: 1.2 },
-          { kind: "pumpkin" as const, count: 2, every: 1.1, split: true },
-          { kind: "corn" as const, count: 6, every: 0.35, guard: "husk" as const },
-        ],
-      },
-      {
-        name: "Fines due",
-        blurb: "Every melon you popped is on his list. He brought the list.",
-        spawns: [
-          { kind: "melon" as const, count: 8, every: 0.45, guard: "rind" as const },
-          { kind: "corn" as const, count: 6, every: 0.35 },
-        ],
-      },
-      {
-        name: "Cold shoulder",
-        blurb: "Wet pumpkins and husked corn. Nothing here burns easily.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 5, every: 0.85, guard: "damp" as const },
-          { kind: "corn" as const, count: 6, every: 0.38, guard: "husk" as const },
-        ],
-      },
-      {
-        name: "Old friends",
-        blurb: "The household he would have brought, minus the manners.",
-        spawns: [
-          { kind: "karl" as const, count: 1, every: 0.4 },
-          { kind: "corn" as const, count: 8, every: 0.32 },
-          { kind: "melon" as const, count: 4, every: 0.5 },
-        ],
-      },
-      {
-        name: "Crumbs",
-        blurb: "Pumpkins that break into four, and melons to fill the gaps.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 4, every: 1, split: true },
-          { kind: "melon" as const, count: 8, every: 0.4 },
-        ],
-      },
-      {
-        name: "Payback",
-        blurb: "The grudge is close now. This is the part before it.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 5, every: 0.8, tough: 1.3 },
-          { kind: "pumpkin" as const, count: 3, every: 1.1, raw: true },
-          { kind: "corn" as const, count: 8, every: 0.3, guard: "husk" as const },
-        ],
-      },
-      {
-        name: "The Grudge",
-        blurb: "You shot first. He sent the grudge instead of a household.",
-        spawns: [
-          { kind: "corn" as const, count: 12, every: 0.32 },
-          { kind: "pumpkin" as const, count: 6, every: 0.75, tough: 1.3 },
-          { kind: "melon" as const, count: 6, every: 0.45, guard: "rind" as const },
-        ],
-      },
-    ];
-    return waves[act] ?? waves[waves.length - 1];
-  }
-  if (alliance === "reject") {
-    const waves = [
-      {
-        name: "Unattended stacks",
-        blurb: "No knight. The produce noticed the door was empty.",
-        spawns: [
-          { kind: "melon" as const, count: 8, every: 0.5 },
-          { kind: "corn" as const, count: 6, every: 0.4 },
-        ],
-      },
-      {
-        name: "The binding splits",
-        blurb: "Thicker than act one. Still no one wearing a helmet.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 4, every: 0.85 },
-          { kind: "pumpkin" as const, count: 2, every: 1, guard: "damp" as const },
-          { kind: "melon" as const, count: 5, every: 0.45, guard: "rind" as const },
-        ],
-      },
-      {
-        name: "Thicker",
-        blurb: "The carpet was not built for this much fruit.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 4, every: 0.8, tough: 1.2 },
-          { kind: "pumpkin" as const, count: 2, every: 1.1, raw: true },
-          { kind: "corn" as const, count: 6, every: 0.35 },
-        ],
-      },
-      {
-        name: "Open house",
-        blurb: "Nobody is guarding the door, so everybody is using it.",
-        spawns: [
-          { kind: "corn" as const, count: 10, every: 0.32 },
-          { kind: "melon" as const, count: 5, every: 0.45, guard: "rind" as const },
-        ],
-      },
-      {
-        name: "Self-checkout",
-        blurb: "They are letting themselves in and taking what they like.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 3, every: 1.1, split: true },
-          { kind: "pumpkin" as const, count: 3, every: 0.95, guard: "damp" as const },
-          { kind: "melon" as const, count: 6, every: 0.5 },
-        ],
-      },
-      {
-        name: "Nobody at the desk",
-        blurb: "Karl did not need an invitation.",
-        spawns: [
-          { kind: "karl" as const, count: 1, every: 0.4 },
-          { kind: "melon" as const, count: 6, every: 0.45 },
-          { kind: "corn" as const, count: 5, every: 0.4, guard: "husk" as const },
-        ],
-      },
-      {
-        name: "Late fees",
-        blurb: "Raw pumpkins and husked corn. Bake the first, crack the second.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 4, every: 1, raw: true },
-          { kind: "corn" as const, count: 8, every: 0.33, guard: "husk" as const },
-        ],
-      },
-      {
-        name: "Full shelves",
-        blurb: "There is not much carpet left that is not fruit.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 6, every: 0.75, tough: 1.3 },
-          { kind: "melon" as const, count: 8, every: 0.4, guard: "rind" as const },
-          { kind: "corn" as const, count: 6, every: 0.35 },
-        ],
-      },
-      {
-        name: "Unchaperoned",
-        blurb: "You sent him away. The produce comes alone, and thicker.",
-        spawns: [
-          { kind: "pumpkin" as const, count: 8, every: 0.7, tough: 1.35 },
-          { kind: "corn" as const, count: 10, every: 0.32 },
-          { kind: "melon" as const, count: 8, every: 0.4 },
-        ],
-      },
-    ];
-    return waves[act] ?? waves[waves.length - 1];
-  }
   const waves = [
     {
-      name: "Knuckles on the door",
-      blurb: "He already turned. Some of the pumpkins are wet, and the melons are still shelled.",
+      name: "Unattended stacks",
+      blurb: "Act two. The produce noticed nobody was watching the door.",
       spawns: [
-        { kind: "pumpkin" as const, count: 3, every: 0.85 },
-        { kind: "pumpkin" as const, count: 3, every: 0.95, guard: "damp" as const },
-        { kind: "melon" as const, count: 4, every: 0.5, guard: "rind" as const },
-      ],
-    },
-    {
-      name: "They kept the keys",
-      blurb: "Allied cannons are gone. A few pumpkins crack, and a few will bake.",
-      spawns: [
-        { kind: "pumpkin" as const, count: 3, every: 0.8, tough: 1.25 },
-        { kind: "pumpkin" as const, count: 2, every: 1.2, split: true },
-        { kind: "pumpkin" as const, count: 2, every: 1.15, raw: true },
-        { kind: "corn" as const, count: 5, every: 0.4 },
-      ],
-    },
-    {
-      name: "Orange majority",
-      blurb: "The carpet is his color now.",
-      spawns: [
-        { kind: "pumpkin" as const, count: 7, every: 0.7 },
-        { kind: "melon" as const, count: 5, every: 0.45 },
-      ],
-    },
-    {
-      name: "Squires",
-      blurb: "His squires carry shields of rind. Crack them, then crack them again.",
-      spawns: [
-        { kind: "melon" as const, count: 8, every: 0.45, guard: "rind" as const },
-        { kind: "pumpkin" as const, count: 3, every: 0.9 },
-      ],
-    },
-    {
-      name: "Siege ladders",
-      blurb: "Husked corn up front, raw pumpkins behind.",
-      spawns: [
-        { kind: "corn" as const, count: 8, every: 0.35, guard: "husk" as const },
-        { kind: "pumpkin" as const, count: 3, every: 1, raw: true },
-        { kind: "melon" as const, count: 4, every: 0.5 },
-      ],
-    },
-    {
-      name: "The bannermen",
-      blurb: "Wet ones that will not burn, and cracked ones that will not stay whole.",
-      spawns: [
-        { kind: "pumpkin" as const, count: 4, every: 0.9, guard: "damp" as const },
-        { kind: "pumpkin" as const, count: 3, every: 1.1, split: true },
+        { kind: "melon" as const, count: 8, every: 0.5 },
         { kind: "corn" as const, count: 6, every: 0.4 },
       ],
     },
     {
-      name: "Cousin Karl",
-      blurb: "Karl has a cousin. He is also called Karl.",
+      name: "The binding splits",
+      blurb: "Thicker than act one. Still no one wearing a helmet.",
       spawns: [
-        { kind: "karl" as const, count: 1, every: 0.4 },
-        { kind: "pumpkin" as const, count: 4, every: 0.85, tough: 1.2 },
+        { kind: "pumpkin" as const, count: 4, every: 0.85 },
+        { kind: "pumpkin" as const, count: 2, every: 1, guard: "damp" as const },
         { kind: "melon" as const, count: 5, every: 0.45, guard: "rind" as const },
       ],
     },
     {
-      name: "Last watch",
-      blurb: "Everything he has left that is not the household.",
+      name: "Thicker",
+      blurb: "The carpet was not built for this much fruit.",
       spawns: [
-        { kind: "pumpkin" as const, count: 5, every: 0.8, tough: 1.25 },
-        { kind: "corn" as const, count: 8, every: 0.32, guard: "husk" as const },
-        { kind: "melon" as const, count: 6, every: 0.42, guard: "rind" as const },
+        { kind: "pumpkin" as const, count: 4, every: 0.8, tough: 1.2 },
+        { kind: "pumpkin" as const, count: 2, every: 1.1, raw: true },
+        { kind: "corn" as const, count: 6, every: 0.35 },
       ],
     },
     {
-      name: "The Household",
-      blurb: "He already turned. The household comes back meaner, and taller.",
+      name: "Open house",
+      blurb: "Nobody is guarding the door, so everybody is using it.",
       spawns: [
-        { kind: "pumpkin" as const, count: 4, every: 0.9 },
+        { kind: "corn" as const, count: 10, every: 0.32 },
+        { kind: "melon" as const, count: 5, every: 0.45, guard: "rind" as const },
+      ],
+    },
+    {
+      name: "Self-checkout",
+      blurb: "They are letting themselves in and taking what they like.",
+      spawns: [
+        { kind: "pumpkin" as const, count: 3, every: 1.1, split: true },
+        { kind: "pumpkin" as const, count: 3, every: 0.95, guard: "damp" as const },
+        { kind: "melon" as const, count: 6, every: 0.5 },
+      ],
+    },
+    {
+      name: "Nobody at the desk",
+      blurb: "Karl did not need an invitation.",
+      spawns: [
         { kind: "karl" as const, count: 1, every: 0.4 },
-        { kind: "melon" as const, count: 4, every: 0.5 },
+        { kind: "melon" as const, count: 6, every: 0.45 },
+        { kind: "corn" as const, count: 5, every: 0.4, guard: "husk" as const },
+      ],
+    },
+    {
+      name: "Late fees",
+      blurb: "Raw pumpkins and husked corn. Bake the first, crack the second.",
+      spawns: [
+        { kind: "pumpkin" as const, count: 4, every: 1, raw: true },
+        { kind: "corn" as const, count: 8, every: 0.33, guard: "husk" as const },
+      ],
+    },
+    {
+      name: "Full shelves",
+      blurb: "There is not much carpet left that is not fruit.",
+      spawns: [
+        { kind: "pumpkin" as const, count: 6, every: 0.75, tough: 1.3 },
+        { kind: "melon" as const, count: 8, every: 0.4, guard: "rind" as const },
+        { kind: "corn" as const, count: 6, every: 0.35 },
+      ],
+    },
+    {
+      name: "Unchaperoned",
+      blurb: "Nobody is keeping an eye on the produce. It comes all at once, and thicker.",
+      spawns: [
+        { kind: "pumpkin" as const, count: 8, every: 0.7, tough: 1.35 },
+        { kind: "corn" as const, count: 10, every: 0.32 },
+        { kind: "melon" as const, count: 8, every: 0.4 },
       ],
     },
   ];
@@ -1566,9 +1589,7 @@ export function waveAt(
  * killGold:  multiplier on seeds paid per kill.
  * pulpEvery: seconds between pulp puddles from one melon cannon (pulp upgrades).
  * slowPower: strength of puddle and chill slows (1 = as written, 0.5 = half as strong). Freeze is separate.
- * betraySeeds:    seeds for shooting the knight if you already have Bouncing Melons (otherwise you get them).
  * michaelSeeds / michaelLives: Sir Michael's starting seeds and stacks.
- * michaelTurnCut: stacks Sir Michael loses when his own men turn (other heroes lose 2).
  */
 export const BALANCE = {
   enemyHp: 1,
@@ -1581,16 +1602,21 @@ export const BALANCE = {
   storyHpPace: 0.375,
   /** Endless only: enemy health growth per wave after wave 10 (1.15 = +15% a wave). */
   endlessGrowth: 1.15,
-  betraySeeds: 55,
+  /** The Overflow: extra starting seeds for night two. */
+  overflowSeeds: 45,
   michaelSeeds: 110,
   michaelLives: 10,
-  michaelTurnCut: 3,
   /** Sir Michael's base shot damage (everyone else: 14). */
   michaelShot: 28,
   /** The Archive: range multiplier for cannons no Reading Lamp reaches. */
   archiveDark: 0.8,
   /** The Overflow (night two): enemy health multiplier on top of the story curve (1.4: about as winnable as Midnight; 1.0 was 96% on Normal). */
   overflowHp: 1.4,
+  /** Mynxi's tutorial night is very easy: fruit health and speed multipliers, and extra seeds and stacks at the start. */
+  tutorialHp: 0.3,
+  tutorialSpeed: 0.8,
+  tutorialSeeds: 80,
+  tutorialStacks: 8,
 };
 
 const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];

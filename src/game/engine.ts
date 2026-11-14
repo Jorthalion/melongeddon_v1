@@ -1,10 +1,11 @@
 import {
   CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT,
-  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, nextBeat, rollMods, sellValue, shopPrice, towerReadout, waveAt,
-  type Alliance, type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId, type ModDef,
+  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
-  HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, isSignature, TOWER_TYPE,
+  HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
 } from "./rules.ts";
+import { GUIDE_KEY } from "../lib/saves.ts";
 
 export * from "./rules.ts";
 import {
@@ -19,6 +20,8 @@ import {
   savePick,
   unlockedIds,
   unlockedMaps,
+  lockedTowers,
+  TOWER_GOALS,
   type BookmarkId,
   type MetaStats,
 } from "./meta.ts";
@@ -60,6 +63,8 @@ interface Enemy {
   boss: boolean;
   chill: number;
   freeze: number;
+  /** Foot of the Law: seconds left pinned under the foot. Unlike freeze, husks feel it. */
+  stomped?: number;
   guard: Guard;
   shell: number;
   split: boolean;
@@ -72,6 +77,8 @@ interface Enemy {
   /** Bookworm burrow: seconds left, and damage per second. */
   worm?: number;
   wormDps?: number;
+  /** The tower whose bookworm is burrowing (for its damage count). */
+  wormBy?: number;
 }
 
 interface Tower {
@@ -82,10 +89,18 @@ interface Tower {
   y: number;
   cd: number;
   aim: number;
-  ally: boolean;
   orange: boolean;
   kind: TowerKind;
   mods: ModId[];
+  /** Reserve Desk: seeds banked so far (paid out on sale or at a win, eaten by a passing melon). */
+  bank?: number;
+  /** The Mimic: the copy it is running right now (fires in its place), and the cannon it copies. */
+  copy?: Tower;
+  copyFrom?: number;
+  /** Pipe Organ: chords played (every third is a crescendo). */
+  chord?: number;
+  /** Unstoppered: the extra tiles it has spilled onto, each dripping on its own timer. */
+  spill?: Array<{ c: number; r: number; x: number; y: number; cd: number }>;
   /** Seeds spent on this tower (build + shop mods). Sell refunds a share of it. */
   paid: number;
   /** Seconds until this cannon's shots can leave another pulp puddle. */
@@ -99,10 +114,19 @@ interface Tower {
   orbitHits?: Map<string, number>;
 }
 
-/** A trick shot on a curved path that passes through fruit (Boomerang Bookend, Paper Plane). */
+/** A trick shot on a curved path that passes through fruit (Boomerang Bookend, Paper Plane, Serpent Quill, Rolling Globe). */
 export interface Flyer {
   id: number;
-  kind: "boomerang" | "plane";
+  kind: "boomerang" | "plane" | "quill" | "globe" | "sheet";
+  /** Printing Press sheet: px left to slide, and how long the ink it leaves lasts. */
+  left?: number;
+  inkTime?: number;
+  /** Rolling Globe: where it lands, and the carpet waypoint it is rolling toward (toward the entrance). */
+  lx?: number;
+  ly?: number;
+  wp?: number;
+  /** Rolling Globe: true once it has landed and is rolling. */
+  rolling?: boolean;
   x: number;
   y: number;
   /** Boomerang: where it was thrown from, the throw direction, distance, loop width and side. */
@@ -123,6 +147,8 @@ export interface Flyer {
   hits: Map<number, number>;
   /** Recent positions, for the curved trail. */
   trail: Array<{ x: number; y: number }>;
+  /** The tower that threw it (for its damage count). */
+  owner?: number;
 }
 
 interface Shot {
@@ -135,12 +161,15 @@ interface Shot {
   dmg: number;
   life: number;
   bounces: number;
-  fromAlly: boolean;
   orange: boolean;
   splash: number;
   element: "shot" | "fire" | "ice" | "mortar" | "seed" | "fly" | "ink" | "peel" | "worm" | "potion";
   /** Upgrade on-hit effects (Juicy, Splatter, Electric) only fire from the classic cannons. */
   procs: boolean;
+  /** Brass Telescope: ignores shells, husks and damp. */
+  pierce?: boolean;
+  /** The tower that fired it (for its damage count). */
+  owner?: number;
   inkTime?: number;
   inkMul?: number;
   wormDps?: number;
@@ -167,6 +196,10 @@ interface Pool {
   burn: number;
   /** Bubbling Cauldron puddle: damage per second to anything in it (it also slows). */
   toxic?: number;
+  /** Honeyed Heel footprint: sticky (slows even husks), the way it points, and the tower that left it. */
+  honey?: boolean;
+  rot?: number;
+  owner?: number;
 }
 
 /** Instant-hit trails (ballista spear, reader shot). */
@@ -179,6 +212,14 @@ export interface Line {
   max: number;
   color: string;
   width: number;
+}
+
+/** Foot of the Law: the foot coming down on a spot of carpet. */
+export interface Stomp {
+  x: number;
+  y: number;
+  life: number;
+  max: number;
 }
 
 /** Expanding rings (bell shush, compost payout). */
@@ -243,7 +284,6 @@ export interface Hud {
   blurb: string;
   upgrades: UpgradeId[];
   offer: UpgradeDef[];
-  alliance: Alliance;
   log: string;
   absurdity: number;
   selected: number | null;
@@ -268,9 +308,12 @@ export interface Hud {
   branch: UpgradeId | null;
   map: MapId;
   build: TowerKind;
+  /** Back-room upgrades bought tonight, for any tower kind. */
   shopVisits: number;
-  modOffer: ModDef[];
-  shopFor: number | null;
+  /** The back-room upgrades each tower kind has tonight. Every tower of that kind has them, built now or later. */
+  fitted: Partial<Record<TowerKind, ModId[]>>;
+  /** The back-room side tab: the tower kind it is showing, or null when it is closed. */
+  workshop: TowerKind | null;
   speed: number;
   paused: boolean;
   /** Pause menu state. While it is open the board is paused and most keys are ignored. */
@@ -292,7 +335,73 @@ export interface Hud {
   slips: SlipId[];
   /** Developer mode is on (everything unlocked; stats, bests and XP are not saved). */
   dev: boolean;
+  /** The playing keeper's level when this night started (trick cannons open with it). */
+  runLevel: number;
+  /** Keeper towers not unlocked yet (see TOWER_GOALS). */
+  lockedTowers: TowerKind[];
+  /** The guided first night: the step the player is on, or null when no guide is running. */
+  guide: GuideStep | null;
+  /** This night is Mynxi's tutorial (her tips carry on after the lessons). */
+  tutorial: boolean;
+  /** The guided first night is finished or skipped, so Setup is open. */
+  guideDone: boolean;
 }
+/**
+ * Mynxi's tutorial: the guided first night. Talk steps (GUIDE_TALK) wait for Next; the rest wait
+ * for the player to do something: build a Damage cannon, build a Control or Support tower, start
+ * the wave, take an upgrade card after wave 1, and open the back room before wave 2. The wave
+ * can't start while a step before it is open. Leaving the back room opens Setup for good.
+ */
+export type GuideStep =
+  | "welcome"
+  | "carpet"
+  | "seeds"
+  | "damage"
+  | "range"
+  | "support"
+  | "tabs"
+  | "start"
+  | "speed"
+  | "combat"
+  | "upgrade"
+  | "backroom"
+  | "sell";
+export const GUIDE_STEPS: GuideStep[] = [
+  "welcome",
+  "carpet",
+  "seeds",
+  "damage",
+  "range",
+  "support",
+  "tabs",
+  "start",
+  "speed",
+  "combat",
+  "upgrade",
+  "backroom",
+  "sell",
+];
+/** Steps where Mynxi only talks: the player presses Next (speed also moves on when the speed changes). */
+export const GUIDE_TALK: GuideStep[] = ["welcome", "carpet", "seeds", "range", "tabs", "speed", "sell"];
+/** Steps that hold the wave until they're done. */
+export const GUIDE_HOLDS: GuideStep[] = ["welcome", "carpet", "seeds", "damage", "range", "support", "tabs", "backroom"];
+
+export function readGuideDone(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_KEY) === "done";
+  } catch {
+    return false;
+  }
+}
+
+export function writeGuideDone() {
+  try {
+    localStorage.setItem(GUIDE_KEY, "done");
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Developer mode: everything unlocked, nothing saved over the real progress. */
 const DEV_KEY = "melongeddon-dev";
 /** Seeds the developer button adds. */
@@ -317,33 +426,6 @@ export function writeDev(on: boolean) {
 
 const BEST_KEY = "melongeddon-best-wave";
 const ENDLESS_BEST_KEY = "melongeddon-endless-best";
-const DOOR_KEY = "melongeddon-door";
-
-/** The Overflow's carry-over: the last Midnight door answer, or "sent away" if there is none. */
-export function overflowDoor(): Exclude<Alliance, "none"> {
-  const d = readDoor();
-  return d === "none" ? "reject" : d;
-}
-
-export function readDoor(): Alliance {
-  try {
-    const v = localStorage.getItem(DOOR_KEY);
-    if (v === "accept" || v === "betray" || v === "reject") return v;
-  } catch {
-    /* ignore */
-  }
-  return "none";
-}
-
-function writeDoor(alliance: Alliance) {
-  try {
-    if (alliance === "none") localStorage.removeItem(DOOR_KEY);
-    else localStorage.setItem(DOOR_KEY, alliance);
-  } catch {
-    /* ignore */
-  }
-}
-
 /** The choices behind the last night started, so "same again" is one press. */
 export interface SetupRecord {
   night: NightId;
@@ -351,7 +433,6 @@ export interface SetupRecord {
   difficulty: Difficulty;
   bookmark: BookmarkId | null;
   hero: HeroId;
-  door: Alliance;
   /** Overflow late slips. */
   slips?: SlipId[];
 }
@@ -365,7 +446,6 @@ export const DEFAULT_SETUP: SetupRecord = {
   difficulty: "normal",
   bookmark: null,
   hero: "mynxi",
-  door: "none",
 };
 
 export function loadSetup(): Partial<SetupRecord> | null {
@@ -388,7 +468,7 @@ function saveSetup(rec: SetupRecord) {
 /**
  * Turn a saved setup into one that can start right now. Anything unknown falls back to the
  * default; a map or bookmark that is no longer unlocked falls back too, with a note saying so.
- * `needsDoor` is always false now: the Overflow takes the last Midnight door answer (see overflowDoor). Kept for callers.
+ * `needsDoor` is always false (there is no door to answer any more). Kept for callers.
  */
 export function validateSetup(
   saved: Partial<SetupRecord> | null | undefined,
@@ -410,22 +490,15 @@ export function validateSetup(
     if (have.unlocked.includes(s.bookmark)) bookmark = s.bookmark;
     else notes.push(`${BOOKMARK[s.bookmark].name} is locked, so no bookmark is equipped.`);
   }
-  const door: Alliance =
-    night === "overflow" && (s.door === "accept" || s.door === "betray" || s.door === "reject") ? s.door : "none";
   const slips = cleanSlips(s.slips);
-  const setup: SetupRecord = { night, map, difficulty, bookmark, hero, door };
+  const setup: SetupRecord = { night, map, difficulty, bookmark, hero };
   if (slips.length) setup.slips = slips;
   return { setup, notes, needsDoor: false };
 }
 
-export function doorMemory(alliance: Alliance): string {
-  if (alliance === "accept") {
-    return "You let him in. His cannons are already at the chute, and the damp pumpkins live here.";
-  }
-  if (alliance === "betray") return "You shot first. He did not come to ask again. The husks were the greeting.";
-  if (alliance === "reject") return "You sent him away. The west door is still shut. The chute is not.";
-  return "The first night has not ended yet.";
-}
+/** Shot speed in px per second (homing, so it only has to outlive the trip). */
+const SHOT_SPEED = 280;
+
 const STACKS = buildBoard(BOARDS.stacks.corners);
 
 const SPEED_KEY = "melongeddon-speed";
@@ -466,7 +539,7 @@ function writeBest(n: number, key = BEST_KEY) {
 }
 
 /** Sound cues the engine raises; the UI drains and plays them. Ignored headless. */
-export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "turn" | "boss";
+export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss";
 export interface Sfx {
   kind: SfxKind;
   tower?: TowerKind;
@@ -484,12 +557,15 @@ export interface World {
   sparks: Spark[];
   lines: Line[];
   rings: Ring[];
+  stomps: Stomp[];
   flyers: Flyer[];
   stains: Stain[];
   bits: Bit[];
   floaters: Floater[];
   shake: number;
   pathCells: Set<string>;
+  /** Bookshelf cells: part of the room, so nothing can be built there. */
+  shelfCells: Set<string>;
   points: Waypoint[];
   turns: Array<{ c: number; r: number; rot: number }>;
   /** Board size in cells and world pixels (set with the map). */
@@ -509,6 +585,10 @@ export interface WorldOptions {
   keepers?: KeeperProgress;
   /** Developer mode (default: the saved switch, for the real game only). */
   dev?: boolean;
+  /** The guided first night is still to do (default: from storage in the real game; done in tests and the simulator). */
+  guide?: boolean;
+  /** Every trick cannon can be built whatever the keeper's level (simulator, tests). */
+  allTricks?: boolean;
 }
 
 export function createWorld(
@@ -519,25 +599,34 @@ export function createWorld(
   pointer: (x: number, y: number, kind: "move" | "down") => void;
   startWave: () => void;
   pickUpgrade: (id: UpgradeId) => void;
-  chooseAlliance: (choice: Exclude<Alliance, "none">) => void;
   chooseHero: (hero: HeroId) => void;
   chooseMap: (map: MapId) => void;
   chooseBuild: (kind: TowerKind) => void;
-  openShop: () => void;
+  /** Open the back-room side tab on `kind` (the selected tower's, or the last one shown, if left out). */
+  openShop: (kind?: TowerKind) => void;
+  /** Show another tower kind in the open back room. */
+  shopKind: (kind: TowerKind) => void;
+  /** Buy upgrade `id` for the tower kind the back room is showing (between waves only). */
   pickMod: (id: ModId) => void;
   closeShop: () => void;
+  /** What the next back-room upgrade for `kind` costs. */
+  shopPriceFor: (kind: TowerKind) => number;
   sellSelected: () => void;
   dismissSelection: () => void;
   nudgeSpeed: (dir: -1 | 1) => void;
   togglePause: () => void;
   setDifficulty: (id: Difficulty) => void;
   chooseNight: (night: NightId) => void;
-  setDoor: (choice: Exclude<Alliance, "none">) => void;
   /** Setup, Overflow only: take or drop a late slip (up to three). */
   toggleSlip: (id: SlipId) => void;
   /** Developer mode: add DEV_SEEDS seeds (only while dev is on and a night is in play). */
   devSeeds: () => void;
-  ackMemory: () => void;
+  /** Title: skip the guided first night and open Setup. */
+  skipGuide: () => void;
+  /** Tutorial: Mynxi's Next button on a talk step. */
+  guideNext: () => void;
+  /** Title: play Mynxi's tutorial again (it doesn't lock Setup). */
+  startTutorial: () => void;
   openSetup: () => void;
   beginNight: () => void;
   /** Setup: pick the keeper (kept in the HUD so it survives a return to Setup). */
@@ -552,7 +641,7 @@ export function createWorld(
   restartNight: () => void;
   /** Clear the run and go to the Title, keeping the setup. */
   toTitle: () => void;
-  /** After a Midnight win: the Overflow with this run's door answer, same keeper and difficulty. */
+  /** After a Midnight win: the Overflow, same keeper and difficulty. */
   continueOverflow: () => void;
   /** After an Overflow win: Setup with Endless selected. */
   tryEndless: () => void;
@@ -571,6 +660,8 @@ export function createWorld(
   setPerk: (tier: number, pick: 0 | 1) => void;
   /** Live stats for a placed tower (includes a Reading Lamp's boost). */
   statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean } | null;
+  /** What a placed tower has done this night: damage dealt, fruit popped, and its share of all the damage. */
+  tallyOf: (towerId: number) => { dmg: number; pops: number; share: number } | null;
 } {
   let nextId = 1;
   const id = () => nextId++;
@@ -587,7 +678,6 @@ export function createWorld(
       blurb: "Place melon cannons on the open floor. The carpet is the only road in.",
       upgrades: [],
       offer: [],
-      alliance: "none",
       log: "The library is closed.",
       absurdity: 0,
       selected: null,
@@ -609,8 +699,8 @@ export function createWorld(
       map: "stacks",
       build: "melon",
       shopVisits: 0,
-      modOffer: [],
-      shopFor: null,
+      fitted: {},
+      workshop: null,
       speed: 1,
       paused: false,
       menu: null,
@@ -624,6 +714,11 @@ export function createWorld(
       xpRun: 0,
       slips: [],
       dev: false,
+      guide: null,
+      tutorial: false,
+      guideDone: true,
+      runLevel: 1,
+      lockedTowers: [],
     },
     hover: null,
     anim: 0,
@@ -634,12 +729,14 @@ export function createWorld(
     sparks: [],
     lines: [],
     rings: [],
+    stomps: [],
     flyers: [],
     stains: [],
     bits: [],
     floaters: [],
     shake: 0,
     pathCells: STACKS.cells,
+    shelfCells: shelfCells("stacks", STACKS.cells),
     points: STACKS.points,
     turns: STACKS.turns,
     ...boardSize("stacks"),
@@ -656,6 +753,19 @@ export function createWorld(
   let clock = 0;
   let queue: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean }> = [];
   let absurdDrops = 0;
+  /** Has a Still been built this night? (The Unstoppered's unlock.) */
+  let stillBuilt = false;
+  /**
+   * This night's damage and pops for each tower, by id. `credit` is the tower acting right now: its
+   * shots, throws, puddles and burrows carry its id, and set it again when they hit later.
+   */
+  const tally = new Map<number, { dmg: number; pops: number }>();
+  let credit: number | null = null;
+  const tallyFor = (id: number) => {
+    let t = tally.get(id);
+    if (!t) tally.set(id, (t = { dmg: 0, pops: 0 }));
+    return t;
+  };
   let queueCursor = 0;
   let spawnClock = 0;
   let karlReward = false;
@@ -666,6 +776,7 @@ export function createWorld(
   const persistMeta = !options.meta && typeof window !== "undefined";
   const dev = options.dev ?? (persistMeta && !options.keepers && readDev());
   world.hud.dev = dev;
+  world.hud.guideDone = options.guide !== undefined ? !options.guide : dev || !persistMeta ? true : readGuideDone();
   /** Lifetime stats and best waves are only saved outside developer mode. */
   const persistStats = persistMeta && !dev;
   const meta: MetaStats = dev
@@ -677,6 +788,7 @@ export function createWorld(
         : { ...EMPTY_META };
   world.hud.unlocked = unlockedIds(meta);
   world.hud.maps = unlockedMaps(meta);
+  world.hud.lockedTowers = options.allTricks ? [] : lockedTowers(meta);
   {
     const stored = options.setup !== undefined ? options.setup : persistMeta ? loadSetup() : null;
     // The bookmark pick is saved whenever it changes, so it is newer than the setup record.
@@ -690,7 +802,6 @@ export function createWorld(
     world.hud.difficulty = setup.difficulty;
     world.hud.bookmark = setup.bookmark;
     world.hud.hero = stored ? setup.hero : null;
-    world.hud.alliance = setup.night === "overflow" ? (setup.door !== "none" ? setup.door : overflowDoor()) : "none";
     world.hud.slips = setup.night === "overflow" ? cleanSlips(setup.slips) : [];
   }
   const persistKeepers = !options.keepers && !options.meta && !dev && typeof window !== "undefined";
@@ -704,7 +815,9 @@ export function createWorld(
   /** Perk effects for the run in play (set when a run starts). */
   let fx = perkFx(null, undefined);
   /** Is this the playing keeper's own tower? */
-  const own = (kind: TowerKind) => world.hud.hero != null && SIGNATURE[world.hud.hero] === kind;
+  const own = (kind: TowerKind) => world.hud.hero != null && KEEPER_TOWERS[world.hud.hero].includes(kind);
+  /** Is this the playing keeper's signature (the tower their perks name)? */
+  const ownSignature = (kind: TowerKind) => world.hud.hero != null && SIGNATURE[world.hud.hero] === kind;
   /** Give the playing keeper XP; say so if it brings a new level. */
   const giveXp = (amount: number) => {
     const hero = world.hud.hero;
@@ -718,7 +831,9 @@ export function createWorld(
     const after = levelFor(next.xp);
     if (after > before) {
       const perk = (PERK_LEVELS as readonly number[]).includes(after) ? " A new perk is ready on the setup screen." : "";
-      world.hud.log = `${world.hud.log} ${KEEPER_NAMES[hero].name} reached level ${after}.${perk}`.trim();
+      const trick = (Object.keys(TRICK_LEVEL) as TowerKind[]).filter((k) => TRICK_LEVEL[k]! > before && TRICK_LEVEL[k]! <= after);
+      const opens = trick.length ? ` The ${trick.map((k) => TOWERS[k].name).join(" and the ")} opens from the next night.` : "";
+      world.hud.log = `${world.hud.log} ${KEEPER_NAMES[hero].name} reached level ${after}.${perk}${opens}`.trim();
       cue("clear");
     }
   };
@@ -742,12 +857,80 @@ export function createWorld(
       said.push(`New bookmark: ${fresh.map((id) => BOOKMARK[id].name).join(", ")}. Equip it on the setup screen.`);
     }
     if (freshMaps.length) said.push(`New map: ${freshMaps.map((id) => BOARDS[id].name).join(", ")}.`);
+    const stillLocked = options.allTricks ? [] : lockedTowers(meta);
+    const opened = world.hud.lockedTowers.filter((k) => !stillLocked.includes(k));
+    world.hud.lockedTowers = stillLocked;
+    if (opened.length) said.push(`New keeper tower: ${opened.map((k) => TOWERS[k].name).join(", ")}.`);
     if (said.length) {
       world.hud.log = said.join(" ");
       cue("clear");
     }
   };
-  const roomPrice = () => backRoomPrice(world.hud.hero, world.hud.shopVisits, world.hud.bookmark, fx.shopOff);
+  /** The next back-room upgrade for `kind`: only that kind's own upgrades raise it. The tutorial's is free. */
+  const roomPrice = (kind: TowerKind) =>
+    world.hud.guide === "backroom"
+      ? 0
+      : backRoomPrice(world.hud.hero, world.hud.fitted[kind]?.length ?? 0, world.hud.shopVisits, world.hud.bookmark, fx.shopOff);
+  /** Move the tutorial to `step`, skipping building steps the board already satisfies. */
+  const guideTo = (step: GuideStep | null) => {
+    const mine = world.towers.map((t) => groupOf(t.kind).id);
+    let at = step;
+    for (;;) {
+      if (at === "damage" && mine.includes("damage")) at = "range";
+      else if (at === "support" && (mine.includes("control") || mine.includes("support"))) at = "tabs";
+      else break;
+    }
+    world.hud.guide = at;
+  };
+  const guideAfter = (step: GuideStep) => GUIDE_STEPS[GUIDE_STEPS.indexOf(step) + 1] ?? null;
+  /** Tutorial: a building step is done once the board has what it asks for. */
+  const syncGuide = () => {
+    if (world.hud.guide === "damage" || world.hud.guide === "support") guideTo(world.hud.guide);
+  };
+  /** Tutorial: the wave has started or the speed changed, so move past the speed lesson. */
+  const guideSpeed = () => {
+    if (world.hud.guide === "speed") world.hud.guide = "combat";
+  };
+  /** A trick cannon the playing keeper's level hasn't opened yet. */
+  const levelLocked = (kind: TowerKind) => !options.allTricks && (TRICK_LEVEL[kind] ?? 0) > world.hud.runLevel;
+  /** A keeper tower whose unlock goal hasn't been met. */
+  const goalLocked = (kind: TowerKind) => world.hud.lockedTowers.includes(kind);
+  /** The Reserve Desk has to sit right beside the carpet, so melons really do walk past it. */
+  const offCarpet = (kind: TowerKind, c: number, r: number) =>
+    kind === "desk" && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.pathCells.has(`${c + a},${r + b}`));
+  /** Why the guide won't let the wave start yet ("" when it will). */
+  const guideHold = () => {
+    const g = world.hud.guide;
+    if (!g || !GUIDE_HOLDS.includes(g)) return "";
+    if (g === "damage") return "First, build a Damage cannon: the Melon cannon is ready on the Damage tab.";
+    if (g === "support") return "Now add a Control (W) or Support (E) tower.";
+    if (g === "backroom") return "Open the back room (B) and buy an upgrade before the next wave. This one is free.";
+    return "Mynxi isn't finished yet: press Next.";
+  };
+  /** The lessons are done: Setup opens for good, and Mynxi has one last word. */
+  const finishGuide = () => {
+    if (world.hud.guide == null) return;
+    world.hud.guide = "sell";
+    world.hud.guideDone = true;
+    if (persistMeta) writeGuideDone();
+    world.hud.log = `${world.hud.log} That's the basics: New night on the title screen is open now.`.trim();
+  };
+  /** Start the guided first night: Midnight, the Stacks, Mynxi, Normal, no bookmark. */
+  const startGuide = () => {
+    world.hud.night = "midnight";
+    world.hud.waveCount = WAVE_COUNT;
+    world.hud.map = "stacks";
+    world.hud.difficulty = "normal";
+    world.hud.bookmark = null;
+    world.hud.slips = [];
+    applyBoard("stacks");
+    api.chooseHero("mynxi");
+    world.hud.guide = "welcome";
+    tutorialStart();
+    world.hud.build = "melon";
+    syncPrice();
+    notify();
+  };
 
   if (typeof window !== "undefined") {
     world.hud.best = readBest();
@@ -812,20 +995,22 @@ export function createWorld(
 
   const cellCenter = (c: number, r: number) => ({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2 });
 
-  const occupied = (c: number, r: number) => world.towers.some((t) => t.c === c && t.r === r);
+  /** The tower on a tile: its own tile, or one an Unstoppered has spilled onto. */
+  const towerAt = (c: number, r: number) =>
+    world.towers.find((t) => (t.c === c && t.r === r) || (t.spill?.some((s) => s.c === c && s.r === r) ?? false));
+  const occupied = (c: number, r: number) => towerAt(c, r) != null;
 
   const inMap = (c: number, r: number) => c >= 0 && r >= 0 && c < world.cols && r < world.rows;
 
-  const placedCount = () => world.towers.filter((t) => !t.ally).length;
+  const placedCount = () => world.towers.length;
   /** Kinds the player has on the board, most-built first (for cannon upgrades). */
   const builtKinds = () => {
     const count = new Map<TowerKind, number>();
-    for (const t of world.towers) if (!t.ally) count.set(t.kind, (count.get(t.kind) ?? 0) + 1);
+    for (const t of world.towers) count.set(t.kind, (count.get(t.kind) ?? 0) + 1);
     return [...count.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
   };
   // All player tower stats come from towerReadout(), the same function the
   // inspector panel shows, so the numbers on screen are the numbers in play.
-  const ALLY_STATS = { dmg: 11, range: 150, interval: 1.05 };
   /** History Lectern: damage multiplier for a cannon in a lectern's reach (the best lectern counts). */
   const lecternMul = (tower: Tower) => {
     let best = 0;
@@ -845,7 +1030,8 @@ export function createWorld(
   const withPerks = <T extends { dmg: number; range: number; interval: number }>(kind: TowerKind, read: T): T => {
     if (kind === "lectern") return { ...read, range: Math.round(read.range * fx.lecternReach) };
     if (PASSIVE.includes(kind)) return read;
-    const sig = own(kind);
+    // Signature perks name one tower ("The Scales fire 25% faster"), so a keeper's extra towers skip them.
+    const sig = ownSignature(kind);
     const dmgMul = fx.allDmg * (sig ? fx.sigDmg : 1);
     const rangeMul = fx.allRange * (sig ? fx.sigRange : 1);
     return {
@@ -855,6 +1041,111 @@ export function createWorld(
       interval: sig ? read.interval * fx.sigPace : read.interval,
     };
   };
+  /**
+   * Unstoppered: every tile it covers drips like a Still, on its own timer. Each tile picks the
+   * fruit farthest along in its reach, preferring one not already standing in a puddle.
+   */
+  const dripFlask = (tower: Tower, dt: number) => {
+    const stats = statsFor(tower);
+    const spread = hasMod(tower, "spread");
+    const cling = hasMod(tower, "cling");
+    const tiles: Array<{ x: number; y: number; cd: number; set: (cd: number) => void }> = [
+      { x: tower.x, y: tower.y, cd: tower.cd, set: (cd) => (tower.cd = cd) },
+      ...(tower.spill ?? []).map((s) => {
+        s.cd -= dt;
+        return { x: s.x, y: s.y, cd: s.cd, set: (cd: number) => (s.cd = cd) };
+      }),
+    ];
+    for (const tile of tiles) {
+      if (tile.cd > 0) continue;
+      let best: Enemy | null = null;
+      let bestScore = -Infinity;
+      for (const e of world.enemies) {
+        if (e.hp <= 0 || Math.hypot(e.x - tile.x, e.y - tile.y) > stats.range) continue;
+        const wet = world.pools.some((p) => !p.hot && Math.hypot(e.x - p.x, e.y - p.y) < p.r);
+        const score = e.wp * 1000 - Math.hypot(e.x - (world.points[e.wp]?.x ?? e.x), e.y - (world.points[e.wp]?.y ?? e.y)) - (wet ? 1e6 : 0);
+        if (score > bestScore) {
+          bestScore = score;
+          best = e;
+        }
+      }
+      if (!best) continue;
+      tile.set(stats.interval);
+      addPool(best.x, best.y, spread, cling);
+    }
+  };
+
+  /** Unstoppered: after a wave, maybe spill onto a neighbouring floor tile that reaches carpet the flask doesn't yet. */
+  const spillFlask = (tower: Tower) => {
+    const covered = [{ c: tower.c, r: tower.r }, ...(tower.spill ?? [])];
+    if (covered.length >= CANNON.flaskMaxTiles || Math.random() >= CANNON.flaskSpillChance) return;
+    const range = statsFor(tower).range;
+    const reach = (c: number, r: number) => {
+      const p = cellCenter(c, r);
+      const out: string[] = [];
+      for (const key of world.pathCells) {
+        const [pc, pr] = key.split(",").map(Number);
+        const q = cellCenter(pc, pr);
+        if (Math.hypot(q.x - p.x, q.y - p.y) <= range) out.push(key);
+      }
+      return out;
+    };
+    const have = new Set(covered.flatMap((t) => reach(t.c, t.r)));
+    const options: Array<{ c: number; r: number; fresh: number }> = [];
+    for (const t of covered)
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const c = t.c + dc;
+        const r = t.r + dr;
+        const key = `${c},${r}`;
+        if (!inMap(c, r) || world.pathCells.has(key) || world.shelfCells.has(key) || occupied(c, r)) continue;
+        if (options.some((o) => o.c === c && o.r === r)) continue;
+        const cells = reach(c, r);
+        if (!cells.length) continue; // a tile that can't reach the carpet would be wasted
+        options.push({ c, r, fresh: cells.filter((k) => !have.has(k)).length });
+      }
+    if (!options.length) return;
+    // Spill toward new carpet when it can; otherwise anywhere that still reaches it.
+    const most = Math.max(...options.map((o) => o.fresh));
+    const best = options.filter((o) => o.fresh === most);
+    const pick = best[Math.floor(Math.random() * best.length)];
+    const p = cellCenter(pick.c, pick.r);
+    (tower.spill ??= []).push({ c: pick.c, r: pick.r, x: p.x, y: p.y, cd: 0.4 });
+    float(p.x, p.y - 20, "spill!", "#9fd27a");
+    world.rings.push({ x: p.x, y: p.y, r: 26, life: 0.6, max: 0.6, color: "120,180,90" });
+    world.hud.log = `The Unstoppered spills onto another tile (${covered.length + 1} of ${CANNON.flaskMaxTiles}).`;
+  };
+
+  /** What The Mimic can copy. */
+  const MIMIC_KINDS: TowerKind[] = ["melon", "mortar", "still", "fire", "freeze"];
+  /**
+   * The Mimic: copy the newest cannon right beside it (not on a corner), with that cannon's upgrades
+   * plus one hidden step. With nothing to copy it goes blank. `refit` also picks up upgrades bought
+   * for the original since the copy was made (done at the start of each wave).
+   */
+  const syncMimics = (refit = false) => {
+    for (const m of world.towers) {
+      if (m.kind !== "copycat") continue;
+      let source: Tower | null = null;
+      for (const t of world.towers) {
+        if (!MIMIC_KINDS.includes(t.kind) || Math.abs(t.c - m.c) + Math.abs(t.r - m.r) !== 1) continue;
+        if (!source || t.id > source.id) source = t;
+      }
+      if (!source) {
+        m.copy = undefined;
+        m.copyFrom = undefined;
+        continue;
+      }
+      if (m.copyFrom !== source.id || !m.copy) {
+        m.copyFrom = source.id;
+        m.copy = { ...m, kind: source.kind, mods: [...source.mods, "mimicstep"], orange: source.orange, cd: 0.4, pulpCd: 0, copy: undefined, spill: undefined };
+      } else if (refit) {
+        m.copy.mods = [...source.mods, "mimicstep"];
+      }
+    }
+  };
+  /** The towers that act this frame: a Mimic acts through its copy (and not at all while blank). */
+  const actingTowers = () => world.towers.flatMap((t) => (t.kind === "copycat" ? (t.copy ? [t.copy] : []) : [t]));
+
   /** Orrery: spin the planets and hit any fruit they sweep through. */
   const spinOrrery = (tower: Tower, dt: number) => {
     const stats = statsFor(tower);
@@ -901,6 +1192,7 @@ export function createWorld(
       dmg: stats.dmg,
       hits: new Map<number, number>(),
       trail: [] as Array<{ x: number; y: number }>,
+      owner: tower.id,
     };
     if (tower.kind === "boomerang") {
       // Throw a little past the fruit so the loop sweeps through it; one bookend out at a time.
@@ -914,6 +1206,59 @@ export function createWorld(
         side: Math.random() < 0.5 ? -1 : 1,
         dur: CANNON.boomerangTime,
         heading: 0,
+      });
+    } else if (tower.kind === "quill") {
+      // Writes a wavy line out past the fruit; one quill at a time per tower.
+      tower.cd = stats.interval;
+      const dist = stats.range * CANNON.quillReach;
+      world.flyers.push({
+        ...base,
+        kind: "quill",
+        dist,
+        width: CANNON.quillWave,
+        side: Math.random() < 0.5 ? -1 : 1,
+        dur: dist / CANNON.quillSpeed,
+        heading: Math.atan2(dy, dx),
+      });
+    } else if (tower.kind === "press") {
+      // A pressed sheet lands on the fruit and slides back up the carpet toward the entrance.
+      tower.cd = stats.interval;
+      world.flyers.push({
+        ...base,
+        kind: "sheet",
+        x: target.x,
+        y: target.y,
+        dist: 0,
+        width: 0,
+        side: 1,
+        dur: 99,
+        heading: 0,
+        wp: target.reverse ? target.wp : target.wp - 1,
+        rolling: true,
+        left: CANNON.pressSheet * (hasMod(tower, "longsheet") ? 1.5 : 1),
+        inkTime: CANNON.pressInkTime * (hasMod(tower, "wetink") ? 2 : 1),
+      });
+    } else if (tower.kind === "globe") {
+      // Lob onto the carpet a little ahead of the fruit, then roll back toward the entrance.
+      tower.cd = stats.interval;
+      const ahead = world.points[target.reverse ? Math.max(0, target.wp - 1) : Math.min(world.points.length - 1, target.wp)];
+      const ad = Math.hypot(ahead.x - target.x, ahead.y - target.y);
+      const lead = Math.min(ad, CELL);
+      const lx = ad > 0 ? target.x + ((ahead.x - target.x) / ad) * lead : target.x;
+      const ly = ad > 0 ? target.y + ((ahead.y - target.y) / ad) * lead : target.y;
+      world.flyers.push({
+        ...base,
+        kind: "globe",
+        dist: d,
+        width: 0,
+        side: 1,
+        dur: CANNON.globeLob + CANNON.globeRoll,
+        heading: 0,
+        lx,
+        ly,
+        // Toward the entrance: forward walkers came from points[wp - 1]; chute walkers are heading to points[wp].
+        wp: target.reverse ? target.wp : target.wp - 1,
+        rolling: false,
       });
     } else {
       tower.cd = stats.interval;
@@ -932,6 +1277,7 @@ export function createWorld(
 
   const moveFlyer = (f: Flyer, dt: number) => {
     f.t += dt;
+    credit = f.owner ?? null;
     if (f.kind === "boomerang") {
       // An elliptical loop: out along the throw, curving to one side, and back home.
       const p = Math.min(1, f.t / f.dur);
@@ -948,6 +1294,101 @@ export function createWorld(
         f.hits.set(e.id, pass);
         hurt(e, null, f.dmg);
         burst(e.x, e.y, "#d8b878", 4);
+      }
+    } else if (f.kind === "quill") {
+      // A sine wave along the throw: out to its full length, then gone.
+      const along = CANNON.quillSpeed * f.t;
+      const k = (Math.PI * 2) / CANNON.quillWavelength;
+      const across = f.width * Math.sin(along * k) * f.side;
+      f.x = f.ox + f.ux * along - f.uy * across;
+      f.y = f.oy + f.uy * along + f.ux * across;
+      // Face along the curve (for drawing).
+      const slope = f.width * k * Math.cos(along * k) * f.side;
+      f.heading = Math.atan2(f.uy + f.ux * slope, f.ux - f.uy * slope);
+      for (const e of world.enemies) {
+        if (e.hp <= 0) continue;
+        if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 11) ** 2) continue;
+        if (f.hits.has(e.id)) continue;
+        f.hits.set(e.id, 1);
+        hurt(e, null, f.dmg);
+        burst(e.x, e.y, "#3b4f8f", 4);
+      }
+    } else if (f.kind === "sheet") {
+      // Slide back along the carpet, hitting and inking each fruit once, until the sheet runs out.
+      let step = Math.min(CANNON.pressSpeed * dt, f.left ?? 0);
+      f.left = (f.left ?? 0) - step;
+      while (step > 0 && f.wp! >= 0) {
+        const wp = world.points[f.wp!];
+        const dx = wp.x - f.x;
+        const dy = wp.y - f.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= step) {
+          f.x = wp.x;
+          f.y = wp.y;
+          step -= dist;
+          f.wp! -= 1;
+        } else {
+          f.x += (dx / dist) * step;
+          f.y += (dy / dist) * step;
+          f.heading = Math.atan2(dy, dx);
+          step = 0;
+        }
+      }
+      if (f.wp! < 0 || (f.left ?? 0) <= 0) f.t = f.dur;
+      for (const e of world.enemies) {
+        if (e.hp <= 0 || f.hits.has(e.id)) continue;
+        if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 18) ** 2) continue;
+        f.hits.set(e.id, 1);
+        e.ink = Math.max(e.ink ?? 0, f.inkTime ?? CANNON.pressInkTime);
+        e.inkMul = Math.max(e.inkMul ?? 1, CANNON.pressInk);
+        hurt(e, null, f.dmg);
+        burst(e.x, e.y, "#2a2440", 4);
+      }
+    } else if (f.kind === "globe") {
+      if (!f.rolling) {
+        // In the air: a straight lob (the drawing adds the height).
+        const p = Math.min(1, f.t / CANNON.globeLob);
+        f.x = f.ox + (f.lx! - f.ox) * p;
+        f.y = f.oy + (f.ly! - f.oy) * p;
+        if (p >= 1) {
+          f.rolling = true;
+          world.shake = world.reduced ? 0 : Math.max(world.shake, 3);
+          burst(f.x, f.y, "#c9a46a", 8);
+          for (const e of world.enemies) {
+            if (e.hp <= 0 || (e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + CANNON.globeThud) ** 2) continue;
+            f.hits.set(e.id, 1);
+            hurt(e, null, f.dmg);
+          }
+        }
+      } else {
+        // Roll back along the carpet, waypoint by waypoint, until it rolls out of the entrance.
+        let step = CANNON.globeSpeed * dt;
+        while (step > 0 && f.wp! >= 0) {
+          const wp = world.points[f.wp!];
+          const dx = wp.x - f.x;
+          const dy = wp.y - f.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist <= step) {
+            f.x = wp.x;
+            f.y = wp.y;
+            step -= dist;
+            f.wp! -= 1;
+          } else {
+            f.x += (dx / dist) * step;
+            f.y += (dy / dist) * step;
+            f.heading = Math.atan2(dy, dx);
+            step = 0;
+          }
+        }
+        if (f.wp! < 0) f.t = f.dur;
+        for (const e of world.enemies) {
+          if (e.hp <= 0) continue;
+          if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 14) ** 2) continue;
+          if (f.hits.has(e.id)) continue;
+          f.hits.set(e.id, 1);
+          hurt(e, null, f.dmg);
+          burst(e.x, e.y, "#c9a46a", 5);
+        }
       }
     } else {
       // Steer toward the nearest fruit, but only so fast: the plane swoops in wide arcs.
@@ -988,7 +1429,6 @@ export function createWorld(
   };
 
   const statsFor = (tower: Tower) => {
-    if (tower.ally) return ALLY_STATS;
     const read = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
     if (PASSIVE.includes(tower.kind)) return read;
     const mul = lecternMul(tower);
@@ -1019,12 +1459,12 @@ export function createWorld(
       0,
       buildCost(world.hud.hero, placedCount(), world.hud.build) -
         (bm("discount") ? BOOKMARK_VALUES.discount : 0) -
-        (own(world.hud.build) ? fx.sigCost : 0),
+        (ownSignature(world.hud.build) ? fx.sigCost : 0),
     );
-  /** A signature tower can be built only by its keeper, and only one at a time. */
+  /** A keeper tower can be built only by its keeper, and only one of each at a time. */
   const signatureBlocked = (kind: TowerKind) =>
     isSignature(kind) &&
-    (world.hud.hero == null || SIGNATURE[world.hud.hero] !== kind || world.towers.filter((t) => t.kind === kind).length >= 1 + fx.sigExtra);
+    (!own(kind) || world.towers.filter((t) => t.kind === kind).length >= 1 + (ownSignature(kind) ? fx.sigExtra : 0));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
   const towerRange = (tower: Tower) => statsFor(tower).range;
   const syncPrice = () => {
@@ -1033,7 +1473,19 @@ export function createWorld(
     if (world.hud.selected == null) world.hud.range = world.hud.placeRange;
   };
 
-  const tune = () => DIFFICULTIES.find((d) => d.id === world.hud.difficulty) ?? DIFFICULTIES[1];
+  const tune = () => {
+    const d = DIFFICULTIES.find((x) => x.id === world.hud.difficulty) ?? DIFFICULTIES[1];
+    // Mynxi's tutorial night: much softer, slower fruit, whatever the difficulty says.
+    return world.hud.tutorial ? { ...d, hp: d.hp * BALANCE.tutorialHp, speed: d.speed * BALANCE.tutorialSpeed } : d;
+  };
+  /** Mynxi's tutorial night starts with extra seeds and stacks. */
+  const tutorialStart = () => {
+    world.hud.tutorial = true;
+    world.hud.seeds += BALANCE.tutorialSeeds;
+    world.hud.lives += BALANCE.tutorialStacks;
+    world.hud.maxLives += BALANCE.tutorialStacks;
+    syncPrice();
+  };
   const spawnEnemy = (
     kind: EnemyKind,
     bonusHp = 1,
@@ -1120,7 +1572,7 @@ export function createWorld(
   };
 
   const buildQueue = (extra: SpawnSpec[] = []) => {
-    const spec = waveAt(cleared, world.hud.alliance, world.hud.night);
+    const spec = waveAt(cleared, world.hud.night);
     const list = [...spec.spawns, ...extra];
     const items: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean }> = [];
     let t = 0.35;
@@ -1144,26 +1596,10 @@ export function createWorld(
     spawnClock = 0;
   };
 
-  const placeAllyTowers = () => {
-    const spots = BOARDS[world.hud.map].allies;
-    for (const [c, r] of spots) {
-      if (!inMap(c, r) || world.pathCells.has(`${c},${r}`) || occupied(c, r)) continue;
-      const p = cellCenter(c, r);
-      world.towers.push({ id: id(), c, r, x: p.x, y: p.y, cd: 0.2, aim: 0, ally: true, orange: true, kind: "melon", mods: [], paid: 0 });
-    }
-  };
-
-  const placeEarlyHusks = () => {
-    for (const idx of [1, 2, 3, 4]) {
-      const spot = world.points[idx];
-      if (!spot) continue;
-      spawnEnemy("corn", 1, "husk", { at: { x: spot.x, y: spot.y, wp: idx } });
-    }
-  };
-
   const applyBoard = (map: MapId) => {
     const built = buildBoard(BOARDS[map].corners);
     world.pathCells = built.cells;
+    world.shelfCells = shelfCells(map, built.cells);
     world.points = built.points;
     world.turns = built.turns;
     Object.assign(world, boardSize(map));
@@ -1173,7 +1609,7 @@ export function createWorld(
 
   /**
    * Clear everything a run built up (board, waves, picks, seeds, stacks) and keep the setup:
-   * night, map, difficulty, bookmark, keeper and, on the Overflow, the door answer. Speed is a
+   * night, map, difficulty, bookmark and keeper. Speed is a
    * preference and is kept too.
    */
   const resetRunState = () => {
@@ -1184,6 +1620,7 @@ export function createWorld(
     world.sparks = [];
     world.lines = [];
     world.rings = [];
+    world.stomps = [];
     world.flyers = [];
     world.stains = [];
     world.bits = [];
@@ -1197,8 +1634,10 @@ export function createWorld(
     karlReward = false;
     absorbed = 0;
     absurdDrops = 0;
+    stillBuilt = false;
+    tally.clear();
     applyBoard(world.hud.map);
-    const opening = waveAt(0, world.hud.night === "overflow" ? world.hud.alliance : "none", world.hud.night);
+    const opening = waveAt(0, world.hud.night);
     world.hud = {
       ...world.hud,
       seeds: 150,
@@ -1209,7 +1648,6 @@ export function createWorld(
       blurb: opening.blurb,
       upgrades: [],
       offer: [],
-      alliance: world.hud.night === "overflow" ? world.hud.alliance : "none",
       absurdity: 0,
       selected: null,
       canPlace: false,
@@ -1221,8 +1659,8 @@ export function createWorld(
       branch: null,
       build: "melon",
       shopVisits: 0,
-      modOffer: [],
-      shopFor: null,
+      fitted: {},
+      workshop: null,
       paused: false,
       menu: null,
       waveCount: world.hud.night === "endless" ? 0 : WAVE_COUNT,
@@ -1235,13 +1673,9 @@ export function createWorld(
   /** Does wave `index` (0-based) send anything up the Overflow's chute? */
   const usesChute = (index: number) =>
     world.hud.night === "overflow" &&
-    (waveAt(index, world.hud.alliance, world.hud.night).spawns.some((s) => s.chute) ||
+    (waveAt(index, world.hud.night).spawns.some((s) => s.chute) ||
       index >= WAVE_COUNT - 2 ||
       (slip("heavy") && index >= SLIP_VALUES.heavyFrom && index <= SLIP_VALUES.heavyTo));
-
-  const removeAllies = () => {
-    world.towers = world.towers.filter((t) => !t.ally);
-  };
 
   const loseLife = (n: number, x: number, y: number) => {
     if (world.hud.hero === "ooze" && absorbed < 1 + fx.absorb && n === 1) {
@@ -1263,18 +1697,19 @@ export function createWorld(
     }
   };
 
-  const addPool = (x: number, y: number, wide = false, cling = false) => {
+  const addPool = (x: number, y: number, wide = false, cling = false, extra = 0) => {
     const sticky = has("sticky");
     const vial = has("vial") || has("distill");
     let life = sticky ? 3.2 : vial ? 2.6 : 1.8;
     let r = sticky ? 52 : vial ? 30 : 40;
     if (wide) r += 16;
+    r += extra;
     if (cling) life += 1.2;
-    world.pools.push({ x, y, r, life, max: life, hot: false, burn: 0 });
+    world.pools.push({ x, y, r, life, max: life, hot: false, burn: 0, owner: credit ?? undefined });
   };
 
   const addFire = (x: number, y: number, life = 2.4, burn = 22) => {
-    world.pools.push({ x, y, r: 34, life, max: life, hot: true, burn });
+    world.pools.push({ x, y, r: 34, life, max: life, hot: true, burn, owner: credit ?? undefined });
   };
 
   /** Pumpkin Trebuchet: push a fruit back along the carpet, never past where it came in. */
@@ -1321,7 +1756,7 @@ export function createWorld(
       world.shake = world.reduced ? 0 : 14;
       addPool(e.x, e.y);
       world.hud.log = second
-        ? "The household champion is pie. +2 stacks."
+        ? "Another Karl is pie. +2 stacks."
         : world.hud.night === "overflow"
           ? "Karl came up the chute and left as pie. +2 stacks."
           : "Karl is pie. The library exhales. +2 stacks.";
@@ -1339,7 +1774,7 @@ export function createWorld(
     from: { id: number; x: number; y: number } | null,
     amount: number,
     radius = 0,
-    via: "shot" | "splash" | "burn" | "pulp" | "worm" = "shot",
+    via: "shot" | "splash" | "burn" | "pulp" | "worm" | "pierce" = "shot",
   ) => {
     if (radius > 0 && from) {
       if (e.id === from.id || e.hp <= 0) return;
@@ -1367,10 +1802,19 @@ export function createWorld(
     if (e.guard === "damp" && via === "burn") amount *= 0.15;
     if (e.guard === "damp" && via === "shot") amount *= 1.15;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
+    const before = e.hp;
     e.hp -= amount;
     if (amount >= 1) float(e.x, e.y - 10, String(Math.round(amount)), "#f3e2c4");
+    if (credit != null) {
+      const t = tallyFor(credit);
+      t.dmg += Math.max(0, Math.min(amount, before));
+      if (e.hp <= 0) t.pops += 1;
+    }
     if (e.hp <= 0) onDeath(e);
   };
+
+  /** Seconds a shot lives: the trip at SHOT_SPEED plus a second for a moving target, and never under 1.6. */
+  const shotLife = (x: number, y: number, tx: number, ty: number) => Math.max(1.6, Math.hypot(tx - x, ty - y) / SHOT_SPEED + 1);
 
   const onShotHit = (shot: Shot, e: Enemy) => {
     if (shot.element === "seed" && e.guard === "rind" && e.shell > 0) {
@@ -1395,13 +1839,14 @@ export function createWorld(
       if ((e.worm ?? 0) <= 0) float(e.x, e.y - 18, "burrow", "#e79ab0");
       e.worm = CANNON.wormTime;
       e.wormDps = Math.max(e.wormDps ?? 0, shot.wormDps ?? CANNON.wormDps);
+      e.wormBy = shot.owner;
     }
-    hurt(e, null, shot.dmg);
+    hurt(e, null, shot.dmg, 0, shot.pierce ? "pierce" : "shot");
     burst(e.x, e.y, "#3f9a5c", 6);
-    if (!shot.fromAlly && world.hud.hero === "vael" && e.guard !== "husk") e.chill = Math.max(e.chill, 1.15 * fx.chill);
+    if (world.hud.hero === "vael" && e.guard !== "husk") e.chill = Math.max(e.chill, 1.15 * fx.chill);
     if (shot.chill > 0 && e.guard !== "husk") e.chill = Math.max(e.chill, shot.chill);
-    if (shot.element === "fire" && !shot.fromAlly) addFire(e.x, e.y, shot.fireLife, shot.fireBurn);
-    if (shot.element === "ice" && !shot.fromAlly && e.guard !== "husk") {
+    if (shot.element === "fire") addFire(e.x, e.y, shot.fireLife, shot.fireBurn);
+    if (shot.element === "ice" && e.guard !== "husk") {
       const hold = (e.boss ? 0.6 : 1.45) + shot.freezeExtra;
       e.freeze = Math.max(e.freeze, e.guard === "damp" ? hold * 1.4 : hold);
       float(e.x, e.y - 18, "frozen", "#d5e4ee");
@@ -1422,6 +1867,7 @@ export function createWorld(
         hot: false,
         burn: 0,
         toxic: Math.round((CANNON.cauldronDps + (has("distill") ? 8 : has("vial") ? 4 : 0)) * fx.sigDmg),
+        owner: credit ?? undefined,
       });
     }
     if (shot.procs && has("juicy")) {
@@ -1432,7 +1878,7 @@ export function createWorld(
       for (const other of world.enemies) hurt(other, e, 9, 40, "splash");
       splashFx(e.x, e.y, 40, "226,59,74");
     }
-    if (shot.splash > 0 && !shot.fromAlly) {
+    if (shot.splash > 0) {
       if (!shot.knock) splashFx(e.x, e.y, shot.splash, "232,136,58");
       for (const other of world.enemies)
         hurt(other, e, Math.max(6, Math.round(shot.dmg * shot.splashRatio)), shot.splash, "splash");
@@ -1523,65 +1969,60 @@ export function createWorld(
       world.rings.push({ x: heap.x, y: heap.y, r: 30, life: 0.6, max: 0.6, color: "120,170,90" });
     }
     if (fx.waveSeeds) world.hud.seeds += fx.waveSeeds;
-    const beat = nextBeat(cleared, world.hud.alliance, world.hud.night);
-    const upcoming = waveAt(endless ? cleared : Math.min(cleared, WAVE_COUNT - 1), world.hud.alliance, world.hud.night);
+    for (const flask of world.towers) if (flask.kind === "flask") spillFlask(flask);
+    for (const desk of world.towers) {
+      if (desk.kind !== "desk") continue;
+      desk.bank = (desk.bank ?? 0) + CANNON.deskBank;
+      float(desk.x, desk.y - 50, `+${CANNON.deskBank}`, "#e6c36a");
+    }
+    const beat = nextBeat(cleared, world.hud.night);
+    const upcoming = waveAt(endless ? cleared : Math.min(cleared, WAVE_COUNT - 1), world.hud.night);
     if (beat !== "victory") cue("clear");
     if (beat === "victory") {
       cue("victory");
+      // The Reserve Desk pays out what it still holds.
+      const paid = world.towers.reduce((sum, t) => sum + (t.kind === "desk" ? (t.bank ?? 0) : 0), 0);
+      for (const t of world.towers) if (t.kind === "desk") t.bank = 0;
+      world.hud.seeds += paid;
       world.hud.phase = "victory";
       world.hud.blurb =
-        world.hud.night === "overflow"
-          ? world.hud.alliance === "accept"
-            ? "The household held the chute. Karl came up it anyway."
-            : world.hud.alliance === "betray"
-              ? "The grudge walked in both directions. You still closed the chute."
-              : "No knight. The chute still closed."
-          : world.hud.alliance === "accept"
-            ? "You survived the household that came back meaner."
-            : world.hud.alliance === "betray"
-              ? "You survived the grudge."
-              : world.hud.alliance === "reject"
-                ? "You sent him away, and survived the produce alone."
-                : "The library holds.";
-      world.hud.log = world.hud.blurb;
+        world.hud.night === "overflow" ? "Karl came up the chute anyway. The chute still closed." : "The library holds.";
+      world.hud.log = paid ? `${world.hud.blurb} The Reserve Desk pays out ${paid}.` : world.hud.blurb;
       recordWave();
+      if (!endless) {
+        const brewed = world.hud.hero === "vael" && stillBuilt && (has("vial") || has("distill"));
+        record((m) => {
+          m.richest = Math.max(m.richest, world.hud.seeds);
+          if (brewed) m.brews += 1;
+        });
+      }
       notify();
       return;
     }
     const step = cleared === 1 ? 1 : cleared === 2 ? 2 : 3;
     const offer =
       beat === "upgrade"
-        ? buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, world.hud.alliance, builtKinds(), fx.offer)
+        ? buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds(), fx.offer)
         : [];
     if (beat === "upgrade" && offer.length) {
       world.hud.offer = offer;
       world.hud.phase = "upgrade";
+      if (world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "upgrade";
       world.hud.log =
         endless && cleared > 6
           ? "Another shelf opens. The carpet keeps going."
           : step === 3
           ? world.hud.night === "overflow"
             ? "One more shelf. Then the meter starts spending."
-            : "One more shelf. Then the door you chose comes due."
+            : "One more shelf. Then the last waves."
           : step === 1
             ? `${KEEPER_NAMES[world.hud.hero ?? "mynxi"].short}'s first shelf.`
             : "The last pick opened the next shelf.";
-    } else if (beat === "alliance") {
-      world.hud.phase = "alliance";
-      world.hud.log = world.hud.hero === "michael"
-        ? "Your household is at the west door."
-        : "Sir Michael the Pumpkin Knight is at the west door.";
-    } else if (beat === "betrayal") {
-      world.hud.phase = "betrayal";
-      world.hud.log = "The Pumpkin Knight is smiling with too many teeth.";
     } else if (beat === "consequence") {
       world.hud.phase = "consequence";
       world.hud.waveName = upcoming.name;
       world.hud.blurb = upcoming.blurb;
-      world.hud.log = world.hud.night === "overflow" ? "Karl is not using the door." : "The choice you made at the door is on the carpet.";
-    } else if (beat === "memory") {
-      world.hud.phase = "memory";
-      world.hud.log = "The door does not open again.";
+      world.hud.log = world.hud.night === "overflow" ? "Karl is not using the door." : "Everything left in the library is on the carpet.";
     } else {
       world.hud.phase = "prep";
       world.hud.blurb = upcoming.blurb;
@@ -1620,20 +2061,34 @@ export function createWorld(
       let slow = 1;
       let dot = 0;
       let burn = 0;
+      /** Honey: sticky, not cold, so husks feel it too (applied after the husk rule below). */
+      let stuck = 1;
+      let dotBy: number | undefined;
+      let burnBy: number | undefined;
       for (const pool of world.pools) {
         if (Math.hypot(e.x - pool.x, e.y - pool.y) > pool.r) continue;
+        if (pool.honey) {
+          stuck = Math.min(stuck, softenSlow(CANNON.honeySlow));
+          continue;
+        }
         if (pool.hot) {
+          if ((pool.burn || 22) > burn) burnBy = pool.owner;
           burn = Math.max(burn, pool.burn || 22);
           continue;
         }
         if (pool.toxic) {
           slow = Math.min(slow, softenSlow(CANNON.cauldronSlow));
+          if (pool.toxic > dot) dotBy = pool.owner;
           dot = Math.max(dot, pool.toxic);
           continue;
         }
         const crawl = has("distill") ? 0.38 : has("sticky") ? 0.45 : has("vial") ? 0.55 : 0.78;
         slow = Math.min(slow, softenSlow(crawl));
-        if (has("juicy") || has("distill")) dot = Math.max(dot, has("distill") ? 16 : 10);
+        if (has("juicy") || has("distill")) {
+          const pulp = has("distill") ? 16 : 10;
+          if (pulp > dot) dotBy = pool.owner;
+          dot = Math.max(dot, pulp);
+        }
       }
       if (e.chill > 0) {
         e.chill -= dt;
@@ -1648,14 +2103,24 @@ export function createWorld(
         e.freeze = 0;
         slow = 1;
       }
+      slow = Math.min(slow, stuck);
+      // Pinned under the Foot of the Law: the one stop a husk can't shrug off.
+      if ((e.stomped ?? 0) > 0) {
+        e.stomped = (e.stomped ?? 0) - dt;
+        slow = 0;
+      }
       e.slow = slow;
+      credit = dotBy ?? null;
       if (dot) hurt(e, null, dot * dt, 0, "pulp");
       if ((e.ink ?? 0) > 0) e.ink = (e.ink ?? 0) - dt;
       if ((e.worm ?? 0) > 0) {
         e.worm = (e.worm ?? 0) - dt;
+        credit = e.wormBy ?? null;
         hurt(e, null, (e.wormDps ?? 0) * dt, 0, "worm");
       }
+      credit = burnBy ?? null;
       if (burn) hurt(e, null, burn * dt, 0, "burn");
+      credit = null;
       const wp = world.points[e.wp];
       if (!wp) continue;
       const dx = wp.x - e.x;
@@ -1684,12 +2149,30 @@ export function createWorld(
       }
     }
 
-    for (const tower of world.towers) {
+    // Reserve Desk: a melon that comes past eats whatever is banked.
+    for (const desk of world.towers) {
+      if (desk.kind !== "desk" || !desk.bank) continue;
+      const thief = world.enemies.find(
+        (e) => e.kind === "melon" && e.hp > 0 && Math.hypot(e.x - desk.x, e.y - desk.y) <= CANNON.deskReach,
+      );
+      if (!thief) continue;
+      float(desk.x, desk.y - 24, `bank eaten −${desk.bank}`, "#e23b4a");
+      world.hud.log = `A melon walked past the Reserve Desk and ate the bank (${desk.bank} seeds).`;
+      desk.bank = 0;
+    }
+
+    syncMimics();
+    for (const tower of actingTowers()) {
+      credit = tower.id;
       tower.cd -= dt;
       tower.pulpCd = (tower.pulpCd ?? 0) - dt;
       if (PASSIVE.includes(tower.kind)) continue;
       if (tower.kind === "orrery") {
         spinOrrery(tower, dt);
+        continue;
+      }
+      if (tower.kind === "flask") {
+        dripFlask(tower, dt);
         continue;
       }
       let target: Enemy | null = null;
@@ -1705,6 +2188,8 @@ export function createWorld(
         let prog = e.wp * 1000 - Math.hypot(e.x - (world.points[e.wp]?.x ?? e.x), e.y - (world.points[e.wp]?.y ?? e.y));
         // Specialists look for their favourite target first.
         if (tower.kind === "reader" || tower.kind === "scales") prog = e.hp;
+        else if (tower.kind === "scope")
+          prog = (e.boss ? 2e6 : 0) + ((e.guard === "rind" && e.shell > 0) || e.guard === "husk" || e.guard === "damp" ? 1e6 : 0) + e.hp;
         else if (tower.kind === "mimic" && !e.boss) prog += 1e6;
         else if (tower.kind === "peeler" && ((e.guard === "rind" && e.shell > 0) || e.guard === "husk" || e.guard === "damp"))
           prog += 1e6;
@@ -1719,9 +2204,51 @@ export function createWorld(
       if (tower.kind === "hive") target = inRange[Math.floor(Math.random() * inRange.length)] ?? target;
       tower.aim = Math.atan2(target.y - tower.y, target.x - tower.x);
       if (tower.cd > 0) continue;
+      if (tower.kind === "honey") {
+        // Step onto the carpet a little ahead of the fruit, so it walks into the footprint.
+        tower.cd = stats.interval;
+        cue("fire", "honey");
+        const next = world.points[target.reverse ? Math.max(0, target.wp - 1) : Math.min(world.points.length - 1, target.wp)];
+        const d = Math.hypot(next.x - target.x, next.y - target.y);
+        const lead = Math.min(d, CELL * 0.75);
+        const fx2 = d > 0 ? target.x + ((next.x - target.x) / d) * lead : target.x;
+        const fy2 = d > 0 ? target.y + ((next.y - target.y) / d) * lead : target.y;
+        const mine = world.pools.filter((p) => p.owner === tower.id);
+        if (mine.length >= CANNON.honeyMax) world.pools = world.pools.filter((p) => p !== mine[0]);
+        world.pools.push({
+          x: fx2,
+          y: fy2,
+          r: CANNON.honeyRadius,
+          life: CANNON.honeyLife,
+          max: CANNON.honeyLife,
+          hot: false,
+          burn: 0,
+          honey: true,
+          rot: d > 0 ? Math.atan2(next.y - target.y, next.x - target.x) : 0,
+          owner: tower.id,
+        });
+        float(fx2, fy2 - 20, "sticky", "#e8b84a");
+        continue;
+      }
       if (tower.kind === "still") {
         tower.cd = stats.interval;
-        addPool(target.x, target.y, hasMod(tower, "spread"), hasMod(tower, "cling"));
+        addPool(target.x, target.y, hasMod(tower, "spread"), hasMod(tower, "cling"), hasMod(tower, "mimicstep") ? CANNON.mimicPuddle : 0);
+        continue;
+      }
+      if (tower.kind === "organ") {
+        // A chord: every fruit in reach is hit and slowed; every third chord (second, with the fitting) also stops them.
+        tower.cd = stats.interval;
+        tower.chord = (tower.chord ?? 0) + 1;
+        const swell = tower.chord % (hasMod(tower, "crescendo") ? 2 : CANNON.organEvery) === 0;
+        cue("fire", "organ");
+        for (const e of inRange) {
+          hurt(e, null, stats.dmg, 0, "splash");
+          if (e.guard === "husk") continue;
+          e.chill = Math.max(e.chill, CANNON.organChill);
+          if (swell) e.freeze = Math.max(e.freeze, e.boss ? CANNON.organStunBoss : CANNON.organStun);
+        }
+        world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.5, max: 0.5, color: swell ? "230,195,106" : "170,130,210" });
+        float(tower.x, tower.y - 28, swell ? "CRESCENDO" : "♪", swell ? "#e6c36a" : "#c9b2ec");
         continue;
       }
       if (tower.kind === "bell") {
@@ -1751,6 +2278,33 @@ export function createWorld(
         world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.2, max: 0.2, color: "111,198,239", width: 6 });
         continue;
       }
+      if (tower.kind === "stomp") {
+        // Foot of the Law: land on the fruit with the most company, then pin and bruise everything under the sole.
+        tower.cd = stats.interval;
+        cue("fire", "stomp");
+        let spot = target;
+        let crowd = -1;
+        for (const e of inRange) {
+          let n = 0;
+          for (const o of inRange) if (Math.hypot(o.x - e.x, o.y - e.y) <= CANNON.stompRadius) n++;
+          if (n > crowd) {
+            crowd = n;
+            spot = e;
+          }
+        }
+        const sx = spot.x;
+        const sy = spot.y;
+        for (const e of world.enemies) {
+          if (e.hp <= 0 || Math.hypot(e.x - sx, e.y - sy) > CANNON.stompRadius) continue;
+          e.stomped = Math.max(e.stomped ?? 0, e.boss ? CANNON.stompStunBoss : CANNON.stompStun);
+          hurt(e, null, stats.dmg, 0, "splash");
+        }
+        world.stomps.push({ x: sx, y: sy, life: 0.45, max: 0.45 });
+        world.rings.push({ x: sx, y: sy, r: CANNON.stompRadius, life: 0.4, max: 0.4, color: "201,162,90" });
+        world.shake = world.reduced ? 0 : Math.max(world.shake, 4);
+        float(sx, sy - 26, "STOMP", "#e6c36a");
+        continue;
+      }
       if (tower.kind === "scales") {
         // A share of the heaviest fruit's health, and a fee if the verdict kills it.
         tower.cd = stats.interval;
@@ -1764,6 +2318,16 @@ export function createWorld(
         }
         world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.25, max: 0.25, color: "230,195,106", width: 3 });
         burst(target.x, target.y, "#e6c36a", 8);
+        continue;
+      }
+      if (tower.kind === "scope") {
+        // Brass Telescope: an instant, armour-piercing shot (shells, husks and damp count for nothing).
+        tower.cd = stats.interval;
+        cue("fire", "scope");
+        hurt(target, null, stats.dmg, 0, "pierce");
+        // From the lens, roughly where the turned tube ends.
+        world.lines.push({ x: tower.x + Math.cos(tower.aim) * 24, y: tower.y - 17 + Math.sin(tower.aim) * 14, x2: target.x, y2: target.y, life: 0.2, max: 0.2, color: "230,195,106", width: 2 });
+        burst(target.x, target.y, "#e6c36a", 7);
         continue;
       }
       if (tower.kind === "ballista" || tower.kind === "reader") {
@@ -1805,7 +2369,7 @@ export function createWorld(
         }
         continue;
       }
-      if (tower.kind === "boomerang" || tower.kind === "plane") {
+      if (tower.kind === "boomerang" || tower.kind === "plane" || tower.kind === "quill" || tower.kind === "globe" || tower.kind === "press") {
         launchFlyer(tower, target, stats);
         continue;
       }
@@ -1813,12 +2377,11 @@ export function createWorld(
       const dmg = stats.dmg;
       // Pulp upgrades: only melon cannons leave puddles, and at most one per cannon every few seconds.
       const pulp =
-        !tower.ally &&
         tower.kind === "melon" &&
         (tower.pulpCd ?? 0) <= 0 &&
         (has("juicy") || has("sticky") || has("vial") || has("distill"));
       if (pulp) tower.pulpCd = BALANCE.pulpEvery;
-      if (!tower.ally) cue("fire", tower.kind);
+      cue("fire", tower.kind);
       const element: Shot["element"] =
         tower.kind === "fire"
           ? "fire"
@@ -1846,35 +2409,35 @@ export function createWorld(
       const aimAt = f === 0 ? target : (inRange[Math.floor(Math.random() * inRange.length)] ?? target);
       world.shots.push({
         id: id(),
+        owner: tower.id,
         x: tower.x,
         y: tower.y,
         tx: aimAt.x,
         ty: aimAt.y,
         target: aimAt.id,
         dmg,
-        life: 1.6,
-        bounces: tower.ally
-          ? 0
-          : tower.kind === "catalogue"
+        // Long enough to cross the board: hives and the Reader reach anywhere.
+        life: shotLife(tower.x, tower.y, aimAt.x, aimAt.y),
+        bounces:
+          tower.kind === "catalogue"
             ? CANNON.catalogueChains + fx.chains
             : (tower.kind === "melon" && has("bounce")) || (tower.kind === "hive" && has("stinging"))
               ? 1
               : 0,
         bounceRatio: tower.kind === "catalogue" ? Math.max(CANNON.catalogueChainRatio, fx.chainRatio) : 1,
         knock: tower.kind === "trebuchet" ? CANNON.trebuchetKnock * fx.knock : 0,
-        fromAlly: tower.ally,
         orange: tower.kind === "mortar" || tower.kind === "trebuchet" || tower.orange,
-        splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) : tower.kind === "trebuchet" ? Math.round(CANNON.trebuchetSplash * fx.splash) : 0,
+        splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) + (hasMod(tower, "mimicstep") ? CANNON.mimicSplash : 0) : tower.kind === "trebuchet" ? Math.round(CANNON.trebuchetSplash * fx.splash) : 0,
         element,
         // Juicy, Splatter and Electric go off from Cannon-type towers only.
-        procs: !tower.ally && TOWER_TYPE[tower.kind] === "cannon",
+        procs: TOWER_TYPE[tower.kind] === "cannon",
         inkTime: hasMod(tower, "indelible") ? CANNON.inkTime * 1.5 : CANNON.inkTime,
         inkMul: (hasMod(tower, "indelible") ? CANNON.inkBonus + 0.1 : CANNON.inkBonus) + (has("blot") ? CANNON.blotInkBonus : 0),
         wormDps: hasMod(tower, "venom") ? CANNON.wormDps * 1.5 : CANNON.wormDps,
         splashRatio: hasMod(tower, "heavy") || tower.kind === "trebuchet" ? 0.8 : 0.55,
         chill: hasMod(tower, "chill") ? 0.75 : 0,
-        freezeExtra: hasMod(tower, "hold") ? 0.55 : 0,
-        fireLife: hasMod(tower, "lasting") ? 3.6 : 2.4,
+        freezeExtra: (hasMod(tower, "hold") ? 0.55 : 0) + (hasMod(tower, "mimicstep") ? CANNON.mimicFreeze : 0),
+        fireLife: (hasMod(tower, "lasting") ? 3.6 : 2.4) + (hasMod(tower, "mimicstep") ? CANNON.mimicBurn : 0),
         fireBurn: hasMod(tower, "hotter") ? 34 : 22,
         pulp,
       });
@@ -1891,12 +2454,14 @@ export function createWorld(
       const dx = tx - shot.x;
       const dy = ty - shot.y;
       const dist = Math.hypot(dx, dy);
-      const step = 280 * dt;
+      const step = SHOT_SPEED * dt;
       if (dist <= 12 || dist <= step) {
         shot.x = tx;
         shot.y = ty;
         if (target) {
+          credit = shot.owner ?? null;
           const keep = onShotHit(shot, target);
+          credit = null;
           if (!keep) shot.life = 0;
         } else shot.life = 0;
       } else {
@@ -1904,9 +2469,11 @@ export function createWorld(
         shot.y += (dy / dist) * step;
       }
     }
+    credit = null;
     world.shots = world.shots.filter((s) => s.life > 0);
 
     for (const f of world.flyers) moveFlyer(f, dt);
+    credit = null;
     world.flyers = world.flyers.filter((f) => f.t < f.dur);
 
     world.enemies = world.enemies.filter((e) => e.hp > 0);
@@ -1932,6 +2499,8 @@ export function createWorld(
     world.lines = world.lines.filter((l) => l.life > 0);
     for (const r of world.rings) r.life -= dt;
     world.rings = world.rings.filter((r) => r.life > 0);
+    for (const st of world.stomps) st.life -= dt;
+    world.stomps = world.stomps.filter((st) => st.life > 0);
     for (const st of world.stains) st.life -= dt;
     world.stains = world.stains.filter((st) => st.life > 0);
     world.sparks = world.sparks.filter((s) => s.life > 0);
@@ -1953,17 +2522,23 @@ export function createWorld(
       }
       world.hover = { c, r };
       const path = world.pathCells.has(`${c},${r}`);
+      const shelf = world.shelfCells.has(`${c},${r}`);
       const taken = occupied(c, r);
       world.hud.canPlace =
+        world.hud.selected == null &&
         !path &&
+        !shelf &&
         !taken &&
         !signatureBlocked(world.hud.build) &&
+        !levelLocked(world.hud.build) &&
+        !goalLocked(world.hud.build) &&
+        !offCarpet(world.hud.build, c, r) &&
         world.hud.seeds >= world.hud.towerCost &&
         (world.hud.phase === "prep" || world.hud.phase === "combat");
       if (kind !== "down") return;
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       if (taken) {
-        const tower = world.towers.find((t) => t.c === c && t.r === r && !t.ally);
+        const tower = towerAt(c, r);
         if (tower && world.hud.selected === tower.id) {
           world.hud.selected = null;
           syncPrice();
@@ -1975,8 +2550,43 @@ export function createWorld(
         notify();
         return;
       }
-      if (path || world.hud.seeds < world.hud.towerCost) return;
+      // With a tower selected, a click anywhere else just closes it. (It used to fall through and
+      // build: a copy of the picked cannon if affordable, or nothing at all if not, which left the
+      // old tower selected so the next click on it closed it instead of opening it.)
+      if (world.hud.selected != null) {
+        world.hud.selected = null;
+        syncPrice();
+        notify();
+        return;
+      }
+      if (path) return;
+      if (shelf) {
+        world.hud.log = "That's a bookshelf. Build on the open floor.";
+        notify();
+        return;
+      }
       const buildKind = world.hud.build;
+      if (levelLocked(buildKind)) {
+        const who = world.hud.hero ? KEEPER_NAMES[world.hud.hero].name : "Your keeper";
+        world.hud.log = `The ${TOWERS[buildKind].name} opens when ${who} reaches level ${TRICK_LEVEL[buildKind]}.`;
+        notify();
+        return;
+      }
+      if (goalLocked(buildKind)) {
+        world.hud.log = `The ${TOWERS[buildKind].name} is locked. To open it: ${TOWER_GOALS[buildKind]?.goal}`;
+        notify();
+        return;
+      }
+      if (offCarpet(buildKind, c, r)) {
+        world.hud.log = "The Reserve Desk goes right beside the carpet.";
+        notify();
+        return;
+      }
+      if (world.hud.seeds < world.hud.towerCost) {
+        world.hud.log = `Not enough seeds: the ${TOWERS[buildKind].name} costs ${world.hud.towerCost}.`;
+        notify();
+        return;
+      }
       if (signatureBlocked(buildKind)) {
         world.hud.log = isSignature(buildKind) ? `Only one ${TOWERS[buildKind].name} at a time.` : world.hud.log;
         notify();
@@ -1991,61 +2601,44 @@ export function createWorld(
         y: p.y,
         cd: 0.15,
         aim: 0,
-        ally: false,
         orange: false,
         kind: buildKind,
-        mods: [],
+        // Back-room upgrades belong to the kind, so a new tower arrives with them.
+        mods: [...(world.hud.fitted[buildKind] ?? [])],
         paid: world.hud.towerCost,
         born: cleared,
       };
       world.towers.push(tower);
+      syncMimics();
       if (tower.kind === "orrery") tower.orbit = statsFor(tower).range;
+      if (buildKind === "still") stillBuilt = true;
       cue("build", buildKind);
       world.hud.seeds -= world.hud.towerCost;
       world.hud.selected = tower.id;
       world.hud.log = `${TOWERS[buildKind].name} set.`;
+      syncGuide();
       syncPrice();
       notify();
     },
     startWave() {
       if (world.hud.menu) return;
-      if (world.hud.phase === "betrayal") {
-        removeAllies();
-        const cut = world.hud.hero === "michael" ? BALANCE.michaelTurnCut : 2;
-        world.hud.lives = Math.max(0, world.hud.lives - cut);
-        cue("turn");
-        world.shake = world.reduced ? 0 : 12;
-        world.hud.log =
-          world.hud.hero === "michael"
-            ? `They were his. They still turned. ${stacksWord(cut)} stacks are paste.`
-            : "He turned. Two stacks are paste. His pumpkins are already moving.";
-        if (world.hud.lives <= 0) {
-          world.hud.phase = "defeat";
-          bumpBest();
-          notify();
-          return;
-        }
-      }
-      if (world.hud.phase !== "prep" && world.hud.phase !== "betrayal" && world.hud.phase !== "consequence") return;
+      if (world.hud.phase !== "prep" && world.hud.phase !== "consequence") return;
       if (world.hud.menu) return;
+      const hold = world.hud.phase === "prep" ? guideHold() : "";
+      if (hold) {
+        world.hud.log = hold;
+        notify();
+        return;
+      }
       world.hud.paused = false;
       absorbed = 0;
+      syncMimics(true);
       const extra: SpawnSpec[] = [];
-      if (world.hud.night === "midnight" && world.hud.alliance === "betray" && cleared === 4) {
-        extra.push({ kind: "pumpkin", count: 5, every: 0.7 });
-      }
-      if (world.hud.night === "midnight" && world.hud.alliance === "accept" && cleared === 5) {
-        extra.push({ kind: "pumpkin", count: 6, every: 0.55 });
-      }
-      if (world.hud.night === "midnight" && world.hud.alliance === "accept" && cleared === 4) placeAllyTowers();
-      if (world.hud.night === "overflow" && world.hud.alliance === "accept" && (cleared === 4 || cleared === 8)) {
-        extra.push({ kind: "pumpkin", count: 3, every: 1, guard: "damp" });
-      }
       if (slip("heavy") && cleared >= SLIP_VALUES.heavyFrom && cleared <= SLIP_VALUES.heavyTo) {
         extra.push({ kind: "melon", count: SLIP_VALUES.heavyCount, every: 1.2, guard: "rind", chute: true });
       }
       if (slip("karl") && cleared === SLIP_VALUES.karlWave) extra.push({ kind: "karl", count: 1, every: 0.4 });
-      const spec = waveAt(cleared, world.hud.alliance, world.hud.night);
+      const spec = waveAt(cleared, world.hud.night);
       buildQueue(extra);
       world.hud.waveSize = queue.length;
       world.hud.left = queue.length;
@@ -2055,6 +2648,7 @@ export function createWorld(
       world.hud.waveName = spec.name;
       world.hud.blurb = spec.blurb;
       world.hud.log = `Wave ${cleared + 1}: ${spec.name}.`;
+      if (world.hud.guide === "start") world.hud.guide = "speed";
       notify();
     },
     pickUpgrade(upgradeId: UpgradeId) {
@@ -2067,54 +2661,31 @@ export function createWorld(
       syncPrice();
       world.hud.offer = [];
       world.hud.phase = "prep";
-      const next = waveAt(cleared, world.hud.alliance, world.hud.night);
+      const next = waveAt(cleared, world.hud.night);
       world.hud.blurb = next.blurb;
       world.hud.waveName = next.name;
       world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.`;
-      notify();
-    },
-    chooseAlliance(choice: Exclude<Alliance, "none">) {
-      if (world.hud.phase !== "alliance") return;
-      world.hud.alliance = choice;
-      writeDoor(choice);
-      world.hud.phase = "prep";
-      if (choice === "accept") {
-        const own = world.hud.hero === "michael";
-        world.hud.log = own
-          ? "His own men will cover the shelves. He knows how this story ends."
-          : "He'll cover the shelves. Mynxi does not like the look of his helmet.";
-        world.hud.blurb = "Allied pumpkin cannons will join the next wave. Do not get comfortable.";
-      } else if (choice === "betray") {
-        // The prize comes early and replaces the act-two upgrade pick (see nextBeat).
-        if (has("bounce")) {
-          world.hud.seeds += BALANCE.betraySeeds;
-          world.hud.log = `You shot first. You already bounce, so he paid in seeds: +${BALANCE.betraySeeds}. No prize after wave 6.`;
-        } else {
-          world.hud.upgrades = [...world.hud.upgrades, "bounce"];
-          world.hud.log = "You shot first. Bouncing melons now, no prize after wave 6, and a grudge.";
-        }
-        world.hud.blurb = "He is already loading the catapults. The next wave will be personal.";
-      } else {
-        world.hud.log = "You sent him away. The door shuts. The war stays ordinary, briefly.";
-        world.hud.blurb = WAVES[cleared].blurb;
-      }
-      world.hud.waveName = WAVES[cleared].name;
+      if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
       notify();
     },
     sellSelected() {
       const sel = world.hud.selected;
       if (sel == null) return;
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
-      const tower = world.towers.find((t) => t.id === sel && !t.ally);
+      const tower = world.towers.find((t) => t.id === sel);
       if (!tower) return;
       world.towers = world.towers.filter((t) => t.id !== sel);
-      const refund = slip("norefund") ? 0 : sellValue(tower.paid);
+      syncMimics();
+      const refund = slip("norefund") ? 0 : refundFor(tower.kind, tower.paid);
+      const bank = tower.bank ?? 0;
       cue("sell");
-      world.hud.seeds += refund;
+      world.hud.seeds += refund + bank;
       world.hud.selected = null;
-      world.hud.log = tower.mods.length
-        ? `Cannon sold for ${refund}. The fittings go with it.`
-        : `Cannon sold for ${refund} seeds.`;
+      world.hud.log = bank
+        ? `Desk sold for ${refund}, and the bank paid out ${bank}.`
+        : tower.mods.length
+          ? `Cannon sold for ${refund}. Its kind keeps its upgrades.`
+          : `Cannon sold for ${refund} seeds.`;
       syncPrice();
       notify();
     },
@@ -2127,24 +2698,25 @@ export function createWorld(
     chooseHero(hero: HeroId) {
       if (world.hud.phase !== "select" && world.hud.phase !== "coldopen") return;
       const overflow = world.hud.night === "overflow";
-      const door = overflow ? (world.hud.alliance === "none" ? overflowDoor() : world.hud.alliance) : "none";
       if (!overflow) world.hud.slips = [];
       world.towers = [];
       world.enemies = [];
       world.hud.hero = hero;
       world.hud.phase = "poster";
+      world.hud.tutorial = false;
       fx = perkFx(hero, world.hud.keepers[hero]);
+      world.hud.runLevel = levelFor(world.hud.keepers[hero].xp);
       world.hud.xpStart = world.hud.keepers[hero].xp;
       world.hud.xpRun = 0;
+      stillBuilt = false;
       world.hud.wave = 1;
       world.hud.chuteWave = usesChute(0);
-      const opening = waveAt(0, door, world.hud.night);
+      const opening = waveAt(0, world.hud.night);
       world.hud.waveName = opening.name;
       world.hud.blurb = opening.blurb;
       world.hud.upgrades = [];
       world.hud.offer = [];
       world.hud.branch = null;
-      world.hud.alliance = door;
       world.hud.absurdity = 0;
       world.hud.selected = null;
       absurdDrops = 0;
@@ -2169,7 +2741,7 @@ export function createWorld(
         world.hud.maxLives = start.lives;
         world.hud.log =
           hero === "elf"
-            ? "The back room takes his retainer: fittings cost less. The Scales are on the Keeper tab."
+            ? "The back room takes his retainer: upgrades cost less. The Scales are on the Keeper tab."
             : hero === "ooze"
               ? "The first fruit to leak each wave gets absorbed. Memec is on the Keeper tab."
               : "Four books on every shelf: each pick offers one more. The Lectern is on the Keeper tab.";
@@ -2187,8 +2759,7 @@ export function createWorld(
           y: p.y,
           cd: 0.15,
           aim: 0,
-          ally: false,
-          orange: true,
+            orange: true,
           kind: "melon",
           mods: [],
           // Free with the hero; valued so it still sells for 35 like before.
@@ -2198,15 +2769,10 @@ export function createWorld(
           ? `His cannon is already set. ${stacksWord(BALANCE.michaelLives)} stacks, and the chute is not his door.`
           : `His cannon is already set. ${stacksWord(BALANCE.michaelLives)} stacks, and the shots hit harder.`;
       }
-      if (overflow && door === "accept") {
-        placeAllyTowers();
-        world.hud.log = "Two household cannons hold the chute. The damp ones live here.";
-      } else if (overflow && door === "betray") {
-        placeEarlyHusks();
-        world.hud.log = "You shot first. Four husks are already on the carpet.";
-      } else if (overflow && door === "reject") {
-        world.hud.seeds += 45;
-        world.hud.log = "You sent him away. The crates were never eaten. +45 seeds.";
+      if (overflow) {
+        // Night two starts with a little extra (it used to come from sending the knight away).
+        world.hud.seeds += BALANCE.overflowSeeds;
+        world.hud.log = `The crates by the chute were never eaten. +${BALANCE.overflowSeeds} seeds.`;
       }
       world.hud.newUnlocks = [];
       world.hud.newMaps = [];
@@ -2221,7 +2787,6 @@ export function createWorld(
           difficulty: world.hud.difficulty,
           bookmark: world.hud.bookmark,
           hero,
-          door,
           ...(overflow && world.hud.slips.length ? { slips: world.hud.slips } : {}),
         });
       }
@@ -2249,61 +2814,77 @@ export function createWorld(
     },
     chooseBuild(kind: TowerKind) {
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
-      if (isSignature(kind) && (world.hud.hero == null || SIGNATURE[world.hud.hero] !== kind)) return;
+      if (isSignature(kind) && !own(kind)) return;
       world.hud.build = kind;
       world.hud.log = TOWERS[kind].blurb;
       syncPrice();
       notify();
     },
-    openShop() {
-      if (world.hud.phase !== "prep" || world.hud.selected == null) return;
-      const tower = world.towers.find((t) => t.id === world.hud.selected && !t.ally);
-      if (!tower || tower.mods.length >= 2) return;
-      const price = roomPrice();
-      if (world.hud.seeds < price) return;
-      const offer = rollMods(tower.kind, tower.mods);
-      if (offer.length === 0) return;
-      world.hud.modOffer = offer;
-      world.hud.shopFor = tower.id;
-      world.hud.phase = "shop";
-      world.hud.log = price
-        ? `${TOWERS[tower.kind].name}. ${price} seeds, and it stays on this cannon.`
-        : `${TOWERS[tower.kind].name}. This one is on the house, and it stays on this cannon.`;
+    openShop(kind?: TowerKind) {
+      if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
+      const picked = world.towers.find((t) => t.id === world.hud.selected);
+      const shown =
+        kind ??
+        (picked && fittingsFor(picked.kind).length ? picked.kind : null) ??
+        world.towers.find((t) => fittingsFor(t.kind).length)?.kind ??
+        (fittingsFor(world.hud.build).length ? world.hud.build : "melon");
+      world.hud.workshop = shown;
       notify();
     },
+    shopKind(kind: TowerKind) {
+      if (world.hud.workshop == null) return;
+      world.hud.workshop = kind;
+      notify();
+    },
+    shopPriceFor(kind: TowerKind) {
+      return roomPrice(kind);
+    },
     pickMod(modId: ModId) {
-      if (world.hud.phase !== "shop" || world.hud.shopFor == null) return;
-      const tower = world.towers.find((t) => t.id === world.hud.shopFor && !t.ally);
-      const mod = world.hud.modOffer.find((m) => m.id === modId);
-      if (!tower || !mod || tower.mods.length >= 2 || tower.mods.includes(modId)) return;
-      const price = roomPrice();
-      if (world.hud.seeds < price) return;
+      const kind = world.hud.workshop;
+      if (kind == null) return;
+      const mod = fittingsFor(kind).find((m) => m.id === modId);
+      const owned = world.hud.fitted[kind] ?? [];
+      if (!mod || owned.includes(modId)) return;
+      if (world.hud.phase !== "prep") {
+        world.hud.log = "The back room only sells between waves.";
+        notify();
+        return;
+      }
+      const price = roomPrice(kind);
+      if (world.hud.seeds < price) {
+        world.hud.log = `Not enough seeds: ${mod.name} costs ${price}.`;
+        notify();
+        return;
+      }
       world.hud.seeds -= price;
       world.hud.shopVisits += 1;
-      tower.mods = [...tower.mods, modId];
-      tower.paid += price;
-      world.hud.phase = "prep";
-      world.hud.modOffer = [];
-      world.hud.shopFor = null;
-      world.hud.range = towerRange(tower);
-      world.hud.log = `${mod.name} fitted. It does not leave this cannon.`;
+      world.hud.fitted = { ...world.hud.fitted, [kind]: [...owned, modId] };
+      // Every tower of this kind gets it, and so does a Mimic copying one.
+      const mine = world.towers.filter((t) => t.kind === kind);
+      for (const t of mine) t.mods = [...(world.hud.fitted[kind] ?? [])];
+      syncMimics(true);
+      const name = TOWERS[kind].name;
+      world.hud.log = mine.length
+        ? `${mod.name}: every ${name} has it now${mine.length > 1 ? ` (all ${mine.length})` : ""}, and any you build tonight.`
+        : `${mod.name}: every ${name} you build tonight will have it.`;
       record((m) => (m.fittings += 1));
+      if (world.hud.guide === "backroom") finishGuide();
       syncPrice();
-      world.hud.range = towerRange(tower);
+      const picked = world.towers.find((t) => t.id === world.hud.selected);
+      if (picked) world.hud.range = towerRange(picked);
       notify();
     },
     closeShop() {
-      if (world.hud.phase !== "shop") return;
-      world.hud.phase = "prep";
-      world.hud.modOffer = [];
-      world.hud.shopFor = null;
-      world.hud.log = "The back room can wait.";
+      if (world.hud.workshop == null) return;
+      world.hud.workshop = null;
+      if (world.hud.guide === "backroom") finishGuide();
       notify();
     },
     setSpeed(speed: number) {
       if (!SPEEDS.includes(speed)) return;
       world.hud.speed = speed;
       if (persistMeta) writePref(SPEED_KEY, String(speed));
+      guideSpeed();
       notify();
     },
     setReduced(on: boolean) {
@@ -2317,12 +2898,14 @@ export function createWorld(
       const at = steps.indexOf(world.hud.speed);
       const next = Math.max(0, Math.min(steps.length - 1, (at < 0 ? 1 : at) + dir));
       world.hud.speed = steps[next];
+      guideSpeed();
       notify();
     },
     togglePause() {
       if (world.hud.menu) return;
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       world.hud.paused = !world.hud.paused;
+      guideSpeed();
       notify();
     },
     setDifficulty(id: Difficulty) {
@@ -2337,23 +2920,14 @@ export function createWorld(
       world.hud.waveCount = night === "endless" ? 0 : WAVE_COUNT;
       if (night === "overflow") {
         applyBoard("overflow");
-        world.hud.alliance = overflowDoor();
         world.hud.log = "The returns come up the chute. Take late slips for more XP, or none.";
       } else {
         if (world.hud.map === "overflow") applyBoard("stacks");
-        world.hud.alliance = "none";
         world.hud.log =
           night === "endless"
-            ? `No knight, no last wave. Best so far: ${world.hud.endlessBest} waves.`
+            ? `No last wave. Best so far: ${world.hud.endlessBest} waves.`
             : "Choose who holds the stacks.";
       }
-      notify();
-    },
-    setDoor(choice: Exclude<Alliance, "none">) {
-      if (world.hud.phase !== "select" || world.hud.night !== "overflow") return;
-      world.hud.alliance = choice;
-      writeDoor(choice);
-      world.hud.log = doorMemory(choice);
       notify();
     },
     devSeeds() {
@@ -2377,17 +2951,8 @@ export function createWorld(
       world.hud.log = next.length ? `${next.length} late slip${next.length > 1 ? "s" : ""}: +${bonus}% keeper XP tonight.` : "No late slips. The usual XP.";
       notify();
     },
-    ackMemory() {
-      if (world.hud.phase !== "memory") return;
-      world.hud.phase = "prep";
-      const next = waveAt(cleared, world.hud.alliance, world.hud.night);
-      world.hud.blurb = next.blurb;
-      world.hud.waveName = next.name;
-      world.hud.log = doorMemory(world.hud.alliance);
-      notify();
-    },
     openSetup() {
-      if (world.hud.phase !== "coldopen") return;
+      if (world.hud.phase !== "coldopen" || !world.hud.guideDone) return;
       world.hud.phase = "select";
       world.hud.log = "Choose who holds the stacks.";
       notify();
@@ -2404,7 +2969,29 @@ export function createWorld(
     },
     continueRun() {
       if (world.hud.phase !== "coldopen") return;
+      if (!world.hud.guideDone) return startGuide();
       api.chooseHero(world.hud.hero ?? DEFAULT_SETUP.hero);
+    },
+    skipGuide() {
+      world.hud.guide = null;
+      world.hud.tutorial = false;
+      if (!world.hud.guideDone) {
+        world.hud.guideDone = true;
+        if (persistMeta) writeGuideDone();
+      }
+      notify();
+    },
+    guideNext() {
+      const g = world.hud.guide;
+      if (!g || !GUIDE_TALK.includes(g)) return;
+      if (g === "sell") world.hud.guide = null;
+      else if (g === "speed") world.hud.guide = "combat";
+      else guideTo(guideAfter(g));
+      notify();
+    },
+    startTutorial() {
+      if (world.hud.phase !== "coldopen") return;
+      startGuide();
     },
     backToTitle() {
       if (world.hud.phase !== "select") return;
@@ -2422,11 +3009,18 @@ export function createWorld(
     restartNight() {
       if (world.hud.phase === "coldopen" || world.hud.phase === "select") return;
       const hero = world.hud.hero ?? DEFAULT_SETUP.hero;
+      const guided = world.hud.guide != null;
+      const tutorial = world.hud.tutorial;
       resetRunState();
       world.hud.phase = "select";
       api.chooseHero(hero);
+      // Restarting the tutorial skips the welcome talk and goes straight to building.
+      if (tutorial) tutorialStart();
+      if (guided) guideTo("damage");
     },
     toTitle() {
+      world.hud.guide = null;
+      world.hud.tutorial = false;
       resetRunState();
       world.hud.phase = "coldopen";
       world.hud.log = "The library is closed.";
@@ -2434,11 +3028,9 @@ export function createWorld(
     },
     continueOverflow() {
       if (world.hud.phase !== "victory" || world.hud.night !== "midnight") return;
-      const door = world.hud.alliance;
       const hero = world.hud.hero ?? DEFAULT_SETUP.hero;
       world.hud.night = "overflow";
       applyBoard("overflow");
-      world.hud.alliance = door === "none" ? overflowDoor() : door;
       resetRunState();
       world.hud.phase = "select";
       world.hud.hero = hero;
@@ -2470,6 +3062,7 @@ export function createWorld(
       notify();
     },
     reset() {
+      if (!world.hud.guideDone) return api.toTitle();
       resetRunState();
       world.hud.phase = "select";
       world.hud.log = "Choose who holds the stacks.";
@@ -2478,8 +3071,16 @@ export function createWorld(
     unlock() {
       /* gesture hook reserved for audio in the component */
     },
+    tallyOf(towerId: number) {
+      if (!world.towers.some((t) => t.id === towerId)) return null;
+      const mine = tally.get(towerId) ?? { dmg: 0, pops: 0 };
+      let all = 0;
+      for (const t of tally.values()) all += t.dmg;
+      return { dmg: mine.dmg, pops: mine.pops, share: all > 0 ? mine.dmg / all : 0 };
+    },
     statsOf(towerId: number) {
       const tower = world.towers.find((t) => t.id === towerId);
+      if (tower?.kind === "copycat") return tower.copy ? statsFor(tower.copy) : statsFor(tower);
       return tower ? statsFor(tower) : null;
     },
     setBookmark(id: BookmarkId | null) {

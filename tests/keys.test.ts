@@ -94,26 +94,11 @@ test("Intro: Enter goes to the carpet", () => {
   assert.equal(api.world.hud.phase, "prep");
 });
 
-test("the knight card takes 1–3 in on-screen order; Esc opens the menu", () => {
+test("the finale card: Enter starts the last wave, Esc opens the menu", () => {
   const api = onBoard();
-  api.world.hud.phase = "alliance";
-  assert.deepEqual(keyAction(api.world.hud, "1"), { type: "alliance", choice: "accept" });
-  assert.deepEqual(keyAction(api.world.hud, "2"), { type: "alliance", choice: "betray" });
-  assert.deepEqual(keyAction(api.world.hud, "3"), { type: "alliance", choice: "reject" });
-  assert.equal(keyAction(api.world.hud, "4"), null);
-  press(api, "Escape");
-  assert.equal(api.world.hud.menu, "pause");
-});
-
-test("single-button story cards: Enter presses the button", () => {
-  const api = onBoard();
-  for (const phase of ["betrayal", "consequence"] as const) {
-    api.world.hud.phase = phase;
-    assert.deepEqual(keyAction(api.world.hud, "Enter"), { type: "startWave" }, phase);
-  }
-  api.world.hud.phase = "memory";
-  press(api, "Enter");
-  assert.equal(api.world.hud.phase, "prep");
+  api.world.hud.phase = "consequence";
+  assert.deepEqual(keyAction(api.world.hud, "Enter"), { type: "startWave" });
+  assert.deepEqual(keyAction(api.world.hud, "Escape"), { type: "openMenu" });
 });
 
 test("end cards: Enter is the main button, Esc does nothing", () => {
@@ -124,19 +109,19 @@ test("end cards: Enter is the main button, Esc does nothing", () => {
   assert.equal(api.world.hud.phase, "poster", "Try again restarts the same setup");
 
   api.beginNight();
-  api.world.hud.alliance = "reject";
   api.world.hud.phase = "victory";
   press(api, "Enter");
   assert.equal(api.world.hud.night, "overflow", "after Midnight, Enter continues to the Overflow");
 });
 
-test("the back room: digits fit, Esc means Not now", () => {
+test("the back room: B opens it, digits buy, B or Esc close it", () => {
   const api = onBoard();
-  api.world.hud.phase = "shop";
-  api.world.hud.modOffer = [{ id: "x" } as never, { id: "y" } as never];
+  assert.deepEqual(keyAction(api.world.hud, "b"), { type: "openShop" });
+  api.world.hud.workshop = "melon"; // three upgrades
   assert.deepEqual(keyAction(api.world.hud, "2"), { type: "pickMod", index: 1 });
-  assert.equal(keyAction(api.world.hud, "3"), null);
+  assert.deepEqual(keyAction(api.world.hud, "4"), { type: "swallow" }, "not a build key while it's open");
   assert.deepEqual(keyAction(api.world.hud, "Escape"), { type: "closeShop" });
+  assert.deepEqual(keyAction(api.world.hud, "b"), { type: "closeShop" });
 });
 
 test("the Title leaves keys to its own buttons", () => {

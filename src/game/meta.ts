@@ -2,7 +2,7 @@
  * Meta progression: lifetime stats saved in the browser, and the bookmarks they unlock.
  * A bookmark is a small perk; the player equips one per run on the setup screen.
  */
-import { shopPrice, type HeroId, type MapId } from "./rules.ts";
+import { shopPrice, type HeroId, type MapId, type TowerKind } from "./rules.ts";
 
 export type BookmarkId = "seedfund" | "sparestack" | "backroom" | "discount" | "latefee";
 
@@ -15,6 +15,10 @@ export interface MetaStats {
   fittings: number;
   wins: number;
   hardWins: number;
+  /** Most seeds in hand at the end of a won story night. */
+  richest: number;
+  /** Nights Vaelithra won after building a Still and taking Trial Vial or Distilled Batch. */
+  brews: number;
 }
 
 export interface Bookmark {
@@ -44,8 +48,8 @@ export const BOOKMARKS: Bookmark[] = [
   {
     id: "backroom",
     name: "Back-room Key",
-    blurb: "Your first fitting each run is free.",
-    goal: "Buy 5 back-room fittings.",
+    blurb: "Your first back-room upgrade each run is free.",
+    goal: "Buy 5 back-room upgrades.",
     unlocked: (m) => m.fittings >= 5,
   },
   {
@@ -69,9 +73,9 @@ export const BOOKMARK = Object.fromEntries(BOOKMARKS.map((b) => [b.id, b])) as R
 /** Effect sizes, in one place for tuning. */
 export const BOOKMARK_VALUES = { seedfund: 30, sparestack: 2, discount: 5, latefee: 1 };
 
-export const EMPTY_META: MetaStats = { bestWave: 0, endlessBest: 0, karls: 0, fittings: 0, wins: 0, hardWins: 0 };
+export const EMPTY_META: MetaStats = { bestWave: 0, endlessBest: 0, karls: 0, fittings: 0, wins: 0, hardWins: 0, richest: 0, brews: 0 };
 /** Everything unlocked (simulator and tests). */
-export const ALL_UNLOCKED: MetaStats = { bestWave: 15, endlessBest: 99, karls: 99, fittings: 99, wins: 99, hardWins: 99 };
+export const ALL_UNLOCKED: MetaStats = { bestWave: 15, endlessBest: 99, karls: 99, fittings: 99, wins: 99, hardWins: 99, richest: 999, brews: 99 };
 
 const META_KEY = "melongeddon-meta";
 const PICK_KEY = "melongeddon-bookmark";
@@ -120,6 +124,20 @@ export function unlockedIds(m: MetaStats): BookmarkId[] {
   return BOOKMARKS.filter((b) => b.unlocked(m)).map((b) => b.id);
 }
 
+/** Keeper towers that start locked, with how to open them. The rest are open from the start. */
+export const TOWER_GOALS: Partial<Record<TowerKind, { goal: string; unlocked: (m: MetaStats) => boolean }>> = {
+  desk: { goal: "Finish a night with at least 200 seeds still in hand.", unlocked: (m) => m.richest >= 200 },
+  flask: {
+    goal: "Win a night as Vaelithra after building a Still and taking Trial Vial or Distilled Batch.",
+    unlocked: (m) => m.brews >= 1,
+  },
+};
+
+/** Keeper towers still locked for these stats. */
+export function lockedTowers(m: MetaStats): TowerKind[] {
+  return (Object.keys(TOWER_GOALS) as TowerKind[]).filter((k) => !TOWER_GOALS[k]!.unlocked(m));
+}
+
 /** Maps that start locked, with how to open them. The rest are always open. */
 export const MAP_GOALS: Partial<Record<MapId, { goal: string; unlocked: (m: MetaStats) => boolean }>> = {
   mezzanine: { goal: "Clear wave 5.", unlocked: (m) => Math.max(m.bestWave, m.endlessBest) >= 5 },
@@ -136,8 +154,11 @@ export function unlockedMaps(m: MetaStats): MapId[] {
   return PICKABLE_MAPS.filter((id) => MAP_GOALS[id]?.unlocked(m) ?? true);
 }
 
-/** Back-room price, with the Back-room Key's free first fitting. */
-export function backRoomPrice(hero: HeroId | null, visits: number, bookmark: BookmarkId | null, extraOff = 0) {
+/**
+ * Back-room price for the next upgrade to a tower kind that already has `owned` of them.
+ * `visits` is upgrades bought tonight for any kind (the Back-room Key makes the first one free).
+ */
+export function backRoomPrice(hero: HeroId | null, owned: number, visits: number, bookmark: BookmarkId | null, extraOff = 0) {
   if (bookmark === "backroom" && visits === 0) return 0;
-  return shopPrice(hero, visits, extraOff);
+  return shopPrice(hero, owned, visits, extraOff);
 }

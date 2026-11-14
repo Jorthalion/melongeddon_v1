@@ -128,46 +128,42 @@ test("Continue falls back from a locked map or bookmark and says so", () => {
 
 test("validateSetup ignores junk", () => {
   const r = validateSetup({ night: "brunch" as never, hero: "karl" as never, difficulty: "x" as never }, { maps: [], unlocked: [] });
-  assert.deepEqual(r.setup, { night: "midnight", map: "stacks", difficulty: "normal", bookmark: null, hero: "mynxi", door: "none" });
+  assert.deepEqual(r.setup, { night: "midnight", map: "stacks", difficulty: "normal", bookmark: null, hero: "mynxi" });
 });
 
-test("Continue on the Overflow with no door answer starts it as if he was sent away", () => {
+test("Continue on the Overflow starts it straight away", () => {
   const api = createWorld(() => {}, { setup: { night: "overflow", hero: "vael" } });
   assert.equal(validateSetup({ night: "overflow" }, { maps: [], unlocked: [] }).needsDoor, false);
   api.continueRun();
   assert.equal(api.world.hud.phase, "poster");
   assert.equal(api.world.hud.night, "overflow");
-  assert.equal(api.world.hud.alliance, "reject");
-});
-
-test("Continue on the Overflow with a saved door answer starts it", () => {
-  const api = createWorld(() => {}, { setup: { night: "overflow", hero: "vael", door: "reject" } });
-  api.continueRun();
-  assert.equal(api.world.hud.phase, "poster");
-  assert.equal(api.world.hud.alliance, "reject");
   assert.equal(api.world.hud.map, "overflow");
 });
 
-test("Continue to the Overflow after Midnight opens Setup for late slips, keeping the door answer", () => {
+test("an old saved setup with a door answer still loads, and the answer is dropped", () => {
+  const r = validateSetup({ night: "overflow", hero: "vael", door: "accept" } as never, { maps: [], unlocked: [] });
+  assert.ok(!("door" in r.setup));
+  assert.equal(r.setup.night, "overflow");
+});
+
+test("Continue to the Overflow after Midnight opens Setup for late slips", () => {
   const api = midRun();
-  api.world.hud.alliance = "betray";
   api.world.hud.phase = "victory";
   api.continueOverflow();
   const h = api.world.hud;
   assert.equal(h.phase, "select");
   assert.equal(h.night, "overflow");
   assert.equal(h.map, "overflow");
-  assert.equal(h.alliance, "betray");
   assert.equal(h.hero, "vael");
   assert.equal(h.difficulty, "hard");
   api.chooseHero("vael");
   assert.equal(h.phase, "poster");
-  // Shooting first means husks are already on the carpet.
-  assert.ok(api.world.enemies.length > 0);
+  // Nobody is waiting: the board starts empty.
+  assert.equal(api.world.towers.length, 0);
 });
 
 test("Set up Endless after the Overflow opens Setup on Endless", () => {
-  const api = createWorld(() => {}, { setup: { night: "overflow", hero: "vael", door: "accept" } });
+  const api = createWorld(() => {}, { setup: { night: "overflow", hero: "vael" } });
   api.continueRun();
   api.world.hud.phase = "victory";
   api.tryEndless();

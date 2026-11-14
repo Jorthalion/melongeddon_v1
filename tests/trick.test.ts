@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CANNON, CELL, TOWER_GROUPS, createWorld, groupsFor, stepWorld, type TowerKind } from "../src/game/engine.ts";
+import { CANNON, CELL, TOWER_GROUPS, TRICK_LEVEL, createWorld, emptyProgress, groupsFor, stepWorld, type TowerKind } from "../src/game/engine.ts";
 
 const center = (c: number) => c * CELL + CELL / 2;
 
 /** Vael on the Stacks with one tower of `kind` at (5,4), right beside the first bend. */
 function withTower(kind: TowerKind) {
-  const api = createWorld(() => {}, { setup: { night: "midnight", map: "stacks", hero: "vael" } });
+  const api = createWorld(() => {}, { setup: { night: "midnight", map: "stacks", hero: "vael" }, allTricks: true });
   api.openSetup();
   api.pickKeeper("vael");
   api.chooseHero("vael");
@@ -33,11 +33,11 @@ function damageDealt(api: ReturnType<typeof createWorld>, seconds = 25) {
   return dealt;
 }
 
-test("the Trick tab holds the three trick towers on key T, after the Keeper tab", () => {
+test("the Trick tab holds the five trick towers on key T, after the Keeper tab", () => {
   const trick = TOWER_GROUPS.find((g) => g.id === "trick");
-  assert.deepEqual(trick?.kinds, ["boomerang", "orrery", "plane"]);
+  assert.deepEqual(trick?.kinds, ["boomerang", "orrery", "plane", "quill", "globe"]);
   assert.equal(trick?.key, "t");
-  assert.deepEqual(groupsFor("mynxi").map((g) => g.key), ["q", "w", "e", "r", "t"]);
+  assert.deepEqual(groupsFor("mynxi").map((g) => g.key), ["q", "w", "e", "r", "t", "y"]);
 });
 
 test("the boomerang flies out in a loop and comes back to the tower", () => {
@@ -83,7 +83,7 @@ test("the paper plane turns as it flies (a curved path)", () => {
 });
 
 test("every trick tower damages fruit on its own", () => {
-  for (const kind of ["boomerang", "orrery", "plane"] as const) {
+  for (const kind of ["boomerang", "orrery", "plane", "quill", "globe"] as const) {
     const { api } = withTower(kind);
     assert.ok(damageDealt(api) > 50, kind);
   }
@@ -95,4 +95,83 @@ test("orrery planets keep their distance and are spaced evenly", () => {
   for (let i = 0; i < 30; i++) stepWorld(api.world, 1 / 60);
   assert.ok(tower.orbit && tower.orbit > CELL, "orbit set");
   assert.equal(CANNON.orreryPlanets, 3);
+});
+
+test("the serpent quill weaves from side to side as it flies out", () => {
+  const { api, tower } = withTower("quill");
+  api.startWave();
+  let f: (typeof api.world.flyers)[number] | undefined;
+  for (let i = 0; i < 60 * 20 && !f; i++) {
+    stepWorld(api.world, 1 / 60);
+    f = api.world.flyers.find((x) => x.kind === "quill");
+  }
+  assert.ok(f, "a quill was thrown");
+  const sides: number[] = [];
+  let far = 0;
+  while (api.world.flyers.includes(f!)) {
+    stepWorld(api.world, 1 / 60);
+    sides.push((f!.x - f!.ox) * -f!.uy + (f!.y - f!.oy) * f!.ux);
+    far = Math.max(far, Math.hypot(f!.x - tower.x, f!.y - tower.y));
+  }
+  assert.ok(Math.max(...sides) > 15 && Math.min(...sides) < -15, "it crossed to both sides of its line");
+  assert.ok(far > CELL * 3, `it wrote a long line (${Math.round(far)} px)`);
+});
+
+test("the rolling globe lands on the carpet and rolls back toward the entrance", () => {
+  const { api } = withTower("globe");
+  api.startWave();
+  let f: (typeof api.world.flyers)[number] | undefined;
+  for (let i = 0; i < 60 * 20 && !f; i++) {
+    stepWorld(api.world, 1 / 60);
+    f = api.world.flyers.find((x) => x.kind === "globe");
+  }
+  assert.ok(f, "a globe was thrown");
+  while (api.world.flyers.includes(f!) && !f!.rolling) stepWorld(api.world, 1 / 60);
+  assert.ok(api.world.pathCells.has(`${Math.floor(f!.x / CELL)},${Math.floor(f!.y / CELL)}`), "it landed on the carpet");
+  const startWp = f!.wp!;
+  for (let i = 0; i < 60 * 2 && api.world.flyers.includes(f!); i++) {
+    stepWorld(api.world, 1 / 60);
+    assert.ok(api.world.pathCells.has(`${Math.floor(f!.x / CELL)},${Math.floor(f!.y / CELL)}`), "it stays on the carpet");
+  }
+  assert.ok(f!.wp! <= startWp, "it rolled toward the entrance, not the door");
+});
+
+test("trick cannons open with the keeper's level", () => {
+  const xpFor = (level: number) => {
+    let xp = 0;
+    for (let l = 1; l < level; l++) xp += 100 + 30 * (l - 1);
+    return xp;
+  };
+  const at = (level: number) => {
+    const keepers = emptyProgress();
+    keepers.vael = { ...keepers.vael, xp: xpFor(level) };
+    const api = createWorld(() => {}, { setup: { night: "midnight", map: "stacks", hero: "vael" }, keepers });
+    api.openSetup();
+    api.chooseHero("vael");
+    api.beginNight();
+    api.world.hud.seeds = 5000;
+    const can = (kind: TowerKind) => {
+      api.world.towers = [];
+      api.dismissSelection();
+      api.chooseBuild(kind);
+      api.pointer(center(5), center(4), "down");
+      return api.world.towers.some((t) => t.kind === kind);
+    };
+    return { api, can };
+  };
+  assert.deepEqual(TRICK_LEVEL, { boomerang: 2, orrery: 3, plane: 5, quill: 7, globe: 9 });
+  const one = at(1);
+  for (const k of ["boomerang", "orrery", "plane", "quill", "globe"] as const) assert.equal(one.can(k), false, `${k} locked at level 1`);
+  assert.match(one.api.world.hud.log, /opens when Vaelithra reaches level 9/);
+  const five = at(5);
+  assert.equal(five.api.world.hud.runLevel, 5);
+  assert.equal(five.can("plane"), true);
+  assert.equal(five.can("quill"), false);
+  const nine = at(9);
+  for (const k of ["boomerang", "orrery", "plane", "quill", "globe"] as const) assert.equal(nine.can(k), true, `${k} open at level 9`);
+  // Developer mode has every keeper at level 10.
+  const dev = createWorld(() => {}, { dev: true, setup: { night: "midnight", map: "stacks", hero: "vael" } });
+  dev.openSetup();
+  dev.chooseHero("vael");
+  assert.equal(dev.world.hud.runLevel, 10);
 });

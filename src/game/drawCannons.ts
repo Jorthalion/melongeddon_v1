@@ -7,8 +7,9 @@ import type { TowerKind } from "./rules.ts";
 
 export const DRAWN_KINDS: TowerKind[] = [
   "spitter", "ballista", "reader", "bell", "hive", "lantern", "ink", "compost", "peeler", "bookworm",
-  "boomerang", "orrery", "plane",
-  "catalogue", "cauldron", "trebuchet", "scales", "mimic", "lectern",
+  "boomerang", "orrery", "plane", "quill", "globe",
+  "press", "organ", "scope",
+  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern",
 ];
 
 const WOOD = "#5a3a22";
@@ -232,6 +233,176 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.fill();
       break;
     }
+    case "flask": {
+      // Vael: a big glass flask tipped on its side, stopper gone, green potion running out of the neck.
+      shadow(ctx, x, y, 18);
+      ctx.translate(x, y + 2);
+      ctx.fillStyle = "rgba(111,190,90,0.55)";
+      ctx.beginPath();
+      ctx.ellipse(10, 9, 14, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.rotate(-0.35);
+      // Body and liquid.
+      ctx.fillStyle = "rgba(200,225,235,0.35)";
+      ctx.beginPath();
+      ctx.arc(-6, 0, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#5fae4a";
+      ctx.beginPath();
+      ctx.arc(-6, 0, 12, 0.2, Math.PI - 0.2);
+      ctx.closePath();
+      ctx.fill();
+      // Neck.
+      ctx.fillStyle = "rgba(200,225,235,0.45)";
+      ctx.fillRect(4, -4, 12, 8);
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(-6, 0, 12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeRect(4, -4, 12, 8);
+      ctx.fillStyle = BRASS_LIGHT;
+      ctx.fillRect(15, -5, 2.5, 10);
+      // A highlight on the glass.
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(-6, 0, 8, -2.4, -1.4);
+      ctx.stroke();
+      break;
+    }
+    case "press": {
+      // A squat iron printing press: two posts, a platen, a big brass screw wheel on top, a sheet in the bed.
+      shadow(ctx, x, y, 19);
+      ctx.translate(x, y);
+      ctx.fillStyle = WOOD_DARK;
+      ctx.fillRect(-18, 2, 36, 10);
+      ctx.fillStyle = "#efe2c2";
+      ctx.fillRect(-14, 0, 28, 4);
+      ctx.fillStyle = "#2c2a2e";
+      ctx.fillRect(-16, -18, 5, 22);
+      ctx.fillRect(11, -18, 5, 22);
+      ctx.fillRect(-16, -20, 32, 5);
+      ctx.fillRect(-12, -8, 24, 4);
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -20);
+      ctx.lineTo(0, -8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(0, -23, 11, 3.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = BRASS_LIGHT;
+      ctx.beginPath();
+      ctx.arc(0, -23, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "organ": {
+      // A little pipe organ: a carved wooden case with a row of brass pipes, the middle ones tallest.
+      shadow(ctx, x, y, 19);
+      ctx.translate(x, y);
+      ctx.fillStyle = WOOD;
+      rrect(ctx, -18, -4, 36, 16, 2);
+      ctx.fill();
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      const heights = [14, 20, 26, 30, 26, 20, 14];
+      heights.forEach((h, i) => {
+        const px = -15 + i * 5;
+        const g = ctx.createLinearGradient(px, 0, px + 4, 0);
+        g.addColorStop(0, "#8d6730");
+        g.addColorStop(0.5, BRASS_LIGHT);
+        g.addColorStop(1, "#8d6730");
+        ctx.fillStyle = g;
+        ctx.fillRect(px, -4 - h, 4, h);
+        ctx.fillStyle = "#2a1a12";
+        ctx.fillRect(px + 1, -4 - h * 0.35, 2, 2);
+      });
+      ctx.fillStyle = "#efe2c2";
+      ctx.fillRect(-14, 4, 28, 3);
+      break;
+    }
+    case "scope": {
+      // A long brass telescope on a wooden tripod, swung to aim.
+      shadow(ctx, x, y);
+      ctx.translate(x, y);
+      ctx.strokeStyle = WOOD_DARK;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.lineTo(-11, 14);
+      ctx.moveTo(0, -4);
+      ctx.lineTo(11, 14);
+      ctx.moveTo(0, -4);
+      ctx.lineTo(0, 15);
+      ctx.stroke();
+      ctx.rotate(aim);
+      const g = ctx.createLinearGradient(0, -5, 0, 5);
+      g.addColorStop(0, BRASS_LIGHT);
+      g.addColorStop(1, "#8d6730");
+      ctx.fillStyle = g;
+      ctx.fillRect(-12, -4, 18, 8);
+      ctx.fillRect(4, -5.5, 16, 11);
+      ctx.fillStyle = "#1e1a17";
+      ctx.fillRect(18, -4, 3, 8);
+      ctx.fillStyle = "#9fd3ee";
+      ctx.fillRect(20, -3, 1.5, 6);
+      break;
+    }
+    case "copycat": {
+      // Memec's Mimic, blank: a small closed chest with one sleepy eye peeking from under the lid.
+      shadow(ctx, x, y);
+      ctx.translate(x, y + 2);
+      ctx.fillStyle = WOOD;
+      rrect(ctx, -14, -8, 28, 18, 3);
+      ctx.fill();
+      ctx.fillStyle = "#7a4d2c";
+      rrect(ctx, -15, -14, 30, 9, 4);
+      ctx.fill();
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(-14, -8, 28, 18);
+      ctx.fillRect(-2, -8, 4, 6);
+      ctx.fillStyle = "#6fc6ef";
+      ctx.beginPath();
+      ctx.ellipse(6, -5, 3.2, 1.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "desk": {
+      // Mynxi: a small reserve desk, an open ledger and a brass cash box on top.
+      shadow(ctx, x, y, 18);
+      ctx.translate(x, y);
+      ctx.fillStyle = WOOD_DARK;
+      ctx.fillRect(-17, -2, 4, 16);
+      ctx.fillRect(13, -2, 4, 16);
+      const top = ctx.createLinearGradient(0, -10, 0, 2);
+      top.addColorStop(0, "#7a4d2c");
+      top.addColorStop(1, WOOD);
+      ctx.fillStyle = top;
+      rrect(ctx, -19, -10, 38, 12, 2);
+      ctx.fill();
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      // Ledger (left) and cash box (right).
+      ctx.fillStyle = "#efe2c2";
+      ctx.fillRect(-15, -15, 13, 6);
+      ctx.strokeStyle = "#8a2b2b";
+      ctx.beginPath();
+      ctx.moveTo(-8.5, -15);
+      ctx.lineTo(-8.5, -9);
+      ctx.stroke();
+      ctx.fillStyle = BRASS;
+      rrect(ctx, 2, -19, 13, 10, 2);
+      ctx.fill();
+      ctx.fillStyle = "#3a2a14";
+      ctx.fillRect(6, -16, 5, 1.5);
+      break;
+    }
     case "compost": {
       shadow(ctx, x, y, 18);
       ctx.fillStyle = "#4a3220";
@@ -344,6 +515,40 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       rrect(ctx, -12, -3, 22, 6, 2);
       ctx.fill();
       drawPlaneShape(ctx, 2, 0, 12);
+      break;
+    }
+    case "quill": {
+      // An inkwell with a long quill that turns to aim.
+      shadow(ctx, x, y);
+      plinth(ctx, x, y);
+      ctx.fillStyle = "#1c2440";
+      ctx.beginPath();
+      ctx.ellipse(x, y + 1, 9, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.fillStyle = "#3b4f8f";
+      ctx.beginPath();
+      ctx.ellipse(x, y - 2, 5, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.translate(x, y - 3);
+      ctx.rotate(aim);
+      drawQuillShape(ctx, 6, 0, 15);
+      break;
+    }
+    case "globe": {
+      // A library globe on a brass stand.
+      shadow(ctx, x, y);
+      plinth(ctx, x, y);
+      ctx.fillStyle = WOOD_DARK;
+      ctx.fillRect(x - 1.5, y - 2, 3, 9);
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(x, y - 8, 12, Math.PI * 0.15, Math.PI * 1.15);
+      ctx.stroke();
+      drawGlobeShape(ctx, x, y - 8, 10, t * 0.6);
       break;
     }
     case "bookworm": {
@@ -474,6 +679,55 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.fill();
       ctx.fillStyle = "#3f7a3a";
       ctx.fillRect(23, -7, 2, 3);
+      break;
+    }
+    case "honey": {
+      // Legal Elf: a squat honey pot dripping amber, the heel of a big foot dipped into it.
+      shadow(ctx, x, y, 17);
+      ctx.translate(x, y + 2);
+      ctx.fillStyle = "#b8742a";
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 14, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#e8b84a";
+      ctx.beginPath();
+      ctx.ellipse(0, -6, 12, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = WOOD_DARK;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-13, -1);
+      ctx.lineTo(13, -1);
+      ctx.stroke();
+      // Drips down the side.
+      ctx.fillStyle = "#e8b84a";
+      ctx.fillRect(-9, -4, 3, 8);
+      ctx.fillRect(5, -4, 3, 5);
+      // The foot, heel down in the honey, toes up.
+      ctx.fillStyle = "#e9c3a0";
+      ctx.beginPath();
+      ctx.ellipse(2, -16, 6, 11, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#d9ad88";
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.arc(8 + i * 1.5, -25 + i * 3, 2.2 - i * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "rgba(232,184,74,0.9)";
+      ctx.beginPath();
+      ctx.ellipse(-2, -8, 6, 3, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "stomp": {
+      // Legal Elf: a giant green-stockinged foot on a gavel-block plinth, heel up, ready to come down.
+      shadow(ctx, x, y);
+      plinth(ctx, x, y);
+      ctx.translate(x, y);
+      const lift = Math.sin(t * 2.2) * 1.5;
+      ctx.translate(0, -6 + lift);
+      drawFootShape(ctx, 1);
       break;
     }
     case "scales": {
@@ -718,6 +972,156 @@ export function drawPlaneShape(ctx: CanvasRenderingContext2D, x: number, y: numb
   ctx.moveTo(size, 0);
   ctx.lineTo(-size * 0.45, 0);
   ctx.lineTo(-size * 0.8, size * 0.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A quill pen pointing along +x, nib at the front, centered at (x, y), about `size` px long. */
+export function drawQuillShape(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  // Feather vane.
+  ctx.fillStyle = "#f2ead8";
+  ctx.strokeStyle = "#6b5a40";
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.moveTo(size * 0.55, 0);
+  ctx.quadraticCurveTo(-size * 0.1, -size * 0.42, -size * 0.85, -size * 0.12);
+  ctx.lineTo(-size * 0.7, 0);
+  ctx.lineTo(-size * 0.85, size * 0.14);
+  ctx.quadraticCurveTo(-size * 0.1, size * 0.3, size * 0.55, 0);
+  ctx.fill();
+  ctx.stroke();
+  // Shaft and inked nib.
+  ctx.strokeStyle = "#8a7656";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.8, 0);
+  ctx.lineTo(size * 0.75, 0);
+  ctx.stroke();
+  ctx.fillStyle = "#1c2440";
+  ctx.beginPath();
+  ctx.moveTo(size, 0);
+  ctx.lineTo(size * 0.7, -size * 0.07);
+  ctx.lineTo(size * 0.7, size * 0.07);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A small globe: blue sea, two green continents that turn with `spin`, a brass meridian. */
+export function drawGlobeShape(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, spin: number) {
+  ctx.save();
+  const sea = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.1, x, y, r);
+  sea.addColorStop(0, "#9fd0e6");
+  sea.addColorStop(1, "#24557a");
+  ctx.fillStyle = sea;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = "#6f9a4a";
+  for (let i = 0; i < 2; i++) {
+    const a = spin + i * Math.PI;
+    const cx = x + Math.sin(a) * r * 0.6;
+    const w = Math.max(0.05, Math.cos(a)) * r * 0.45;
+    ctx.beginPath();
+    ctx.ellipse(cx, y - r * 0.15 + i * r * 0.35, w, r * 0.32, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle = "rgba(20,12,8,0.75)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#e6c36a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(x, y, r * 0.35, r, 0, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/**
+ * The Foot of the Law, sole down, toe pointing right, centred on (0, 0) about 40px long at scale 1:
+ * a slim green-stockinged leg and a buckled brown shoe with a long curled elf toe.
+ * Used by the tower and by the stomp effect on the carpet.
+ */
+export function drawFootShape(ctx: CanvasRenderingContext2D, scale: number) {
+  ctx.save();
+  ctx.scale(scale, scale);
+  // Leg: a slim stocking leaning back slightly, with a darker garter band.
+  ctx.fillStyle = "#2f6b3e";
+  ctx.beginPath();
+  ctx.moveTo(-11, -3);
+  ctx.lineTo(-13, -30);
+  ctx.quadraticCurveTo(-9, -33, -4, -30);
+  ctx.lineTo(-2, -3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#1f4a2b";
+  ctx.fillRect(-13, -24, 10, 3);
+  // Shoe: rounded heel at the left, a long toe that sweeps up into a curl at the right.
+  const g = ctx.createLinearGradient(0, -8, 0, 7);
+  g.addColorStop(0, "#8a5530");
+  g.addColorStop(1, "#4a2a16");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-15, 6);
+  ctx.quadraticCurveTo(-17, -4, -10, -6);
+  ctx.quadraticCurveTo(0, -8, 10, -3);
+  ctx.quadraticCurveTo(20, 0, 23, -6);
+  ctx.quadraticCurveTo(28, -11, 25, -13);
+  ctx.quadraticCurveTo(29, -6, 24, 2);
+  ctx.quadraticCurveTo(20, 7, 12, 7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#2a160b";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Sole and a small heel block.
+  ctx.fillStyle = "#24140b";
+  ctx.fillRect(-15, 5, 28, 2.5);
+  ctx.fillRect(-15, 2, 6, 5.5);
+  // Brass buckle on the instep.
+  ctx.strokeStyle = BRASS_LIGHT;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-3, -7, 6, 5);
+  ctx.restore();
+}
+
+/** An Unstoppered spill tile: a spreading green puddle with glass shards, centred on (x, y). */
+export function drawSpillTile(ctx: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  ctx.save();
+  ctx.translate(x, y + 4);
+  const wob = Math.sin(t * 1.6 + x * 0.05) * 1.2;
+  const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 20);
+  g.addColorStop(0, "rgba(140,210,110,0.85)");
+  g.addColorStop(1, "rgba(70,140,60,0.55)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-17, 0);
+  ctx.bezierCurveTo(-18, -9 - wob, -4, -12, 4, -9);
+  ctx.bezierCurveTo(14, -12 + wob, 19, -3, 16, 3);
+  ctx.bezierCurveTo(19, 10, 5, 12 + wob, -3, 9);
+  ctx.bezierCurveTo(-12, 12, -19, 8, -17, 0);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(200,240,170,0.5)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // A couple of glass shards.
+  ctx.fillStyle = "rgba(220,235,240,0.75)";
+  ctx.beginPath();
+  ctx.moveTo(-8, -3);
+  ctx.lineTo(-4, -6);
+  ctx.lineTo(-5, -1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(7, 2);
+  ctx.lineTo(11, 0);
+  ctx.lineTo(9, 5);
   ctx.closePath();
   ctx.fill();
   ctx.restore();

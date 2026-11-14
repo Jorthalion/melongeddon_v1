@@ -175,6 +175,25 @@ function fire(kind: TowerKind | undefined) {
       hiss({ dur: 0.09, gain: 0.08, filter: "highpass", freq: 1500 });
       voice({ freq: 1400, to: 300, dur: 0.18, type: "triangle", gain: 0.04 });
       break;
+    case "honey":
+      voice({ freq: 180, to: 90, dur: 0.22, type: "sine", gain: 0.06 });
+      hiss({ dur: 0.12, gain: 0.03, freq: 500, to: 200 });
+      break;
+    case "stomp":
+      voice({ freq: 70, to: 38, dur: 0.32, type: "sine", gain: 0.12 });
+      hiss({ dur: 0.18, gain: 0.07, freq: 400, to: 120 });
+      break;
+    case "press":
+      hiss({ dur: 0.22, gain: 0.07, freq: 900, to: 300 });
+      voice({ freq: 140, to: 90, dur: 0.15, type: "square", gain: 0.03 });
+      break;
+    case "organ":
+      [262, 330, 392].forEach((f) => voice({ freq: f, dur: 0.7, type: "sawtooth", gain: 0.012, attack: 0.04 }));
+      break;
+    case "scope":
+      voice({ freq: 1800, to: 900, dur: 0.12, type: "triangle", gain: 0.04 });
+      hiss({ dur: 0.06, gain: 0.05, filter: "highpass", freq: 2500 });
+      break;
     case "bell":
       [1046, 1568, 2093].forEach((f, i) => voice({ freq: f, dur: 1.1 - i * 0.3, type: "sine", gain: 0.03 - i * 0.008 }));
       break;
@@ -247,11 +266,6 @@ export function playSfx(cue: Sfx) {
       break;
     case "defeat":
       [294, 277, 233, 147].forEach((f, i) => voice({ freq: f, dur: i === 3 ? 1.1 : 0.32, gain: 0.05, at: i * 0.22 }));
-      break;
-    case "turn":
-      voice({ freq: 233, dur: 0.6, type: "sawtooth", gain: 0.03, attack: 0.02 });
-      voice({ freq: 247, dur: 0.6, type: "sawtooth", gain: 0.03, attack: 0.02 });
-      hiss({ dur: 0.4, gain: 0.08, freq: 600, to: 150 });
       break;
   }
 }

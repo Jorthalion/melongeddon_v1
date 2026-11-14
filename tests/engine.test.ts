@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  fittingsFor,
   BOARDS,
   CELL,
   COLS,
@@ -15,17 +16,17 @@ import {
   sellValue,
   shopPrice,
   waveAt,
-  type Alliance,
   type NightId,
 } from "../src/game/engine.ts";
 import { ALL_UNLOCKED, EMPTY_META, GLOBAL_RANGE, boardSize, TOWERS as T, buildOffer, TOWER_GROUPS, backRoomPrice, stepWorld, type TowerKind } from "../src/game/engine.ts";
-import { HEROES, SIGNATURE, SIGNATURE_KINDS, type HeroId } from "../src/game/engine.ts";
+import { HEROES, KEEPER_TOWERS, SIGNATURE, SIGNATURE_KINDS, keeperOf, type HeroId } from "../src/game/engine.ts";
 import { simulateRun } from "../scripts/sim-core.ts";
 
 const center = (c: number) => c * CELL + CELL / 2;
 
 function startGame(hero: HeroId = "vael") {
-  const api = createWorld(() => {});
+  // Trick cannons are level-locked; these tests build every kind.
+  const api = createWorld(() => {}, { allTricks: true });
   api.openSetup();
   api.chooseHero(hero);
   api.beginNight();
@@ -38,32 +39,32 @@ test("sellValue refunds 70% of what was paid", () => {
   assert.equal(sellValue(0), 0);
 });
 
-test("selling a tower refunds 70% of build cost plus mods", () => {
+test("selling a tower refunds 70% of its build cost (back-room upgrades belong to the kind, not the tower)", () => {
   const api = startGame("vael");
   const { world } = api;
   world.hud.seeds = 1000;
 
   api.pointer(center(4), center(3), "down"); // open floor on The Stacks
-  const tower = world.towers.find((t) => !t.ally);
+  const tower = world.towers[0];
   assert.ok(tower, "tower placed");
   assert.equal(tower.paid, 60);
 
-  const price = shopPrice("vael", 0);
   api.openShop();
-  assert.equal(world.hud.phase, "shop");
-  api.pickMod(world.hud.modOffer[0].id);
-  assert.equal(tower.paid, 60 + price);
+  assert.equal(world.hud.workshop, "melon");
+  api.pickMod(fittingsFor("melon")[0].id);
+  assert.equal(tower.mods.length, 1, "it has the upgrade");
+  assert.equal(tower.paid, 60, "but the upgrade isn't part of its price");
 
   const before = world.hud.seeds;
   api.sellSelected();
-  assert.equal(world.hud.seeds - before, sellValue(60 + price));
-  assert.equal(world.towers.filter((t) => !t.ally).length, 0);
+  assert.equal(world.hud.seeds - before, sellValue(60));
+  assert.equal(world.towers.length, 0);
 });
 
 test("Sir Michael's starting cannon still sells for 35", () => {
   const api = startGame("michael");
   const { world } = api;
-  const knight = world.towers.find((t) => !t.ally);
+  const knight = world.towers[0];
   assert.ok(knight);
   api.pointer(knight.x, knight.y, "down");
   const before = world.hud.seeds;
@@ -88,7 +89,7 @@ test("every board stays inside its own size and keeps fixed spots off the carpet
       assert.ok(inside(c, r), `${board.id}: path cell ${key} off map`);
     }
     assert.equal(board.corners[0][0], 0, `${board.id}: fruit enter on the left edge`);
-    for (const [c, r] of [...board.allies, board.knight]) {
+    for (const [c, r] of [board.knight]) {
       assert.ok(inside(c, r), `${board.id}: fixed tower spot ${c},${r} off map`);
       assert.ok(!cells.has(`${c},${r}`), `${board.id}: fixed tower spot ${c},${r} is on the carpet`);
     }
@@ -109,30 +110,48 @@ test("big maps are bigger, and whole-board range still covers them", () => {
   }
 });
 
-test("every wave in every branch is defined and uses known enemies", () => {
+test("every wave on every night is defined and uses known enemies", () => {
   const nights: NightId[] = ["midnight", "overflow"];
-  const doors: Alliance[] = ["none", "accept", "betray", "reject"];
   for (const night of nights)
-    for (const door of doors)
-      for (let i = 0; i < WAVE_COUNT; i++) {
-        const wave = waveAt(i, door, night);
-        assert.ok(wave.spawns.length > 0, `${night}/${door} wave ${i + 1} is empty`);
-        for (const s of wave.spawns) assert.ok(s.kind in STATS, `unknown enemy ${s.kind}`);
-      }
+    for (let i = 0; i < WAVE_COUNT; i++) {
+      const wave = waveAt(i, night);
+      assert.ok(wave.spawns.length > 0, `${night} wave ${i + 1} is empty`);
+      for (const s of wave.spawns) assert.ok(s.kind in STATS, `unknown enemy ${s.kind}`);
+    }
 });
 
-test("betraying the knight trades the act-two upgrade for Bouncing Melons", () => {
-  assert.equal(nextBeat(6, "accept"), "upgrade");
-  assert.equal(nextBeat(6, "reject"), "upgrade");
-  assert.equal(nextBeat(6, "betray"), "prep");
-  // Overflow keeps its pick: the betrayal there happened on night one.
-  assert.equal(nextBeat(6, "betray", "overflow"), "upgrade");
+test("no one comes to the door: picks after waves 1, 2 and 6, the finale card after 14", () => {
+  for (const night of ["midnight", "overflow"] as const)
+    for (let c = 1; c <= WAVE_COUNT; c++) {
+      const want = c === WAVE_COUNT ? "victory" : c === WAVE_COUNT - 1 ? "consequence" : c === 1 || c === 2 || c === 6 ? "upgrade" : "prep";
+      assert.equal(nextBeat(c, night), want, `${night} after wave ${c}`);
+    }
+});
+
+test("a whole Midnight plays through with no knight and no visitor card", () => {
+  const api = startGame("vael");
+  const w = api.world;
+  const seen = new Set<string>();
+  for (let n = 0; n < 200 && w.hud.phase !== "victory" && w.hud.phase !== "defeat"; n++) {
+    const p = w.hud.phase;
+    seen.add(p);
+    if (p === "upgrade") api.pickUpgrade(w.hud.offer[0].id);
+    else if (p === "prep" || p === "consequence") {
+      api.startWave();
+      for (let i = 0; i < 60 * 240 && w.hud.phase === "combat"; i++) {
+        w.enemies.length = 0;
+        stepWorld(w, 1 / 60);
+      }
+    } else break;
+  }
+  assert.equal(w.hud.phase, "victory");
+  assert.deepEqual([...seen].sort(), ["consequence", "prep", "upgrade"]);
 });
 
 test("endless never ends and keeps generating valid, growing waves", () => {
   let lastSize = 0;
   for (let i = 0; i < 60; i++) {
-    assert.notEqual(nextBeat(i + 1, "none", "endless"), "victory");
+    assert.notEqual(nextBeat(i + 1, "endless"), "victory");
     const wave = endlessWave(i);
     assert.ok(wave.spawns.length > 0, `endless wave ${i + 1} is empty`);
     for (const s of wave.spawns) {
@@ -152,11 +171,11 @@ test("endless never ends and keeps generating valid, growing waves", () => {
 });
 
 test("endless offers a pick every fifth wave after act one", () => {
-  assert.equal(nextBeat(6, "none", "endless"), "upgrade");
-  assert.equal(nextBeat(11, "none", "endless"), "upgrade");
-  assert.equal(nextBeat(16, "none", "endless"), "upgrade");
-  assert.equal(nextBeat(12, "none", "endless"), "prep");
-  assert.equal(nextBeat(4, "none", "endless"), "prep");
+  assert.equal(nextBeat(6, "endless"), "upgrade");
+  assert.equal(nextBeat(11, "endless"), "upgrade");
+  assert.equal(nextBeat(16, "endless"), "upgrade");
+  assert.equal(nextBeat(12, "endless"), "prep");
+  assert.equal(nextBeat(4, "endless"), "prep");
 });
 
 test("locked bookmarks cannot be equipped", () => {
@@ -180,17 +199,17 @@ test("bookmarks change the run start and prices", () => {
   assert.equal(start("seedfund").world.hud.seeds, plain.seeds + 30);
   assert.equal(start("sparestack").world.hud.maxLives, plain.maxLives + 2);
   assert.equal(start("discount").world.hud.towerCost, T.melon.cost - 5);
-  assert.equal(backRoomPrice("vael", 0, "backroom"), 0);
-  assert.equal(backRoomPrice("vael", 1, "backroom"), shopPrice("vael", 1));
+  assert.equal(backRoomPrice("vael", 0, 0, "backroom"), 0);
+  assert.equal(backRoomPrice("vael", 0, 1, "backroom"), shopPrice("vael", 0, 1));
 
-  // Back-room Key: the first fitting costs nothing and adds nothing to the refund.
+  // Back-room Key: the first upgrade costs nothing.
   const api = start("backroom");
   api.pointer(center(4), center(3), "down");
   const before = api.world.hud.seeds;
   api.openShop();
-  api.pickMod(api.world.hud.modOffer[0].id);
+  api.pickMod(fittingsFor("melon")[0].id);
   assert.equal(api.world.hud.seeds, before);
-  assert.equal(api.world.towers.find((t) => !t.ally)?.paid, 60);
+  assert.equal(api.world.towers[0]?.mods.length, 1);
 });
 
 test("reaching a milestone unlocks a bookmark mid-run", () => {
@@ -201,28 +220,30 @@ test("reaching a milestone unlocks a bookmark mid-run", () => {
   api.world.hud.seeds = 1000;
   api.pointer(center(4), center(3), "down");
   api.openShop();
-  api.pickMod(api.world.hud.modOffer[0].id);
+  api.pickMod(fittingsFor("melon")[0].id);
   assert.ok(api.world.hud.unlocked.includes("backroom"));
   assert.deepEqual(api.world.hud.newUnlocks, ["backroom"]);
   assert.match(api.world.hud.log, /New bookmark: Back-room Key/);
 });
 
-test("every shared cannon is in exactly one build tab of at most five; each keeper has one signature", () => {
+test("every shared cannon is in exactly one build tab of at most five; keeper towers belong to one keeper each", () => {
   const all = TOWER_GROUPS.flatMap((g) => g.kinds);
   assert.equal(all.length + SIGNATURE_KINDS.length, Object.keys(T).length);
-  assert.equal(new Set(SIGNATURE_KINDS).size, HEROES.length);
+  assert.equal(new Set(SIGNATURE_KINDS).size, SIGNATURE_KINDS.length);
+  for (const h of HEROES) assert.equal(KEEPER_TOWERS[h][0], SIGNATURE[h], `${h}: the signature comes first`);
   for (const k of SIGNATURE_KINDS) assert.ok(!all.includes(k), `${k} is not in a shared tab`);
   assert.equal(new Set(all).size, all.length);
   for (const g of TOWER_GROUPS) assert.ok(g.kinds.length >= 1 && g.kinds.length <= 5, g.id);
 });
 
-/** A board with lots of seeds and one cannon of `kind` at (4,3), right beside the Stacks carpet. */
+/** A board with lots of seeds and one cannon of `kind` at (4,3), near the Stacks carpet (the desk at (5,3), touching it). */
 function withCannon(kind: TowerKind) {
-  const owner = HEROES.find((h) => SIGNATURE[h] === kind) ?? "vael";
+  const owner = keeperOf(kind) ?? "vael";
   const api = startGame(owner);
   api.world.hud.seeds = 5000;
   api.chooseBuild(kind);
-  api.pointer(center(4), center(3), "down");
+  // (4,3) is open floor near the carpet; the Reserve Desk must touch the carpet, so it goes one tile over.
+  api.pointer(center(kind === "desk" ? 5 : 4), center(3), "down");
   const tower = api.world.towers.find((t) => t.kind === kind);
   assert.ok(tower, `${kind} placed`);
   api.dismissSelection();
@@ -300,7 +321,7 @@ test("Rare Books fruit are 25% tougher", () => {
 
 test("every pickable map plays a full simulated night", () => {
   for (const map of ["mezzanine", "rarebooks", "archive"] as const) {
-    const r = simulateRun({ hero: "vael", difficulty: "normal", strategy: "mixed", night: "midnight", map, door: "accept", seed: 1 });
+    const r = simulateRun({ hero: "vael", difficulty: "normal", strategy: "mixed", night: "midnight", map, seed: 1 });
     assert.ok(r.reachedWave >= 3, `${map}: only reached wave ${r.reachedWave}`);
   }
 });
@@ -334,7 +355,7 @@ test("ballista spear damages enemies on its line", () => {
 
 test("cannon upgrades are offered only for cannons you have built", () => {
   const ids = (step: 1 | 2, built: TowerKind[], owned: Parameters<typeof buildOffer>[2] = []) =>
-    buildOffer("vael", step, owned, step === 1 ? null : "juicy", "none", built).map((u) => u.id);
+    buildOffer("vael", step, owned, step === 1 ? null : "juicy", built).map((u) => u.id);
   // Never at the first pick: that pick sets the keeper's path.
   assert.deepEqual(ids(1, ["ballista"]), ["juicy", "rapid", "vial"]);
   assert.deepEqual(ids(2, []), ["sticky", "electric", "distill"]);
@@ -415,21 +436,19 @@ test("Interest adds to each Compost Heap payout", () => {
   assert.equal(api.world.hud.seeds - seedsAtEnd, 15 + 20 + 20, "5000 seeds held: interest hits its 20 cap");
 });
 
-test("simulated runs reach an ending on every night and knight choice", () => {
-  for (const night of ["midnight", "overflow"] as const)
-    for (const door of ["accept", "betray", "reject"] as const) {
-      const r = simulateRun({
-        hero: "mynxi",
-        difficulty: "normal",
-        strategy: "mixed",
-        night,
-        map: night === "overflow" ? "overflow" : "stacks",
-        door,
-        seed: 1,
-      });
-      assert.ok(r.won || r.reachedWave >= 1, `${night}/${door} did not finish`);
-      assert.equal(r.leaks.length, r.reachedWave);
-    }
+test("simulated runs reach an ending on every night", () => {
+  for (const night of ["midnight", "overflow"] as const) {
+    const r = simulateRun({
+      hero: "mynxi",
+      difficulty: "normal",
+      strategy: "mixed",
+      night,
+      map: night === "overflow" ? "overflow" : "stacks",
+      seed: 1,
+    });
+    assert.ok(r.won || r.reachedWave >= 1, `${night} did not finish`);
+    assert.equal(r.leaks.length, r.reachedWave);
+  }
 });
 
 test("simulation is repeatable for the same seed", () => {
@@ -439,7 +458,6 @@ test("simulation is repeatable for the same seed", () => {
     strategy: "mixed+mods",
     night: "midnight",
     map: "annex",
-    door: "betray",
     seed: 7,
   } as const;
   assert.deepEqual(simulateRun(cfg), simulateRun(cfg));

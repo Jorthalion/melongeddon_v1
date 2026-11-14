@@ -5,6 +5,7 @@ import {
   HEROES,
   KEEPER_START,
   SIGNATURE,
+  KEEPER_TOWERS,
   backRoomPrice,
   createWorld,
   groupsFor,
@@ -66,8 +67,9 @@ test("the new keepers start with their own seeds and stacks", () => {
 test("every keeper has a Keeper tab with their own tower", () => {
   for (const hero of HEROES) {
     const tabs = groupsFor(hero);
-    assert.equal(tabs.length, 5);
-    assert.deepEqual(tabs[3].kinds, [SIGNATURE[hero]]);
+    assert.equal(tabs.length, 6);
+    assert.deepEqual(tabs[3].kinds, KEEPER_TOWERS[hero]);
+    assert.equal(tabs[3].kinds[0], SIGNATURE[hero]);
     assert.equal(tabs[3].key, "r");
   }
 });
@@ -84,9 +86,9 @@ test("a signature tower is the keeper's own, and only one at a time", () => {
 });
 
 test("Legal Elf: the back room costs 30% less", () => {
-  assert.equal(backRoomPrice("elf", 0, null), Math.round(25 * 0.7));
-  assert.equal(backRoomPrice("elf", 2, null), Math.round(55 * 0.7));
-  assert.equal(backRoomPrice("vael", 2, null), 55);
+  assert.equal(backRoomPrice("elf", 0, 1, null), Math.round(40 * 0.7));
+  assert.equal(backRoomPrice("elf", 2, 3, null), Math.round(100 * 0.7));
+  assert.equal(backRoomPrice("vael", 2, 3, null), 100);
 });
 
 test("Ooze Clues absorbs the first leak of each wave", () => {

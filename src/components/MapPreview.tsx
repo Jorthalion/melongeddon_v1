@@ -8,7 +8,7 @@ function previewWorld(map: MapId): World {
   let w = worlds.get(map);
   if (!w) {
     const night = map === "overflow" ? "overflow" : "midnight";
-    w = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night, map, door: "reject" } }).world;
+    w = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night, map } }).world;
     w.reduced = true;
     worlds.set(map, w);
   }

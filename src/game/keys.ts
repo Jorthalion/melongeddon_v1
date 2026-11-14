@@ -4,7 +4,7 @@
  * applies it. The React hook in `components/hotkeys.ts` only adds DOM concerns
  * (typing in inputs, focused buttons, preventDefault).
  */
-import { HEROES, groupOf, groupsFor, type Hud, type UpgradeId, type createWorld } from "./engine.ts";
+import { HEROES, fittingsFor, groupOf, groupsFor, type Hud, type UpgradeId, type createWorld } from "./engine.ts";
 
 type Api = ReturnType<typeof createWorld>;
 
@@ -22,9 +22,7 @@ export type KeyAction =
   | { type: "pickUpgrade"; index: number }
   | { type: "pickMod"; index: number }
   | { type: "closeShop" }
-  | { type: "alliance"; choice: "accept" | "betray" | "reject" }
   | { type: "startWave" }
-  | { type: "ackMemory" }
   | { type: "endPrimary" }
   | { type: "build"; index: number }
   | { type: "tab"; index: number }
@@ -36,8 +34,6 @@ export type KeyAction =
 
 /** Keepers in on-screen order on Setup. */
 export const KEEPER_ORDER = HEROES;
-/** Knight choices in on-screen order. */
-export const ALLIANCE_ORDER = ["accept", "betray", "reject"] as const;
 
 /**
  * `key` is `KeyboardEvent.key`, with single characters lower-cased.
@@ -78,25 +74,9 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       if (digit >= 0 && digit < hud.offer.length) return { type: "pickUpgrade", index: digit };
       return null;
 
-    case "shop":
-      if (key === "Escape") return { type: "closeShop" };
-      if (digit >= 0 && digit < hud.modOffer.length) return { type: "pickMod", index: digit };
-      return null;
-
-    case "alliance":
-      if (key === "Escape") return { type: "openMenu" };
-      if (digit >= 0 && digit < ALLIANCE_ORDER.length) return { type: "alliance", choice: ALLIANCE_ORDER[digit] };
-      return null;
-
-    case "betrayal":
     case "consequence":
       if (key === "Escape") return { type: "openMenu" };
       if (key === "Enter") return { type: "startWave" };
-      return null;
-
-    case "memory":
-      if (key === "Escape") return { type: "openMenu" };
-      if (key === "Enter") return { type: "ackMemory" };
       return null;
 
     case "victory":
@@ -106,6 +86,11 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
 
     case "prep":
     case "combat": {
+      // The back-room side tab: number keys buy its upgrades, B or Esc close it.
+      if (hud.workshop != null) {
+        if (key === "Escape" || key === "b") return { type: "closeShop" };
+        if (digit >= 0) return digit < fittingsFor(hud.workshop).length ? { type: "pickMod", index: digit } : { type: "swallow" };
+      }
       const kinds = groupOf(hud.build).kinds;
       const tab = groupsFor(hud.hero).findIndex((g) => g.key === key);
       if (digit >= 0 && digit < kinds.length) return { type: "build", index: digit };
@@ -113,8 +98,8 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       if (key === " ") return phase === "prep" ? { type: "startWave" } : { type: "togglePause" };
       if (key === "p") return { type: "togglePause" };
       if (key === "s" && hud.selected != null) return { type: "sell" };
-      if (key === "b" && hud.selected != null && phase === "prep") return { type: "openShop" };
-      // Esc order: close the inspector, then open the pause menu (the back room is its own phase).
+      if (key === "b") return { type: "openShop" };
+      // Esc order: close the back room (above), then the inspector, then open the pause menu.
       if (key === "Escape") return hud.selected != null ? { type: "deselect" } : { type: "openMenu" };
       if (key === "+" || key === "=") return { type: "speed", dir: 1 };
       if (key === "-" || key === "_") return { type: "speed", dir: -1 };
@@ -161,19 +146,13 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       api.pickUpgrade(hud.offer[action.index].id as UpgradeId);
       return true;
     case "pickMod":
-      api.pickMod(hud.modOffer[action.index].id);
+      if (hud.workshop) api.pickMod(fittingsFor(hud.workshop)[action.index].id);
       return true;
     case "closeShop":
       api.closeShop();
       return false;
-    case "alliance":
-      api.chooseAlliance(action.choice);
-      return true;
     case "startWave":
       api.startWave();
-      return true;
-    case "ackMemory":
-      api.ackMemory();
       return true;
     case "endPrimary":
       if (hud.phase === "defeat" || hud.night === "endless") api.restartNight();

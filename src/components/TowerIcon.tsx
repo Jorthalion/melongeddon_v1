@@ -24,8 +24,20 @@ const PAINTED: Partial<Record<TowerKind, string>> = {
   cauldron: asset("sprites/sig-cauldron.webp"),
   trebuchet: asset("sprites/sig-trebuchet.webp"),
   scales: asset("sprites/sig-scales.webp"),
+  desk: asset("sprites/sig-desk.webp"),
+  flask: asset("sprites/sig-flask.webp"),
+  copycat: asset("sprites/sig-copycat.webp"),
+  stomp: asset("sprites/sig-stomp.webp"),
   mimic: asset("sprites/sig-mimic.webp"),
   lectern: asset("sprites/sig-lectern.webp"),
+  boomerang: asset("sprites/trick-boomerang.webp"),
+  orrery: asset("sprites/trick-orrery.webp"),
+  plane: asset("sprites/trick-plane.webp"),
+  quill: asset("sprites/trick-quill.webp"),
+  globe: asset("sprites/trick-globe.webp"),
+  press: asset("sprites/heavy-press.webp"),
+  organ: asset("sprites/heavy-organ.webp"),
+  scope: asset("sprites/heavy-scope.webp"),
 };
 
 export function TowerIcon({ kind, className = "" }: { kind: TowerKind; className?: string }) {

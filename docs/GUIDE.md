@@ -186,7 +186,7 @@ Optional: once you know your final address, change `og:image` in `index.html` to
 
 Fruit walk the **carpet** from the entrance on the left to the door at the far end. Each fruit that gets through costs you a **stack** (Karl, the boss, costs 3). Lose all your stacks and the night is over.
 
-Build cannons on the **floor** beside the carpet (never on it). Every fruit you pop pays **seeds**; spend them on more cannons, fittings and upgrades. Survive all **15 waves** of a night to win.
+Build cannons on the open **floor** beside the carpet: never on the carpet itself, and never on a **bookshelf** (the shelves are part of the room). Every fruit you pop pays **seeds**; spend them on more cannons, fittings and upgrades. Survive all **15 waves** of a night to win.
 
 ## Getting started
 
@@ -209,7 +209,20 @@ Build cannons on the **floor** beside the carpet (never on it). Every fruit you 
 4. **Between waves.** Build cannons, then press **Start wave**.
 5. **During a wave.** Keep building if you can afford it. When the wave is cleared you may get a story card or an upgrade pick, then it's back to building.
 
-The first two waves show short tips. Bring them back any time with **Settings → Show tips again**.
+**Your first night is Mynxi's tutorial.** The first time you press **Start**, Mynxi (the head librarian) talks you through a night on the Stacks. It's made very easy: the fruit are much softer and slower, and you start with extra seeds and stacks. She covers:
+
+- the carpet, your stacks and your seeds;
+- building a Damage cannon, then a Control or Support tower;
+- the build tabs, her own Card Catalogue (R) and the trick cannons (T);
+- starting the wave, game speed and pausing;
+- picking an upgrade card;
+- the back room (your first upgrade is free) and selling.
+
+Press **Next** when she's just talking. When she asks you to do something, the wave waits until you've done it. After the lessons, **New night** opens on the title screen, and she stays for the rest of the night to point out leaks, Karl, when you can afford her Card Catalogue, and when your seeds are piling up unspent.
+
+Played before? Press **Skip** on her box, or **Skip the guide** on the title screen. If you already had progress from an older version, the tutorial is skipped for you. Play it again any time with **Tutorial** on the title screen.
+
+After the guide, the next waves show short tips. Bring them back any time with **Settings → Show tips again**.
 
 ## The screen
 
@@ -217,9 +230,9 @@ The first two waves show short tips. Bring them back any time with **Settings �
 - **Board (middle):** the carpet, your cannons and the fruit. Tap the floor to build; tap a cannon to select it.
 - **Footer (bottom):**
   - **Start wave** (between waves) or the wave progress bar (during a wave).
-  - **Build tabs:** Damage, Control, Support and your Keeper tab.
-  - **Build bar:** five cannons with their price. Pick one, then tap the floor.
-  - **Inspector** (when a cannon is selected): its type, stats, fittings, **Back room** and **Sell**.
+  - **Build tabs:** Damage, Control, Support, your Keeper tab and Trick.
+  - **Build bar:** up to five cannons with their damage (and, on wider screens, seconds between shots) and price, so you can compare before you build. Towers that never deal damage say "No damage". Hover a card for its full numbers. On the Keeper tab the box beside the cards shows the picked tower's full numbers too. Pick one, then tap the floor.
+  - **Inspector** (when a cannon is selected): its type, stats, its kind's upgrades, **Upgrades** (opens the back room on its kind) and **Sell**. Below the stats, **Tonight** shows what it has done this night: damage dealt, fruit popped, and its share of all your damage. A cannon gets credit for its own puddles, fire patches and burrowing worms too. The count starts again each night.
   - **Log line:** what just happened.
 
 ## Controls
@@ -230,7 +243,7 @@ The first two waves show short tips. Bring them back any time with **Settings �
 | Switch build tab | Tap the tab | `Q` Damage · `W` Control · `E` Support · `R` Keeper · `T` Trick |
 | Select a cannon | Tap it (tap again to deselect) | `Esc` deselects |
 | Sell | **Sell** in the inspector (refunds 70% of what you spent on it) | `S` |
-| Fit a cannon (between waves) | **Back room** in the inspector | `B` |
+| Upgrade a kind of cannon (between waves) | The **Back room** tab on the right, or **Upgrades** in the inspector | `B`, then `1`–`9` |
 | Start the next wave | **Start wave** | `Space` |
 | Pause | Pause button in the header | `P`, or `Space` during a wave |
 | Pause menu | ☰ button | `Esc` (when nothing is selected) |
@@ -243,22 +256,30 @@ The **pause menu** has **Resume**, **Settings**, **Restart night** and **Leave t
 
 ## Keepers
 
-Each keeper changes your start and has one **signature tower** that only they can build. It's on the **Keeper** tab (`R`), and you can have one on the board at a time.
+Each keeper changes your start and has a **signature tower** that only they can build. It's on the **Keeper** tab (`R`), and you can have one on the board at a time. Four keepers have more keeper towers on the same tab (the Legal Elf has three), and you can have one of each:
+
+- **Mynxi's Reserve Desk** (30 seeds). Locked at first: **finish a night with at least 200 seeds still in hand** to open it. It has no shot, and it must be built right beside the carpet. After every wave you survive it banks 8 seeds (the gold tag above it shows how much). Sell it to collect the bank plus the usual refund, or win the night and it pays out on its own. But if a **melon walks past the desk** (comes within about a tile of it), the melon eats the whole bank. Corn and pumpkins leave it alone. Put it beside the last stretch of carpet, behind your cannons, where few melons ever get to. On the Overflow, remember that fruit come up the chute at the door end, so that stretch isn't safe there.
+- **Vaelithra's Unstoppered** (150 seeds). Locked at first: **win a night as Vaelithra after building a Still and taking Trial Vial or Distilled Batch**. It's a tipped flask that never shoots: it drips her slow puddle onto the carpet like a Still, and it drips from every tile it covers. After each wave there's a 1 in 3 chance it spills onto a neighbouring floor tile, up to four tiles. It only spills where the new tile can reach the carpet, never onto the carpet, a bookshelf or a tile with a cannon, and it heads for carpet it doesn't cover yet. Spill tiles can't be built on. The Still's back-room fittings work on it and on every tile. Puddle slows don't stack, so four tiles mean more fruit slowed at once, not a stronger slow. Selling it pays a flat 35, however far it spilled.
+- **The Legal Elf's Foot of the Law** (85 seeds): see the table above.
+- **The Legal Elf's Honeyed Heel** (75 seeds). A big bare foot dipped in honey. Every few seconds it steps onto the carpet just ahead of the fruit and leaves a **sticky footprint** that lasts 7 seconds (up to three at once). Anything walking through crawls at about a third of its speed, **husks included**, since honey is sticky, not cold. It does no damage, so pair it with something that does.
+- **Ooze Clues' The Mimic** (160 seeds). Not to be confused with Memec's Mimic Chest. On its own it does nothing. Put it on the floor **right beside** (not on a corner of) a Melon, Mortar, Still, Fire or Freeze cannon and it becomes a copy of that cannon, fittings and all, **one step harder**: a Melon copy reaches farther, a Mortar copy splashes wider, a Still copy drips a broader puddle sooner, a Fire copy's patch burns longer, a Freeze copy holds longer. It never hits harder than the original. If two cannons touch it, it copies the newer one, and a thin gold line shows which. Sell that one and it switches to the other, or goes blank. A fitting you buy later for the original shows up on the copy when the next wave starts. It won't copy anything else (Ballistas, trick cannons, keeper towers).
+
+Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't affect the Foot.
 
 | Keeper | Starts with | Perk | Signature tower |
 |---|---|---|---|
-| **Mynxi**, Head librarian | 12 stacks, 150 seeds | Her first cannon costs 40; her cannons reach farther | **Card Catalogue** (90): long reach; every shot chains into two more fruit |
-| **Vaelithra**, Potions division | 11 stacks, 120 seeds | Her shots slow what they hit | **Bubbling Cauldron** (85): a potion puddle that slows and poisons |
+| **Mynxi**, Head librarian | 12 stacks, 150 seeds | Her first cannon costs 40; her cannons reach farther | **Card Catalogue** (90): long reach; every shot chains into two more fruit. Also **Reserve Desk** (30): see below |
+| **Vaelithra**, Potions division | 11 stacks, 120 seeds | Her shots slow what they hit | **Bubbling Cauldron** (85): a potion puddle that slows and poisons. Also **Unstoppered** (150): see below |
 | **Sir Michael**, Pumpkin Knight | 10 stacks, 110 seeds, one cannon already built | His shots hit harder | **Pumpkin Trebuchet** (110): a huge, slow splash that knocks fruit back down the carpet |
-| **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee |
-| **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite |
+| **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
+| **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Mimic** (160): see below |
 | **Dr. Samodovol**, The Scholar | 12 stacks, 150 seeds | Upgrade picks offer four choices instead of three | **History Lectern** (65): no shot; nearby cannons hit harder, and more so every wave it stands |
 
 ## Developer mode
 
 For trying everything without earning it first. Open **Settings** (on the title screen or in the pause menu) and press **Developer mode**. The game reloads with:
 
-- every map, bookmark and keeper perk unlocked, and every keeper at level 10;
+- every map, bookmark and keeper perk unlocked, and every keeper at level 10 (so every trick cannon is open);
 - a blue **DEV** badge next to the game's name;
 - a **Dev: +500 seeds** button in the pause menu during a night.
 
@@ -346,8 +367,9 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 | **Damage** (`Q`) | Melon cannon, Pumpkin mortar, Seed Spitter, Shelf Ballista, Long Reader |
 | **Control** (`W`) | Still, Fire cannon, Freeze cannon, Shush Bell, Fly Hive |
 | **Support** (`E`) | Reading Lamp, Ink Well, Peeler, Bookworm, Compost Heap |
-| **Keeper** (`R`) | Your keeper's signature tower |
-| **Trick** (`T`) | Boomerang Bookend, Orrery, Paper Plane: curved shots that pass through fruit |
+| **Keeper** (`R`) | Your keeper's own towers (the Legal Elf has two) |
+| **Trick** (`T`) | Boomerang Bookend, Orrery, Paper Plane, Serpent Quill, Rolling Globe: curved shots that pass through fruit. Each opens at a keeper level (below) |
+| **Heavy** (`Y`) | Printing Press, Pipe Organ, Brass Telescope: expensive cannons that each do two jobs |
 
 ### What each tower does
 
@@ -371,6 +393,34 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 | Boomerang Bookend | 70 | Throws a bookend in a wide loop out to the lead fruit and back; hits everything it passes, once each way |
 | Orrery | 80 | Three brass planets circle it nonstop and hit any fruit they sweep through. Put it on a corner so the carpet crosses the orbit twice |
 | Paper Plane | 85 | Launches a paper plane that glides for a few seconds in wide, swooping arcs, cutting through fruit each time it passes |
+| Serpent Quill | 75 | Flicks a quill that snakes out in a wavy line, well past its target, hitting every fruit it crosses |
+| Rolling Globe | 100 | Lobs a globe onto the carpet just ahead of the lead fruit. It lands with a thud and rolls back toward the entrance, hitting everything in its way |
+
+### Heavy cannons
+
+The **Heavy** tab (`Y`) holds three expensive cannons, open to every keeper. Each one does two jobs at once:
+
+| Tower | Cost | What it does |
+|---|---|---|
+| **Printing Press** | 200 | Every few seconds a pressed sheet lands on the lead fruit and slides back up the carpet, hitting every fruit along a long stretch once. Everything it touches is **inked**: all your cannons hit it 25% harder for a few seconds. |
+| **Pipe Organ** | 220 | Plays a chord that hits **every fruit** in a wide circle and slows them. **Every third chord is a crescendo** that also stops them for a moment (Karl only briefly). Husks take the damage but ignore the slow and the stop. |
+| **Brass Telescope** | 250 | Very long reach and a fast, instant shot that **ignores armour**: shells, husks and damp count for nothing. It aims for Karl first, then armoured fruit, then the toughest. |
+
+Their back-room upgrades: **Broadsheet** (the sheet slides half again as far) and **Wet ink** (ink lasts twice as long) for the Press; **Bigger pipes** (wider circle) and **Crescendo stop** (every second chord is a crescendo) for the Organ; **Longer barrel** and **Quick wick** for the Telescope. Shared upgrade picks follow their type: the Press is a Cannon, the Telescope is Precision, the Organ is Utility (no picks).
+
+### Trick cannons open with keeper levels
+
+The Trick tab starts locked. Each trick cannon opens when the keeper you're playing reaches its level:
+
+| Level | Opens |
+|---|---|
+| 2 | Boomerang Bookend |
+| 3 | Orrery |
+| 5 | Paper Plane |
+| 7 | Serpent Quill |
+| 9 | Rolling Globe |
+
+Every keeper levels on their own, so switching keepers means opening them again. A level reached during a night opens its cannon from the next night. Locked cannons show a lock and the level they need.
 
 ### Tower types
 
@@ -378,17 +428,23 @@ Every tower also has a **type**. The type decides which shared upgrades affect i
 
 | Type | Towers |
 |---|---|
-| **Cannon** | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet |
-| **Precision** | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Boomerang Bookend, Orrery, Paper Plane, Card Catalogue, Scales of Justice |
-| **Alchemy** | Still, Ink Well, Bubbling Cauldron |
-| **Creature** | Fly Hive, Bookworm, Mimic Chest |
-| **Utility** (no damage) | Shush Bell, Reading Lamp, Compost Heap, History Lectern |
+| **Cannon** | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet, Printing Press |
+| **Precision** | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Boomerang Bookend, Orrery, Paper Plane, Serpent Quill, Rolling Globe, Brass Telescope, Card Catalogue, Scales of Justice |
+| **Alchemy** | Still, Ink Well, Bubbling Cauldron, Unstoppered |
+| **Creature** | Fly Hive, Bookworm, Mimic Chest, The Mimic |
+| **Utility** (no upgrade picks apply) | Shush Bell, Reading Lamp, Compost Heap, History Lectern, Foot of the Law, Honeyed Heel, Reserve Desk, Pipe Organ |
 
-### Back room (fittings)
+### Back room (upgrades for a whole kind)
 
-Between waves, select a cannon and press **Back room** (`B`). You're offered up to three **fittings** for that cannon: pick one, or **Not now**. A fitting stays on that one cannon, and a cannon holds two.
+The **Back room** is a tab on the right edge of the board. Open it with the tab, with `B`, or with **Upgrades** in a cannon's inspector (that opens it on the cannon's kind). At the top are the same groups as the build bar (Damage, Control, Support, Trick, Heavy, and Keeper when a keeper tower takes upgrades). Tap one to fold it open and pick a tower kind; a small ×2 under a kind means two are on the floor, and a gold number shows how many upgrades it has. Below are **all** of that kind's upgrades, each with its price.
 
-The price starts at 25 seeds and rises by 15 with every fitting you buy. Mynxi's first visit costs 15, the Legal Elf pays 30% less, and the Back-room Key bookmark makes the first fitting free. Signature towers can't be fitted.
+- **An upgrade belongs to the kind, not to one tower.** Buy Longer barrel for the Melon cannon and every Melon cannon on the floor reaches farther, and so does every one you build later tonight. A Mimic copying a Melon cannon gets it too.
+- **Each kind has its own price.** A kind's first upgrade costs 40 seeds, then 30 more for each upgrade it already has (40, 70, 100…). Upgrading Melon cannons never makes Mortar upgrades dearer.
+- **No cap.** Buy every upgrade a kind has, if you can pay for it. Each one can be bought once.
+- **Between waves only.** You can open the tab and look during a wave; buying waits until it's over.
+- **They last the night.** Upgrades aren't part of a tower's price, so selling a tower refunds 70% of what you paid to build it, and its kind keeps the upgrades.
+
+Mynxi's first upgrade of the night costs 15, the Legal Elf pays 30% less, and the Back-room Key bookmark makes the first upgrade free. While the tab is open, `1`–`9` buy that kind's upgrades and `B` or `Esc` close it. Keeper towers have no upgrades.
 
 ## Upgrade picks
 
@@ -417,35 +473,76 @@ After waves **1**, **2** and **6**, you choose one upgrade from three (four for 
 | **Pumpkin** | Slow and tough |
 | **Karl** | The boss. Leaking him costs 3 stacks; popping him gives back 2 stacks and splashes everything around him |
 
-Some fruit come with a **guard**:
+### Armour and guards
 
-| Guard | Effect | Answer |
+Some fruit wear armour. Each kind only shows up on one kind of fruit, and each has its own look on the carpet:
+
+| Armour | Worn by | How to spot it |
 |---|---|---|
-| **Shell** (shows "crack") | The first hit only cracks it | Hit it twice, or use a Peeler. Seed Spitters bounce off |
-| **Husk** | Takes less from direct shots and ignores slows, freezes and bells; takes extra from splash and fire | Mortars, fire, or a Peeler |
-| **Damp** | Barely burns | Direct shots, freeze, or a Peeler |
-| **Raw** (pumpkin) | The first burn bakes it into slow "bread" instead of hurting it | Burn it once, then shoot it |
-| **Split** (pumpkin) | Breaks into four small melons when popped | Splash and fast cannons |
+| **Shell** | Melons | A pale ring around the melon |
+| **Husk** | Corn | A gold ring around the corn |
+| **Damp** | Pumpkins | A blue-grey film over the pumpkin |
+| **Raw** | Pumpkins | A dashed orange ring |
+| **Split** | Pumpkins | A pale X on the pumpkin |
+| **Tough** | Pumpkins (late waves) | Nothing: it just has 20–35% more health |
+
+#### Damage kinds
+
+Every hit belongs to one of five kinds, and armour treats each kind differently:
+
+| Kind | Comes from |
+|---|---|
+| **Direct hit** | Melon, Seed Spitter, Ballista, Long Reader, Fly Hive, Ink Well, Peeler, the Printing Press's sheet, every trick cannon, the keepers' own towers, the hit itself from Mortars, Fire and Freeze cannons, and Electrified Melons' zap |
+| **Splash** | The blast around a Mortar or Pumpkin Trebuchet hit, the Foot of the Law's stomp, the Pipe Organ's chord, Juicy Explosions, Knight's Splatter, and the burst when Karl pops |
+| **Fire** | The flames a Fire cannon leaves on the carpet |
+| **Puddle** | Puddles that hurt: pulp with Juicy or Distilled, and the Cauldron's poison |
+| **Bookworm** | The Bookworm burrowing into pumpkins and Karl |
+
+#### What each armour blocks
+
+100% means normal damage. "Blocked" means the hit does nothing.
+
+| Armour | Direct hit | Splash | Fire | Puddle | Bookworm | Slows, freezes, stuns |
+|---|---|---|---|---|---|---|
+| **Shell** (until cracked) | First hit blocked, cracks it ("crack") | First hit blocked, cracks it | 40% | 40% | 100% | Work normally |
+| **Husk** | 75% | 140% | 140% | 100% | 100% | **Immune to all of them**, except the Legal Elf's feet (Foot of the Law, Honeyed Heel) |
+| **Damp** | 115% | 100% | 15% | 100% | 100% | Freezes last 40% longer |
+| **Raw** | 100% | 100% | First burn bakes it into "bread" instead of hurting it | 100% | 100% | Work normally |
+
+- **Shell:** whatever lands first is wasted, however big it is, but the hit after that does full damage. Seed Spitter seeds **bounce off** ("ping") without cracking it, so a spitter on its own never gets through. One Mortar blast cracks every shell it touches at once.
+- **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, Vaelithra's slowing shots, the Cold rind upgrade and the Cauldron's slow. Four things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, his **Honeyed Heel**'s honey sticks to them, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
+- **Raw:** once baked, the pumpkin crawls at 55% speed for the rest of its walk, but fire can't hurt it any more. Finish it with anything else.
+- **Split:** not armour. When popped, it breaks into four small melons with about half a melon's health, which have no armour.
+
+#### Ways around armour
+
+- **The Brass Telescope** (Heavy, 250 seeds) ignores all armour on whatever it shoots: no crack, no reduction, and the shell stays on for everyone else.
+- **The Peeler** (Support, 60 seeds) strips shell, husk and damp off whatever it hits, and aims for armoured fruit first. Raw and Split aren't armour, so it leaves those alone.
+- **Ink** makes everything hit the marked fruit harder, armour or not.
+- **On the Overflow,** all fire does 55% damage on top of these numbers, since the room is flooded.
+- **Damp Powder** (a late slip) cuts every kind of damage by 20%, on top of these numbers too.
+
+#### Quick answers
+
+| You see | Bring | Avoid relying on |
+|---|---|---|
+| Shelled melons | Mortar (cracks many at once), Peeler, any fast cannon | Seed Spitter, fire alone |
+| Husked corn | Mortar, Trebuchet, fire, Peeler, the Legal Elf's feet | Still, Freeze, Shush Bell, Vaelithra's slow |
+| Damp pumpkins | Melon, Ballista, Long Reader, Freeze | Fire |
+| Raw pumpkins | One touch of fire, then direct hits | Fire alone |
+| Split pumpkins | Splash and fast cannons for the four melons | One slow, big hitter |
 
 ## Nights
 
 ### Midnight (night one)
 
-Fifteen waves.
-1. **After wave 4**, Sir Michael the Pumpkin Knight comes to the door, and your choice changes the rest of the night:
-   - **Accept the alliance:** his cannons help you for a wave, but after wave 5 he turns on you. You lose 2 stacks (3 for Sir Michael himself) and his pumpkins attack.
-   - **Betray him now:** you get Bouncing Melons immediately (or seeds if you already have it), skip the wave-6 upgrade pick, and he comes back with a grudge.
-   - **Send him away:** no help, no betrayal. You face the produce alone.
-2. **After wave 14**, "The choice comes due": the finale wave is the consequence of what you chose at the door.
+Fifteen waves. You get an upgrade pick after waves 1, 2 and 6. After wave 14, a card warns you the finale is next: Unchaperoned, the busiest wave of the night.
 
 Winning Midnight offers **Continue to the Overflow** on the victory screen. It opens the setup screen with the Overflow chosen and your keeper kept, so you can take late slips first.
 
 ### The Overflow (night two)
 
-Fifteen waves on a flooded map with a **returns chute** at the far end of the carpet. It's night two, so every fruit has **40% more health** than on Midnight. Your last answer to the knight in Midnight carries over on its own (if you haven't answered him yet, it counts as sending him away):
-- **Let him in:** two household cannons already guard the chute.
-- **Shot first:** four husked corn are already on the carpet.
-- **Sent him away:** +45 seeds.
+Fifteen waves on a flooded map with a **returns chute** at the far end of the carpet. It's night two, so every fruit has **40% more health** than on Midnight, and you start with 45 extra seeds.
 
 **The chute:** from wave 6, some fruit come **up the chute**. They appear past the far end and walk the carpet backwards; one that reaches the entrance costs a stack. A **CHUTE** marker shows that end of the carpet and glows when the current or next wave uses it. The last two waves also send an extra shelled melon up the chute for every 25 **absurdity** you've built (you gain absurdity for every kill), and the final wave sends Karl up the chute.
 
@@ -467,7 +564,7 @@ The end-of-night card shows the bonus with your XP.
 
 ### Endless
 
-No knight and no last wave. Waves keep coming and keep getting tougher, Karl arrives every fifth wave, and you get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Your best Endless wave is saved separately.
+No last wave. Waves keep coming and keep getting tougher, Karl arrives every fifth wave, and you get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Your best Endless wave is saved separately.
 
 ## Rooms (maps)
 
@@ -502,7 +599,7 @@ Bookmarks are permanent unlocks you earn across runs. Equip one at a time on the
 |---|---|---|
 | Seed Fund | +30 starting seeds | Clear wave 3 |
 | Spare Stack | +2 stacks | Pop Karl |
-| Back-room Key | Your first fitting each night is free | Buy 5 fittings |
+| Back-room Key | Your first back-room upgrade each night is free | Buy 5 back-room upgrades |
 | Bulk Order | Every cannon costs 5 less | Win a night |
 | Late Fees | +1 seed per kill | Reach wave 15 in Endless |
 
@@ -513,7 +610,7 @@ Bookmarks are permanent unlocks you earn across runs. Equip one at a time on the
 - **Mix your tabs.** Damage pops fruit, Control slows them so damage has time to work, and Support makes everything else better. A Freeze or Still in front of a Mortar is a classic pair.
 - **Read the guards.** Shelled melons laugh at Seed Spitters; husked corn ignores slows; damp pumpkins don't burn. One Peeler fixes all three.
 - **Use your keeper's tower.** Place the Mimic Chest right next to the carpet, the History Lectern among your cannons, and the Card Catalogue where its long reach covers the most carpet.
-- **Pick upgrades that match your towers.** Check "Affects" on each card: Heavy Caliber does nothing for a board of Fly Hives.
+- **Pick upgrades that match your towers.** The small tag beside each card's name says what it reaches ("Cannons", "Puddles", "The ledger"): Heavy Caliber does nothing for a board of Fly Hives.
 - **Save for Karl.** He has a lot of health and costs 3 stacks if he gets through. A Long Reader or Bookworm helps.
 - **On the Overflow, guard both ends.** Put at least one cannon and a Peeler near the chute before wave 6.
 - **Speed up quiet waves.** Use `+` for 2× or 3× when a wave is under control, and `P` to pause and think.

@@ -12,7 +12,7 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
   if (done) return null;
 
   const { hud, towers } = api.world;
-  const built = towers.filter((t) => !t.ally).length;
+  const built = towers.length;
   const finish = () => {
     save(KEY, "done");
     setDone(true);
@@ -28,7 +28,7 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
     body = "Spend what you like, then press Start wave. You can keep building during the wave, too.";
   } else if (hud.phase === "combat" && hud.wave === 1) {
     title = "Kills pay seeds";
-    body = "Tap a cannon to see its stats or sell it. Between waves, the back room fits it with upgrades.";
+    body = "Tap a cannon to see its stats or sell it. Between waves, the Back room tab on the right upgrades every cannon of a kind.";
   } else if (hud.phase === "prep" && hud.wave === 2) {
     title = "Mix your cannons";
     body = `Mortars splash crowds, freeze holds, fire burns, the still slows. Keys: ${HOTKEY_HELP}.`;
