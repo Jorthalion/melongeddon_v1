@@ -1,14 +1,18 @@
-import { Coins, Crosshair, Heart, Lock } from "lucide-react";
-import { BOARDS, DIFFICULTIES, KEEPER_TOWERS, MAP_GOALS, PICKABLE_MAPS, TOWERS, type Difficulty } from "@/game/engine";
+import { Lock } from "lucide-react";
+import { BOARDS, DIFFICULTIES, KEEPER_TOWERS, MAP_GOALS, PERK_LEVELS, PICKABLE_MAPS, TOWERS, levelFor, type Difficulty } from "@/game/engine";
 import { tone } from "@/game/audio";
 import { BookmarkPicker } from "@/components/Bookmarks";
 import { LevelBadge, PerkPicker } from "@/components/KeeperLevels";
 import { SlipPicker } from "@/components/LateSlips";
 import { MapPreview } from "@/components/MapPreview";
+import { TowerIcon } from "@/components/TowerIcon";
 import { KEEPERS } from "@/components/keeperCards";
 import type { GameApi } from "@/components/ui";
 
-/** New night: night, room (or late slips), keeper, perks, difficulty and bookmark, then Begin. */
+/**
+ * New night, in two pages. "Who": six faces and the chosen keeper's one line and signature tower.
+ * "The night": night, room (or late slips), difficulty, bookmark, and perks once the keeper has any.
+ */
 export function SetupScreen({
   api,
   onGesture,
@@ -17,39 +21,153 @@ export function SetupScreen({
   onGesture: () => void;
 }) {
   const hud = api.world.hud;
-  const keeper = hud.hero;
-  const chosen = KEEPERS.find((k) => k.id === keeper) ?? null;
-  const hard = hud.difficulty === "hard" || hud.difficulty === "overdue";
-  const ready = keeper != null;
-  const reason = !keeper ? "Pick a keeper." : "";
-  const picked = "bg-[linear-gradient(180deg,#d4b06a_0%,#9a7438_100%)] text-ink";
-  const idle = "bg-transparent text-parchment";
-  const label = "text-[10px] tracking-[0.22em] text-gold uppercase";
-
+  const page = hud.setupPage === "night" && hud.hero ? "night" : "who";
   return (
     <div className="absolute inset-0 flex flex-col">
       <div className="absolute inset-0 bg-ink/92 backdrop-blur-[3px]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(80,40,28,0.18)_0%,rgba(8,4,6,0.78)_68%)]" />
+      {page === "who" ? <WhoPage api={api} onGesture={onGesture} /> : <NightPage api={api} onGesture={onGesture} />}
+    </div>
+  );
+}
 
+const label = "text-[10px] tracking-[0.22em] text-gold uppercase";
+const picked = "bg-[linear-gradient(180deg,#d4b06a_0%,#9a7438_100%)] text-ink";
+const idle = "bg-transparent text-parchment";
+
+/** Page one: pick the person. */
+function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+  const hud = api.world.hud;
+  const keeper = hud.hero;
+  const chosen = KEEPERS.find((k) => k.id === keeper) ?? null;
+  const signature = chosen ? KEEPER_TOWERS[chosen.id][0] : null;
+  return (
+    <>
       <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 sm:pt-6">
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="mx-auto w-full max-w-3xl">
           <p className="text-xs tracking-[0.28em] text-gold uppercase">New night</p>
           <h1 className="mt-2 font-display text-3xl font-semibold sm:mt-3 sm:text-5xl">Who holds the stacks?</h1>
-          <p className="mt-2 max-w-xl text-base sm:mt-4 sm:text-lg">
-            {hud.night === "overflow"
-              ? "The first night is over. The returns came back."
-              : hud.night === "endless"
-                ? `No last wave. Your best: ${hud.endlessBest} wave${hud.endlessBest === 1 ? "" : "s"}.`
-                : "Pick the room. Pick the keeper. The carpet does not care."}
-          </p>
-          <p className="mt-1 hidden max-w-xl text-sm text-muted sm:block">
-            {hud.night === "overflow"
-              ? "Take late slips if you want more XP. Then name who goes downstairs."
-              : "The first cannon is the only one that comes free."}
-          </p>
+          <p className="mt-2 max-w-xl text-base text-muted sm:mt-3 sm:text-lg">Pick the person first. The carpet can wait one screen.</p>
 
-          {/* 1. Night */}
-          <div className="mt-4 sm:mt-6">
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3" role="radiogroup" aria-label="Keeper">
+            {KEEPERS.map((hero, i) => {
+              const on = keeper === hero.id;
+              return (
+                <button
+                  key={hero.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  aria-label={`${hero.name}, ${hero.role}`}
+                  className={`relative flex flex-col overflow-hidden rounded-lg border text-left transition duration-200 hover:-translate-y-0.5 ${
+                    on
+                      ? "border-[#c6a15a] shadow-[0_0_20px_rgba(226,59,74,0.32),inset_0_0_22px_rgba(198,161,90,0.2)]"
+                      : "border-line/80 hover:border-[#c6a15a]"
+                  } bg-[#1c1216]`}
+                  onClick={() => {
+                    onGesture();
+                    tone(hero.toneHz, 0.08, "triangle", 0.04);
+                    api.pickKeeper(hero.id);
+                  }}
+                >
+                  <span className="relative block aspect-[4/5] overflow-hidden">
+                    {/* Their own colours: the hair and the clothes are the difference. */}
+                    <img src={hero.portrait} alt="" className="h-full w-full object-cover object-[center_18%]" />
+                    <span className="absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(to_top,rgba(20,12,16,0.85),transparent)]" />
+                    <LevelBadge hud={hud} hero={hero.id} />
+                    <kbd className="absolute top-1.5 left-1.5 hidden rounded-[4px] border border-b-2 border-line bg-ink/70 px-1 font-sans text-[10px] leading-4 text-muted sm:block">
+                      {i + 1}
+                    </kbd>
+                  </span>
+                  <span className={`truncate px-2 py-1.5 text-center font-display text-sm font-semibold ${on ? "text-gold" : ""}`}>{hero.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* The chosen keeper: who they are, the one thing you'll feel on wave one, and their own tower. */}
+          <div className="mt-3 min-h-[8.5rem] rounded-lg border border-line/60 bg-panel/60 px-4 py-3" aria-live="polite">
+            {chosen && signature ? (
+              <>
+                <div className="flex flex-wrap items-baseline gap-x-3">
+                  <p className="font-display text-2xl font-semibold">{chosen.name}</p>
+                  <p className="text-xs tracking-[0.16em] text-gold uppercase">{chosen.role}</p>
+                </div>
+                <p className="mt-1 text-lg leading-snug">{chosen.line}</p>
+                <p className="mt-1 text-sm text-muted italic">{chosen.flavor}</p>
+                <div className="mt-2.5 flex items-center gap-2.5 border-t border-line/50 pt-2.5">
+                  <TowerIcon kind={signature} className="size-9 shrink-0" />
+                  <p className="min-w-0 text-sm">
+                    <span className="font-semibold text-gold">{TOWERS[signature].name}.</span>{" "}
+                    <span className="text-muted">{TOWERS[signature].blurb}</span>
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted">Tap a face to see what each keeper brings.</p>
+            )}
+          </div>
+        </div>
+      </div>
+      <Footer
+        reason={keeper ? "" : "Pick a keeper."}
+        back={() => api.backToTitle()}
+        next={{
+          text: "Next: the night",
+          ready: keeper != null,
+          go: () => api.setupPage("night"),
+        }}
+        onGesture={onGesture}
+      />
+    </>
+  );
+}
+
+/** Page two: when, where and how hard. */
+function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+  const hud = api.world.hud;
+  const keeper = hud.hero!;
+  const chosen = KEEPERS.find((k) => k.id === keeper)!;
+  const hard = hud.difficulty === "hard" || hud.difficulty === "overdue";
+  const hasPerks = levelFor(hud.keepers[keeper].xp) >= PERK_LEVELS[0];
+  return (
+    <>
+      <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 sm:pt-6">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs tracking-[0.28em] text-gold uppercase">New night</p>
+              <h1 className="mt-2 font-display text-3xl font-semibold sm:text-4xl">The night</h1>
+              <p className="mt-1.5 max-w-xl text-base text-muted">
+                {hud.night === "overflow"
+                  ? "The first night is over. The returns came back."
+                  : hud.night === "endless"
+                    ? `No last wave. Your best: ${hud.endlessBest} wave${hud.endlessBest === 1 ? "" : "s"}.`
+                    : "Pick the room. The carpet does not care."}
+              </p>
+            </div>
+            {/* The chosen face, small, in the corner. Tap to change. */}
+            <button
+              type="button"
+              title="Change keeper (Esc)"
+              className="flex shrink-0 flex-col items-center gap-1"
+              onClick={() => {
+                onGesture();
+                api.setupPage("who");
+              }}
+            >
+              <img
+                src={chosen.portrait}
+                alt=""
+                className="size-14 rounded-lg border border-[#c6a15a]/70 object-cover object-[center_18%] sm:size-16"
+              />
+              <span className="text-xs font-semibold text-gold">{chosen.name}</span>
+              <span className="text-[10px] text-muted underline">Change</span>
+            </button>
+          </div>
+
+          {/* Night */}
+          <div className="mt-4 sm:mt-5">
             <p className={label}>Night</p>
             <div className="mt-1.5 grid grid-cols-3 overflow-hidden rounded-lg border border-line/70 sm:max-w-xl" role="radiogroup" aria-label="Night">
               {(
@@ -79,7 +197,7 @@ export function SetupScreen({
             </div>
           </div>
 
-          {/* 2. Room, or the Overflow's late slips */}
+          {/* Room, or the Overflow's late slips */}
           {hud.night === "overflow" ? (
             <div className="mt-5">
               <SlipPicker api={api} onGesture={onGesture} />
@@ -131,89 +249,7 @@ export function SetupScreen({
             </div>
           )}
 
-          {/* 3. Keeper. Phones get three portraits and the chosen keeper's details underneath. */}
-          <div className="mt-5">
-            <p className={label}>Keeper</p>
-            <div className="mt-1.5 grid grid-cols-3 gap-2 md:gap-4" role="radiogroup" aria-label="Keeper">
-              {KEEPERS.map((hero) => {
-                const on = keeper === hero.id;
-                return (
-                  <button
-                    key={hero.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    aria-label={`${hero.name}, ${hero.role}`}
-                    className={`group relative flex flex-col overflow-hidden rounded-lg border text-left transition duration-200 hover:-translate-y-1 md:min-h-[26rem] ${
-                      on
-                        ? "border-[#c6a15a] shadow-[0_0_22px_rgba(226,59,74,0.35),inset_0_0_28px_rgba(198,161,90,0.22)]"
-                        : "border-line/80 hover:border-[#c6a15a]"
-                    } bg-[linear-gradient(165deg,#3a242c_0%,#241418_48%,#161014_100%)]`}
-                    onClick={() => {
-                      onGesture();
-                      tone(hero.toneHz, 0.08, "triangle", 0.04);
-                      api.pickKeeper(hero.id);
-                    }}
-                  >
-                    <span className="pointer-events-none absolute top-2 left-2 hidden size-3 border-t border-l border-[#c6a15a] md:block" />
-                    <span className="pointer-events-none absolute top-2 right-2 hidden size-3 border-t border-r border-[#c6a15a] md:block" />
-                    <span className="pointer-events-none absolute bottom-2 left-2 hidden size-3 border-b border-l border-[#c6a15a] md:block" />
-                    <span className="pointer-events-none absolute right-2 bottom-2 hidden size-3 border-r border-b border-[#c6a15a] md:block" />
-                    <span className="relative h-28 overflow-hidden sm:h-40 md:h-[58%] md:min-h-48">
-                      <img
-                        src={hero.portrait}
-                        alt=""
-                        className="h-full w-full object-cover object-[center_18%]"
-                        style={{ filter: hero.filter }}
-                      />
-                      <span className="absolute inset-0 bg-[linear-gradient(to_top,#241418_0%,rgba(36,20,24,0.15)_42%,rgba(90,40,28,0.18)_100%)]" />
-                      <span className="absolute inset-0 shadow-[inset_0_0_24px_rgba(20,8,10,0.55)]" />
-                      <LevelBadge hud={hud} hero={hero.id} />
-                    </span>
-                    <span className={`truncate px-2 py-1.5 text-center font-display text-sm font-semibold md:hidden ${on ? "text-gold" : ""}`}>
-                      {hero.name}
-                    </span>
-                    <span className="hidden flex-1 flex-col px-4 pt-3 pb-4 md:flex">
-                      <span className="font-display text-2xl font-semibold">{hero.name}</span>
-                      <span className="text-xs tracking-[0.16em] text-gold uppercase">{hero.role}</span>
-                      <span className="mt-2 text-sm text-muted">{hero.flavor}</span>
-                      <span className="mt-auto pt-3">
-                        <KeeperTraits traits={hero.traits} />
-                        <span className="mt-1.5 block text-xs text-gold">
-                          {KEEPER_TOWERS[hero.id].length > 1 ? "Towers" : "Tower"}: {KEEPER_TOWERS[hero.id].map((k) => TOWERS[k].name).join(", ")}
-                        </span>
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-2 rounded-lg border border-line/60 bg-panel/60 px-3 py-2 md:hidden" aria-live="polite">
-              {chosen ? (
-                <>
-                  <p className="text-xs tracking-[0.16em] text-gold uppercase">{chosen.role}</p>
-                  <p className="mt-0.5 text-sm text-muted">{chosen.flavor}</p>
-                  <div className="mt-1">
-                    <KeeperTraits traits={chosen.traits} />
-                  </div>
-                  {KEEPER_TOWERS[chosen.id].map((k) => (
-                    <p key={k} className="mt-1 text-xs text-gold">
-                      {TOWERS[k].name}. {TOWERS[k].blurb}
-                    </p>
-                  ))}
-                </>
-              ) : (
-                <p className="text-sm text-muted">Tap a portrait to see what each keeper brings.</p>
-              )}
-            </div>
-          </div>
-
-          {/* 3b. The chosen keeper's level and perks */}
-          <div className="mt-5">
-            <PerkPicker api={api} onGesture={onGesture} />
-          </div>
-
-          {/* 4. Difficulty */}
+          {/* Difficulty */}
           <div className="mt-5">
             <p className={label}>Difficulty</p>
             <div className="mt-1.5 grid grid-cols-4 overflow-hidden rounded-lg border border-line/70 sm:max-w-xl" role="radiogroup" aria-label="Difficulty">
@@ -242,67 +278,82 @@ export function SetupScreen({
             </p>
           </div>
 
-          {/* 5. Bookmark */}
+          {/* Bookmark */}
           <div className="mt-5">
             <BookmarkPicker api={api} onGesture={onGesture} />
           </div>
-        </div>
-      </div>
 
-      {/* Pinned footer: Back on the left, Begin on the right, and why Begin is off. */}
-      <div className="relative shrink-0 border-t border-line bg-ink/95 px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto w-full max-w-5xl">
-          {reason ? (
-            <p className="mb-2 text-center text-sm text-flesh" role="status">
-              {reason}
-            </p>
+          {/* Perks: only once this keeper has reached level 2 and has one to choose. */}
+          {hasPerks ? (
+            <div className="mt-5">
+              <PerkPicker api={api} onGesture={onGesture} />
+            </div>
           ) : null}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              className="min-h-12 shrink-0 rounded-lg border border-line/80 px-5 text-lg text-parchment"
-              onClick={() => {
-                onGesture();
-                api.backToTitle();
-              }}
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              disabled={!ready}
-              className="min-h-12 flex-1 rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink disabled:opacity-40"
-              onClick={() => {
-                if (!keeper) return;
-                onGesture();
-                tone(280, 0.1, "triangle", 0.05);
-                api.chooseHero(keeper);
-              }}
-            >
-              Begin
-            </button>
-          </div>
         </div>
       </div>
-    </div>
+      <Footer
+        reason=""
+        back={() => api.setupPage("who")}
+        next={{
+          text: "Begin",
+          ready: true,
+          go: () => {
+            tone(280, 0.1, "triangle", 0.05);
+            api.chooseHero(keeper);
+          },
+        }}
+        onGesture={onGesture}
+      />
+    </>
   );
 }
 
-function KeeperTraits({ traits }: { traits: Array<{ icon: "coins" | "aim" | "heart"; text: string }> }) {
+/** Pinned footer: Back on the left, the main button on the right, and why it's off. */
+function Footer({
+  reason,
+  back,
+  next,
+  onGesture,
+}: {
+  reason: string;
+  back: () => void;
+  next: { text: string; ready: boolean; go: () => void };
+  onGesture: () => void;
+}) {
   return (
-    <>
-      {traits.map((trait) => (
-        <span key={trait.text} className="mt-1 flex items-center gap-2 text-sm">
-          {trait.icon === "heart" ? (
-            <Heart className="size-3.5 shrink-0 text-flesh" aria-hidden="true" />
-          ) : trait.icon === "coins" ? (
-            <Coins className="size-3.5 shrink-0 text-gold" aria-hidden="true" />
-          ) : (
-            <Crosshair className="size-3.5 shrink-0 text-gold" aria-hidden="true" />
-          )}
-          {trait.text}
-        </span>
-      ))}
-    </>
+    <div className="relative shrink-0 border-t border-line bg-ink/95 px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="mx-auto w-full max-w-5xl">
+        {reason ? (
+          <p className="mb-2 text-center text-sm text-flesh" role="status">
+            {reason}
+          </p>
+        ) : null}
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="min-h-12 shrink-0 rounded-lg border border-line/80 px-5 text-lg text-parchment"
+            onClick={() => {
+              onGesture();
+              back();
+            }}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            disabled={!next.ready}
+            className="min-h-12 flex-1 rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink disabled:opacity-40"
+            onClick={() => {
+              if (!next.ready) return;
+              onGesture();
+              next.go();
+            }}
+          >
+            {next.text}
+            <span className="ml-2 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -171,7 +171,7 @@ export function HowToPlay() {
         {KEEPERS.map((k) => (
           <li key={k.id}>
             <span className="font-semibold text-parchment">{k.name}:</span>{" "}
-            <span className="text-muted">{k.traits.map((t) => t.text).join(", ")}.</span>
+            <span className="text-muted">{k.line}</span>
           </li>
         ))}
       </ul>

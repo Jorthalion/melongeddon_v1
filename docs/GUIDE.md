@@ -196,15 +196,16 @@ Build cannons on the open **floor** beside the carpet: never on the carpet itsel
    - **How to play** is a quick reference inside the game.
    - **Settings** has sound, music, game speed, reduce motion, "Show tips again" and **Developer mode** (see below).
    - **Install app** appears when your browser can install the game; **Quit** appears in the desktop app.
-2. **Setup (New night).** Choose, top to bottom:
-   - **Night**: Midnight (night one), The Overflow (night two) or Endless.
-   - **Room**: the map. More unlock as you play. On the Overflow, you choose **late slips** instead (see [Late slips](#late-slips)).
-   - **Keeper**: your hero, each with a perk and a signature tower (see [Keepers](#keepers)). The **Lv** badge on each portrait is that keeper's level.
-   - **Perks**: the chosen keeper's perk choices, one per row, opened by leveling up (see [Keeper levels and perks](#keeper-levels-and-perks)).
-   - **Difficulty**: Story, Normal, Melongeddon or Overdue.
-   - **Bookmark**: one small perk you've earned (see [Bookmarks](#bookmarks)).
+2. **Setup (New night)** has two pages.
+   - **Who holds the stacks?** Six faces (keys `1`–`6`). Tap one to see that keeper's one line (the thing you'll feel on wave one) and their signature tower; the **Lv** badge is their level. Their other keeper towers are on the Keeper tab in the game (see [Keepers](#keepers)). Press **Next: the night** (`Enter`).
+   - **The night**, with your keeper's face in the corner (tap it, or press `Esc`, to change keeper):
+     - **Night**: Midnight (night one), The Overflow (night two) or Endless.
+     - **Room**: the map. More unlock as you play. On the Overflow, you choose **late slips** instead (see [Late slips](#late-slips)).
+     - **Difficulty**: Story, Normal, Melongeddon or Overdue.
+     - **Bookmark**: one small perk you've earned (see [Bookmarks](#bookmarks)).
+     - **Perks**: only once the keeper has reached level 2: their perk choices, one per row (see [Keeper levels and perks](#keeper-levels-and-perks)).
 
-   Then press **Begin**.
+   Then press **Begin** (`Enter`).
 3. **Intro.** A picture of the room, exactly as you will play it. Press **To the carpet** (or **Cover the chute** on the Overflow).
 4. **Between waves.** Build cannons, then press **Start wave**.
 5. **During a wave.** Keep building if you can afford it. When the wave is cleared you may get a story card or an upgrade pick, then it's back to building.

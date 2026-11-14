@@ -71,20 +71,29 @@ test("Space starts a wave even when quick-paused, and the wave runs", () => {
   assert.equal(api.world.hud.paused, true, "Space pauses during a wave");
 });
 
-test("Setup: digits pick a keeper, Enter begins, Esc goes back", () => {
+test("Setup: two pages. Digits pick a keeper, Enter moves on then begins, Esc steps back", () => {
   const api = createWorld(() => {});
   api.openSetup();
-  assert.equal(keyAction(api.world.hud, "Enter")?.type, "begin");
+  assert.equal(api.world.hud.setupPage, "who");
   press(api, "Enter");
-  assert.equal(api.world.hud.phase, "select", "Enter does nothing with no keeper");
+  assert.equal(api.world.hud.setupPage, "who", "Enter does nothing with no keeper");
   press(api, "3");
   assert.equal(api.world.hud.hero, "michael");
   press(api, "2");
   assert.equal(api.world.hud.hero, "vael");
   press(api, "Enter");
-  assert.equal(api.world.hud.phase, "poster");
+  assert.equal(api.world.hud.phase, "select");
+  assert.equal(api.world.hud.setupPage, "night", "Enter moves on to the night page");
+  assert.equal(keyAction(api.world.hud, "1"), null, "digits don't change the keeper on the night page");
+  press(api, "Escape");
+  assert.equal(api.world.hud.setupPage, "who", "Esc steps back to the faces");
+  press(api, "Enter");
+  press(api, "Enter");
+  assert.equal(api.world.hud.phase, "poster", "Enter on the night page begins");
   press(api, "Escape");
   assert.equal(api.world.hud.phase, "select");
+  assert.equal(api.world.hud.setupPage, "night", "back from the intro lands on the night page");
+  press(api, "Escape");
   press(api, "Escape");
   assert.equal(api.world.hud.phase, "coldopen");
 });

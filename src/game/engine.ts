@@ -343,6 +343,8 @@ export interface Hud {
   lockedTowers: TowerKind[];
   /** The Heavy tab opens at wave 6, or once you have held 200 seeds tonight. */
   heavyOpen: boolean;
+  /** Setup has two pages: who holds the stacks, then the night (room, difficulty, bookmark, perks). */
+  setupPage: "who" | "night";
   /** The guided first night: the step the player is on, or null when no guide is running. */
   guide: GuideStep | null;
   /** This night is Mynxi's tutorial (her tips carry on after the lessons). */
@@ -635,6 +637,8 @@ export function createWorld(
   beginNight: () => void;
   /** Setup: pick the keeper (kept in the HUD so it survives a return to Setup). */
   pickKeeper: (hero: HeroId) => void;
+  /** Setup: go to the keeper page or (with a keeper picked) the night page. */
+  setupPage: (page: "who" | "night") => void;
   /** Title: start the saved setup (or the defaults on a first visit). */
   continueRun: () => void;
   /** Setup → Title. */
@@ -724,6 +728,7 @@ export function createWorld(
       runLevel: 1,
       lockedTowers: [],
       heavyOpen: false,
+      setupPage: "who",
     },
     hover: null,
     anim: 0,
@@ -1676,6 +1681,7 @@ export function createWorld(
       fitted: {},
       workshop: null,
       heavyOpen: false,
+      setupPage: "who",
       paused: false,
       menu: null,
       waveCount: world.hud.night === "endless" ? 0 : WAVE_COUNT,
@@ -2977,12 +2983,19 @@ export function createWorld(
     openSetup() {
       if (world.hud.phase !== "coldopen" || !world.hud.guideDone) return;
       world.hud.phase = "select";
+      world.hud.setupPage = "who";
       world.hud.log = "Choose who holds the stacks.";
       notify();
     },
     beginNight() {
       if (world.hud.phase !== "poster") return;
       world.hud.phase = "prep";
+      notify();
+    },
+    setupPage(page: "who" | "night") {
+      if (world.hud.phase !== "select") return;
+      if (page === "night" && !world.hud.hero) return;
+      world.hud.setupPage = page;
       notify();
     },
     pickKeeper(hero: HeroId) {
@@ -3026,6 +3039,7 @@ export function createWorld(
       if (world.hud.phase !== "poster") return;
       resetRunState();
       world.hud.phase = "select";
+      world.hud.setupPage = world.hud.hero ? "night" : "who";
       world.hud.log = "Choose who holds the stacks.";
       notify();
     },
@@ -3036,6 +3050,7 @@ export function createWorld(
       const tutorial = world.hud.tutorial;
       resetRunState();
       world.hud.phase = "select";
+      world.hud.setupPage = world.hud.hero ? "night" : "who";
       api.chooseHero(hero);
       // Restarting the tutorial skips the welcome talk and goes straight to building.
       if (tutorial) tutorialStart();
@@ -3056,6 +3071,7 @@ export function createWorld(
       applyBoard("overflow");
       resetRunState();
       world.hud.phase = "select";
+      world.hud.setupPage = world.hud.hero ? "night" : "who";
       world.hud.hero = hero;
       world.hud.log = "The returns come up the chute. Take late slips for more XP, or none.";
       notify();
@@ -3088,6 +3104,7 @@ export function createWorld(
       if (!world.hud.guideDone) return api.toTitle();
       resetRunState();
       world.hud.phase = "select";
+      world.hud.setupPage = world.hud.hero ? "night" : "who";
       world.hud.log = "Choose who holds the stacks.";
       notify();
     },

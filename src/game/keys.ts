@@ -18,6 +18,7 @@ export type KeyAction =
   | { type: "backToSetup" }
   | { type: "keeper"; index: number }
   | { type: "begin" }
+  | { type: "setupPage"; page: "who" | "night" }
   | { type: "beginNight" }
   | { type: "pickUpgrade"; index: number }
   | { type: "pickMod"; index: number }
@@ -59,8 +60,14 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       return null; // The Title handles its own arrows and Esc.
 
     case "select":
+      // Two pages: who (digits pick, Enter moves on), then the night (Enter begins, Esc steps back).
+      if (hud.setupPage === "night") {
+        if (key === "Escape") return { type: "setupPage", page: "who" };
+        if (key === "Enter") return { type: "begin" };
+        return null;
+      }
       if (key === "Escape") return { type: "backToTitle" };
-      if (key === "Enter") return { type: "begin" };
+      if (key === "Enter") return { type: "setupPage", page: "night" };
       if (digit >= 0 && digit < KEEPER_ORDER.length) return { type: "keeper", index: digit };
       return null;
 
@@ -135,6 +142,9 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       return true;
     case "keeper":
       api.pickKeeper(KEEPER_ORDER[action.index]);
+      return true;
+    case "setupPage":
+      api.setupPage(action.page);
       return true;
     case "begin":
       if (hud.hero) api.chooseHero(hud.hero);

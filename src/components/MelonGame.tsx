@@ -168,7 +168,8 @@ export function MelonGame() {
       }
       historyGuard.current = false;
       const h = api.world.hud;
-      if (h.phase === "select") api.backToTitle();
+      if (h.phase === "select" && h.setupPage === "night") api.setupPage("who");
+      else if (h.phase === "select") api.backToTitle();
       else if (h.phase === "poster") api.backToSetup();
       else if (h.phase === "victory" || h.phase === "defeat") {
         /* end cards: Back does nothing, so unlocks aren't skipped by accident */
