@@ -60,10 +60,10 @@ function playWave(api: Api, each?: () => void) {
   }
 }
 
-test("Quackarot starts with 11 stacks and 130 seeds, and the Quack-Liber is his alone at 95", () => {
-  assert.deepEqual(KEEPER_START.quack, { seeds: 130, lives: 11 });
+test("Quackarot starts with 11 stacks and 150 seeds, and the Quack-Liber is his alone at 95", () => {
+  assert.deepEqual(KEEPER_START.quack, { seeds: 150, lives: 11 });
   const api = start();
-  assert.equal(api.world.hud.seeds, 130);
+  assert.equal(api.world.hud.seeds, 150);
   assert.equal(api.world.hud.lives, 999); // set by the test; the start was checked above
   assert.deepEqual(KEEPER_TOWERS.quack, ["quackliber"]);
   assert.equal(TOWERS.quackliber.cost, 95);
@@ -73,7 +73,7 @@ test("Quackarot starts with 11 stacks and 130 seeds, and the Quack-Liber is his 
   assert.notEqual(other.world.hud.build, "quackliber", "no one else can pick it");
 });
 
-test("towers within two tiles of the Quack-Liber fire 10% faster; farther ones don't", () => {
+test("towers within three tiles of the Quack-Liber fire 15% faster; farther ones don't", () => {
   const api = start();
   const q = build(api, "quackliber");
   const near = build(api, "melon", (c, r) => Math.hypot(c - q.c, r - q.r) <= 1.5);

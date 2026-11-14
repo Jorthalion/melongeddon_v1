@@ -257,7 +257,7 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
     ],
     [
       { name: "Defensive Perimeter", blurb: "You can build two Quack-Libers. Fruit crossing the line between them walk 30% slower.", fx: { sigExtra: 1, perimeter: 1 } },
-      { name: "Steady Hands", blurb: "The Quack-Liber's speed-up is 20% instead of 10%.", fx: { auraHaste: 0.1 } },
+      { name: "Steady Hands", blurb: "The Quack-Liber's speed-up is 25% instead of 15%.", fx: { auraHaste: 0.1 } },
     ],
   ],
 };

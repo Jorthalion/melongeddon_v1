@@ -39,7 +39,7 @@ export const KEEPER_START: Partial<Record<HeroId, { seeds: number; lives: number
   elf: { seeds: 150, lives: 12 },
   ooze: { seeds: 140, lives: 13 },
   scholar: { seeds: 100, lives: 8 },
-  quack: { seeds: 130, lives: 11 },
+  quack: { seeds: 150, lives: 11 },
 };
 
 export type UpgradeId =
@@ -655,7 +655,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   quackliber: {
     name: "Quack-Liber",
-    blurb: "Quackarot's own. A two-barrel backpack turret that fires orange rockets: they burst over a small area and slow what they hit. Every other tower within two tiles fires 10% faster while it stands. Once, after placing it, you can change what it aims at.",
+    blurb: "Quackarot's own. A two-barrel backpack turret that fires orange rockets: they burst over a small area and slow what they hit. Every other tower within three tiles fires 15% faster while it stands. Once, after placing it, you can change what it aims at.",
     cost: 95,
     role: "Rockets",
   },
@@ -692,7 +692,7 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   stomp: { dmg: 0.5, pace: 3.6, range: 1 },
   honey: { dmg: 0, pace: 3.6, range: 1.1 },
   mimic: { dmg: 0, pace: 4.5, range: 0.75 },
-  quackliber: { dmg: 1.1, pace: 1.7, range: 1.05 },
+  quackliber: { dmg: 1.8, pace: 1.5, range: 1.1 },
 };
 
 /** Tunable numbers for the newer cannons' special effects. */
@@ -787,9 +787,9 @@ export const CANNON = {
   quackSplash: 44,
   quackSplashRatio: 0.6,
   quackSlow: 0.6,
-  /** Quack-Liber: towers within this reach (px) fire this much faster (1.1 = +10% attack speed). */
-  quackAura: 96,
-  quackHaste: 1.1,
+  /** Quack-Liber: towers within this reach (px) fire this much faster (1.15 = +15% attack speed). */
+  quackAura: 144,
+  quackHaste: 1.15,
   /** Quiet Confidence: after a Quack-Liber kill, its aura is this much faster again for this long (s). */
   quackRally: 1.2,
   quackRallyTime: 2,

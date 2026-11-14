@@ -184,7 +184,7 @@ There are seven keepers. Each has a starting kit, a perk and a signature tower t
 | Legal Elf | 12 stacks, 150 seeds | Back room costs 30% less | Scales of Justice (95): damage plus 12% of the target's max health (4% on Karl); kills pay a 5-seed fee |
 | Ooze Clues | 13 stacks, 140 seeds | Absorbs the first single-fruit leak each wave | Mimic Chest (100): swallows one nearby fruit whole about every 4 s (Karl only loses a 120 bite) |
 | Dr. Samodovol | 8 stacks, 100 seeds (weakest on purpose) | One of the four books on each shelf is wrong: it gives nothing and his cannons are 15% softer and slower next combat | History Lectern (65): no shot, no buff; the kind that got furthest last wave (75%+ or leaked) walks 15% slower next wave |
-| Quackarot | 11 stacks, 130 seeds | Towers within 2 tiles of his turret fire 10% faster | Quack-Liber (95): rockets that burst and slow; retarget once (toughest or rearmost) |
+| Quackarot | 11 stacks, 150 seeds | Towers within 3 tiles of his turret fire 15% faster | Quack-Liber (95): rockets that burst and slow; retarget once (toughest or rearmost) |
 
 **Keeper levels (1–10)** are saved per keeper:
 

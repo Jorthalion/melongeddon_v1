@@ -275,7 +275,7 @@ Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't 
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Copycat** (160): see below |
 | **Dr. Samodovol**, The Scholar | 8 stacks, 100 seeds. He's the weakest keeper, on purpose | **One of the books is wrong.** Each shelf shows four cards: three real upgrades and one that only looks real. It names a real upgrade, gives nothing, and in the next wave his cannons hit 15% softer and 15% slower. He will not say which | **History Lectern** (65): no shot, and it helps no cannon. After each wave it looks at how far the fruit got: if any got three-quarters of the way along the carpet (or leaked), the kind that got furthest walks 15% slower next wave, and the Doctor says so ("The corn got furthest. They will be slower."). If none did: "Nothing reached the stacks. I have nothing to add." One kind, one wave, one Lectern |
-| **Quackarot**, Field strategist | 11 stacks, 130 seeds | **Small duck, big plan.** While his turret stands, every other tower within two tiles of it fires 10% faster (the panel says "quick") | **Quack-Liber** (95): a two-barrel backpack turret. Its orange rockets burst over a small area and slow everything they hit for a moment. Once, after placing it, tap it and choose **Toughest** (the fruit with the most health in reach) or **Rearmost** (the back of the line); after that its aim is locked |
+| **Quackarot**, Field strategist | 11 stacks, 150 seeds | **Small duck, big plan.** While his turret stands, every other tower within three tiles of it fires 15% faster (the panel says "quick") | **Quack-Liber** (95): a two-barrel backpack turret. Its orange rockets burst over a small area and slow everything they hit for a moment. Once, after placing it, tap it and choose **Toughest** (the fruit with the most health in reach) or **Rearmost** (the back of the line); after that its aim is locked |
 
 ## Developer mode
 
@@ -370,7 +370,7 @@ None of his perks add damage, seeds, stacks or a second Lectern.
 | 4 | **Wide Wake**: The Quack-Liber's speed-up reaches 30% farther. | **Heavy Payload**: Rockets burst 25% wider. |
 | 6 | **Quiet Confidence**: After each Quack-Liber kill, the towers around it fire 20% faster again for 2 s. | **Lane Lockdown**: Every fourth rocket leaves a suppression patch on the carpet for 3 s. Fruit in it crawl. |
 | 8 | **Covering Fire**: Fruit a rocket hits take 25% more damage from everything for 2 s. | **Spare Rockets**: The Quack-Liber costs 25 seeds less. |
-| 10 | **Defensive Perimeter**: You can build two Quack-Libers. Fruit crossing the line between them walk 30% slower. | **Steady Hands**: The speed-up is 20% instead of 10%. |
+| 10 | **Defensive Perimeter**: You can build two Quack-Libers. Fruit crossing the line between them walk 30% slower. | **Steady Hands**: The speed-up is 25% instead of 15%. |
 
 ## Towers
 
