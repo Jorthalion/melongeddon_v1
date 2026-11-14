@@ -24,6 +24,8 @@ test("Esc order on the board: deselect, then open the menu, then close it", () =
   for (let c = 0; c < 16 && api.world.towers.length === 0; c++) {
     for (let r = 0; r < 10 && api.world.towers.length === 0; r++) api.pointer(center(c), center(r), "down");
   }
+  const built = api.world.towers[0];
+  api.pointer(built.x, built.y, "down"); // tap it to open its stats
   assert.notEqual(api.world.hud.selected, null);
   assert.deepEqual(press(api, "Escape"), { type: "deselect" });
   assert.equal(api.world.hud.selected, null);

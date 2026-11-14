@@ -2635,7 +2635,9 @@ export function createWorld(
       if (buildKind === "still") stillBuilt = true;
       cue("build", buildKind);
       world.hud.seeds -= world.hud.towerCost;
-      world.hud.selected = tower.id;
+      // Stay in build mode with the same kind picked, so the next tap places another.
+      // (Tap a built tower to open its stats.)
+      world.hud.selected = null;
       world.hud.log = `${TOWERS[buildKind].name} set.`;
       syncGuide();
       syncPrice();

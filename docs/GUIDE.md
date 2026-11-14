@@ -231,7 +231,7 @@ After the guide, the next waves show short tips. Bring them back any time with *
 - **Footer (bottom):**
   - **Start wave** (between waves) or the wave progress bar (during a wave).
   - **Build tabs:** Damage, Control, Support, your Keeper tab and Trick.
-  - **Build bar:** up to five cannons with their damage (and, on wider screens, seconds between shots) and price, so you can compare before you build. Towers that never deal damage say "No damage". Hover a card for its full numbers. On the Keeper tab the box beside the cards shows the picked tower's full numbers too. Pick one, then tap the floor.
+  - **Build bar:** after you build, the same cannon stays picked, so each tap on the floor builds another until you pick something else or run out of seeds; tap a built cannon to open it. Up to five cannons with their damage (and, on wider screens, seconds between shots) and price, so you can compare before you build. Towers that never deal damage say "No damage". Hover a card for its full numbers. On the Keeper tab the box beside the cards shows the picked tower's full numbers too. Pick one, then tap the floor.
   - **Inspector** (when a cannon is selected): its type, stats, its kind's upgrades, **Upgrades** (opens the back room on its kind) and **Sell**. Below the stats, **Tonight** shows what it has done this night: damage dealt, fruit popped, and its share of all your damage. A cannon gets credit for its own puddles, fire patches and burrowing worms too. The count starts again each night.
   - **Log line:** what just happened.
 

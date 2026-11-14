@@ -182,3 +182,22 @@ test("the Heavy tab waits for wave 6, or for 200 seeds in hand tonight", () => {
   stepWorld(later.world, 1 / 60);
   assert.equal(later.world.hud.heavyOpen, true, "wave 6 opens it");
 });
+
+test("building a tower keeps you in build mode: the next tap on the floor builds another of the same kind", () => {
+  const api = createWorld(() => {}, {});
+  api.openSetup();
+  api.chooseHero("vael");
+  api.beginNight();
+  const w = api.world;
+  w.hud.seeds = 999;
+  api.chooseBuild("spitter");
+  api.pointer(center(4), center(3), "down");
+  assert.equal(w.towers.length, 1);
+  assert.equal(w.hud.selected, null, "the new tower isn't opened");
+  assert.equal(w.hud.build, "spitter", "the same kind is still picked");
+  api.pointer(center(5), center(3), "down");
+  assert.equal(w.towers.length, 2, "a second tap builds a second one");
+  assert.ok(w.towers.every((t) => t.kind === "spitter"));
+  api.pointer(w.towers[0].x, w.towers[0].y, "down");
+  assert.equal(w.hud.selected, w.towers[0].id, "tapping a built tower still opens it");
+});

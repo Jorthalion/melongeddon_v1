@@ -47,6 +47,7 @@ test("selling a tower refunds 70% of its build cost (back-room upgrades belong t
   api.pointer(center(4), center(3), "down"); // open floor on The Stacks
   const tower = world.towers[0];
   assert.ok(tower, "tower placed");
+  api.pointer(tower.x, tower.y, "down"); // tap it to open it
   assert.equal(tower.paid, 60);
 
   api.openShop();

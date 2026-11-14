@@ -42,7 +42,7 @@ const LESSON: Record<GuideStep, { mood: Mood; title: string; text: string }> = {
   range: {
     mood: "cheer",
     title: "Lovely",
-    text: "The ring shows how far it reaches. Tap any cannon later to see its stats, sell it, or open its upgrades. Esc puts it down again.",
+    text: "The Melon cannon stays picked, so another tap on the floor builds another. Tap a cannon you've built to see its ring, its stats, sell it, or open its upgrades. Esc puts it down again.",
   },
   support: {
     mood: "talk",
