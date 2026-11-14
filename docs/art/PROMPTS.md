@@ -34,9 +34,9 @@ Both images are in the game. The prompts below describe the art as delivered, so
 | `sig-stomp.png` | A **giant bare human foot**, realistic and slightly veiny, standing toes-forward on top of a **round carved walnut pedestal** like a courtroom monument. Around the ankle, a flared **emerald-green velvet cuff** embroidered in gold with a **scales-of-justice emblem** and gold scrollwork, tied with a **braided crimson cord** ending in two **gold tassels**. The pedestal has a gold band, a blank **brass nameplate** framed by gold laurel sprigs, and brass studs around its wooden base. At its foot: a small stack of law books (green and red leather, one with a gold scales emblem), a **wooden gavel**, and a **crimson velvet drape with gold embroidered edging** spilling over the base. Comic and absurd, but dignified. 3/4 top-down view, transparent background. |
 | `fly-stomp.png` | The same **giant bare foot** with the **emerald-green velvet cuff** (gold scales emblem and scrollwork) and the **braided crimson cord with two gold tassels**, seen **from the side, mid-stamp, toes pointing right**, the sole slamming down onto **wooden floorboards that splinter and crack** under it. **Puffs of pale dust** burst out on both sides, **wood splinters fly** up and away, and a few **curved gold motion streaks** above the toes show the speed. Only the foot and the bottom of the cuff, cut off cleanly at the top. Transparent background, no cast shadow (the game draws its own). |
 
-#### Honeyed Heel, the Legal Elf's (not yet drawn)
+#### Honeyed Heel, the Legal Elf's (in the game: `sig-honey.webp`, `honey-print.webp`)
 
-His third keeper tower and the second foot. Match the **Foot of the Law** art (`sig-stomp.webp`): the same bare, slightly veiny foot and the same emerald-green velvet cuff with the gold scales-of-justice emblem. Until these arrive, the game draws a honey pot with a foot in code, and an amber footprint on the carpet.
+His third keeper tower and the second foot. Match the **Foot of the Law** art (`sig-stomp.webp`): the same bare, slightly veiny foot and the same emerald-green velvet cuff with the gold scales-of-justice emblem. Both are in the game; the code-drawn pot and footprint remain only as a fallback.
 
 | File name | Prompt (after the style line) |
 |---|---|

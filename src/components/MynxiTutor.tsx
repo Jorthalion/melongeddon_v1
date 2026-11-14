@@ -9,13 +9,13 @@ import type { GameApi } from "@/components/ui";
  * lessons, for the rest of the tutorial night, she chips in once when something new happens.
  */
 
-/** Her expressions. Each falls back to the portrait until its own art exists (see docs/art/MYNXI_PROMPTS.md). */
+/** Her expressions (art briefs in docs/art/MYNXI_PROMPTS.md). */
 type Mood = "talk" | "point" | "cheer" | "worried";
 const FACE: Record<Mood, string> = {
-  talk: asset("sprites/portrait-mynxi.webp"),
-  point: asset("sprites/portrait-mynxi.webp"),
-  cheer: asset("sprites/portrait-mynxi.webp"),
-  worried: asset("sprites/portrait-mynxi.webp"),
+  talk: asset("sprites/mynxi-talk.webp"),
+  point: asset("sprites/mynxi-point.webp"),
+  cheer: asset("sprites/mynxi-cheer.webp"),
+  worried: asset("sprites/mynxi-worried.webp"),
 };
 
 const LESSON: Record<GuideStep, { mood: Mood; title: string; text: string }> = {

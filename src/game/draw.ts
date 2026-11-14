@@ -48,9 +48,10 @@ const SPRITE_SRC = {
   flask: asset("sprites/sig-flask.webp"),
   copycat: asset("sprites/sig-copycat.webp"),
   stomp: asset("sprites/sig-stomp.webp"),
+  honey: asset("sprites/sig-honey.webp"),
   mimic: asset("sprites/sig-mimic.webp"),
   lectern: asset("sprites/sig-lectern.webp"),
-  // Trick cannons, and what they throw (the globe in flight is still drawn in code).
+  // Trick cannons, and what they throw.
   boomerang: asset("sprites/trick-boomerang.webp"),
   orrery: asset("sprites/trick-orrery.webp"),
   plane: asset("sprites/trick-plane.webp"),
@@ -64,6 +65,8 @@ const SPRITE_SRC = {
   flyQuill: asset("sprites/fly-quill.webp"),
   flySheet: asset("sprites/fly-sheet.webp"),
   flyStomp: asset("sprites/fly-stomp.webp"),
+  flyGlobe: asset("sprites/fly-globe.webp"),
+  honeyPrint: asset("sprites/honey-print.webp"),
   spillFlask: asset("sprites/spill-flask.webp"),
   planetGold: asset("sprites/fly-planet-gold.webp"),
   planetBlue: asset("sprites/fly-planet-blue.webp"),
@@ -231,6 +234,12 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.beginPath();
       ctx.arc(pool.x, pool.y - 2, pool.r * 0.45, 0, Math.PI * 2);
       ctx.fill();
+    } else if (pool.honey && ready(art.honeyPrint)) {
+      // Honeyed Heel: the painted footprint, toes pointing the way the fruit walk, fading out at the end.
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, a * 1.6) * 0.9;
+      blitFit(ctx, art.honeyPrint, pool.x, pool.y, pool.r * 2.3, pool.r * 1.6, pool.rot ?? 0);
+      ctx.restore();
     } else if (pool.honey) {
       // Honeyed Heel: a glossy amber footprint, toes pointing the way the fruit walk.
       ctx.save();
@@ -520,7 +529,15 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.beginPath();
       ctx.ellipse(f.x, f.y + 10, 12 - h * 0.08, 4.5, 0, 0, Math.PI * 2);
       ctx.fill();
-      drawGlobeShape(ctx, f.x, f.y - h, 13, f.t * (f.rolling ? 9 : 3));
+      if (ready(art.flyGlobe)) {
+        // A plain spin (blitFit would flip it upright every half turn).
+        ctx.save();
+        ctx.translate(f.x, f.y - h);
+        ctx.rotate(f.t * (f.rolling ? 9 : 3));
+        ctx.drawImage(art.flyGlobe, -14, -14, 28, 28);
+        ctx.restore();
+      }
+      else drawGlobeShape(ctx, f.x, f.y - h, 13, f.t * (f.rolling ? 9 : 3));
     } else if (f.kind === "sheet" && ready(art.flySheet)) {
       blitFit(ctx, art.flySheet, f.x, f.y, 26, 30);
     } else if (f.kind === "sheet") {
@@ -955,6 +972,7 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   flask: { aim: false, w: 54, h: 50 },
   copycat: { aim: false, w: 42, h: 58 },
   stomp: { aim: false, w: 44, h: 60 },
+  honey: { aim: false, w: 44, h: 58 },
   mimic: { aim: false, w: 44, h: 54 },
   lectern: { aim: false, w: 46, h: 56 },
   // Trick cannons.

@@ -28,6 +28,7 @@ const PAINTED: Partial<Record<TowerKind, string>> = {
   flask: asset("sprites/sig-flask.webp"),
   copycat: asset("sprites/sig-copycat.webp"),
   stomp: asset("sprites/sig-stomp.webp"),
+  honey: asset("sprites/sig-honey.webp"),
   mimic: asset("sprites/sig-mimic.webp"),
   lectern: asset("sprites/sig-lectern.webp"),
   boomerang: asset("sprites/trick-boomerang.webp"),

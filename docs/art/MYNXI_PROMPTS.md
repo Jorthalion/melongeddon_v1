@@ -1,6 +1,6 @@
 # Grok image prompts: Mynxi's tutorial faces
 
-Mynxi talks the player through the tutorial in a speech box with her face beside it. Right now every line uses her one portrait (`public/sprites/portrait-mynxi.webp`). Four expressions would make her feel alive. The game already picks the right one for each line, so the new images only need dropping in.
+Mynxi talks the player through the tutorial in a speech box with her face beside it. **Status: all four are in the game** (`public/sprites/mynxi-talk.webp`, `mynxi-point.webp`, `mynxi-cheer.webp`, `mynxi-worried.webp`); the game picks one for each tutorial line. The prompts are kept for redraws.
 
 **Attach `public/sprites/portrait-mynxi.webp` to every prompt** as the character reference, and tell Grok to keep her the same person. Send the four prompts one at a time in the same chat.
 

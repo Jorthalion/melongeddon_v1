@@ -1,6 +1,6 @@
 # ChatGPT image prompts: Trick cannons
 
-**Status:** all in the game (`public/sprites/trick-*.webp` and `fly-*.webp`) except **`fly-globe.png`** (prompt 10), which is still drawn in code.
+**Status:** all in the game (`public/sprites/trick-*.webp` and `fly-*.webp`), including `fly-globe.webp` (prompt 10).
 
 Ten images: the five trick cannons, and the five things they throw. Each prompt below is complete, so paste one per message into ChatGPT. It works best if you start with the **Setup message**, then send the prompts one at a time in the same chat so the style stays consistent.
 
