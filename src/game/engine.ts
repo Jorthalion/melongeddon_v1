@@ -4,10 +4,14 @@ import {
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
+  OATHS, OATH_TEXT, OATH_VALUES, inOathZone, oathStretch, type OathId,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 
 export * from "./rules.ts";
+// Dev only: the open game keeps its world (and its api) across hot updates, so a changed engine or
+// rules file would leave it calling old code. Reload the page instead of patching it in place.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());
 import {
   BOOKMARK,
   BOOKMARK_VALUES,
@@ -325,6 +329,8 @@ export interface Hud {
   maps: MapId[];
   newMaps: MapId[];
   hero: HeroId | null;
+  /** Sir Michael's oath for this night (null until he says it on the intro; always null for other keepers). */
+  oath: OathId | null;
   branch: UpgradeId | null;
   map: MapId;
   build: TowerKind;
@@ -667,6 +673,8 @@ export function createWorld(
   startTutorial: () => void;
   openSetup: () => void;
   beginNight: () => void;
+  /** Intro, Sir Michael only: say one oath (door, mouth or sling) and start the night. */
+  pickOath: (oath: OathId) => void;
   /** Setup: pick the keeper (kept in the HUD so it survives a return to Setup). */
   pickKeeper: (hero: HeroId) => void;
   /** Setup: go to the keeper page or (with a keeper picked) the night page. */
@@ -738,6 +746,7 @@ export function createWorld(
       newMaps: [],
       hero: null,
       branch: null,
+      oath: null,
       map: "stacks",
       build: "melon",
       shopVisits: 0,
@@ -1542,6 +1551,12 @@ export function createWorld(
     }
     return best;
   };
+  /** Sir Michael's door oath: a tower whose reach touches the last three tiles of carpet fires faster. */
+  const doorHaste = (tower: Tower, range: number) => {
+    if (world.hud.oath !== "door") return 1;
+    if (range >= GLOBAL_RANGE) return OATH_VALUES.doorHaste;
+    return carpetInReach(oathStretch(world.points, "door"), tower.x, tower.y, range).length > 0 ? OATH_VALUES.doorHaste : 1;
+  };
   /** Defensive Perimeter: with two Quack-Libers standing, fruit near the line between them walk slower. */
   const perimeterAt = (e: Enemy) => {
     if (!fx.perimeter) return 1;
@@ -1562,7 +1577,7 @@ export function createWorld(
     // Dr. Samodovol's wrong book: for the next combat his cannons hit softer and slower.
     const cut = misread ? CANNON.misread - fx.misreadCut : 0;
     const studied = cut > 0 ? { ...read, dmg: read.dmg * (1 - cut), interval: read.interval * (1 + cut) } : read;
-    const haste = quackHaste(tower);
+    const haste = quackHaste(tower) * doorHaste(tower, studied.range);
     const base = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true } : studied;
     if (base.range >= GLOBAL_RANGE) return base;
     // Reading Lamp: the best lamp in reach boosts this cannon (lamps do not stack).
@@ -1590,7 +1605,8 @@ export function createWorld(
       0,
       buildCost(world.hud.hero, placedCount(), world.hud.build, world.hud.builtKinds) -
         (bm("discount") ? BOOKMARK_VALUES.discount : 0) -
-        (ownSignature(world.hud.build) ? fx.sigCost : 0),
+        (ownSignature(world.hud.build) ? fx.sigCost : 0) -
+        (world.hud.oath === "sling" && world.hud.build === "trebuchet" ? OATH_VALUES.slingDiscount : 0),
     );
   /** A keeper tower can be built only by its keeper, and only one of each at a time. */
   const signatureBlocked = (kind: TowerKind) =>
@@ -1844,6 +1860,7 @@ export function createWorld(
       left: 0,
       waveSize: 0,
       branch: null,
+      oath: null,
       build: "melon",
       shopVisits: 0,
       fitted: {},
@@ -2035,6 +2052,8 @@ export function createWorld(
     if (e.pit && (via === "splash" || via === "burn" || via === "pulp")) amount *= BALANCE.pitResist;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
+    // Sir Michael's mouth oath: fruit on the first three tiles take more from everything.
+    if (world.hud.oath === "mouth" && inOathZone(world.points, "mouth", e)) amount *= OATH_VALUES.mouthAmp;
     const before = e.hp;
     e.hp -= amount;
     if (amount >= 1) float(e.x, e.y - 10, String(Math.round(amount)), "#f3e2c4");
@@ -3062,6 +3081,7 @@ export function createWorld(
       world.towers = [];
       world.enemies = [];
       world.hud.hero = hero;
+      world.hud.oath = null;
       world.hud.phase = "poster";
       world.hud.tutorial = false;
       fx = perkFx(hero, world.hud.keepers[hero]);
@@ -3110,25 +3130,8 @@ export function createWorld(
         world.hud.seeds = BALANCE.michaelSeeds;
         world.hud.lives = BALANCE.michaelLives;
         world.hud.maxLives = BALANCE.michaelLives;
-        const [kc, kr] = BOARDS[world.hud.map].michaelCannon;
-        const p = cellCenter(kc, kr);
-        world.towers.push({
-          id: id(),
-          c: kc,
-          r: kr,
-          x: p.x,
-          y: p.y,
-          cd: 0.15,
-          aim: 0,
-            orange: true,
-          kind: "melon",
-          mods: [],
-          // Free with the hero; valued so it still sells for 35 like before.
-          paid: 50,
-        });
-        world.hud.log = overflow
-          ? `His cannon is already set. ${stacksWord(BALANCE.michaelLives)} stacks, and the chute is not his door.`
-          : `His cannon is already set. ${stacksWord(BALANCE.michaelLives)} stacks, and the shots hit harder.`;
+        // No free cannon: he picks an oath on the intro instead (pickOath).
+        world.hud.log = "He has not said where he stands.";
       }
       if (overflow) {
         // Night two starts with a little extra. Added after the keeper's opening line, not over it.
@@ -3321,8 +3324,22 @@ export function createWorld(
     },
     beginNight() {
       if (world.hud.phase !== "poster") return;
+      // Sir Michael does not start until he has said his oath.
+      if (world.hud.hero === "michael" && world.hud.oath == null) return;
       world.hud.phase = "prep";
       notify();
+    },
+    pickOath(oath: OathId) {
+      if (world.hud.phase !== "poster" || world.hud.hero !== "michael" || !OATHS.includes(oath)) return;
+      world.hud.oath = oath;
+      world.hud.log = OATH_TEXT[oath].log;
+      if (oath === "door") {
+        world.hud.lives = Math.max(1, world.hud.lives - OATH_VALUES.doorStacks);
+        world.hud.maxLives = Math.max(1, world.hud.maxLives - OATH_VALUES.doorStacks);
+      }
+      if (oath === "mouth") world.hud.seeds = Math.max(0, world.hud.seeds - OATH_VALUES.mouthSeeds);
+      syncPrice();
+      api.beginNight();
     },
     setupPage(page: "who" | "night") {
       if (world.hud.phase !== "select") return;

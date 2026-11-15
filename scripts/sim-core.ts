@@ -13,6 +13,7 @@ import {
   type BookmarkId,
   type Difficulty,
   type HeroId,
+  type OathId,
   type MapId,
   type NightId,
   type TowerKind,
@@ -33,6 +34,8 @@ export interface RunConfig {
   night: NightId;
   map: MapId;
   seed: number;
+  /** Sir Michael's oath on the intro (default "sling"). Ignored for other keepers. */
+  oath?: OathId;
   /** Optional build order to cycle through instead of the strategy's (any cannon types). */
   rotation?: TowerKind[];
   /** Optional bookmark (meta perk) to equip. */
@@ -107,7 +110,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
   }
   if (config.bookmark) api.setBookmark(config.bookmark);
   api.chooseHero(config.hero);
-  api.beginNight();
+  if (config.hero === "michael") api.pickOath(config.oath ?? "sling");
+  else api.beginNight();
 
   // Sample points along the carpet, used to score tower spots by coverage.
   const samples: Array<{ x: number; y: number }> = [];

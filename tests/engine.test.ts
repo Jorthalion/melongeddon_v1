@@ -32,7 +32,9 @@ function startGame(hero: HeroId = "vael") {
   const api = createWorld(() => {}, { allTricks: true });
   api.openSetup();
   api.chooseHero(hero);
-  api.beginNight();
+  // Sir Michael starts only once he has said an oath; sling shoves anywhere, like before.
+  if (hero === "michael") api.pickOath("sling");
+  else api.beginNight();
   return api;
 }
 
@@ -65,15 +67,24 @@ test("selling a tower refunds 70% of its build cost (back-room upgrades belong t
   assert.equal(world.towers.length, 0);
 });
 
-test("Sir Michael's starting cannon still sells for 35", () => {
-  const api = startGame("michael");
+test("Sir Michael has no free cannon, ordinary shots, and waits on the intro for an oath", () => {
+  const api = createWorld(() => {}, { allTricks: true });
+  api.openSetup();
+  api.chooseHero("michael");
   const { world } = api;
-  const knight = world.towers[0];
-  assert.ok(knight);
-  api.pointer(knight.x, knight.y, "down");
-  const before = world.hud.seeds;
-  api.sellSelected();
-  assert.equal(world.hud.seeds - before, 35);
+  assert.equal(world.towers.length, 0, "no free cannon");
+  assert.equal(world.hud.phase, "poster");
+  assert.equal(world.hud.oath, null);
+  assert.equal(world.hud.log, "He has not said where he stands.");
+  api.beginNight();
+  assert.equal(world.hud.phase, "poster", "beginNight does not start him");
+  api.pickOath("sling");
+  assert.equal(world.hud.phase, "prep");
+  world.hud.seeds = 999;
+  api.pointer(center(4), center(3), "down");
+  const melon = world.towers[0];
+  assert.ok(melon);
+  assert.equal(api.statsOf(melon.id)!.dmg, 14, "the same shot as everyone else");
 });
 
 test("towers cannot be placed on the carpet", () => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { ALL_UNLOCKED, createWorld, type MapId, type World } from "@/game/engine";
-import { drawWorld, spritesSettled } from "@/game/draw";
+import { ALL_UNLOCKED, createWorld, type MapId, type OathId, type World } from "@/game/engine";
+import { drawOathBand, drawWorld, spritesSettled } from "@/game/draw";
 
 /** One empty world per map, drawn with the game's own renderer so previews always match play. */
 const worlds = new Map<MapId, World>();
@@ -19,7 +19,18 @@ function previewWorld(map: MapId): World {
  * The real board for `map`, scaled to fit the canvas (whole board visible).
  * `top` places the board that share of the spare height from the top (0.5 = centered).
  */
-export function MapPreview({ map, className = "", top = 0.5 }: { map: MapId; className?: string; top?: number }) {
+export function MapPreview({
+  map,
+  className = "",
+  top = 0.5,
+  band = null,
+}: {
+  map: MapId;
+  className?: string;
+  top?: number;
+  /** Sir Michael's intro: the oath zone to light while its button is hovered or focused. */
+  band?: OathId | null;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -47,6 +58,7 @@ export function MapPreview({ map, className = "", top = 0.5 }: { map: MapId; cla
       ctx.rect(0, 0, world.w, world.h);
       ctx.clip();
       drawWorld(ctx, world);
+      if (band) drawOathBand(ctx, world.points, band);
       ctx.restore();
     };
     const loop = () => {
@@ -61,7 +73,7 @@ export function MapPreview({ map, className = "", top = 0.5 }: { map: MapId; cla
       window.clearTimeout(timer);
       resize.disconnect();
     };
-  }, [map, top]);
+  }, [map, top, band]);
 
   return <canvas ref={ref} aria-hidden="true" className={className} />;
 }

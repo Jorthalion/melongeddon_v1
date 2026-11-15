@@ -5,12 +5,13 @@ import { keyAction, runKeyAction } from "@/game/keys";
 /**
  * Keyboard shortcuts (the rules live in `game/keys.ts`):
  *   1–5      pick a cannon in the open tab, or choice 1–3 on a pick card / Setup's keepers
+ *            (on Sir Michael's intro, 1–3 pick an oath card and Enter swears it)
  *   Q W E R T Y  Damage / Control / Support / Keeper / Trick / Heavy tab
  *   Space    start the next wave; pause / resume during a wave
  *   P        pause / resume
  *   S        sell the selected cannon
  *   B        open or close the back-room side tab (1–9 buy its upgrades while it's open)
- *   Enter    the main button on Setup, the intro, story cards and end cards
+ *   Enter    the main button on Setup, the intro (not Sir Michael's), story cards and end cards
  *   Esc      close the back room, deselect, or open / close the pause menu (Back on Setup and the intro)
  *   + / −    game speed
  *   M        sound on / off

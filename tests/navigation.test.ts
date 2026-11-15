@@ -71,12 +71,12 @@ test("toTitle clears the run, and Continue starts the same setup", () => {
   assert.deepEqual(setupOf(api), SAME);
 });
 
-test("Back from the Intro returns to Setup and removes Sir Michael's free cannon", () => {
+test("Back from the Intro returns to Setup, with no cannon and no oath left behind", () => {
   const api = createWorld(() => {});
   api.openSetup();
   api.pickKeeper("michael");
   api.chooseHero("michael");
-  assert.equal(api.world.towers.length, 1);
+  assert.equal(api.world.towers.length, 0, "no free cannon on the intro");
   api.backToSetup();
   assert.equal(api.world.hud.phase, "select");
   assert.equal(api.world.hud.hero, "michael");

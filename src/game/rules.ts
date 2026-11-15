@@ -768,7 +768,8 @@ export const CANNON = {
   cauldronDps: 18,
   cauldronSlow: 0.55,
   trebuchetSplash: 64,
-  trebuchetKnock: 34,
+  /** How far a Trebuchet shove moves a fruit back along the carpet: one tile (times Heavier Pumpkins). */
+  trebuchetKnock: CELL,
   /** Scales of Justice: extra damage as a share of the target's max health (Karl takes the boss share). */
   scalesShare: 0.12,
   scalesBossShare: 0.04,
@@ -873,7 +874,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
     if (own && upgrades.includes(own))
       pace *= kind === "reader" ? CANNON.readerUpgradePace : kind === "ink" ? CANNON.inkUpgradePace : CANNON.upgradePace;
     const interval = (upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1) * pace;
-    let dmg = hero === "michael" ? BALANCE.michaelShot : 14;
+    let dmg = 14;
     if (upgrades.includes("caliber")) dmg += 8;
     dmg = profile.dmg === 0 ? 0 : Math.max(1, Math.round(dmg * profile.dmg));
     return { dmg, range, interval };
@@ -887,7 +888,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   if (mods.includes("haste")) pace *= 0.85;
   let interval = ((upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1)) * pace;
   if (kind === "still") interval = (mods.includes("drip") ? 1 : 1.45) * (mods.includes("mimicstep") ? CANNON.mimicDrip : 1);
-  let dmg = hero === "michael" ? BALANCE.michaelShot : 14;
+  let dmg = 14;
   if (upgrades.includes("caliber")) dmg += 8;
   if (kind === "mortar") dmg = Math.round(dmg * 0.8);
   if (kind === "fire") dmg = Math.round(dmg * 0.65);
@@ -1008,7 +1009,7 @@ export interface Board {
   name: string;
   blurb: string;
   corners: Array<[number, number]>;
-  /** Where Sir Michael's free melon cannon stands (kept clear of shelves on every board). */
+  /** A floor tile kept open on every board (no shelf). It was Sir Michael's free cannon spot; he has no free cannon now. */
   michaelCannon: [number, number];
   /** Dark room: cannons lose range unless a Reading Lamp reaches them. */
   dark?: boolean;
@@ -1045,7 +1046,7 @@ export const DEFAULT_SHELVES: Array<[number, number]> = [
 
 /**
  * The bookshelf cells on a board, as "c,r" keys. Cannons can't go there. A shelf listed on the
- * carpet, outside the board, or on Sir Michael's cannon spot is left out.
+ * carpet, outside the board, or on the kept-open `michaelCannon` tile is left out.
  */
 export function shelfCells(map: MapId, path: Set<string>): Set<string> {
   const b = BOARDS[map];
@@ -1499,6 +1500,95 @@ function within(p0: { x: number; y: number }, p1: { x: number; y: number }, cx: 
  * whole answer, not a guess. `inner` cuts out a hole (the Orrery's planets only hit near their orbit).
  * `length` is in px; divide by CELL for tiles.
  */
+/** Sir Michael's oaths. He says one on the intro; the other two are refused for the night. */
+export type OathId = "door" | "mouth" | "sling";
+export const OATHS: OathId[] = ["door", "mouth", "sling"];
+/** How far each end's zone runs along the carpet: three tiles. */
+export const OATH_ZONE = 3 * CELL;
+/**
+ * What each oath gives and costs. door: towers whose reach touches the last three tiles fire
+ * `doorHaste` faster; he starts `doorStacks` stacks down. mouth: fruit on the first three tiles take
+ * `mouthAmp` damage from everything; he starts `mouthSeeds` seeds down. sling: the Trebuchet costs
+ * `slingDiscount` less; no zone. The Trebuchet shoves anywhere under every oath.
+ */
+export const OATH_VALUES = { doorHaste: 1.2, doorStacks: 2, mouthAmp: 1.3, mouthSeeds: 10, slingDiscount: 30 };
+/** The oath cards on Sir Michael's intro: what he says, a short title, the gain and the cost, and the log line. */
+export const OATH_TEXT: Record<OathId, { said: string; title: string; gain: string; cost: string; log: string }> = {
+  door: {
+    said: "I hold the last tiles.",
+    title: "Hold the door",
+    gain: `+${Math.round((OATH_VALUES.doorHaste - 1) * 100)}% fire rate, last 3 tiles`,
+    cost: `−${OATH_VALUES.doorStacks} stacks`,
+    log: "I hold the last tiles. He did not meet them coming in. He did not bring one pumpkin.",
+  },
+  mouth: {
+    said: "I meet them coming in.",
+    title: "Meet them first",
+    gain: `+${Math.round((OATH_VALUES.mouthAmp - 1) * 100)}% damage, first 3 tiles`,
+    cost: `−${OATH_VALUES.mouthSeeds} seeds`,
+    log: "I meet them coming in. He did not hold the last tiles. He did not bring one pumpkin.",
+  },
+  sling: {
+    said: "I brought one pumpkin.",
+    title: "Bring one pumpkin",
+    gain: `Trebuchet −${OATH_VALUES.slingDiscount} seeds`,
+    cost: "No zone",
+    log: "I brought one pumpkin. He did not hold the last tiles. He did not meet them coming in.",
+  },
+};
+
+/**
+ * How far along the carpet polyline a fruit is, in px from the first point. Negative before the
+ * first point (walking in from off the board); more than the carpet's length past the last point
+ * (a chute spawn). `wp` is the point the fruit is heading to; `reverse` fruit head toward the start.
+ */
+export function carpetAlong(points: Array<{ x: number; y: number }>, x: number, y: number, wp: number, reverse: boolean) {
+  let total = 0;
+  const cum = [0];
+  for (let k = 1; k < points.length; k++) {
+    total += Math.hypot(points[k].x - points[k - 1].x, points[k].y - points[k - 1].y);
+    cum.push(total);
+  }
+  if (!points.length) return { along: 0, total: 0 };
+  const k = Math.max(0, Math.min(points.length - 1, wp));
+  const d = Math.hypot(x - points[k].x, y - points[k].y);
+  return { along: reverse ? cum[k] + d : cum[k] - d, total };
+}
+
+/** The carpet stretch an oath's zone covers (door: the last three tiles; mouth: the first three; sling: none). */
+export function oathStretch(points: Array<{ x: number; y: number }>, oath: OathId): Array<{ x: number; y: number }> {
+  if (oath === "sling" || points.length < 2) return [];
+  const pts = oath === "door" ? [...points].reverse() : points;
+  const out = [pts[0]];
+  let left = OATH_ZONE;
+  for (let k = 1; k < pts.length && left > 0; k++) {
+    const a = pts[k - 1];
+    const b = pts[k];
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    if (d <= left) {
+      out.push(b);
+      left -= d;
+    } else {
+      out.push({ x: a.x + ((b.x - a.x) / d) * left, y: a.y + ((b.y - a.y) / d) * left });
+      left = 0;
+    }
+  }
+  return out;
+}
+
+/**
+ * Whether a fruit stands in an end zone, measured along the carpet: door counts a chute spawn past
+ * the last point, mouth counts fruit still walking in before the first.
+ */
+export function inOathZone(
+  points: Array<{ x: number; y: number }>,
+  zone: "door" | "mouth",
+  e: { x: number; y: number; wp: number; reverse: boolean },
+) {
+  const { along, total } = carpetAlong(points, e.x, e.y, e.wp, e.reverse);
+  return zone === "door" ? total - along <= OATH_ZONE : along <= OATH_ZONE;
+}
+
 export function carpetInReach(points: Array<{ x: number; y: number }>, x: number, y: number, outer: number, inner = 0) {
   const stretches: Stretch[] = [];
   let length = 0;
@@ -1805,10 +1895,8 @@ export const BALANCE = {
   borrowTake: 12,
   /** The Overflow: extra starting seeds for night two. */
   overflowSeeds: 45,
-  michaelSeeds: 110,
-  michaelLives: 10,
-  /** Sir Michael's base shot damage (everyone else: 14). */
-  michaelShot: 28,
+  michaelSeeds: 145,
+  michaelLives: 11,
   /** The Archive: range multiplier for cannons no Reading Lamp reaches. */
   archiveDark: 0.8,
   /** The Overflow (night two): enemy health multiplier on top of the story curve (1.4: about as winnable as Midnight; 1.0 was 96% on Normal). */

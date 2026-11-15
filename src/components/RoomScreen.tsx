@@ -1,5 +1,6 @@
-import { type MapId } from "@/game/engine";
+import { type MapId, type OathId } from "@/game/engine";
 import { MapPreview } from "@/components/MapPreview";
+import { OathIntro } from "@/components/OathIntro";
 
 /** One line under each room's name on the intro screen. */
 export const ROOM_JOKE: Partial<Record<MapId, string>> = {
@@ -13,7 +14,10 @@ export const ROOM_JOKE: Partial<Record<MapId, string>> = {
   overflow: "The chute is open. The returns have opinions.",
 };
 
-/** The intro: the real board, the room's name, and the button onto the carpet. */
+/**
+ * The intro: the real board, the room's name, and the button onto the carpet. With `oaths`
+ * (Sir Michael), the oath cards replace the whole screen (see OathIntro).
+ */
 export function RoomScreen({
   map,
   kicker,
@@ -22,6 +26,7 @@ export function RoomScreen({
   action,
   onAction,
   onBack,
+  oaths,
 }: {
   map: MapId;
   kicker: string;
@@ -30,7 +35,9 @@ export function RoomScreen({
   action: string;
   onAction: () => void;
   onBack: () => void;
+  oaths?: (oath: OathId) => void;
 }) {
+  if (oaths) return <OathIntro map={map} title={title} kicker={kicker} onSwear={oaths} onBack={onBack} />;
   return (
     <div className="absolute inset-0 z-20">
       {/* The real board, whole, above the title. */}

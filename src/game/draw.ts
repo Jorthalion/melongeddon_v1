@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, CELL, GLOBAL_RANGE, PASSIVE, carpetInReach, reachShape, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, CELL, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
@@ -869,6 +869,45 @@ function drawCarpet(
   }
 
   if (world.hud.map === "overflow" && world.points.length >= 2) drawChute(ctx, world, end, getSprites().chuteProp);
+  const oath = world.hud.oath;
+  if (oath && (world.hud.phase === "prep" || world.hud.phase === "combat")) drawOathBand(ctx, world.points, oath, 0.6);
+}
+
+/**
+ * Sir Michael's oath zone: a faint gold band over the two tiles of carpet where his Trebuchet may
+ * shove (door: the last two, mouth: the first two; sling draws nothing). Gold and still, unlike the
+ * blue moving chute chevrons. `strength` 1 is the bright intro hover; play uses less.
+ */
+export function drawOathBand(ctx: CanvasRenderingContext2D, points: Array<{ x: number; y: number }>, oath: OathId, strength = 1) {
+  const run = oathStretch(points, oath);
+  if (run.length < 2) return;
+  ctx.save();
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(run[0].x, run[0].y);
+  for (const p of run.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.strokeStyle = `rgba(240,205,120,${0.42 * strength})`;
+  ctx.lineWidth = CELL - 6;
+  ctx.stroke();
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = `rgba(255,228,150,${0.95 * strength})`;
+  ctx.lineWidth = 2;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    for (let k = 0; k < run.length; k++) {
+      // Edge lines either side of the band, offset along each segment's normal.
+      const a = run[Math.max(0, k - 1)];
+      const b = run[Math.min(run.length - 1, k === 0 ? 1 : k)];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const nx = (-(b.y - a.y) / len) * side * (CELL / 2 - 4);
+      const ny = ((b.x - a.x) / len) * side * (CELL / 2 - 4);
+      if (k === 0) ctx.moveTo(run[k].x + nx, run[k].y + ny);
+      else ctx.lineTo(run[k].x + nx, run[k].y + ny);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 /**

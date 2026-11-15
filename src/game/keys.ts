@@ -73,6 +73,8 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
 
     case "poster":
       if (key === "Escape") return { type: "backToSetup" };
+      // Sir Michael's oath cards handle 1–3 (pick) and Enter (swear) themselves (components/OathIntro).
+      if (hud.hero === "michael") return null;
       if (key === "Enter") return { type: "beginNight" };
       return null;
 

@@ -30,7 +30,8 @@ function start(hero: HeroId, keepers?: KeeperProgress) {
   api.openSetup();
   api.pickKeeper(hero);
   api.chooseHero(hero);
-  api.beginNight();
+  if (hero === "michael") api.pickOath("sling");
+  else api.beginNight();
   return api;
 }
 
