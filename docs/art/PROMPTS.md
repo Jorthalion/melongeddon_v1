@@ -68,9 +68,9 @@ In the game. The code-drawn desk is only a fallback while it loads. The amount b
 |---|---|
 | `sig-desk.png` | A small antique **library reserve desk** of dark carved walnut with brass corner fittings, on short turned legs. On top: an open **ledger book** with ruled pages and a crimson ribbon bookmark, a **brass cash box** with its lid slightly open and a few gold coins showing, a small brass **"reserved" bell**, and a brass **desk lamp** with a green glass shade casting a warm glow. A short stack of books tied with string, each with a paper **reserve slip** sticking out, sits at one end. A tidy, careful librarian's desk, slightly cosy. 3/4 top-down view, transparent background, no readable text or numbers anywhere. |
 
-#### Quack-Liber, Quackarot's (prompt only: still code-drawn)
+#### Quack-Liber, Quackarot's (done: `public/sprites/sig-quackliber.webp` and `fly-quack.webp`)
 
-Not in the game yet: it is drawn with code shapes (`drawCannons.ts`). Match **Quackarot's portrait** (`public/sprites/portrait-quack.webp`; attach it with the prompt): his **orange hoodie with black drawstrings** and the **black crowned-duck emblem** on the chest. It fires small rockets that burst and slow, from two barrels side by side. Like the other keeper towers, the sprite is one still image (the turret won't turn to aim), so point the barrels **up and slightly forward**, not off to one side. Leave the space above the barrels clear: rockets launch from there.
+In the game; the code-drawn turret is only a fallback while it loads. Match **Quackarot's portrait** (`public/sprites/portrait-quack.webp`; attach it with the prompt): his **orange hoodie with black drawstrings** and the **black crowned-duck emblem** on the chest. It fires small rockets that burst and slow, from two barrels side by side. Like the other keeper towers, the sprite is one still image (the turret won't turn to aim), so point the barrels **up and slightly forward**, not off to one side. Leave the space above the barrels clear: rockets launch from there.
 
 | File name | Prompt (after the style line) |
 |---|---|

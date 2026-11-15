@@ -64,6 +64,8 @@ const SPRITE_SRC = {
   honey: asset("sprites/sig-honey.webp"),
   mimic: asset("sprites/sig-mimic.webp"),
   lectern: asset("sprites/sig-lectern.webp"),
+  quackliber: asset("sprites/sig-quackliber.webp"),
+  flyQuack: asset("sprites/fly-quack.webp"),
   // Trick cannons, and what they throw.
   boomerang: asset("sprites/trick-boomerang.webp"),
   orrery: asset("sprites/trick-orrery.webp"),
@@ -612,6 +614,11 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
           s.element === "seed" ? heading + Math.PI / 2 : s.element === "worm" ? heading : s.element === "peel" ? world.anim * 14 : s.element === "fly" ? Math.sin(world.anim * 30) * 0.25 : 0;
         blit(ctx, img, s.x, s.y, look.size * 1.3, rot);
       } else drawShot(ctx, s.x, s.y, s.element, world.anim);
+      continue;
+    }
+    // Quack-Liber rockets: the duck-nosed rocket, pointing where it flies.
+    if (s.splashChill && ready(art.flyQuack)) {
+      blitFit(ctx, art.flyQuack, s.x, s.y, 30, 14, Math.atan2(s.ty - s.y, s.tx - s.x));
       continue;
     }
     const img =
@@ -1234,6 +1241,7 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   honey: { aim: false, w: 44, h: 58 },
   mimic: { aim: false, w: 44, h: 54 },
   lectern: { aim: false, w: 46, h: 56 },
+  quackliber: { aim: false, w: 48, h: 56 },
   // Trick cannons.
   boomerang: { aim: false, w: 46, h: 50 },
   orrery: { aim: false, w: 38, h: 58 },
