@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_UNLOCKED, CANNON, CELL, EMPTY_META, MIDNIGHT_WAVES, createWorld, groupsFor, sellValue, stepWorld, type MetaStats } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, CANNON, CELL, EMPTY_META, MIDNIGHT_WAVES, createWorld, groupsFor, sellValue, stepWorld, type MetaStats, type RoomId } from "../src/game/engine.ts";
 
 const center = (n: number) => n * CELL + CELL / 2;
 
-function onBoard(meta: MetaStats) {
-  const api = createWorld(() => {}, { meta });
+function onBoard(meta: MetaStats, rooms?: RoomId[]) {
+  const api = createWorld(() => {}, { meta, rooms });
   api.openSetup();
   api.chooseHero("mynxi");
   api.beginNight();
@@ -45,11 +45,11 @@ test("Mynxi's Keeper tab holds the Card Catalogue and the Reserve Desk", () => {
   assert.deepEqual(groupsFor("mynxi").find((g) => g.id === "keeper")?.kinds, ["catalogue", "desk"]);
 });
 
-test("the Reserve Desk stays locked until a night ends with 200 seeds in hand", () => {
-  const locked = onBoard({ ...EMPTY_META, richest: 199 });
+test("the Reserve Desk stays locked until The Archive is restored (rich nights don't open it)", () => {
+  const locked = onBoard({ ...EMPTY_META, richest: 999 }, ["stacks"]);
   assert.equal(buildDesk(locked), undefined);
-  assert.match(locked.world.hud.log, /200 seeds/);
-  assert.ok(buildDesk(onBoard({ ...EMPTY_META, richest: 200 })), "open at 200");
+  assert.match(locked.world.hud.log, /Restore The Archive/);
+  assert.ok(buildDesk(onBoard({ ...EMPTY_META }, ["stacks", "archive"])), "open with The Archive");
 });
 
 test("it banks 8 a wave, a passing melon eats the bank, and selling collects it", () => {
@@ -85,18 +85,15 @@ test("it banks 8 a wave, a passing melon eats the bank, and selling collects it"
   assert.match(w.hud.log, /ate the bank/);
 });
 
-test("winning pays the bank out and counts toward the 200-seed goal, which opens the desk", () => {
-  const api = onBoard({ ...EMPTY_META });
+test("winning pays the bank out (and no longer opens the desk by itself)", () => {
+  const api = onBoard({ ...EMPTY_META }, ["stacks"]);
   assert.ok(api.world.hud.lockedTowers.includes("desk"));
   for (let n = 0; n < 200 && api.world.hud.phase !== "victory"; n++) clearWave(api);
   assert.equal(api.world.hud.phase, "victory");
   assert.equal(api.world.hud.wave, MIDNIGHT_WAVES);
-  // 5000 seeds in hand at the win: the goal is met and the desk opens.
-  assert.ok(!api.world.hud.lockedTowers.includes("desk"));
-  assert.match(api.world.hud.log, /New keeper tower: Reserve Desk/);
+  assert.ok(api.world.hud.lockedTowers.includes("desk"), "5000 seeds in hand, still locked: it's The Archive's");
 
   // With a desk on the board, the win pays out what it holds.
-  // Everything already unlocked, so no unlock notice replaces the payout line.
   const rich = onBoard({ ...ALL_UNLOCKED });
   const desk = buildDesk(rich);
   assert.ok(desk);

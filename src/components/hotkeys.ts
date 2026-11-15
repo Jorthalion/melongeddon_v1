@@ -11,13 +11,14 @@ import { keyAction, runKeyAction } from "@/game/keys";
  *   P        pause / resume
  *   S        sell the selected cannon
  *   B        open or close the back-room side tab (1–9 buy its upgrades while it's open)
+ *   C        open or close the checkout card (everything shaping this run; pauses the board)
  *   Enter    the main button on Setup, the intro (not Sir Michael's), story cards and end cards
  *   Esc      close the back room, deselect, or open / close the pause menu (Back on Setup and the intro)
  *   + / −    game speed
  *   M        sound on / off
  */
 export const HOTKEY_HELP =
-  "Q/W/E/R/T tab · 1–5 build or choose · Space wave/pause · P pause · S sell · B back room · Enter main button · Esc back/menu · +/− speed · M sound";
+  "Q/W/E/R/T tab · 1–5 build or choose · Space wave/pause · P pause · S sell · B back room · C checkout card · Enter main button · Esc back/menu · +/− speed · M sound";
 
 export function useHotkeys(
   api: ReturnType<typeof createWorld>,

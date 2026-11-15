@@ -13,6 +13,8 @@ export type KeyAction =
   | { type: "swallow" }
   | { type: "openMenu" }
   | { type: "closeMenu" }
+  | { type: "checkout" }
+  | { type: "closeCheckout" }
   | { type: "menuBack" }
   | { type: "backToTitle" }
   | { type: "backToSetup" }
@@ -53,6 +55,16 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       return { type: "swallow" };
     }
     return null;
+  }
+
+  // The checkout card: Esc or C closes it; game keys are swallowed while it's open.
+  if (hud.checkout) {
+    if (key === "Escape" || key === "c") return { type: "closeCheckout" };
+    if (key === "Enter" || key.length === 1) return { type: "swallow" };
+    return null;
+  }
+  if (key === "c" && (phase === "prep" || phase === "combat" || phase === "upgrade" || phase === "consequence")) {
+    return { type: "checkout" };
   }
 
   switch (phase) {
@@ -132,6 +144,12 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       return false;
     case "closeMenu":
       api.closeMenu();
+      return false;
+    case "checkout":
+      api.openCheckout();
+      return false;
+    case "closeCheckout":
+      api.closeCheckout();
       return false;
     case "menuBack":
       api.menuSettings(false);

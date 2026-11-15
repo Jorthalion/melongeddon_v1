@@ -237,7 +237,7 @@ test("endless offers a pick every fifth wave after act one", () => {
 });
 
 test("locked bookmarks cannot be equipped", () => {
-  const api = createWorld(() => {}, { meta: EMPTY_META });
+  const api = createWorld(() => {}, { meta: EMPTY_META, rooms: ["stacks"] });
   api.openSetup();
   api.setBookmark("seedfund");
   assert.equal(api.world.hud.bookmark, null);
@@ -270,8 +270,8 @@ test("bookmarks change the run start and prices", () => {
   assert.equal(api.world.towers[0]?.mods.length, 1);
 });
 
-test("reaching a milestone unlocks a bookmark mid-run", () => {
-  const api = createWorld(() => {}, { meta: { ...EMPTY_META, fittings: 4 } });
+test("an old bookmark milestone no longer unlocks it; its room does", () => {
+  const api = createWorld(() => {}, { meta: { ...EMPTY_META, fittings: 4 }, rooms: ["stacks"] });
   api.openSetup();
   api.chooseHero("vael");
   api.beginNight();
@@ -279,9 +279,10 @@ test("reaching a milestone unlocks a bookmark mid-run", () => {
   api.pointer(center(4), center(3), "down");
   api.openShop();
   api.pickMod(fittingsFor("melon")[0].id);
-  assert.ok(api.world.hud.unlocked.includes("backroom"));
-  assert.deepEqual(api.world.hud.newUnlocks, ["backroom"]);
-  assert.match(api.world.hud.log, /New bookmark: Back-room Key/);
+  assert.ok(!api.world.hud.unlocked.includes("backroom"));
+  assert.deepEqual(api.world.hud.newUnlocks, []);
+  const hall = createWorld(() => {}, { meta: EMPTY_META, rooms: ["stacks", "greathall"] });
+  assert.ok(hall.world.hud.unlocked.includes("backroom"));
 });
 
 test("every shared cannon is in exactly one build tab of at most five; keeper towers belong to one keeper each", () => {
@@ -300,8 +301,8 @@ function withCannon(kind: TowerKind) {
   const api = startGame(owner);
   api.world.hud.seeds = 5000;
   api.chooseBuild(kind);
-  // (4,3) is open floor near the carpet; the Reserve Desk must touch the carpet, so it goes one tile over.
-  api.pointer(center(kind === "desk" ? 5 : 4), center(3), "down");
+  // (4,3) is open floor near the carpet; the Reserve Desk and the Gourd Gate must touch the carpet, so they go one tile over.
+  api.pointer(center(kind === "desk" || kind === "gourdgate" ? 5 : 4), center(3), "down");
   const tower = api.world.towers.find((t) => t.kind === kind);
   assert.ok(tower, `${kind} placed`);
   api.dismissSelection();
@@ -338,13 +339,13 @@ function startOn(map: "stacks" | "mezzanine" | "rarebooks" | "archive") {
   return api;
 }
 
-test("new maps stay locked until their goal is met", () => {
-  const api = createWorld(() => {}, { meta: EMPTY_META });
+test("new maps stay locked until their room is restored", () => {
+  const api = createWorld(() => {}, { meta: { ...EMPTY_META, bestWave: 15, karls: 3, wins: 5, hardWins: 2 }, rooms: ["stacks"] });
   api.openSetup();
-  assert.deepEqual(api.world.hud.maps, ["stacks", "annex"]);
+  assert.deepEqual(api.world.hud.maps, ["stacks", "annex"], "old goals met, still locked");
   api.chooseMap("archive");
   assert.equal(api.world.hud.map, "stacks");
-  const open = createWorld(() => {}, { meta: { ...EMPTY_META, bestWave: 5, karls: 1, wins: 1 } });
+  const open = createWorld(() => {}, { meta: EMPTY_META, rooms: ["stacks", "mezzanine", "rarebooks", "archive"] });
   open.openSetup();
   assert.deepEqual(open.world.hud.maps, ["stacks", "annex", "mezzanine", "rarebooks", "archive"]);
   open.chooseMap("archive");

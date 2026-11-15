@@ -78,4 +78,13 @@ export const KEEPERS: Array<{
     toneHz: 280,
     portrait: asset("sprites/portrait-quack.webp"),
   },
+  {
+    id: "asser",
+    name: "Asser Mälkki",
+    role: "Author-Knight",
+    flavor: "Calm, very tall, and hard to knock down. He writes every hit into the book.",
+    line: "Twenty-five stacks. Every one he loses pays seeds and makes his towers hit harder.",
+    toneHz: 240,
+    portrait: asset("sprites/portrait-asser.webp"),
+  },
 ];

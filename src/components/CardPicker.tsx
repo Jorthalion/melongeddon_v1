@@ -15,6 +15,7 @@ import { BookOpen, Droplet, Droplets, Flame, FlaskConical, FlaskRound, Lamp, Pac
 import { tone } from "@/game/audio";
 import { Dialog } from "@/components/Dialog";
 import { NewUnlocks } from "@/components/Bookmarks";
+import { NightRewards } from "@/components/GrandCatalogue";
 import { XpSummary } from "@/components/KeeperLevels";
 import { TowerIcon } from "@/components/TowerIcon";
 import type { GameApi } from "@/components/ui";
@@ -35,11 +36,25 @@ export function CardOverlay({
   const hud = api.world.hud;
   return (
     // While the pause menu sits on top, the card underneath is inert: one modal dialog at a time.
-    <div className="absolute inset-0 flex items-center justify-center bg-ink/75 p-4" inert={hud.menu != null}>
+    <div className="absolute inset-0 flex items-center justify-center bg-ink/75 p-4" inert={hud.menu != null || hud.checkout}>
       <Dialog key={hudPhase} labelledBy="card-title" className="max-h-full w-full max-w-md overflow-auto rounded-xl border border-line bg-panel p-5 outline-none">
         {hudPhase === "upgrade" ? (
           <>
-            <h2 id="card-title" className="font-display text-2xl font-semibold">Between the waves</h2>
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 id="card-title" className="font-display text-2xl font-semibold">Between the waves</h2>
+              {/* Check what's already checked out before choosing (C). */}
+              <button
+                type="button"
+                className="shrink-0 text-sm text-gold underline decoration-gold/50 underline-offset-2 hover:decoration-gold"
+                title="Your checkout card (C)"
+                onClick={() => {
+                  onGesture();
+                  api.openCheckout();
+                }}
+              >
+                Your card
+              </button>
+            </div>
             <p className="mt-1 text-sm text-muted">
               {hud.night === "midnight" && hud.upgrades.length >= 3
                 ? "One more shelf. The fruit after this is not just thicker."
@@ -126,6 +141,8 @@ export function CardOverlay({
                       ? "Quest complete. Memec is still chewing."
                       : hud.hero === "scholar"
                         ? "The Doctor writes it down. History will remember this one."
+                        : hud.hero === "asser"
+                          ? "Asser counts what he lost and writes it down. It will make a good chapter."
                         : "Mynxi is filing this under accidents that worked."
             }`}
             action={hud.night === "midnight" ? "Continue to the Overflow" : hud.night === "overflow" ? "Set up Endless" : "Play again"}
@@ -204,6 +221,7 @@ function EndCard({
       <p className="mt-2 text-sm text-muted">{body}</p>
       {hud ? <XpSummary hud={hud} /> : null}
       <NewUnlocks ids={unlocks} maps={maps} />
+      {hud ? <NightRewards hud={hud} /> : null}
       <button
         type="button"
         data-autofocus

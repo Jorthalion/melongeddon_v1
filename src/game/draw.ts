@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, CELL, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, type OathId, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, CARPET_DYE, CELL, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
@@ -65,6 +65,13 @@ const SPRITE_SRC = {
   mimic: asset("sprites/sig-mimic.webp"),
   lectern: asset("sprites/sig-lectern.webp"),
   quackliber: asset("sprites/sig-quackliber.webp"),
+  // Asser's Lion Blade (the code-drawn sword is only a fallback while it loads).
+  lionblade: asset("sprites/sig-lionblade.webp"),
+  // Sir Michael's second and third: the Gourd Gate (and its portcullis) and the Harvest Bombard (and its pumpkin).
+  gourdgate: asset("sprites/sig-gourdgate.webp"),
+  bombard: asset("sprites/sig-bombard.webp"),
+  flyBombard: asset("sprites/fly-bombard.webp"),
+  portcullis: asset("sprites/fly-portcullis.webp"),
   flyQuack: asset("sprites/fly-quack.webp"),
   // Trick cannons, and what they throw.
   boomerang: asset("sprites/trick-boomerang.webp"),
@@ -180,9 +187,20 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.fillRect(0, 0, world.w, world.h);
     }
   }
+  const look = ROOM_LOOK[world.hud.map];
+  if (look?.floor) {
+    // A colour wash over the shared floor, so rooms without their own tile still feel like their own room.
+    ctx.save();
+    ctx.globalCompositeOperation = "color";
+    ctx.globalAlpha = look.floor[1];
+    ctx.fillStyle = look.floor[0];
+    ctx.fillRect(0, 0, world.w, world.h);
+    ctx.restore();
+  }
 
   drawShelves(ctx, world, art);
   drawCarpet(ctx, world, art);
+  if (look?.light) drawRoomLight(ctx, world, look.light);
   drawWet(ctx, world);
   if (BOARDS[world.hud.map].dark) drawDark(ctx, world);
 
@@ -308,6 +326,27 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
     const next = world.points[Math.min(e.wp, world.points.length - 1)];
     const look = e.pit ? "pit" : e.gall ? "gall" : e.borrower ? "borrower" : null;
+    // A gall's mark is what it does: a pulsing green thread to the fruit it is healing.
+    const host = e.gall && e.mends != null ? world.enemies.find((o) => o.id === e.mends && o.hp > 0) : undefined;
+    if (host) {
+      const pulse = 0.55 + Math.sin(world.anim * 6) * 0.25;
+      ctx.save();
+      ctx.strokeStyle = `rgba(150,235,90,${pulse})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.lineDashOffset = -world.anim * 30;
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(host.x, host.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(150,235,90,${pulse})`;
+      ctx.font = "bold 18px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("+", host.x + 20, host.y - 20);
+      ctx.restore();
+    }
     const painted = look != null && ready(art[look]);
     drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, next ? next.x < e.x - 4 : false, painted ? look : null);
     // Act three marks, while their art loads: a stone ring on a pit, a green dot on a gall, a gold ring on a borrower.
@@ -455,6 +494,32 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       continue;
     }
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim);
+    // Gourd Gate: the portcullis down across the carpet while it holds (it slams in from above).
+    if (t.kind === "gourdgate" && (t.gateDown ?? 0) > 0 && t.gate) {
+      const drop = Math.max(0, 1 - (t.gateAge ?? 0) / 0.12) * 18;
+      if (ready(art.portcullis)) blitFit(ctx, art.portcullis, t.gate.x, t.gate.y - drop, CELL - 4, CELL - 4);
+      else {
+        ctx.strokeStyle = "#c6a15a";
+        ctx.lineWidth = 3;
+        for (let k = -2; k <= 2; k++) {
+          ctx.beginPath();
+          ctx.moveTo(t.gate.x + k * 8, t.gate.y - 20 - drop);
+          ctx.lineTo(t.gate.x + k * 8, t.gate.y + 18 - drop);
+          ctx.stroke();
+        }
+      }
+    }
+    // Lion Blade: a blue-white flare while a rally swing is waiting.
+    if (t.bladeRally) {
+      const pulse = 0.55 + 0.45 * Math.sin(world.anim * 10);
+      const g = ctx.createRadialGradient(t.x, t.y - 12, 2, t.x, t.y - 12, 26);
+      g.addColorStop(0, `rgba(220,236,255,${0.75 * pulse})`);
+      g.addColorStop(1, "rgba(111,168,239,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y - 12, 26, 0, Math.PI * 2);
+      ctx.fill();
+    }
     if (t.kind === "desk" && t.bank) {
       // What the Reserve Desk is holding, on a small gold tag.
       const label = String(t.bank);
@@ -614,6 +679,17 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
           s.element === "seed" ? heading + Math.PI / 2 : s.element === "worm" ? heading : s.element === "peel" ? world.anim * 14 : s.element === "fly" ? Math.sin(world.anim * 30) * 0.25 : 0;
         blit(ctx, img, s.x, s.y, look.size * 1.3, rot);
       } else drawShot(ctx, s.x, s.y, s.element, world.anim);
+      continue;
+    }
+    // Harvest Bombard: the flaming giant pumpkin, pointing where it flies.
+    if (s.bombard) {
+      if (ready(art.flyBombard)) blitFit(ctx, art.flyBombard, s.x, s.y, 44, 24, Math.atan2(s.ty - s.y, s.tx - s.x));
+      else {
+        ctx.fillStyle = "#e8742a";
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
       continue;
     }
     // Quack-Liber rockets: the duck-nosed rocket, pointing where it flies.
@@ -801,6 +877,39 @@ function drawCarpet(
     ctx.stroke();
   }
 
+  // Corners first, so the dye below covers them too.
+  if (ready(art.corner)) {
+    for (const turn of world.turns) {
+      blit(ctx, art.corner, turn.c * CELL + CELL / 2, turn.r * CELL + CELL / 2, CELL, turn.rot);
+    }
+  }
+
+  // Each room's own carpet colour: the same weave, a different dye.
+  // A Bindery carpet colour (a cosmetic) replaces the room's own dye; black needs colour and a darker pass.
+  const chosen = world.hud.cosmetics?.carpet ?? "crimson";
+  const dye = CARPET_DYE[chosen] ?? ROOM_LOOK[world.hud.map]?.carpet;
+  if (dye) {
+    ctx.save();
+    ctx.globalCompositeOperation = chosen === "black" ? "color" : "hue";
+    ctx.fillStyle = dye;
+    for (const key of cells) {
+      const [c, r] = key.split(",").map(Number);
+      ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+    }
+    const start = world.points[0];
+    ctx.fillRect(start.x - CELL * 1.5, start.y - CELL / 2, CELL, CELL);
+    if (chosen === "black") {
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = "rgba(90,90,100,1)";
+      for (const key of cells) {
+        const [c, r] = key.split(",").map(Number);
+        ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+      }
+      ctx.fillRect(start.x - CELL * 1.5, start.y - CELL / 2, CELL, CELL);
+    }
+    ctx.restore();
+  }
+
   if (world.hud.map === "overflow") {
     ctx.fillStyle = "rgba(70, 130, 160, 0.28)";
     for (const key of cells) {
@@ -834,12 +943,6 @@ function drawCarpet(
     }
   }
   ctx.stroke();
-
-  if (ready(art.corner)) {
-    for (const turn of world.turns) {
-      blit(ctx, art.corner, turn.c * CELL + CELL / 2, turn.r * CELL + CELL / 2, CELL, turn.rot);
-    }
-  }
 
   const end = world.points[world.points.length - 1];
   const doorLight = ctx.createRadialGradient(end.x, end.y, 6, end.x, end.y, 78);
@@ -1161,6 +1264,42 @@ function drawReach(
   ctx.restore();
 }
 
+/**
+ * How each room is lit and dyed, on top of the shared art: a colour wash over the floor ([colour, strength]),
+ * the carpet's dye (its hue only, so the weave shows through), and where the room's light falls
+ * (x and y as shares of the board, its reach as a share of the board's width, and its colour).
+ * The Stacks keep the original look; the Archive keeps its dark (that's its rule).
+ */
+const ROOM_LOOK: Partial<
+  Record<string, { floor?: [string, number]; carpet?: string; light?: { x: number; y: number; r: number; color: string; a: number } }>
+> = {
+  // Storage overflow: dusty, cooler, a faded rust-brown runner, one bare bulb.
+  annex: { floor: ["#6f7a6a", 0.35], carpet: "#b0582a", light: { x: 0.7, y: 0.25, r: 0.45, color: "236,226,190", a: 0.16 } },
+  // The balcony: warm lamplight from above, a royal-blue runner.
+  mezzanine: { floor: ["#a8742a", 0.3], carpet: "#2f4fa8", light: { x: 0.5, y: 0.05, r: 0.7, color: "255,196,110", a: 0.2 } },
+  // Rare Books: green baize under the glass cases.
+  rarebooks: { carpet: "#1f7a4a", light: { x: 0.5, y: 0.5, r: 0.4, color: "255,214,140", a: 0.14 } },
+  // The Great Hall: cold stone and moonlight through high windows, a purple carpet of state.
+  greathall: { floor: ["#5a6a8a", 0.4], carpet: "#6a2fa0", light: { x: 0.15, y: 0.0, r: 0.8, color: "170,196,255", a: 0.16 } },
+  // The Reading Room: honey wood and green banker's lamps, a teal runner.
+  readingroom: { floor: ["#b08a3a", 0.3], carpet: "#1f7f86", light: { x: 0.5, y: 0.5, r: 0.6, color: "190,255,190", a: 0.1 } },
+};
+
+/** A soft pool of the room's own light. */
+function drawRoomLight(ctx: CanvasRenderingContext2D, world: World, l: { x: number; y: number; r: number; color: string; a: number }) {
+  const x = l.x * world.w;
+  const y = l.y * world.h;
+  const r = l.r * world.w;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${l.color},${l.a})`);
+  g.addColorStop(1, `rgba(${l.color},0)`);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, world.w, world.h);
+  ctx.restore();
+}
+
 /** Rooms with their own furniture on the shelf cells and their own exit (the rest use the Stacks' shelves and door). */
 const ROOM_ART: Partial<Record<string, { shelf: SpriteName; door: SpriteName }>> = {
   archive: { shelf: "archiveCabinet", door: "archiveVault" },
@@ -1242,6 +1381,9 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   mimic: { aim: false, w: 44, h: 54 },
   lectern: { aim: false, w: 46, h: 56 },
   quackliber: { aim: false, w: 48, h: 56 },
+  lionblade: { aim: false, w: 40, h: 60 },
+  gourdgate: { aim: false, w: 58, h: 58 },
+  bombard: { aim: false, w: 62, h: 60 },
   // Trick cannons.
   boomerang: { aim: false, w: 46, h: 50 },
   orrery: { aim: false, w: 38, h: 58 },
@@ -1355,7 +1497,7 @@ const NEW_SHOT = {
 
 const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108 } as const;
 /** Act three: the stone melon is a little squat and heavy, the gall small, the borrower a lanky runner. */
-const LOOK_H = { pit: 50, gall: 26, borrower: 46 } as const;
+const LOOK_H = { pit: 50, gall: 34, borrower: 46 } as const;
 
 function drawTower(
   ctx: CanvasRenderingContext2D,
@@ -1467,8 +1609,9 @@ function drawEnemy(
     ctx.save();
     ctx.translate(x, y + bob);
     if (faceLeft) ctx.scale(-1, 1);
-    ctx.shadowColor = "rgba(243,226,196,0.55)";
-    ctx.shadowBlur = 7;
+    // The gall glows lime, so the small healer reads on the carpet next to fruit twice its size.
+    ctx.shadowColor = look === "gall" ? "rgba(160,240,90,0.95)" : "rgba(243,226,196,0.55)";
+    ctx.shadowBlur = look === "gall" ? 12 : 7;
     const w = height * (img.naturalWidth / img.naturalHeight);
     ctx.drawImage(img, -w / 2, -height / 2, w, height);
     ctx.restore();

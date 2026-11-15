@@ -120,6 +120,7 @@ test("Continue falls back from a locked map or bookmark and says so", () => {
 
   const api = createWorld(() => {}, {
     meta: EMPTY_META,
+    rooms: ["stacks"],
     setup: { night: "midnight", map: "archive", hero: "vael" },
   });
   assert.equal(api.world.hud.map, "stacks");

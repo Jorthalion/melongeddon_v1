@@ -7,6 +7,10 @@ import { MenuButton, MenuCard } from "@/components/ui";
 
 export function TitleScreen({
   settings,
+  catalogue,
+  catalogueNote,
+  onCatalogue,
+  gilded,
   onStart,
   onKeeper,
   saved,
@@ -18,6 +22,13 @@ export function TitleScreen({
   onTutorial,
 }: {
   settings: ReactNode;
+  /** The Grand Catalogue (rooms and shelves), shown from the menu. */
+  catalogue: ReactNode;
+  /** One-time note after the move to the Grand Catalogue (cleared when it's opened). */
+  catalogueNote?: string;
+  onCatalogue?: () => void;
+  /** The Restricted Section's gilded title screen (a cosmetic). */
+  gilded?: boolean;
   /** Play Mynxi's tutorial again (shown once it has been done or skipped). */
   onTutorial?: () => void;
   /** The guided first night is still to do: New night stays locked, and it can be skipped. */
@@ -32,7 +43,7 @@ export function TitleScreen({
   onStart: () => void;
   onKeeper: () => void;
 }) {
-  const [view, setView] = useState<"menu" | "howto" | "settings">("menu");
+  const [view, setView] = useState<"menu" | "howto" | "settings" | "catalogue">("menu");
   const startRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   // Focus the main button whenever the menu shows, so Enter starts and arrows have a place to begin.
@@ -61,6 +72,13 @@ export function TitleScreen({
   return (
     <div className="absolute inset-0 z-20 bg-black">
       <img src={asset("sprites/screen-title.webp")} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+      {/* The gilded title (a Restricted Section cosmetic): gold trim around the whole screen. */}
+      {gilded ? (
+        <div
+          className="pointer-events-none absolute inset-2 rounded-md border-2 border-[#e6c36a]/80 shadow-[inset_0_0_0_4px_rgba(20,12,16,0.6),inset_0_0_0_5px_rgba(230,195,106,0.55),0_0_24px_rgba(230,195,106,0.35)]"
+          aria-hidden="true"
+        />
+      ) : null}
       <div className="absolute top-[43%] left-1/2 w-[min(20.5rem,74vw)] -translate-x-1/2">
         {view === "menu" ? (
           <div ref={menuRef} className="flex flex-col gap-2.5" role="group" aria-label="Main menu" onKeyDown={onMenuKey}>
@@ -87,6 +105,19 @@ export function TitleScreen({
             ) : (
               <MenuButton onClick={onKeeper}>New night</MenuButton>
             )}
+            <MenuButton
+              onClick={() => {
+                onCatalogue?.();
+                setView("catalogue");
+              }}
+            >
+              Grand Catalogue
+            </MenuButton>
+            {catalogueNote ? (
+              <p className="-mt-1 rounded bg-black/55 px-2 py-1 text-center text-xs leading-snug text-gold" role="status">
+                {catalogueNote}
+              </p>
+            ) : null}
             {onTutorial ? <MenuButton onClick={onTutorial}>Tutorial</MenuButton> : null}
             <MenuButton onClick={() => setView("howto")}>How to play</MenuButton>
             <MenuButton onClick={() => setView("settings")}>Settings</MenuButton>
@@ -100,6 +131,11 @@ export function TitleScreen({
           {view === "howto" ? (
             <MenuCard title="How to play" onBack={() => setView("menu")} wide>
               <HowToPlay />
+            </MenuCard>
+          ) : null}
+          {view === "catalogue" ? (
+            <MenuCard title="Grand Catalogue" onBack={() => setView("menu")} wide>
+              {catalogue}
             </MenuCard>
           ) : null}
           {view === "settings" ? (

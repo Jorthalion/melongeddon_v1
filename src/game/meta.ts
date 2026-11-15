@@ -3,6 +3,7 @@
  * A bookmark is a small perk; the player equips one per run on the setup screen.
  */
 import { shopPrice, type HeroId, type MapId, type TowerKind } from "./rules.ts";
+import { openBookmarks, openMaps, openTowers, restoreText, type RoomId } from "./catalogue.ts";
 
 export type BookmarkId = "seedfund" | "sparestack" | "backroom" | "discount" | "latefee";
 
@@ -25,9 +26,8 @@ export interface Bookmark {
   id: BookmarkId;
   name: string;
   blurb: string;
-  /** How to unlock it, shown while it is locked. */
+  /** How to unlock it, shown while it is locked ("Restore <Room> in the Grand Catalogue."). */
   goal: string;
-  unlocked: (m: MetaStats) => boolean;
 }
 
 export const BOOKMARKS: Bookmark[] = [
@@ -35,36 +35,31 @@ export const BOOKMARKS: Bookmark[] = [
     id: "seedfund",
     name: "Seed Fund",
     blurb: "Start with 30 more seeds.",
-    goal: "Clear wave 3.",
-    unlocked: (m) => Math.max(m.bestWave, m.endlessBest) >= 3,
+    goal: restoreText("bookmark", "seedfund"),
   },
   {
     id: "sparestack",
     name: "Spare Stack",
     blurb: "Start with two more stacks.",
-    goal: "Pop Karl.",
-    unlocked: (m) => m.karls >= 1,
+    goal: restoreText("bookmark", "sparestack"),
   },
   {
     id: "backroom",
     name: "Back-room Key",
     blurb: "Your first back-room upgrade each run is free.",
-    goal: "Buy 5 back-room upgrades.",
-    unlocked: (m) => m.fittings >= 5,
+    goal: restoreText("bookmark", "backroom"),
   },
   {
     id: "discount",
     name: "Bulk Order",
     blurb: "Every cannon costs 5 seeds less.",
-    goal: "Win a night.",
-    unlocked: (m) => m.wins >= 1,
+    goal: restoreText("bookmark", "discount"),
   },
   {
     id: "latefee",
     name: "Late Fees",
     blurb: "Every kill pays 1 more seed.",
-    goal: "Reach wave 15 in Endless.",
-    unlocked: (m) => m.endlessBest >= 14,
+    goal: restoreText("bookmark", "latefee"),
   },
 ];
 
@@ -120,38 +115,40 @@ export function savePick(id: BookmarkId | null) {
   }
 }
 
-export function unlockedIds(m: MetaStats): BookmarkId[] {
-  return BOOKMARKS.filter((b) => b.unlocked(m)).map((b) => b.id);
+/** Bookmarks the restored rooms have opened. */
+export function unlockedIds(rooms: readonly RoomId[]): BookmarkId[] {
+  const open = openBookmarks(rooms);
+  return BOOKMARKS.filter((b) => open.includes(b.id)).map((b) => b.id);
 }
 
-/** Keeper towers that start locked, with how to open them. The rest are open from the start. */
-export const TOWER_GOALS: Partial<Record<TowerKind, { goal: string; unlocked: (m: MetaStats) => boolean }>> = {
-  desk: { goal: "Finish a night with at least 200 seeds still in hand.", unlocked: (m) => m.richest >= 200 },
-  flask: {
-    goal: "Win a night as Vaelithra after building a Still and taking Trial Vial or Distilled Batch.",
-    unlocked: (m) => m.brews >= 1,
-  },
+/** Keeper towers that start locked, with the room that opens them. The rest are open from the start. */
+export const TOWER_GOALS: Partial<Record<TowerKind, { goal: string }>> = {
+  desk: { goal: restoreText("tower", "desk") },
+  flask: { goal: restoreText("tower", "flask") },
 };
 
-/** Keeper towers still locked for these stats. */
-export function lockedTowers(m: MetaStats): TowerKind[] {
-  return (Object.keys(TOWER_GOALS) as TowerKind[]).filter((k) => !TOWER_GOALS[k]!.unlocked(m));
+/** Keeper towers the restored rooms haven't opened yet. */
+export function lockedTowers(rooms: readonly RoomId[]): TowerKind[] {
+  const open = openTowers(rooms);
+  return (Object.keys(TOWER_GOALS) as TowerKind[]).filter((k) => !open.includes(k));
 }
 
-/** Maps that start locked, with how to open them. The rest are always open. */
-export const MAP_GOALS: Partial<Record<MapId, { goal: string; unlocked: (m: MetaStats) => boolean }>> = {
-  mezzanine: { goal: "Clear wave 5.", unlocked: (m) => Math.max(m.bestWave, m.endlessBest) >= 5 },
-  rarebooks: { goal: "Pop Karl.", unlocked: (m) => m.karls >= 1 },
-  archive: { goal: "Win a night.", unlocked: (m) => m.wins >= 1 },
-  greathall: { goal: "Win two nights.", unlocked: (m) => m.wins >= 2 },
-  readingroom: { goal: "Win a night on Melongeddon or harder.", unlocked: (m) => m.hardWins >= 1 },
+/** Maps that start locked, with the room that opens them. The Stacks and the Annex are always open. */
+export const MAP_GOALS: Partial<Record<MapId, { goal: string }>> = {
+  mezzanine: { goal: restoreText("map", "mezzanine") },
+  rarebooks: { goal: restoreText("map", "rarebooks") },
+  archive: { goal: restoreText("map", "archive") },
+  greathall: { goal: restoreText("map", "greathall") },
+  readingroom: { goal: restoreText("map", "readingroom") },
 };
 
 /** Maps the player can pick on the setup screen (the Overflow is night two's, never picked). */
 export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom"];
 
-export function unlockedMaps(m: MetaStats): MapId[] {
-  return PICKABLE_MAPS.filter((id) => MAP_GOALS[id]?.unlocked(m) ?? true);
+/** Maps the restored rooms have opened. */
+export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {
+  const open = openMaps(rooms);
+  return PICKABLE_MAPS.filter((id) => !MAP_GOALS[id] || open.includes(id));
 }
 
 /**

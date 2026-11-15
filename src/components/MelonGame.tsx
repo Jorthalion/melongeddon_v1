@@ -10,6 +10,8 @@ import { BuildFooter, GameHeader } from "@/components/GameHUD";
 import { CardOverlay } from "@/components/CardPicker";
 import { BackRoomTab } from "@/components/Shop";
 import { PauseMenu } from "@/components/PauseMenu";
+import { CheckoutPanel } from "@/components/CheckoutCard";
+import { GrandCatalogue } from "@/components/GrandCatalogue";
 import { ROOM_JOKE, RoomScreen } from "@/components/RoomScreen";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { SetupScreen } from "@/components/SetupScreen";
@@ -220,7 +222,7 @@ export function MelonGame() {
             tone(240, 0.06, "square", 0.03);
           }}
         />
-        {hud.paused && !hud.menu && showPlace ? (
+        {hud.paused && !hud.menu && !hud.checkout && showPlace ? (
           <div className="pointer-events-none absolute inset-3 grid place-items-center">
             <p className="rounded-xl border border-line bg-ink/80 px-4 py-2 font-display text-xl">Paused</p>
           </div>
@@ -239,6 +241,10 @@ export function MelonGame() {
       {showPlace ? <BuildFooter api={api} onGesture={gesture} /> : null}
       {phase === "coldopen" ? (
         <TitleScreen
+          catalogue={<GrandCatalogue api={api} onGesture={gesture} />}
+          catalogueNote={hud.catalogueNote}
+          onCatalogue={() => api.dismissCatalogueNote()}
+          gilded={hud.cosmetics.gilded}
           settings={<SettingsPanel api={api} muted={muted} music={music} onMute={toggleMute} onMusic={toggleMusic} onGesture={gesture} />}
           saved={hud.saved}
           summary={
@@ -309,6 +315,7 @@ export function MelonGame() {
           />
         )
       ) : null}
+      {hud.checkout && runLive && !hud.menu ? <CheckoutPanel api={api} onGesture={gesture} /> : null}
       {hud.menu && runLive ? (
         <PauseMenu api={api} muted={muted} music={music} onMute={toggleMute} onMusic={toggleMusic} onGesture={gesture} />
       ) : null}

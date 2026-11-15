@@ -1,5 +1,20 @@
+import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
-import { BOARDS, DIFFICULTIES, KEEPER_TOWERS, MAP_GOALS, PERK_LEVELS, PICKABLE_MAPS, TOWER_GOALS, TOWERS, levelFor, type Difficulty } from "@/game/engine";
+import {
+  BOARDS,
+  DIFFICULTIES,
+  KEEPER_TOWERS,
+  MAP_GOALS,
+  PERK_LEVELS,
+  PICKABLE_MAPS,
+  TOWER_GOALS,
+  TOWERS,
+  levelFor,
+  roomFor,
+  type CardFrame,
+  type Difficulty,
+} from "@/game/engine";
+import { FragmentIcon, GrandCatalogue } from "@/components/GrandCatalogue";
 import { tone } from "@/game/audio";
 import { BookmarkPicker } from "@/components/Bookmarks";
 import { LevelBadge, PerkPicker } from "@/components/KeeperLevels";
@@ -7,7 +22,15 @@ import { SlipPicker } from "@/components/LateSlips";
 import { MapPreview } from "@/components/MapPreview";
 import { TowerIcon } from "@/components/TowerIcon";
 import { KEEPERS } from "@/components/keeperCards";
-import type { GameApi } from "@/components/ui";
+import { MenuCard, type GameApi } from "@/components/ui";
+
+/** Keeper-card frames (Bindery and Restricted Section cosmetics): the card's border when it isn't picked. */
+const FRAME: Record<CardFrame, string> = {
+  plain: "border-line/80",
+  gold: "border-[#c6a15a]/80 shadow-[inset_0_0_0_1px_rgba(230,195,106,0.35)]",
+  ink: "border-2 border-[#1d2640] shadow-[inset_0_0_0_1px_rgba(120,150,210,0.35)]",
+  archivist: "border-2 border-[#e6c36a] shadow-[0_0_10px_rgba(230,195,106,0.45),inset_0_0_0_2px_rgba(20,12,16,0.8),inset_0_0_0_3px_rgba(230,195,106,0.6)]",
+};
 
 /**
  * New night, in two pages. "Who": seven faces and the chosen keeper's one line and every tower only they can build.
@@ -41,6 +64,21 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
   const keeper = hud.hero;
   const chosen = KEEPERS.find((k) => k.id === keeper) ?? null;
   const towers = chosen ? KEEPER_TOWERS[chosen.id] : [];
+  const [catalogue, setCatalogue] = useState(false);
+  // Esc closes the Catalogue over Setup (before the page's own Esc, which would go back to the title).
+  useEffect(() => {
+    if (!catalogue) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      setCatalogue(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [catalogue]);
+  // A locked keeper was tapped (or its number pressed): the engine says which room opens them.
+  const lockNote = hud.log.includes("is locked. Restore") ? hud.log : "";
   return (
     <>
       <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 sm:pt-6">
@@ -49,41 +87,66 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
           <h1 className="mt-2 font-display text-3xl font-semibold sm:mt-3 sm:text-5xl">Who holds the stacks?</h1>
           <p className="mt-2 max-w-xl text-base text-muted sm:mt-3 sm:text-lg">Pick the person first. The carpet can wait one screen.</p>
 
-          <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-7 sm:gap-3" role="radiogroup" aria-label="Keeper">
+          <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-8 sm:gap-2" role="radiogroup" aria-label="Keeper">
             {KEEPERS.map((hero, i) => {
               const on = keeper === hero.id;
+              const locked = hud.lockedKeepers.includes(hero.id);
+              const room = locked ? roomFor("keeper", hero.id) : null;
               return (
                 <button
                   key={hero.id}
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  aria-label={`${hero.name}, ${hero.role}`}
-                  className={`relative flex flex-col overflow-hidden rounded-lg border text-left transition duration-200 hover:-translate-y-0.5 ${
+                  aria-disabled={locked}
+                  aria-label={locked ? `${hero.name}, locked: restore ${room?.name}` : `${hero.name}, ${hero.role}`}
+                  className={`relative flex flex-col overflow-hidden rounded-lg border text-left transition duration-200 ${
                     on
                       ? "border-[#c6a15a] shadow-[0_0_20px_rgba(226,59,74,0.32),inset_0_0_22px_rgba(198,161,90,0.2)]"
-                      : "border-line/80 hover:border-[#c6a15a]"
+                      : locked
+                        ? "border-line/50"
+                        : `${FRAME[hud.cosmetics.frame]} hover:-translate-y-0.5 hover:border-[#c6a15a]`
                   } bg-[#1c1216]`}
                   onClick={() => {
                     onGesture();
-                    tone(hero.toneHz, 0.08, "triangle", 0.04);
+                    // A soft, low "locked" tone; the note under the grid says which room opens them.
+                    tone(locked ? 140 : hero.toneHz, 0.08, locked ? "sine" : "triangle", locked ? 0.03 : 0.04);
                     api.pickKeeper(hero.id);
                   }}
                 >
                   <span className="relative block aspect-[4/5] overflow-hidden">
                     {/* Their own colours: the hair and the clothes are the difference. */}
-                    <img src={hero.portrait} alt="" className="h-full w-full object-cover object-[center_18%]" />
+                    <img src={hero.portrait} alt="" className={`h-full w-full object-cover object-[center_18%] ${locked ? "opacity-35 grayscale" : ""}`} />
+                    {locked ? <Lock className="absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 text-gold" aria-hidden="true" /> : null}
                     <span className="absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(to_top,rgba(20,12,16,0.85),transparent)]" />
                     <LevelBadge hud={hud} hero={hero.id} />
                     <kbd className="absolute top-1.5 left-1.5 hidden rounded-[4px] border border-b-2 border-line bg-ink/70 px-1 font-sans text-[10px] leading-4 text-muted sm:block">
                       {i + 1}
                     </kbd>
                   </span>
-                  <span className={`truncate px-1 py-1.5 text-center font-display text-sm font-semibold tracking-tight sm:text-[13px] ${on ? "text-gold" : ""}`}>{hero.name}</span>
+                  <span className={`line-clamp-2 px-1 py-1.5 text-center font-display text-sm leading-tight font-semibold tracking-tight sm:text-xs lg:text-[13px] ${on ? "text-gold" : locked ? "text-muted" : ""}`}>{hero.name}</span>
+                  {room ? <span className="-mt-1 line-clamp-2 px-1 pb-1.5 text-center text-[10px] leading-tight text-muted">Restore {room.name}</span> : null}
                 </button>
               );
             })}
           </div>
+          <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="text-sm text-flesh" role="status">
+              {lockNote}
+            </p>
+            {/* Locked keepers point somewhere: the Grand Catalogue, over Setup. */}
+            <button type="button" className="text-sm text-gold underline decoration-gold/50 underline-offset-2 hover:decoration-gold" onClick={() => setCatalogue(true)}>
+              <FragmentIcon className="mr-1 h-4" />
+              {hud.fragments} fragment{hud.fragments === 1 ? "" : "s"}, Grand Catalogue
+            </button>
+          </div>
+          {catalogue ? (
+            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+              <MenuCard title="Grand Catalogue" onBack={() => setCatalogue(false)} wide>
+                <GrandCatalogue api={api} onGesture={onGesture} />
+              </MenuCard>
+            </div>
+          ) : null}
 
           {/* The chosen keeper: who they are, the one thing you'll feel on wave one, and their own tower. */}
           <div className="mt-3 min-h-[8.5rem] rounded-lg border border-line/60 bg-panel/60 px-4 py-3" aria-live="polite">

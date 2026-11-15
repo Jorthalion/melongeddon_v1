@@ -96,6 +96,11 @@ export interface PerkFx {
   lockdown?: number;
   covering?: number;
   perimeter?: number;
+  /** Asser: extra seeds per lost stack (Bitter Ink), extra stacks Sisu counts (Hard Lessons), 1 = Second Wind, extra Sisu per stack (Saga). */
+  material?: number;
+  sisuCap?: number;
+  secondWind?: number;
+  sisuPerStack?: number;
 }
 
 export interface Perk {
@@ -260,6 +265,29 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
       { name: "Steady Hands", blurb: "The Quack-Liber's speed-up is 25% instead of 15%.", fx: { auraHaste: 0.1 } },
     ],
   ],
+  // Asser is built to take hits; his perks make losing stacks pay more.
+  asser: [
+    [
+      { name: "Thick Skin", blurb: "Start with three more stacks.", fx: { lives: 3 } },
+      { name: "Royalty Advance", blurb: "Start with 25 more seeds.", fx: { seeds: 25 } },
+    ],
+    [
+      { name: "Whetted Edge", blurb: "The Lion Blade hits 25% harder.", fx: { sigDmg: 1.25 } },
+      { name: "Long Arms", blurb: "The Lion Blade reaches 20% farther.", fx: { sigRange: 1.2 } },
+    ],
+    [
+      { name: "Bitter Ink", blurb: "Every lost stack pays 6 seeds instead of 4.", fx: { material: 2 } },
+      { name: "Hard Lessons", blurb: "Sisu counts up to 20 missing stacks instead of 15.", fx: { sisuCap: 5 } },
+    ],
+    [
+      { name: "Second Wind", blurb: "Once a night, the first time he drops to 5 stacks or fewer, he gets 5 back.", fx: { secondWind: 1 } },
+      { name: "Field Notes", blurb: "The Lion Blade costs 25 seeds less.", fx: { sigCost: 25 } },
+    ],
+    [
+      { name: "Second Blade", blurb: "You can build two Lion Blades.", fx: { sigExtra: 1 } },
+      { name: "Saga", blurb: "Sisu is 3% a missing stack instead of 2%.", fx: { sisuPerStack: 0.01 } },
+    ],
+  ],
 };
 
 /** A pick per tier: 0 or 1 for the two perks, null while the tier is still locked. */
@@ -345,6 +373,10 @@ export function perkFx(hero: HeroId | null, rec: KeeperRecord | undefined): Requ
     lockdown: 0,
     covering: 0,
     perimeter: 0,
+    material: 0,
+    sisuCap: 0,
+    secondWind: 0,
+    sisuPerStack: 0,
   };
   const MUL = new Set<keyof PerkFx>(["allDmg", "allRange", "sigDmg", "sigRange", "sigPace", "poolLife", "poolWide", "chill", "knock", "splash", "auraReach"]);
   for (const perk of activePerks(hero, rec)) {

@@ -60,6 +60,8 @@ export interface RunResult {
   /** Stacks lost on each wave played, index 0 = wave 1. */
   leaks: number[];
   towers: number;
+  /** Tower kinds standing at the end of the run. */
+  kinds: TowerKind[];
   simSeconds: number;
   /** Upgrades held at the end of the run. */
   upgrades: UpgradeId[];
@@ -129,6 +131,12 @@ function play(config: RunConfig, rng: () => number): RunResult {
   const nextKind = (): TowerKind => {
     const own = signature && config.strategy !== "melon" && !config.rotation && placed >= 2 && !world.towers.some((t) => t.kind === signature);
     if (own) return signature!;
+    // Sir Michael's big siege towers: once eight cannons are down, the bot saves up for the Bombard,
+    // then the Gourd Gate (one each), like a player would, instead of buying more small cannons.
+    if (config.hero === "michael" && config.strategy !== "melon" && !config.rotation && placed >= 8) {
+      const big = (["bombard", "gourdgate"] as TowerKind[]).find((k) => !world.towers.some((t) => t.kind === k));
+      if (big) return big;
+    }
     // Keeper towers are one of each: once one is down, the rotation moves past it.
     for (let i = 0; i < order.length; i++) {
       const kind = order[(placed + i) % order.length];
@@ -169,6 +177,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       for (let r = 0; r < world.rows; r++) {
         if (world.pathCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`)) continue;
         if (world.towers.some((t) => t.c === c && t.r === r)) continue;
+        if ((kind === "gourdgate" || kind === "desk") && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.pathCells.has(`${c + a},${r + b}`))) continue;
         const x = c * CELL + CELL / 2;
         const y = r * CELL + CELL / 2;
         let score = 0;
@@ -223,7 +232,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       api.dismissSelection(); // a click with a tower selected only closes it
       click(spot.c, spot.r);
       if (world.towers.length === before) break;
-      if (kind !== signature) placed++;
+      if (kind !== signature && kind !== "bombard" && kind !== "gourdgate") placed++;
     }
     api.dismissSelection();
   };
@@ -274,6 +283,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     maxLives: world.hud.maxLives,
     leaks,
     towers: world.towers.length,
+    kinds: [...new Set(world.towers.map((x) => x.kind))],
     simSeconds: Math.round(t),
     upgrades: [...world.hud.upgrades],
   };

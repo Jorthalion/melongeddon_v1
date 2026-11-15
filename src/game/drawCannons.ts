@@ -9,7 +9,7 @@ export const DRAWN_KINDS: TowerKind[] = [
   "spitter", "ballista", "reader", "bell", "hive", "lantern", "ink", "compost", "peeler", "bookworm",
   "boomerang", "orrery", "plane", "quill", "globe",
   "press", "organ", "scope",
-  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese",
+  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese", "lionblade", "gourdgate", "bombard",
 ];
 
 const WOOD = "#5a3a22";
@@ -900,6 +900,117 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.fillStyle = "#1d1a1c";
       ctx.beginPath();
       ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "gourdgate": {
+      // Sir Michael's Gourd Gate (stand-in while its art loads): a pumpkin dome with a gold-banded arch and a grille.
+      shadow(ctx, x, y, 18);
+      ctx.translate(x, y);
+      ctx.fillStyle = "#e8742a";
+      ctx.beginPath();
+      ctx.ellipse(0, 2, 18, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#6b6560";
+      rrect(ctx, -8, -2, 16, 17, 6);
+      ctx.fill();
+      ctx.strokeStyle = "#c6a15a";
+      ctx.lineWidth = 1.5;
+      for (const k of [-4, 0, 4]) {
+        ctx.beginPath();
+        ctx.moveTo(k, 0);
+        ctx.lineTo(k, 13);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#7a2a2a";
+      ctx.fillRect(-2, -20, 2, 9);
+      ctx.fillStyle = "#b8323a";
+      ctx.fillRect(0, -20, 8, 4);
+      break;
+    }
+    case "bombard": {
+      // Sir Michael's Harvest Bombard (stand-in): a fat bronze barrel on a carriage with a pumpkin in its mouth.
+      shadow(ctx, x, y, 19);
+      ctx.translate(x, y);
+      ctx.fillStyle = "#5a3a22";
+      rrect(ctx, -16, 4, 30, 9, 3);
+      ctx.fill();
+      ctx.fillStyle = "#3a2618";
+      for (const k of [-10, 9]) {
+        ctx.beginPath();
+        ctx.arc(k, 13, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.save();
+      ctx.rotate(-0.45);
+      ctx.fillStyle = "#a8742a";
+      rrect(ctx, -12, -8, 30, 15, 6);
+      ctx.fill();
+      ctx.fillStyle = "#e8742a";
+      ctx.beginPath();
+      ctx.arc(18, -0.5, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      break;
+    }
+    case "lionblade": {
+      // Asser's Lion Blade: a longsword standing point-down in a grey stone, a blue-and-white
+      // Nordic-cross pennant tied below the crossguard.
+      shadow(ctx, x, y, 16);
+      ctx.translate(x, y);
+      // The stone.
+      ctx.fillStyle = "#6b6560";
+      ctx.beginPath();
+      ctx.ellipse(0, 10, 15, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#857f78";
+      ctx.beginPath();
+      ctx.ellipse(-1, 7, 12, 5.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // The blade, going into the stone.
+      ctx.fillStyle = "#d9dee6";
+      ctx.beginPath();
+      ctx.moveTo(-2.4, 7);
+      ctx.lineTo(-2.4, -16);
+      ctx.lineTo(2.4, -16);
+      ctx.lineTo(2.4, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#9aa3ad";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(0, 6);
+      ctx.lineTo(0, -15);
+      ctx.stroke();
+      // Crossguard, grip and pommel.
+      ctx.fillStyle = "#8a6a3a";
+      rrect(ctx, -9, -18.5, 18, 3, 1.2);
+      ctx.fill();
+      ctx.fillStyle = "#4a3222";
+      ctx.fillRect(-1.6, -25, 3.2, 6.5);
+      ctx.fillStyle = "#b08a4a";
+      ctx.beginPath();
+      ctx.arc(0, -26.5, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      // Pennant: white with a blue Nordic cross, fluttering off the guard.
+      const flap = Math.sin(t * 4) * 1.5;
+      ctx.fillStyle = "#f2f2ee";
+      ctx.beginPath();
+      ctx.moveTo(3, -15);
+      ctx.lineTo(15, -13 + flap);
+      ctx.lineTo(13, -9 + flap);
+      ctx.lineTo(15, -5 + flap);
+      ctx.lineTo(3, -7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#2a5db0";
+      ctx.fillRect(6, -15, 2.2, 8);
+      ctx.beginPath();
+      ctx.moveTo(3, -11.8);
+      ctx.lineTo(14, -10.5 + flap);
+      ctx.lineTo(14, -8.7 + flap);
+      ctx.lineTo(3, -10);
+      ctx.closePath();
       ctx.fill();
       break;
     }

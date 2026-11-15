@@ -1,4 +1,4 @@
-import { BookOpen, Coins, Heart, Lock, Menu, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
+import { BookOpen, Coins, Heart, IdCard, Lock, Menu, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
 import {
   BOARDS,
   CANNON,
@@ -15,7 +15,6 @@ import {
   TOWERS,
   TOWER_TYPE,
   TYPE_INFO,
-  UPGRADES,
   buildCost,
   groupOf,
   groupsFor,
@@ -26,6 +25,7 @@ import {
 } from "@/game/engine";
 import { tone } from "@/game/audio";
 import { TowerIcon } from "@/components/TowerIcon";
+import { checkoutCount } from "@/components/CheckoutCard";
 import type { GameApi } from "@/components/ui";
 
 /** Top bar: name (or keeper and room), seeds, stacks, absurdity, speed, pause, menu and sound. */
@@ -88,7 +88,13 @@ export function GameHeader({
               <span className="font-display text-lg leading-none font-semibold">
                 {hud.lives}/{hud.maxLives}
               </span>
+              {hud.sisu > 0 ? (
+                <span className="text-xs font-semibold whitespace-nowrap text-[#8fbcf2]" title="Sisu: Asser's towers hit harder for every stack he is missing">
+                  Sisu +{hud.sisu}%
+                </span>
+              ) : null}
             </span>
+            {menuable ? <CheckoutButton api={api} onGesture={gesture} /> : null}
             <span className="hidden text-xs text-muted sm:inline">Absurdity {hud.absurdity}</span>
             <div className="flex items-center gap-1">
               {showPlace ? (
@@ -165,6 +171,31 @@ export function GameHeader({
   );
 }
 
+/** The checkout card's button: a library card with the number of things checked out tonight. */
+function CheckoutButton({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+  const n = checkoutCount(api);
+  return (
+    <button
+      type="button"
+      aria-label={`Checkout card, ${n} item${n === 1 ? "" : "s"}`}
+      aria-haspopup="dialog"
+      title="Checkout card (C)"
+      className="relative grid size-9 place-items-center rounded-lg border border-line/70 hover:border-[#c6a15a] sm:size-11"
+      onClick={() => {
+        onGesture();
+        api.openCheckout();
+      }}
+    >
+      <IdCard className="size-4 text-[#f3e2c4]" aria-hidden="true" />
+      {n ? (
+        <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[10px] leading-none font-bold text-ink" aria-hidden="true">
+          {n}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 /** Bottom bar while building or fighting: start button or wave progress, build tabs, build bar or inspector, log. */
 export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
   const hud = api.world.hud;
@@ -230,7 +261,7 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
             );
           })}
         </div>
-        <p className="min-w-0 flex-1 truncate text-right text-xs text-muted">{hud.upgrades.map((id) => UPGRADES[id].name).join(" · ")}</p>
+
       </div>
       {selected ? (
         <TowerInspector
@@ -345,11 +376,15 @@ const SHORT_NAME: Record<TowerKind, string> = {
   lectern: "Lectern",
   quackliber: "Quack-Liber",
   geese: "Anti-Geese",
+  lionblade: "Lion Blade",
+  gourdgate: "Gourd Gate",
+  bombard: "Bombard",
 };
 
 /** The build card's one-line number: damage (and pace, on wider screens) for anything that hits. */
 function CardStat({ kind, read }: { kind: TowerKind; read: { dmg: number; interval: number } }) {
   if (kind === "geese") return <>Throws back {CANNON.geeseShove / CELL} tiles</>;
+  if (kind === "gourdgate") return <>Holds {CANNON.gateHold}s</>;
   if (read.dmg <= 0 || PASSIVE.includes(kind) || kind === "flask" || kind === "copycat") return <>No damage</>;
   const dmg = Number.isInteger(read.dmg) ? String(read.dmg) : read.dmg.toFixed(1);
   if (kind === "scales") return <>{dmg} + {Math.round(CANNON.scalesShare * 100)}% hp</>;
@@ -407,6 +442,9 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   if (kind === "organ") return `DMG ${read.dmg} to all within ${tiles} · slows · every ${CANNON.organEvery}rd chord stops · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "scope") return `DMG ${read.dmg} · pierces armour · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "honey") return `No damage · sticky footprint every ${read.interval.toFixed(1)}s: +${Math.round((CANNON.honeyAmp - 1) * 100)}% damage taken for ${CANNON.honeyTime}s · ${tiles}`;
+  if (kind === "gourdgate") return `Holds the carpet beside it ${CANNON.gateHold}s (${CANNON.gateHoldOath}s in his oath's zone) every ${read.interval.toFixed(1)}s · ${read.dmg} dmg/s to held fruit${lit}`;
+  if (kind === "bombard") return `DMG ${read.dmg} + ${Math.round(read.dmg * CANNON.bombardSplashRatio)} splash · whole board · shoves 1 tile · burns · ${read.interval.toFixed(1)}s${lit}`;
+  if (kind === "lionblade") return `DMG ${read.dmg} to every fruit in ${tiles} · ${read.interval.toFixed(1)}s · a lost stack: swings now, +${Math.round((CANNON.bladeRally - 1) * 100)}%${lit}`;
   if (kind === "geese") return `One use · throws every fruit in ${tiles} back ${CANNON.geeseShove / CELL} tiles · ${CANNON.geeseDamage} dmg`;
   if (kind === "stomp") return `DMG ${read.dmg} + ${CANNON.stompStun}s stop · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "still") return `No shot · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;

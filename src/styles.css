@@ -50,3 +50,24 @@
     line-height: 1.5;
   }
 }
+
+/* The checkout card slides up from the bottom on phones and in from the right on wider screens. */
+@keyframes checkout-up {
+  from { transform: translateY(100%); }
+}
+@keyframes checkout-left {
+  from { transform: translateX(105%); }
+}
+.checkout-slide {
+  animation: checkout-up 220ms ease-out;
+}
+@media (min-width: 40rem) {
+  .checkout-slide {
+    animation-name: checkout-left;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkout-slide {
+    animation: none;
+  }
+}

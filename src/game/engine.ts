@@ -4,7 +4,7 @@ import {
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
-  OATHS, OATH_TEXT, OATH_VALUES, inOathZone, oathStretch, type OathId,
+  OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 
@@ -46,7 +46,34 @@ import {
 } from "./levels.ts";
 export * from "./levels.ts";
 import { SLIP_VALUES, cleanSlips, slipXp, type SlipId } from "./slips.ts";
+import {
+  addNight,
+  emptyLedger,
+  emptyRunLog,
+  emptySave,
+  loadAchievements,
+  migrate,
+  quietContext,
+  saveAchievements,
+  settle,
+  tierSum,
+  type Ledger,
+  type RunLog,
+} from "./achievements.ts";
 export * from "./slips.ts";
+import {
+  ALL_ROOMS,
+  ROOM,
+  affordable,
+  allowedCosmetics,
+  nightFragments,
+  openKeepers,
+  restoreText,
+  roomFor,
+  type Cosmetics,
+  type RoomId,
+} from "./catalogue.ts";
+export * from "./catalogue.ts";
 
 interface Waypoint {
   x: number;
@@ -132,6 +159,14 @@ interface Tower {
   /** Quack-Liber: rockets fired (Lane Lockdown counts them), and seconds left of Quiet Confidence. */
   volley?: number;
   rally?: number;
+  /** Gourd Gate: the carpet point its portcullis drops on (with how far along the carpet that is), seconds it stays down, and seconds since it dropped. */
+  gate?: { x: number; y: number; along: number; total: number };
+  gateDown?: number;
+  gateAge?: number;
+  /** Lion Blade: a lost stack rallied it; its next swing hits harder (they don't add up). */
+  bladeRally?: boolean;
+  /** Lion Blade: it was standing when this wave started, so it mends when the wave is cleared. */
+  mendReady?: boolean;
   /** Anti-Geese Protocol: fire on its own (auto, the default) or only when Engage is pressed (manual). */
   trigger?: "auto" | "manual";
 }
@@ -206,6 +241,10 @@ interface Shot {
   bounceRatio?: number;
   /** Pumpkin Trebuchet: push fruit this far back along the carpet. */
   knock?: number;
+  /** Harvest Bombard: the giant pumpkin (its own hit, splash, shove and fire). */
+  bombard?: boolean;
+  /** Fruit this shot has killed so far, its chains included (Chain Reaction). */
+  kills?: number;
   /** Quack-Liber rocket: everything in the burst is slowed this long (s); Covering Fire makes the target sticky this long (s); Lane Lockdown leaves a patch. */
   splashChill?: number;
   cover?: number;
@@ -358,6 +397,8 @@ export interface Hud {
   quackAura: number;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
   geeseSpent: boolean;
+  /** Asser's Sisu right now, in percent (0 for everyone else). */
+  sisu: number;
   /** Keeper levels: XP and perk picks for every keeper. */
   keepers: KeeperProgress;
   /** The keeper's XP when this run started, and the XP earned in it. */
@@ -379,6 +420,29 @@ export interface Hud {
    */
   falseCard: UpgradeId | null;
   sicCard: UpgradeId | null;
+  /**
+   * Wrong books taken this run (they gave nothing; never read these for effects), and every card
+   * taken in pick order, real or wrong (`sic`: Marginalia had pencilled it), for the checkout card.
+   */
+  misreads: UpgradeId[];
+  cardPicks: Array<{ id: UpgradeId; sic: boolean }>;
+  /** The checkout card (everything shaping this run) is open. */
+  checkout: boolean;
+  /** Grand Catalogue: achievements earned (id -> when), the lifetime ledger, and the ones earned this night. */
+  shelves: Record<string, number>;
+  ledger: Ledger;
+  newShelves: string[];
+  /** Grand Catalogue: rooms restored, fragments in hand and earned in all, keepers still locked, cosmetics in use. */
+  rooms: RoomId[];
+  fragments: number;
+  fragmentsEarned: number;
+  lockedKeepers: HeroId[];
+  cosmetics: Cosmetics;
+  /** What the night just ended paid, part by part (achievements included), and a room it can now afford. */
+  nightFragments: Array<{ label: string; n: number }>;
+  canRestore: RoomId | null;
+  /** One-time note on the Title after the move to the Grand Catalogue. */
+  catalogueNote: string;
   /** Tower kinds placed at least once this night (Vaelithra's first-of-a-kind premium). */
   builtKinds: TowerKind[];
   /** Setup has two pages: who holds the stacks, then the night (room, difficulty, bookmark, perks). */
@@ -516,12 +580,16 @@ function saveSetup(rec: SetupRecord) {
  */
 export function validateSetup(
   saved: Partial<SetupRecord> | null | undefined,
-  have: { maps: MapId[]; unlocked: BookmarkId[] },
+  have: { maps: MapId[]; unlocked: BookmarkId[]; keepers?: HeroId[] },
 ): { setup: SetupRecord; notes: string[]; needsDoor: boolean } {
   const s = saved ?? {};
   const notes: string[] = [];
   const night = NIGHTS.includes(s.night as NightId) ? (s.night as NightId) : DEFAULT_SETUP.night;
-  const hero = HEROES.includes(s.hero as HeroId) ? (s.hero as HeroId) : DEFAULT_SETUP.hero;
+  let hero = HEROES.includes(s.hero as HeroId) ? (s.hero as HeroId) : DEFAULT_SETUP.hero;
+  if (have.keepers && !have.keepers.includes(hero)) {
+    notes.push(`${KEEPER_NAMES[hero].name} is locked until ${roomFor("keeper", hero)?.name ?? "their room"} is restored, so ${KEEPER_NAMES.mynxi.name} holds the stacks.`);
+    hero = "mynxi";
+  }
   const difficulty = DIFFICULTIES.some((d) => d.id === s.difficulty) ? (s.difficulty as Difficulty) : DEFAULT_SETUP.difficulty;
   let map: MapId = DEFAULT_SETUP.map;
   if (night === "overflow") map = "overflow";
@@ -592,6 +660,8 @@ export interface Sfx {
 export interface World {
   hud: Hud;
   sfx: Sfx[];
+  /** What happened in this night so far, for achievements (reset every run, never saved). */
+  runLog: RunLog;
   hover: { c: number; r: number } | null;
   anim: number;
   enemies: Enemy[];
@@ -635,6 +705,10 @@ export interface WorldOptions {
   guide?: boolean;
   /** Every trick cannon can be built whatever the keeper's level (simulator, tests). */
   allTricks?: boolean;
+  /** Grand Catalogue rooms restored (tests). Default: every room in tests, the simulator and dev mode; the save in the real game. */
+  rooms?: RoomId[];
+  /** Fragments in hand to start with (tests). */
+  fragments?: number;
 }
 
 export function createWorld(
@@ -703,6 +777,14 @@ export function createWorld(
   tryEndless: () => void;
   openMenu: () => void;
   closeMenu: () => void;
+  /** The checkout card: open it (pauses the board), close it (puts the pause back how it was). */
+  openCheckout: () => void;
+  closeCheckout: () => void;
+  /** Grand Catalogue: spend fragments on a room (Title or Setup only). True if it was restored. */
+  restoreRoom: (id: RoomId) => boolean;
+  /** Grand Catalogue: choose cosmetics (only the ones restored rooms allow are kept). */
+  setCosmetics: (c: Partial<Cosmetics>) => void;
+  dismissCatalogueNote: () => void;
   menuSettings: (open: boolean) => void;
   /** Settings: default game speed (also applied now). Saved. */
   setSpeed: (speed: number) => void;
@@ -770,6 +852,7 @@ export function createWorld(
       chuteWave: false,
       quackAura: CANNON.quackAura,
       geeseSpent: false,
+      sisu: 0,
       keepers: emptyProgress(),
       xpStart: 0,
       xpRun: 0,
@@ -785,6 +868,20 @@ export function createWorld(
       builtKinds: [],
       falseCard: null,
       sicCard: null,
+      misreads: [],
+      cardPicks: [],
+      checkout: false,
+      shelves: {},
+      ledger: emptyLedger(),
+      newShelves: [],
+      rooms: [...ALL_ROOMS],
+      fragments: 0,
+      fragmentsEarned: 0,
+      lockedKeepers: [],
+      cosmetics: { carpet: "crimson", frame: "plain", gilded: false },
+      nightFragments: [],
+      canRestore: null,
+      catalogueNote: "",
     },
     hover: null,
     anim: 0,
@@ -809,6 +906,7 @@ export function createWorld(
     ...boardSize("stacks"),
     reduced: false,
     sfx: [],
+    runLog: emptyRunLog(),
   };
 
   const cue = (kind: SfxKind, tower?: TowerKind) => {
@@ -839,6 +937,8 @@ export function createWorld(
   /** Dr. Samodovol: a wrong book was taken (applies next combat), and it is in force this combat. */
   let misreadNext = false;
   let misread = false;
+  /** Whether the board was paused before the checkout card opened. */
+  let pausedBeforeCheckout = false;
   /** The wrong book on the previous shelf (Different Hand). */
   let lastFalse: UpgradeId | null = null;
   /**
@@ -887,12 +987,16 @@ export function createWorld(
     const card: UpgradeDef = { ...shown, blurb: fx.margin ? shorterBlurb(shown.blurb) : shown.blurb };
     lastFalse = id;
     world.hud.falseCard = id;
+    world.runLog.wrongBookOffered += 1;
     if (fx.marginalia && world.hud.keepers.scholar.misread) world.hud.sicCard = id;
     const at = Math.floor(Math.random() * (real.length + 1));
     return [...real.slice(0, at), card, ...real.slice(at)];
   };
   /** Ooze Clues: leaks absorbed this wave (one a wave, more with perks). */
   let absorbed = 0;
+  /** Asser: Material's first line has been said tonight; Second Wind has been used tonight. */
+  let materialNoted = false;
+  let windUsed = false;
   const has = (u: UpgradeId) => world.hud.upgrades.includes(u);
 
   const persistMeta = !options.meta && typeof window !== "undefined";
@@ -908,14 +1012,57 @@ export function createWorld(
       : persistMeta
         ? loadMeta()
         : { ...EMPTY_META };
-  world.hud.unlocked = unlockedIds(meta);
-  world.hud.maps = unlockedMaps(meta);
-  world.hud.lockedTowers = options.allTricks ? [] : lockedTowers(meta);
+  /** Achievements: saved only when stats are (never in dev mode, tests or the simulator). */
+  let shelfSave = persistStats ? loadAchievements(meta) : emptySave();
+  world.hud.shelves = shelfSave.earned;
+  world.hud.ledger = shelfSave.ledger;
+  /** Tower id -> kind for every tower placed tonight (sold ones too), to credit kills. */
+  const towerKinds = new Map<number, TowerKind>();
+  /** The night's achievements were checked (once per run). */
+  let nightDone = false;
+  const resetRunLog = () => {
+    world.runLog = emptyRunLog();
+    towerKinds.clear();
+    nightDone = false;
+    world.hud.newShelves = [];
+    world.hud.nightFragments = [];
+    world.hud.canRestore = null;
+  };
+  // The Grand Catalogue: the real game moves old progress over once; tests, the simulator and dev
+  // mode see every room restored (or the rooms a test asks for) and save nothing.
+  if (persistStats && !shelfSave.migrated) {
+    const keepers = loadProgress();
+    const moved = migrate(shelfSave, meta, HEROES.filter((h) => (keepers[h]?.xp ?? 0) > 0));
+    shelfSave = moved.save;
+    world.hud.catalogueNote = moved.note;
+    saveAchievements(shelfSave);
+  }
+  if (!persistStats) shelfSave = { ...shelfSave, rooms: options.rooms ? [...options.rooms] : [...ALL_ROOMS], fragments: options.fragments ?? 0 };
+  /** Everything the restored rooms open, onto the hud. */
+  const applyRooms = () => {
+    const rooms = shelfSave.rooms;
+    world.hud.rooms = rooms;
+    world.hud.fragments = shelfSave.fragments;
+    world.hud.fragmentsEarned = shelfSave.fragmentsEarned;
+    world.hud.shelves = shelfSave.earned;
+    world.hud.ledger = shelfSave.ledger;
+    world.hud.unlocked = unlockedIds(rooms);
+    world.hud.maps = unlockedMaps(rooms);
+    world.hud.lockedTowers = options.allTricks ? [] : lockedTowers(rooms);
+    const open = openKeepers(rooms);
+    world.hud.lockedKeepers = HEROES.filter((h) => !open.includes(h));
+    world.hud.cosmetics = allowedCosmetics(shelfSave.cosmetics, rooms);
+  };
+  applyRooms();
   {
     const stored = options.setup !== undefined ? options.setup : persistMeta ? loadSetup() : null;
     // The bookmark pick is saved whenever it changes, so it is newer than the setup record.
     const saved = persistMeta ? { ...(stored ?? {}), bookmark: loadPick() } : stored;
-    const { setup, notes } = validateSetup(saved, { maps: world.hud.maps, unlocked: world.hud.unlocked });
+    const { setup, notes } = validateSetup(saved, {
+      maps: world.hud.maps,
+      unlocked: world.hud.unlocked,
+      keepers: HEROES.filter((h) => !world.hud.lockedKeepers.includes(h)),
+    });
     world.hud.saved = Boolean(stored);
     world.hud.setupNote = stored ? notes.join(" ") : "";
     world.hud.night = setup.night;
@@ -962,31 +1109,10 @@ export function createWorld(
   const bm = (id: BookmarkId) => world.hud.bookmark === id;
   /** Is this late slip active? (Overflow only.) */
   const slip = (id: SlipId) => world.hud.night === "overflow" && world.hud.slips.includes(id);
-  /** Update lifetime stats; announce any bookmark this unlocks. */
+  /** Update lifetime stats. (Maps, bookmarks and keeper towers open from Grand Catalogue rooms, not from these.) */
   const record = (change: (m: MetaStats) => void) => {
     change(meta);
     if (persistStats) saveMeta(meta);
-    const now = unlockedIds(meta);
-    const fresh = now.filter((id) => !world.hud.unlocked.includes(id));
-    world.hud.unlocked = now;
-    const maps = unlockedMaps(meta);
-    const freshMaps = maps.filter((id) => !world.hud.maps.includes(id));
-    world.hud.maps = maps;
-    if (freshMaps.length) world.hud.newMaps = [...world.hud.newMaps, ...freshMaps];
-    const said: string[] = [];
-    if (fresh.length) {
-      world.hud.newUnlocks = [...world.hud.newUnlocks, ...fresh];
-      said.push(`New bookmark: ${fresh.map((id) => BOOKMARK[id].name).join(", ")}. Equip it on the setup screen.`);
-    }
-    if (freshMaps.length) said.push(`New map: ${freshMaps.map((id) => BOARDS[id].name).join(", ")}.`);
-    const stillLocked = options.allTricks ? [] : lockedTowers(meta);
-    const opened = world.hud.lockedTowers.filter((k) => !stillLocked.includes(k));
-    world.hud.lockedTowers = stillLocked;
-    if (opened.length) said.push(`New keeper tower: ${opened.map((k) => TOWERS[k].name).join(", ")}.`);
-    if (said.length) {
-      world.hud.log = said.join(" ");
-      cue("clear");
-    }
   };
   /** The next back-room upgrade for `kind`: only that kind's own upgrades raise it. The tutorial's is free. */
   const roomPrice = (kind: TowerKind) =>
@@ -1028,7 +1154,7 @@ export function createWorld(
   const goalLocked = (kind: TowerKind) => world.hud.lockedTowers.includes(kind);
   /** The Reserve Desk has to sit right beside the carpet, so melons really do walk past it. */
   const offCarpet = (kind: TowerKind, c: number, r: number) =>
-    kind === "desk" && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.pathCells.has(`${c + a},${r + b}`));
+    (kind === "desk" || kind === "gourdgate") && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.pathCells.has(`${c + a},${r + b}`));
   /** Why the guide won't let the wave start yet ("" when it will). */
   const guideHold = () => {
     const g = world.hud.guide;
@@ -1142,12 +1268,25 @@ export function createWorld(
   };
   // All player tower stats come from towerReadout(), the same function the
   // inspector panel shows, so the numbers on screen are the numbers in play.
+  /** Asser's Sisu: his towers hit harder for every stack he is missing right now (capped). */
+  const sisuMul = () => {
+    if (world.hud.hero !== "asser") return 1;
+    const missing = Math.min(ASSER_VALUES.sisuCap + fx.sisuCap, Math.max(0, world.hud.maxLives - world.hud.lives));
+    return 1 + missing * (ASSER_VALUES.sisuPerStack + fx.sisuPerStack);
+  };
+  const syncSisu = () => {
+    world.hud.sisu = Math.round((sisuMul() - 1) * 100);
+    if (world.hud.hero === "asser") {
+      world.runLog.sisuPeak = Math.max(world.runLog.sisuPeak, world.hud.sisu);
+      if (world.hud.maxLives - world.hud.lives >= ASSER_VALUES.sisuCap + fx.sisuCap) world.runLog.sisuCapped = true;
+    }
+  };
   /** Keeper perks on a tower's base stats. */
   const withPerks = <T extends { dmg: number; range: number; interval: number }>(kind: TowerKind, read: T): T => {
     if (PASSIVE.includes(kind)) return read;
     // Signature perks name one tower ("The Scales fire 25% faster"), so a keeper's extra towers skip them.
     const sig = ownSignature(kind);
-    const dmgMul = fx.allDmg * (sig ? fx.sigDmg : 1);
+    const dmgMul = fx.allDmg * (sig ? fx.sigDmg : 1) * sisuMul();
     const rangeMul = fx.allRange * (sig ? fx.sigRange : 1);
     return {
       ...read,
@@ -1615,7 +1754,8 @@ export function createWorld(
       buildCost(world.hud.hero, placedCount(), world.hud.build, world.hud.builtKinds) -
         (bm("discount") ? BOOKMARK_VALUES.discount : 0) -
         (ownSignature(world.hud.build) ? fx.sigCost : 0) -
-        (world.hud.oath === "sling" && world.hud.build === "trebuchet" ? OATH_VALUES.slingDiscount : 0),
+        (world.hud.oath === "sling" && world.hud.build === "trebuchet" ? OATH_VALUES.slingDiscount : 0) -
+        (world.hud.oath === "sling" && world.hud.build === "bombard" ? CANNON.bombardSlingDiscount : 0),
     );
   /** A keeper tower can be built only by its keeper, and only one of each at a time. */
   const signatureBlocked = (kind: TowerKind) =>
@@ -1819,6 +1959,7 @@ export function createWorld(
    * preference and is kept too.
    */
   const resetRunState = () => {
+    resetRunLog();
     world.wet = new Set();
     misread = false;
     misreadNext = false;
@@ -1846,6 +1987,8 @@ export function createWorld(
     spawnClock = 0;
     karlReward = false;
     absorbed = 0;
+    materialNoted = false;
+    windUsed = false;
     absurdDrops = 0;
     stillBuilt = false;
     tally.clear();
@@ -1880,6 +2023,12 @@ export function createWorld(
       builtKinds: [],
       falseCard: null,
       sicCard: null,
+      misreads: [],
+      cardPicks: [],
+      checkout: false,
+      newShelves: [],
+      nightFragments: [],
+      canRestore: null,
       paused: false,
       menu: null,
       waveCount: nightLength(world.hud.night),
@@ -1888,6 +2037,7 @@ export function createWorld(
       chuteWave: false,
       quackAura: CANNON.quackAura,
       geeseSpent: false,
+      sisu: 0,
     };
   };
 
@@ -1900,28 +2050,63 @@ export function createWorld(
 
   /** A borrower at the door: takes seeds, not a stack, and pays no kill gold. */
   const borrow = (e: Enemy) => {
+    world.runLog.borrowersAtDoor += 1;
+    if (world.hud.night !== "endless" && cleared === nightLength(world.hud.night) - 1) world.runLog.borrowersOnLastWave += 1;
     const took = Math.min(world.hud.seeds, BALANCE.borrowTake);
     world.hud.seeds -= took;
     e.hp = 0;
     float(e.x, e.y - 16, took > 0 ? `−${took} seeds` : "borrow", "#e6c36a");
     world.hud.log = took > 0 ? `A borrower reached the door and left with ${took} seeds.` : "A borrower reached the door. The purse was empty.";
   };
-  const loseLife = (n: number, x: number, y: number) => {
+  const loseLife = (n: number, x: number, y: number, from?: Enemy) => {
     if (world.hud.hero === "ooze" && absorbed < 1 + fx.absorb && n === 1) {
       absorbed += 1;
+      world.runLog.absorbed += 1;
       float(x, y, "absorbed", "#6fc6ef");
       world.rings.push({ x, y, r: 26, life: 0.5, max: 0.5, color: "111,198,239" });
       return;
     }
+    const lost = Math.min(n, world.hud.lives);
     world.hud.lives = Math.max(0, world.hud.lives - n);
+    const log = world.runLog;
+    log.stacksLost += lost;
+    if (from?.reverse) log.chuteStacksLost += lost;
+    if (from?.boss) log.karlStacksLost += lost;
+    log.minStacks = Math.min(log.minStacks, world.hud.lives);
     world.shake = world.reduced ? 0 : 8;
-    float(x, y, n > 1 ? `−${n} stacks` : "Leak", "#e23b4a");
+    if (world.hud.hero === "asser") {
+      // Material: it all goes in the book. Every stack lost pays seeds.
+      const pay = n * (ASSER_VALUES.materialSeeds + fx.material);
+      world.hud.seeds += pay;
+      float(x, y, `−${n} stack${n > 1 ? "s" : ""} · +${pay}`, "#e23b4a");
+      if (!materialNoted) {
+        materialNoted = true;
+        world.hud.log = "Asser writes it down.";
+      }
+      // Rally: every Lion Blade swings at once, and harder (once per leak; rallies don't add up).
+      for (const blade of world.towers) {
+        if (blade.kind !== "lionblade") continue;
+        blade.cd = 0;
+        blade.bladeRally = true;
+      }
+      // Second Wind (perk): once a night, at 5 stacks or fewer, he gets 5 back.
+      if (fx.secondWind && !windUsed && world.hud.lives <= 5) {
+        windUsed = true;
+        world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + 5);
+        float(x, y - 18, "second wind", "#6fa8ef");
+        world.hud.log = "Asser gets back up.";
+      }
+      syncSisu();
+    } else {
+      float(x, y, n > 1 ? `−${n} stacks` : "Leak", "#e23b4a");
+    }
     cue("leak");
     if (world.hud.lives <= 0) {
       cue("defeat");
       world.hud.phase = "defeat";
       world.hud.log = "The stacks are pulp. Mynxi is not speaking to you.";
       bumpBest();
+      finishNight(false);
       notify();
     }
   };
@@ -1991,6 +2176,74 @@ export function createWorld(
     }
   };
 
+  /** Gourd Gate: the point on the carpet nearest the tower (worked out once). */
+  const gateSpot = (tower: Tower) => {
+    if (tower.gate) return tower.gate;
+    const pts = world.points;
+    let best = { x: tower.x, y: tower.y, along: 0, d: Infinity };
+    let run = 0;
+    for (let k = 1; k < pts.length; k++) {
+      const a = pts[k - 1];
+      const b = pts[k];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const t = Math.max(0, Math.min(1, ((tower.x - a.x) * (b.x - a.x) + (tower.y - a.y) * (b.y - a.y)) / (len * len)));
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      const d = Math.hypot(x - tower.x, y - tower.y);
+      if (d < best.d) best = { x, y, along: run + len * t, d };
+      run += len;
+    }
+    tower.gate = { x: best.x, y: best.y, along: best.along, total: run };
+    return tower.gate;
+  };
+  /** Gourd Gate: every fruit on the carpet just short of the portcullis (from whichever way it walks). */
+  const atGate = (tower: Tower) => {
+    const g = gateSpot(tower);
+    return world.enemies.filter((e) => {
+      if (e.hp <= 0) return false;
+      const { along } = carpetAlong(world.points, e.x, e.y, e.wp, e.reverse);
+      return e.reverse ? along >= g.along - 4 && along - g.along <= CANNON.gateBand : along <= g.along + 4 && g.along - along <= CANNON.gateBand;
+    });
+  };
+  /** Gourd Gate: drop the portcullis when fruit reach it (and it's ready), hold what's there, and shoot it. */
+  const tickGate = (tower: Tower, dt: number) => {
+    const g = gateSpot(tower);
+    tower.gateDown = Math.max(0, (tower.gateDown ?? 0) - dt);
+    tower.gateAge = (tower.gateAge ?? 0) + dt;
+    const held = atGate(tower);
+    if (tower.gateDown <= 0 && tower.cd <= 0 && held.length) {
+      const zone = world.hud.oath === "door" ? g.total - g.along <= OATH_ZONE : world.hud.oath === "mouth" ? g.along <= OATH_ZONE : false;
+      tower.gateDown = zone ? CANNON.gateHoldOath : CANNON.gateHold;
+      tower.gateAge = 0;
+      tower.cd = statsFor(tower).interval;
+      cue("fire", "gourdgate");
+      world.shake = Math.max(world.shake, world.reduced ? 0 : 2);
+      world.rings.push({ x: g.x, y: g.y, r: 26, life: 0.4, max: 0.4, color: "232,136,58" });
+    }
+    if (tower.gateDown <= 0) return;
+    const dps = statsFor(tower).dmg;
+    for (const e of held) {
+      if (e.boss && tower.gateAge > CANNON.gateBossHold) continue;
+      e.stomped = Math.max(e.stomped ?? 0, dt * 1.5);
+      hurt(e, null, dps * dt);
+    }
+  };
+  /** Harvest Bombard: the fruit with the most others around it (ties go to the one furthest along). */
+  const densest = (pool: Enemy[]) => {
+    let best = pool[0];
+    let score = -1;
+    for (const e of pool) {
+      let n = 0;
+      for (const o of pool) if ((o.x - e.x) ** 2 + (o.y - e.y) ** 2 <= CANNON.bombardRadius ** 2) n++;
+      const s = n * 1e6 + e.wp * 1000;
+      if (s > score) {
+        score = s;
+        best = e;
+      }
+    }
+    return best;
+  };
+
   /** Anti-Geese Protocol on Auto: a crowd in the ring, or a fruit in the last three tiles before the door. */
   const geeseShouldFire = (inRange: Enemy[]) =>
     inRange.filter((e) => !e.boss).length >= CANNON.geeseCrowd ||
@@ -2017,7 +2270,20 @@ export function createWorld(
     syncPrice();
   };
 
+  /** How the last hit landed (set by hurt for onDeath; a swallow or other direct pop leaves it null). */
+  let deathVia: string | null = null;
   const onDeath = (e: Enemy) => {
+    {
+      const log = world.runLog;
+      const by = credit != null ? towerKinds.get(credit) : undefined;
+      log.kills += 1;
+      if (by) log.killsBy[by] = (log.killsBy[by] ?? 0) + 1;
+      if (e.boss) {
+        log.karlKills += 1;
+        if (by) log.karlKilledBy.push(by);
+      }
+      if (e.pit && by && (deathVia === "shot" || deathVia === "pierce")) log.pitDirectKills += 1;
+    }
     world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
     const juice = e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : e.kind === "corn" ? "#e6c36a" : "#e23b4a";
@@ -2037,6 +2303,7 @@ export function createWorld(
       const second = karlReward;
       karlReward = true;
       world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + 2);
+      syncSisu();
       world.shake = world.reduced ? 0 : 14;
       addPool(e.x, e.y);
       world.hud.log = second
@@ -2099,13 +2366,30 @@ export function createWorld(
       t.dmg += Math.max(0, Math.min(amount, before));
       if (e.hp <= 0) t.pops += 1;
     }
-    if (e.hp <= 0) onDeath(e);
+    if (e.hp <= 0) {
+      deathVia = via;
+      onDeath(e);
+      deathVia = null;
+    }
   };
 
   /** Seconds a shot lives: the trip at SHOT_SPEED plus a second for a moving target, and never under 1.6. */
   const shotLife = (x: number, y: number, tx: number, ty: number) => Math.max(1.6, Math.hypot(tx - x, ty - y) / SHOT_SPEED + 1);
 
   const onShotHit = (shot: Shot, e: Enemy) => {
+    if (shot.bombard) {
+      // The giant pumpkin: the full hit on its target, half to everything near it, a one-tile shove
+      // for everything hit but Karl, and a burning patch where it landed.
+      const hit = world.enemies.filter((o) => o.hp > 0 && (o === e || Math.hypot(o.x - e.x, o.y - e.y) <= shot.splash));
+      hurt(e, null, shot.dmg);
+      for (const o of hit) if (o !== e) hurt(o, null, shot.dmg * shot.splashRatio, 0, "splash");
+      for (const o of hit) if (!o.boss) pushBack(o, CELL);
+      addFire(e.x, e.y, CANNON.bombardFireLife, CANNON.bombardFireBurn);
+      splashFx(e.x, e.y, shot.splash, "232,136,58");
+      burst(e.x, e.y, "#e8883a", 16);
+      world.shake = Math.max(world.shake, world.reduced ? 0 : 5);
+      return false;
+    }
     // Quiet Confidence counts this rocket's kills.
     const popsBefore = shot.splashChill && shot.owner != null ? tallyFor(shot.owner).pops : null;
     if (shot.element === "seed" && e.guard === "rind" && e.shell > 0) {
@@ -2198,7 +2482,9 @@ export function createWorld(
       for (const other of world.enemies) {
         if (other.hp <= 0 || other.boss) continue;
         if (other !== e && Math.hypot(other.x - e.x, other.y - e.y) > shot.splash) continue;
+        const was = { x: other.x, y: other.y };
         pushBack(other, shot.knock);
+        if (Math.hypot(other.x - was.x, other.y - was.y) > 0.5) world.runLog.knocks += 1;
       }
       splashFx(e.x, e.y, shot.splash, "232,136,58");
     }
@@ -2243,6 +2529,43 @@ export function createWorld(
     return false;
   };
 
+  /**
+   * The night is over (won, or out of stacks): add it to the achievements ledger and award what it
+   * earned. Once per run; saved only when stats are.
+   */
+  const finishNight = (won: boolean) => {
+    if (nightDone) return;
+    nightDone = true;
+    const base = {
+      log: world.runLog,
+      hero: world.hud.hero,
+      night: world.hud.night,
+      difficulty: world.hud.difficulty,
+      map: world.hud.map,
+      won,
+      cleared,
+      seeds: world.hud.seeds,
+      stacks: world.hud.lives,
+      slips: world.hud.night === "overflow" ? world.hud.slips : [],
+    };
+    const ledger = addNight(shelfSave.ledger, base);
+    const endlessBest = Math.max(meta.endlessBest, world.hud.night === "endless" ? cleared : 0);
+    // Fragments for the night itself, then achievements (each pays its tier).
+    const parts = nightFragments({ night: base.night, difficulty: base.difficulty, won, cleared, karl: world.runLog.karlKills > 0 });
+    const got = parts.reduce((n, p) => n + p.n, 0);
+    shelfSave = { ...shelfSave, ledger, fragments: shelfSave.fragments + got, fragmentsEarned: shelfSave.fragmentsEarned + got };
+    const settled = settle(shelfSave, { ...base, ledger, endlessBest, fragmentsEarned: shelfSave.fragmentsEarned, rooms: shelfSave.rooms });
+    shelfSave = settled.save;
+    const fromShelves = tierSum(settled.fresh);
+    world.hud.newShelves = settled.fresh;
+    world.hud.nightFragments = fromShelves
+      ? [...parts, { label: `${settled.fresh.length} shelf${settled.fresh.length === 1 ? "" : "s"} restored`, n: fromShelves }]
+      : parts;
+    world.hud.canRestore = affordable(shelfSave.rooms, shelfSave.fragments)?.id ?? null;
+    applyRooms();
+    if (persistStats) saveAchievements(shelfSave);
+  };
+
   /** Lifetime stats for a cleared wave (after the wave's own log line, so an unlock notice shows). */
   const recordWave = () => {
     const endless = world.hud.night === "endless";
@@ -2281,6 +2604,22 @@ export function createWorld(
       world.rings.push({ x: heap.x, y: heap.y, r: 30, life: 0.6, max: 0.6, color: "120,170,90" });
     }
     if (fx.waveSeeds) world.hud.seeds += fx.waveSeeds;
+    // Asser's Lion Blade: every blade that stood through the wave puts stacks back.
+    let mended = 0;
+    if (world.hud.hero === "asser") {
+      for (const blade of world.towers) {
+        if (blade.kind !== "lionblade" || !blade.mendReady) continue;
+        const amount = ASSER_VALUES.bladeMend + (hasMod(blade, "dressing") ? 1 : 0);
+        const before = world.hud.lives;
+        world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + amount);
+        const got = world.hud.lives - before;
+        if (got > 0) float(blade.x, blade.y - 30, `+${got} stack${got > 1 ? "s" : ""}`, "#6fa8ef");
+        mended += got;
+      }
+      world.runLog.mended += mended;
+      syncSisu();
+    }
+    const mendLine = mended > 0 ? `The Lion Blade puts ${mended} stack${mended > 1 ? "s" : ""} back.` : "";
     // Dr. Samodovol: the wrong book's penalty is over; the Lectern's note from this wave counts down,
     // and if a lectern stands it notes the kind that got furthest (one kind, the newest note wins).
     misread = false;
@@ -2326,6 +2665,7 @@ export function createWorld(
         world.hud.night === "overflow" ? "Karl came up the chute anyway. The chute still closed." : "The library holds.";
       world.hud.log = paid ? `${world.hud.blurb} The Reserve Desk pays out ${paid}.` : world.hud.blurb;
       recordWave();
+      finishNight(true);
       if (!endless) {
         const brewed = world.hud.hero === "vael" && stillBuilt && (has("vial") || has("distill"));
         record((m) => {
@@ -2370,6 +2710,7 @@ export function createWorld(
     }
     if (spilled) world.hud.log = `${world.hud.log} That was not in the notes.`;
     if (lectureLine) world.hud.log = `${world.hud.log} ${lectureLine}`;
+    if (mendLine) world.hud.log = `${world.hud.log} ${mendLine}`;
     recordWave();
     notify();
   };
@@ -2494,7 +2835,7 @@ export function createWorld(
           if (e.wp < 0) {
             noteReach(e, 1);
             if (e.borrower) borrow(e);
-            else loseLife(e.boss ? 3 : 1, e.x, e.y);
+            else loseLife(e.boss ? 3 : 1, e.x, e.y, e);
             e.hp = 0;
           }
         } else {
@@ -2502,7 +2843,7 @@ export function createWorld(
           if (e.wp >= world.points.length) {
             noteReach(e, 1);
             if (e.borrower) borrow(e);
-            else loseLife(e.boss ? 3 : 1, e.x, e.y);
+            else loseLife(e.boss ? 3 : 1, e.x, e.y, e);
             e.hp = 0;
           }
         }
@@ -2540,6 +2881,10 @@ export function createWorld(
         dripFlask(tower, dt);
         continue;
       }
+      if (tower.kind === "gourdgate") {
+        tickGate(tower, dt);
+        continue;
+      }
       let target: Enemy | null = null;
       let bestProg = -Infinity;
       const stats = statsFor(tower);
@@ -2573,6 +2918,47 @@ export function createWorld(
       if (tower.cd > 0) continue;
       if (tower.kind === "geese") {
         if ((tower.trigger ?? "auto") === "auto" && geeseShouldFire(inRange)) fireGeese(tower, inRange);
+        continue;
+      }
+      if (tower.kind === "bombard") {
+        const aim = densest(inRange);
+        tower.cd = stats.interval;
+        tower.aim = Math.atan2(aim.y - tower.y, aim.x - tower.x);
+        cue("fire", "bombard");
+        world.shots.push({
+          id: id(),
+          x: tower.x,
+          y: tower.y - 12,
+          tx: aim.x,
+          ty: aim.y,
+          target: aim.id,
+          dmg: stats.dmg,
+          life: shotLife(tower.x, tower.y, aim.x, aim.y),
+          bounces: 0,
+          orange: true,
+          splash: CANNON.bombardRadius,
+          element: "mortar",
+          procs: false,
+          owner: tower.id,
+          splashRatio: CANNON.bombardSplashRatio,
+          chill: 0,
+          freezeExtra: 0,
+          fireLife: 0,
+          fireBurn: 0,
+          pulp: false,
+          bombard: true,
+        });
+        continue;
+      }
+      if (tower.kind === "lionblade") {
+        // Cleave: one sweep hits every fruit in reach for the same damage. A rally swing hits harder.
+        const mul = tower.bladeRally ? (hasMod(tower, "scar") ? CANNON.bladeScar : CANNON.bladeRally) : 1;
+        tower.bladeRally = false;
+        tower.cd = stats.interval;
+        cue("fire", "lionblade");
+        for (const e of inRange) hurt(e, null, stats.dmg * mul);
+        world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.3, max: 0.3, color: "111,168,239" });
+        if (mul > 1) world.rings.push({ x: tower.x, y: tower.y, r: range * 0.7, life: 0.4, max: 0.4, color: "220,236,255", fill: true });
         continue;
       }
       if (tower.kind === "honey") {
@@ -2641,6 +3027,7 @@ export function createWorld(
           float(target.x, target.y - 22, "chomp", "#6fc6ef");
         } else {
           float(target.x, target.y - 22, "gulp", "#6fc6ef");
+          world.runLog.swallows += 1;
           target.hp = 0;
           onDeath(target);
           world.hud.seeds += CANNON.mimicLoot + fx.loot;
@@ -2837,7 +3224,10 @@ export function createWorld(
         shot.y = ty;
         if (target) {
           credit = shot.owner ?? null;
+          const killsBefore = world.runLog.kills;
           const keep = onShotHit(shot, target);
+          shot.kills = (shot.kills ?? 0) + world.runLog.kills - killsBefore;
+          if (shot.owner != null && towerKinds.get(shot.owner) === "catalogue") world.runLog.chainBest = Math.max(world.runLog.chainBest, shot.kills);
           credit = null;
           if (!keep) shot.life = 0;
         } else shot.life = 0;
@@ -2854,6 +3244,11 @@ export function createWorld(
     world.flyers = world.flyers.filter((f) => f.t < f.dur);
 
     world.enemies = world.enemies.filter((e) => e.hp > 0);
+    {
+      let slowed = 0;
+      for (const e of world.enemies) if (e.chill > 0 || e.freeze > 0 || e.slow < 1) slowed += 1;
+      if (slowed > world.runLog.maxSlowedAtOnce) world.runLog.maxSlowedAtOnce = slowed;
+    }
     world.hud.left = world.enemies.length + Math.max(0, queue.length - queueCursor);
 
     if (world.hud.phase === "combat" && queueCursor >= queue.length && world.enemies.length === 0) {
@@ -2997,6 +3392,9 @@ export function createWorld(
         born: cleared,
       };
       world.towers.push(tower);
+      towerKinds.set(tower.id, buildKind);
+      world.runLog.built[buildKind] = (world.runLog.built[buildKind] ?? 0) + 1;
+      world.runLog.peakTowers = Math.max(world.runLog.peakTowers, world.towers.length);
       syncMimics();
       if (tower.kind === "orrery") tower.orbit = statsFor(tower).range;
       if (buildKind === "still") stillBuilt = true;
@@ -3012,7 +3410,7 @@ export function createWorld(
       notify();
     },
     startWave() {
-      if (world.hud.menu) return;
+      if (world.hud.menu || world.hud.checkout) return;
       if (world.hud.phase !== "prep" && world.hud.phase !== "consequence") return;
       if (world.hud.menu) return;
       const hold = world.hud.phase === "prep" ? guideHold() : "";
@@ -3023,6 +3421,8 @@ export function createWorld(
       }
       world.hud.paused = false;
       absorbed = 0;
+      // Lion Blades standing now will mend when this wave is cleared; ones built mid-wave won't.
+      for (const blade of world.towers) if (blade.kind === "lionblade") blade.mendReady = true;
       misread = misreadNext;
       misreadNext = false;
       lectureNow = lecture && lecture.waves > 0 ? lecture.kind : null;
@@ -3047,9 +3447,14 @@ export function createWorld(
       notify();
     },
     pickUpgrade(upgradeId: UpgradeId) {
-      if (world.hud.phase !== "upgrade") return;
+      if (world.hud.phase !== "upgrade" || world.hud.checkout) return;
       if (!world.hud.offer.some((u) => u.id === upgradeId)) return;
       if (upgradeId === world.hud.falseCard) {
+        // Kept apart from `upgrades` (it does nothing), but listed with the real picks on the checkout card.
+        world.hud.misreads = [...world.hud.misreads, upgradeId];
+        world.runLog.picks += 1;
+        world.runLog.wrongBookTaken = true;
+        world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, sic: world.hud.sicCard === upgradeId }];
         // The wrong book: nothing is added, and the next combat goes worse. It reads like any other pick.
         misreadNext = true;
         const rec = world.hud.keepers.scholar;
@@ -3071,7 +3476,11 @@ export function createWorld(
       }
       world.hud.falseCard = null;
       world.hud.sicCard = null;
-      if (!has(upgradeId)) world.hud.upgrades = [...world.hud.upgrades, upgradeId];
+      world.runLog.picks += 1;
+      if (!has(upgradeId)) {
+        world.hud.upgrades = [...world.hud.upgrades, upgradeId];
+        world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, sic: false }];
+      }
       // Cannon upgrades don't choose the keeper's path (see buildOffer).
       if (!world.hud.branch && !Object.values(CANNON_UPGRADES).includes(upgradeId)) world.hud.branch = upgradeId;
       if (upgradeId === "seeds") world.hud.seeds += 55;
@@ -3122,6 +3531,7 @@ export function createWorld(
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       const tower = world.towers.find((t) => t.id === sel);
       if (!tower) return;
+      world.runLog.sold += 1;
       world.towers = world.towers.filter((t) => t.id !== sel);
       syncMimics();
       const refund = slip("norefund") ? 0 : refundFor(tower.kind, tower.paid);
@@ -3145,6 +3555,7 @@ export function createWorld(
     },
     chooseHero(hero: HeroId) {
       if (world.hud.phase !== "select" && world.hud.phase !== "coldopen") return;
+      if (world.hud.lockedKeepers.includes(hero)) return;
       const overflow = world.hud.night === "overflow";
       if (!overflow) world.hud.slips = [];
       world.towers = [];
@@ -3164,12 +3575,18 @@ export function createWorld(
       const opening = waveAt(0, world.hud.night);
       world.hud.waveName = opening.name;
       world.hud.blurb = opening.blurb;
+      resetRunLog();
       world.hud.upgrades = [];
+      world.hud.misreads = [];
+      world.hud.cardPicks = [];
+      world.hud.checkout = false;
       world.hud.offer = [];
       world.hud.branch = null;
       world.hud.absurdity = 0;
       world.hud.selected = null;
       absurdDrops = 0;
+      materialNoted = false;
+      windUsed = false;
       if (hero === "mynxi") {
         world.hud.seeds = 150;
         world.hud.lives = 12;
@@ -3194,7 +3611,11 @@ export function createWorld(
             ? "The back room takes his retainer: upgrades cost less. The Scales are on the Keeper tab."
             : hero === "ooze"
               ? "The first fruit to leak each wave gets absorbed. Memec is on the Keeper tab."
-              : "One of the books is wrong. He will not say which. The Lectern is on the Keeper tab.";
+              : hero === "asser"
+                ? overflow
+                  ? "He has lost stacks before. He kept the notes."
+                  : "Twenty-five stacks. He expects to lose some. Every one he loses pays seeds and makes his towers hit harder. The Lion Blade is on the Keeper tab."
+                : "One of the books is wrong. He will not say which. The Lectern is on the Keeper tab.";
       } else {
         world.hud.seeds = BALANCE.michaelSeeds;
         world.hud.lives = BALANCE.michaelLives;
@@ -3235,6 +3656,7 @@ export function createWorld(
         world.hud.lives = Math.max(1, world.hud.lives - SLIP_VALUES.shortStacks);
         world.hud.maxLives = Math.max(1, world.hud.maxLives - SLIP_VALUES.shortStacks);
       }
+      syncSisu();
       syncPrice();
       notify();
     },
@@ -3301,6 +3723,7 @@ export function createWorld(
         ? `${mod.name}: every ${name} has it now${mine.length > 1 ? ` (all ${mine.length})` : ""}, and any you build tonight.`
         : `${mod.name}: every ${name} you build tonight will have it.`;
       record((m) => (m.fittings += 1));
+      world.runLog.backRoomBuys += 1;
       if (world.hud.guide === "backroom") finishGuide();
       syncPrice();
       const picked = world.towers.find((t) => t.id === world.hud.selected);
@@ -3335,7 +3758,7 @@ export function createWorld(
       notify();
     },
     togglePause() {
-      if (world.hud.menu) return;
+      if (world.hud.menu || world.hud.checkout) return;
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       world.hud.paused = !world.hud.paused;
       guideSpeed();
@@ -3401,6 +3824,7 @@ export function createWorld(
     pickOath(oath: OathId) {
       if (world.hud.phase !== "poster" || world.hud.hero !== "michael" || !OATHS.includes(oath)) return;
       world.hud.oath = oath;
+      world.runLog.oath = oath;
       world.hud.log = OATH_TEXT[oath].log;
       if (oath === "door") {
         world.hud.lives = Math.max(1, world.hud.lives - OATH_VALUES.doorStacks);
@@ -3418,6 +3842,11 @@ export function createWorld(
     },
     pickKeeper(hero: HeroId) {
       if (world.hud.phase !== "select" || !HEROES.includes(hero)) return;
+      if (world.hud.lockedKeepers.includes(hero)) {
+        world.hud.log = `${KEEPER_NAMES[hero].name} is locked. ${restoreText("keeper", hero)}`;
+        notify();
+        return;
+      }
       world.hud.hero = hero;
       notify();
     },
@@ -3503,8 +3932,55 @@ export function createWorld(
       const p = world.hud.phase;
       if (p === "coldopen" || p === "select" || p === "poster" || p === "victory" || p === "defeat") return;
       if (world.hud.menu) return;
+      // One at a time: the menu takes over from the checkout card.
+      if (world.hud.checkout) {
+        world.hud.checkout = false;
+        world.hud.paused = pausedBeforeCheckout;
+      }
       world.hud.menu = "pause";
       world.hud.paused = true;
+      notify();
+    },
+    openCheckout() {
+      const p = world.hud.phase;
+      if (p !== "prep" && p !== "combat" && p !== "upgrade" && p !== "consequence") return;
+      if (world.hud.menu || world.hud.checkout) return;
+      pausedBeforeCheckout = world.hud.paused;
+      world.hud.checkout = true;
+      world.hud.paused = true;
+      world.hud.workshop = null;
+      world.hud.selected = null;
+      syncPrice();
+      notify();
+    },
+    restoreRoom(id: RoomId) {
+      const room = ROOM[id];
+      if (world.hud.phase !== "coldopen" && world.hud.phase !== "select") return false;
+      if (!room || shelfSave.rooms.includes(id) || shelfSave.fragments < room.cost) return false;
+      shelfSave = { ...shelfSave, fragments: shelfSave.fragments - room.cost, rooms: [...shelfSave.rooms, id] };
+      // Restorer and Archivist (and Fragment Collector, if a shelf pays) are earned here.
+      const settled = settle(shelfSave, quietContext(shelfSave, meta.endlessBest));
+      shelfSave = settled.save;
+      applyRooms();
+      if (persistStats) saveAchievements(shelfSave);
+      cue("clear");
+      notify();
+      return true;
+    },
+    setCosmetics(c: Partial<Cosmetics>) {
+      shelfSave = { ...shelfSave, cosmetics: allowedCosmetics({ ...world.hud.cosmetics, ...c }, shelfSave.rooms) };
+      applyRooms();
+      if (persistStats) saveAchievements(shelfSave);
+      notify();
+    },
+    dismissCatalogueNote() {
+      world.hud.catalogueNote = "";
+      notify();
+    },
+    closeCheckout() {
+      if (!world.hud.checkout) return;
+      world.hud.checkout = false;
+      world.hud.paused = pausedBeforeCheckout;
       notify();
     },
     closeMenu() {

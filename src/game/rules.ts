@@ -18,10 +18,10 @@ export type Phase =
   | "victory"
   | "defeat";
 
-export type HeroId = "mynxi" | "michael" | "vael" | "elf" | "ooze" | "scholar" | "quack";
+export type HeroId = "mynxi" | "michael" | "vael" | "elf" | "ooze" | "scholar" | "quack" | "asser";
 
-/** Keepers in Setup order (keys 1–7 pick in this order). */
-export const HEROES: HeroId[] = ["mynxi", "vael", "michael", "elf", "ooze", "scholar", "quack"];
+/** Keepers in Setup order (keys 1–8 pick in this order). */
+export const HEROES: HeroId[] = ["mynxi", "vael", "michael", "elf", "ooze", "scholar", "quack", "asser"];
 
 /** Names used in text. `short` is how the story cards address the keeper. */
 export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: string }> = {
@@ -32,6 +32,7 @@ export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: s
   ooze: { name: "Ooze Clues", short: "Ooze", role: "Astral adventurer" },
   scholar: { name: "Dr. Samodovol", short: "The Doctor", role: "The Scholar" },
   quack: { name: "Quackarot", short: "Quackarot", role: "Field strategist" },
+  asser: { name: "Asser Mälkki", short: "Asser", role: "Author-Knight" },
 };
 
 /** Starting seeds and stacks for the newer keepers (the first three are set in the engine). */
@@ -40,6 +41,7 @@ export const KEEPER_START: Partial<Record<HeroId, { seeds: number; lives: number
   ooze: { seeds: 140, lives: 13 },
   scholar: { seeds: 100, lives: 8 },
   quack: { seeds: 150, lives: 11 },
+  asser: { seeds: 100, lives: 25 },
 };
 
 export type UpgradeId =
@@ -252,7 +254,10 @@ export type TowerKind =
   | "copycat"
   | "lectern"
   | "quackliber"
-  | "geese";
+  | "geese"
+  | "lionblade"
+  | "gourdgate"
+  | "bombard";
 
 /** Each keeper's signature tower. */
 export const SIGNATURE: Record<HeroId, TowerKind> = {
@@ -263,16 +268,18 @@ export const SIGNATURE: Record<HeroId, TowerKind> = {
   ooze: "mimic",
   scholar: "lectern",
   quack: "quackliber",
+  asser: "lionblade",
 };
 /** Every tower in each keeper's own tab: the signature first, then any extras. */
 export const KEEPER_TOWERS: Record<HeroId, TowerKind[]> = {
   mynxi: ["catalogue", "desk"],
   vael: ["cauldron", "flask"],
-  michael: ["trebuchet"],
+  michael: ["trebuchet", "gourdgate", "bombard"],
   elf: ["scales", "stomp", "honey"],
   ooze: ["mimic", "copycat"],
   scholar: ["lectern"],
   quack: ["quackliber", "geese"],
+  asser: ["lionblade"],
 };
 /** All keeper-only towers. */
 export const SIGNATURE_KINDS: TowerKind[] = Object.values(KEEPER_TOWERS).flat();
@@ -331,6 +338,9 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   trebuchet: "cannon",
   quackliber: "cannon",
   geese: "utility",
+  lionblade: "precision",
+  gourdgate: "utility",
+  bombard: "cannon",
   spitter: "precision",
   ballista: "precision",
   reader: "precision",
@@ -667,6 +677,24 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 60,
     role: "One shot",
   },
+  gourdgate: {
+    name: "The Gourd Gate",
+    blurb: "Sir Michael's second. A gatehouse in a giant pumpkin, built right beside the carpet. Every 4 s it slams its portcullis on the carpet next to it: nothing gets past for 3 s (Karl, 1 s; husks too), and its crossbows hit everything held there. Holds 4 s inside his oath's zone.",
+    cost: 300,
+    role: "Portcullis",
+  },
+  bombard: {
+    name: "The Harvest Bombard",
+    blurb: "Sir Michael's third. The biggest gun in the library: anywhere on the board, every 3 s, a flaming giant pumpkin lands on the biggest crowd. A 500 hit, 60% of that to everything near it, a one-tile shove (not Karl), and a burning patch. 50 less under his pumpkin oath.",
+    cost: 400,
+    role: "Siege",
+  },
+  lionblade: {
+    name: "Lion Blade",
+    blurb: "Asser's own. A great longsword in a stone that sweeps every fruit in reach at once. When a stack is lost, it swings at once, and harder. After each wave it stands through, it puts 2 stacks back.",
+    cost: 90,
+    role: "Cleave",
+  },
 };
 
 /**
@@ -703,6 +731,12 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   quackliber: { dmg: 1.8, pace: 1.5, range: 1.1 },
   // Anti-Geese Protocol: range is the blast ring (about 2.5 tiles); it fires once, so pace doesn't matter.
   geese: { dmg: 0, pace: 1, range: 0.9 },
+  // Lion Blade: a full-circle cleave about 1.5 tiles out (132 × 0.55 = 73 px), so it only works right by the carpet.
+  lionblade: { dmg: 0.9, pace: 1.7, range: 0.55 },
+  // Gourd Gate: dmg is its crossbows' damage per second to held fruit (140); pace sets a drop every 4 s; range just reaches the carpet beside it.
+  gourdgate: { dmg: 10, pace: 4.45, range: 0.5 },
+  // Harvest Bombard: 500 a pumpkin, every 3 s, whole board.
+  bombard: { dmg: 35.72, pace: 3.34, range: 0 },
 };
 
 /** Tunable numbers for the newer cannons' special effects. */
@@ -786,6 +820,20 @@ export const CANNON = {
   geeseShove: 3 * CELL,
   geeseDamage: 10,
   geeseCrowd: 4,
+  /** Lion Blade: a rally swing (after a lost stack) hits this much harder; with Battle Scar, bladeScar. */
+  bladeRally: 1.5,
+  bladeScar: 2,
+  /** Gourd Gate: how long the portcullis holds (inside his oath's zone, gateHoldOath; Karl only gateBossHold), and how near it a fruit is held. */
+  gateHold: 3,
+  gateHoldOath: 4,
+  gateBossHold: 1,
+  gateBand: 36,
+  /** Harvest Bombard: splash radius and share, the burning patch it leaves, and the seeds off under the pumpkin oath. */
+  bombardRadius: 72,
+  bombardSplashRatio: 0.6,
+  bombardFireLife: 3,
+  bombardFireBurn: 25,
+  bombardSlingDiscount: 50,
   /** How far a Trebuchet shove moves a fruit back along the carpet: one tile (times Heavier Pumpkins). */
   trebuchetKnock: CELL,
   /** Scales of Justice: extra damage as a share of the target's max health (Karl takes the boss share). */
@@ -894,7 +942,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
     const interval = (upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1) * pace;
     let dmg = 14;
     if (upgrades.includes("caliber")) dmg += 8;
-    dmg = profile.dmg === 0 ? 0 : Math.max(1, Math.round(dmg * profile.dmg));
+    dmg = profile.dmg === 0 ? 0 : Math.max(1, Math.round(dmg * profile.dmg * (mods.includes("whetstone") ? 1.25 : 1)));
     return { dmg, range, interval };
   }
   const farther = mods.some((id) => id === "reach" || id === "arc" || id === "flare" || id === "coldreach");
@@ -943,7 +991,10 @@ export type ModId =
   | "bright"
   | "indelible"
   | "loam"
-  | "venom";
+  | "venom"
+  | "whetstone"
+  | "dressing"
+  | "scar";
 
 export interface ModDef {
   id: ModId;
@@ -972,6 +1023,9 @@ export const MODS: ModDef[] = [
   { id: "indelible", name: "Indelible ink", blurb: "The mark lasts longer and stings more.", kinds: ["ink"] },
   { id: "loam", name: "Rich loam", blurb: "The heap pays half again as much.", kinds: ["compost"] },
   { id: "venom", name: "Hungrier worms", blurb: "The burrowing does half again as much damage.", kinds: ["bookworm"] },
+  { id: "whetstone", name: "Whetstone", blurb: "The blade hits 25% harder.", kinds: ["lionblade"] },
+  { id: "dressing", name: "Field Dressing", blurb: "It puts 3 stacks back after each wave instead of 2.", kinds: ["lionblade"] },
+  { id: "scar", name: "Battle Scar", blurb: "A rally swing hits 100% harder instead of 50%.", kinds: ["lionblade"] },
   { id: "wide", name: "Wide lob", blurb: "The splash covers more of the fold.", kinds: ["mortar"] },
   { id: "heavy", name: "Heavy lob", blurb: "The splash bites harder.", kinds: ["mortar"] },
   { id: "arc", name: "High arc", blurb: "Lobs farther.", kinds: ["mortar"] },
@@ -1529,6 +1583,12 @@ export const OATH_ZONE = 3 * CELL;
  * `mouthAmp` damage from everything; he starts `mouthSeeds` seeds down. sling: the Trebuchet costs
  * `slingDiscount` less; no zone. The Trebuchet shoves anywhere under every oath.
  */
+/**
+ * Asser Mälkki. Material: every stack he loses pays `materialSeeds` seeds. Sisu: all his towers hit
+ * `sisuPerStack` harder for every stack he is missing, up to `sisuCap` stacks. Lion Blade: each one
+ * standing through a wave puts `bladeMend` stacks back when it's cleared.
+ */
+export const ASSER_VALUES = { materialSeeds: 4, sisuPerStack: 0.02, sisuCap: 15, bladeMend: 2 };
 export const OATH_VALUES = { doorHaste: 1.2, doorStacks: 2, mouthAmp: 1.3, mouthSeeds: 10, slingDiscount: 30 };
 /** The oath cards on Sir Michael's intro: what he says, a short title, the gain and the cost, and the log line. */
 export const OATH_TEXT: Record<OathId, { said: string; title: string; gain: string; cost: string; log: string }> = {

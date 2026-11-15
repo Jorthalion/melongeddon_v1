@@ -21,8 +21,8 @@ test("developer mode unlocks every map, bookmark and keeper level", () => {
   }
 });
 
-test("without developer mode a fresh game starts locked", () => {
-  const h = createWorld(() => {}).world.hud;
+test("without developer mode a fresh game (only The Stacks restored) starts locked", () => {
+  const h = createWorld(() => {}, { rooms: ["stacks"] }).world.hud;
   assert.equal(h.dev, false);
   assert.ok(h.maps.length < PICKABLE_MAPS.length);
   assert.equal(levelFor(h.keepers.mynxi.xp), 1);

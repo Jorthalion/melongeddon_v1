@@ -77,6 +77,53 @@ In the game; the code-drawn turret is only a fallback while it loads. Match **Qu
 | `sig-quackliber.png` | A compact **twin-barrel rocket launcher turret** built on a squat **padded backpack-style base in Quackarot's colours**: **bright orange canvas** like a hoodie, with **black straps, black drawstring cords** and brass buckles, and a **black crowned-duck emblem** stitched on the front. On top, a small round **brass turret** holding **two short, stubby black rocket tubes side by side**, rims painted orange, angled up and slightly forward, with **two little orange-and-cream rockets** peeking out of the muzzles, each with a tiny duck-bill nose cone. A **rubber-duck figurine** in a tiny gold crown rides on the turret beside the tubes like a hood ornament, and a short **crimson pennant with gold trim** flies from a thin antenna at the back. The base sits on a small round **dark walnut platform with brass rivets**. Playful and a bit cocky, but well made. 3/4 top-down view, transparent background. |
 | `fly-quack.png` (optional) | One of its rockets in flight: a **small orange-and-cream rocket with a little duck-bill nose cone**, two stubby black fins and an orange stripe, a short puff of flame and grey smoke behind it. **Side view, nose pointing right.** Transparent background, no shadow. |
 
+#### Sir Michael's second and third towers (done: `sig-gourdgate.webp`, `fly-portcullis.webp`, `sig-bombard.webp`, `fly-bombard.webp`)
+
+Two big siege towers to sit beside his **Pumpkin Trebuchet**. **Attach `public/sprites/sig-trebuchet.webp`** with every prompt so they read as the same knight's kit: dark walnut, **crimson cloth with gold fleur-de-lis**, gold trim, **orange pumpkins**, candles at the base. Paste the style line above first, unchanged (his colours are the crimson in it). They cost 300 and 400, so make them look **bigger and grander than the trebuchet**, but keep the same round walnut base and 3/4 view so they sit on one tile.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `sig-gourdgate.png` | **The Gourd Gate**, a small fortified **gatehouse carved out of a giant hollowed pumpkin**, standing on a round dark walnut base with a gold band and gold studs. The pumpkin's ribs are its stone-like walls, bound with **riveted gold iron bands**; its stalk is a little **crenellated turret** on top flying a **crimson pennant with a gold fleur-de-lis**. Its front is a gothic arched gateway with a heavy **iron-and-gold portcullis half raised**, the spikes along its bottom edge showing, and a coiled **chain on a brass winch** beside it. Two **arrow slits glowing warm orange** from inside, like jack-o'-lantern eyes. A crimson drape with gold embroidery and a pumpkin emblem hangs down the front of the base, with **two lit candles** at its foot, matching the attached trebuchet. Solid, defensive, a little whimsical. 3/4 top-down view, transparent background. |
+| `fly-portcullis.png` | Just the **portcullis**: a square **iron grille with gold-capped spikes along the bottom edge**, two crossbars riveted in gold, a short length of chain at the top. **Seen from straight above**, flat, as if it has just slammed down across a carpet. Transparent background, no shadow. |
+| `sig-bombard.png` | **The Harvest Bombard**, a colossal **bronze siege bombard cannon** whose barrel is **cast in the shape of a giant pumpkin's ribs**, mouth angled up toward the sky, a **huge orange pumpkin loaded in the muzzle** with its curly green stalk sticking out. The barrel rests on a heavy **carved walnut gun carriage with iron-rimmed wheels**, gold fleur-de-lis medallions on its sides, and a **lit slow-match fuse** smoking at the touch-hole. Beside it, a little pyramid of **three spare pumpkins** and a **crimson powder sack with a gold pumpkin emblem**. A crimson banner with gold trim flies from a tall pole at the back. All on a round dark walnut base with a gold band, gold studs and **two lit candles**, matching the attached trebuchet. It should look like the biggest gun in the library. 3/4 top-down view, transparent background. |
+| `fly-bombard.png` | The Bombard's shot in flight: **a huge glowing orange pumpkin wrapped in flame**, a trail of fire and sparks behind it, a few green leaves torn loose. **Side view, flying to the right.** Transparent background, no shadow. |
+
+#### Asser Mälkki, the Author-Knight (done: `public/sprites/portrait-asser.webp` and `sig-lionblade.webp`)
+
+Two images, each in the style of what's already in the game. Send them in **separate chats**: the portrait and the tower are different styles.
+
+**His colours are blue and white**, not crimson. No pumpkins, no orange, no crimson anywhere: those are Sir Michael's.
+
+##### `portrait-asser.png`: his keeper card
+
+**Attach three images:** his character sheet (`docs/art/asser-reference.jpg`) for his face and clothes, and two portraits already in the game for the style: `public/sprites/portrait-elf.webp` and `public/sprites/portrait-michael.webp`. **Don't paste the style line** above; this prompt carries its own.
+
+> Make a character portrait in **exactly the same art style as the two attached portraits** (the green-haired elf and the pumpkin knight): polished semi-realistic **anime / manhwa illustration**, clean confident linework, soft cel shading with painterly texture, dramatic low warm light, rich dark tones. The character is **Asser Mälkki** from the attached character sheet; match his face and outfit to the sheet exactly.
+>
+> **Him:** a very tall, broad-shouldered Finnish man in his mid-thirties. **Rectangular dark-framed glasses**, **short dark-brown beard**, messy short dark-brown hair, and a **thin healed scar on the left side of his face** (his left, the viewer's right), from the temple down across the cheekbone. A calm, patient look with the faintest dry smile, eyes on the viewer, head tilted very slightly.
+>
+> **Outfit:** chainmail at the neck under a **royal-blue tabard with a white Nordic cross**, a thick **white fur collar** on a blue cape, fastened with a **round silver clasp engraved with a cross**, a steel pauldron edging into frame on one shoulder.
+>
+> **Framing:** head and shoulders, chest-up, face centred in the upper half, like the attached portraits. **Square, 1:1.**
+>
+> **Background:** like the elf's portrait: dark wooden library shelves of old leather books, softly out of focus, with **two or three lit candles** glowing warm gold on one side, and a faint cool blue rim light on his other side picking out the fur and the glasses.
+>
+> No text, no watermark, no border, no frame.
+
+##### `sig-lionblade.png`: his tower
+
+**Attach:** `public/sprites/sig-scales.webp` and `public/sprites/sig-quackliber.webp` (two keeper towers already in the game) for the style, plus his character sheet for the sword and the lion. **Paste the style line first**, but change "deep crimson cloth with gold embroidery" to **"royal blue and white cloth with gold embroidery"**.
+
+> A game tower in **exactly the same style as the two attached tower images**: a single ornate standalone object, 3/4 top-down view (camera about 45° above), sitting on a **round dark walnut base with a gold band and gold studs**, crisp readable silhouette, transparent background.
+>
+> **The Lion Blade:** a great **longsword driven point-down into a weathered grey stone**, like a sword in the stone, standing upright on the walnut base. The sword matches the attached character sheet: a plain, practical steel blade with a fuller, a **cross-shaped crossguard trimmed in gold**, a **brown leather-wrapped grip** and a round pommel with a small cross. A faint **blue-white gleam** runs down the blade's edge.
+>
+> Draped over the stone and down the front of the base, a **royal-blue velvet banner with gold-embroidered edges and gold tassels**, showing a **white rampant lion**. A short **blue-and-white Nordic-cross pennant** is tied just below the crossguard, fluttering to one side.
+>
+> At the foot, like the books and candle at the foot of the scales: **a small stack of leather-bound books** (one blue, one brown), an **open manuscript page with a quill pen and an inkwell** (he's an author), and **one lit candle** in a brass holder.
+>
+> Dignified and steady, a little heroic. 3/4 top-down view, transparent background, no text, no letters, no watermark.
+
 #### Anti-Geese Protocol, Quackarot's second (prompt only: still code-drawn)
 
 Not in the game yet: it is drawn with code shapes. A one-use tower: when it goes off, every fruit near it is thrown back down the carpet and the tower is gone. Match the **Quack-Liber art** (`sig-quackliber.webp`; attach it with the prompt) and Quackarot's colours: **orange canvas, black straps, the black crowned-duck emblem**, brass and dark walnut. Painterly like the other towers, **not** bold comic ink outlines.

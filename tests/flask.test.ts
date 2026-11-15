@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_UNLOCKED, CANNON, CELL, EMPTY_META, TOWERS, backRoomPrice, createWorld, groupsFor, stepWorld, type MetaStats } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, CANNON, CELL, EMPTY_META, TOWERS, backRoomPrice, createWorld, groupsFor, stepWorld, type MetaStats, type RoomId } from "../src/game/engine.ts";
 
 const center = (n: number) => n * CELL + CELL / 2;
 
-function onBoard(meta: MetaStats) {
-  const api = createWorld(() => {}, { meta });
+function onBoard(meta: MetaStats, rooms?: RoomId[]) {
+  const api = createWorld(() => {}, { meta, rooms });
   api.openSetup();
   api.chooseHero("vael");
   api.beginNight();
@@ -49,10 +49,11 @@ test("Vaelithra's Keeper tab holds the Cauldron and the Unstoppered", () => {
   assert.deepEqual(groupsFor("vael").find((g) => g.id === "keeper")?.kinds, ["cauldron", "flask"]);
 });
 
-test("it's locked until Vaelithra wins a night with a Still and Trial Vial or Distilled Batch", () => {
-  const api = onBoard({ ...EMPTY_META });
+test("it's locked until The Great Hall is restored; the old brew goal no longer opens it", () => {
+  assert.ok(build(onBoard({ ...EMPTY_META }, ["stacks", "greathall"]), "flask"), "open with The Great Hall");
+  const api = onBoard({ ...EMPTY_META }, ["stacks"]);
   assert.equal(build(api, "flask"), undefined);
-  assert.match(api.world.hud.log, /Trial Vial or Distilled Batch/);
+  assert.match(api.world.hud.log, /Restore The Great Hall/);
 
   // Build a Still, take Trial Vial at the first pick, and win.
   assert.ok(build(api, "still"));
@@ -67,7 +68,7 @@ test("it's locked until Vaelithra wins a night with a Still and Trial Vial or Di
   }
   assert.equal(w.hud.phase, "victory");
   assert.ok(w.hud.upgrades.includes("vial"));
-  assert.ok(!w.hud.lockedTowers.includes("flask"), "unlocked");
+  assert.ok(w.hud.lockedTowers.includes("flask"), "the brew is an achievement now, not an unlock");
 });
 
 test("it drips a slow puddle from its own tile", () => {
