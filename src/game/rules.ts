@@ -251,7 +251,8 @@ export type TowerKind =
   | "mimic"
   | "copycat"
   | "lectern"
-  | "quackliber";
+  | "quackliber"
+  | "geese";
 
 /** Each keeper's signature tower. */
 export const SIGNATURE: Record<HeroId, TowerKind> = {
@@ -271,7 +272,7 @@ export const KEEPER_TOWERS: Record<HeroId, TowerKind[]> = {
   elf: ["scales", "stomp", "honey"],
   ooze: ["mimic", "copycat"],
   scholar: ["lectern"],
-  quack: ["quackliber"],
+  quack: ["quackliber", "geese"],
 };
 /** All keeper-only towers. */
 export const SIGNATURE_KINDS: TowerKind[] = Object.values(KEEPER_TOWERS).flat();
@@ -329,6 +330,7 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   freeze: "cannon",
   trebuchet: "cannon",
   quackliber: "cannon",
+  geese: "utility",
   spitter: "precision",
   ballista: "precision",
   reader: "precision",
@@ -659,6 +661,12 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 95,
     role: "Rockets",
   },
+  geese: {
+    name: "Anti-Geese Protocol",
+    blurb: "Quackarot's second. One use. It goes off on its own when fruit crowd into its ring or get near the door (or only when you press Engage, if you set it to Manual): every fruit within about two and a half tiles is thrown three tiles back down the carpet. Karl only takes the knock. Then it's gone, and it can be rebuilt after the wave.",
+    cost: 60,
+    role: "One shot",
+  },
 };
 
 /**
@@ -693,6 +701,8 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   honey: { dmg: 0, pace: 3.6, range: 1.1 },
   mimic: { dmg: 0, pace: 4.5, range: 0.75 },
   quackliber: { dmg: 1.8, pace: 1.5, range: 1.1 },
+  // Anti-Geese Protocol: range is the blast ring (about 2.5 tiles); it fires once, so pace doesn't matter.
+  geese: { dmg: 0, pace: 1, range: 0.9 },
 };
 
 /** Tunable numbers for the newer cannons' special effects. */
@@ -768,6 +778,14 @@ export const CANNON = {
   cauldronDps: 18,
   cauldronSlow: 0.55,
   trebuchetSplash: 64,
+  /**
+   * Anti-Geese Protocol (Quackarot's second): one blast, then it's gone. Every non-boss fruit in the
+   * ring is shoved `geeseShove` px back down the carpet and takes `geeseDamage`. On Auto it fires when
+   * `geeseCrowd` fruit are in the ring, or one is within the last three tiles before the door.
+   */
+  geeseShove: 3 * CELL,
+  geeseDamage: 10,
+  geeseCrowd: 4,
   /** How far a Trebuchet shove moves a fruit back along the carpet: one tile (times Heavier Pumpkins). */
   trebuchetKnock: CELL,
   /** Scales of Justice: extra damage as a share of the target's max health (Karl takes the boss share). */

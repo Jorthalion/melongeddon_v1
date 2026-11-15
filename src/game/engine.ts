@@ -132,6 +132,8 @@ interface Tower {
   /** Quack-Liber: rockets fired (Lane Lockdown counts them), and seconds left of Quiet Confidence. */
   volley?: number;
   rally?: number;
+  /** Anti-Geese Protocol: fire on its own (auto, the default) or only when Engage is pressed (manual). */
+  trigger?: "auto" | "manual";
 }
 
 /** A trick shot on a curved path that passes through fruit (Boomerang Bookend, Paper Plane, Serpent Quill, Rolling Globe). */
@@ -354,6 +356,8 @@ export interface Hud {
   chuteWave: boolean;
   /** Quack-Liber speed-up reach in px for the run in play (perks can widen it), for drawing it. */
   quackAura: number;
+  /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
+  geeseSpent: boolean;
   /** Keeper levels: XP and perk picks for every keeper. */
   keepers: KeeperProgress;
   /** The keeper's XP when this run started, and the XP earned in it. */
@@ -656,6 +660,10 @@ export function createWorld(
   sellSelected: () => void;
   /** Quack-Liber: change what the selected one aims at. Once per turret. */
   retarget: (mode: "strong" | "rear") => void;
+  /** Anti-Geese Protocol (selected): fire on its own, or only on Engage. */
+  setTrigger: (mode: "auto" | "manual") => void;
+  /** Anti-Geese Protocol (selected): set it off now (needs a fruit in the ring). */
+  engage: () => void;
   dismissSelection: () => void;
   nudgeSpeed: (dir: -1 | 1) => void;
   togglePause: () => void;
@@ -761,6 +769,7 @@ export function createWorld(
       setupNote: "",
       chuteWave: false,
       quackAura: CANNON.quackAura,
+      geeseSpent: false,
       keepers: emptyProgress(),
       xpStart: 0,
       xpRun: 0,
@@ -1610,6 +1619,7 @@ export function createWorld(
     );
   /** A keeper tower can be built only by its keeper, and only one of each at a time. */
   const signatureBlocked = (kind: TowerKind) =>
+    (kind === "geese" && world.hud.geeseSpent) ||
     isSignature(kind) &&
     (!own(kind) || world.towers.filter((t) => t.kind === kind).length >= 1 + (ownSignature(kind) ? fx.sigExtra : 0));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
@@ -1877,6 +1887,7 @@ export function createWorld(
       newMaps: [],
       chuteWave: false,
       quackAura: CANNON.quackAura,
+      geeseSpent: false,
     };
   };
 
@@ -1978,6 +1989,32 @@ export function createWorld(
         left = 0;
       }
     }
+  };
+
+  /** Anti-Geese Protocol on Auto: a crowd in the ring, or a fruit in the last three tiles before the door. */
+  const geeseShouldFire = (inRange: Enemy[]) =>
+    inRange.filter((e) => !e.boss).length >= CANNON.geeseCrowd ||
+    inRange.some((e) => !e.boss && inOathZone(world.points, "door", e));
+  /** Anti-Geese Protocol: shove every non-boss fruit in the ring back down the carpet, then the tower is gone. */
+  const fireGeese = (tower: Tower, inRange: Enemy[]) => {
+    credit = tower.id;
+    for (const e of inRange) {
+      if (e.hp <= 0) continue;
+      hurt(e, null, CANNON.geeseDamage);
+      if (!e.boss) pushBack(e, CANNON.geeseShove);
+    }
+    const range = statsFor(tower).range;
+    world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.7, max: 0.7, color: "243,206,120" });
+    world.rings.push({ x: tower.x, y: tower.y, r: range * 0.6, life: 0.5, max: 0.5, color: "255,240,200", fill: true });
+    burst(tower.x, tower.y - 10, "#f4f1e8", 18);
+    float(tower.x, tower.y - 28, "PROTOCOL", "#f3ce78");
+    cue("fire", "trebuchet");
+    world.shake = Math.max(world.shake, 0.25);
+    world.towers = world.towers.filter((t) => t !== tower);
+    if (world.hud.selected === tower.id) world.hud.selected = null;
+    world.hud.geeseSpent = true;
+    world.hud.log = `Anti-Geese Protocol: ${inRange.filter((e) => !e.boss).length} fruit thrown back. It can be rebuilt after this wave.`;
+    syncPrice();
   };
 
   const onDeath = (e: Enemy) => {
@@ -2225,6 +2262,7 @@ export function createWorld(
 
   const endWave = () => {
     cleared += 1;
+    world.hud.geeseSpent = false;
     world.hud.chuteWave = usesChute(cleared);
     bumpBest();
     const endless = world.hud.night === "endless";
@@ -2533,6 +2571,10 @@ export function createWorld(
       if (tower.kind === "hive") target = inRange[Math.floor(Math.random() * inRange.length)] ?? target;
       tower.aim = Math.atan2(target.y - tower.y, target.x - tower.x);
       if (tower.cd > 0) continue;
+      if (tower.kind === "geese") {
+        if ((tower.trigger ?? "auto") === "auto" && geeseShouldFire(inRange)) fireGeese(tower, inRange);
+        continue;
+      }
       if (tower.kind === "honey") {
         // Step onto the carpet a little ahead of the fruit, so it walks into the footprint.
         tower.cd = stats.interval;
@@ -2929,7 +2971,12 @@ export function createWorld(
         return;
       }
       if (signatureBlocked(buildKind)) {
-        world.hud.log = isSignature(buildKind) ? `Only one ${TOWERS[buildKind].name} at a time.` : world.hud.log;
+        world.hud.log =
+          buildKind === "geese" && world.hud.geeseSpent
+            ? "The protocol is spent. Rebuild it after this wave."
+            : isSignature(buildKind)
+              ? `Only one ${TOWERS[buildKind].name} at a time.`
+              : world.hud.log;
         notify();
         return;
       }
@@ -3045,6 +3092,28 @@ export function createWorld(
       tower.aimMode = mode;
       cue("build");
       world.hud.log = mode === "strong" ? "Quack-Liber locked onto the toughest fruit in reach." : "Quack-Liber covers the back of the line now.";
+      notify();
+    },
+    setTrigger(mode: "auto" | "manual") {
+      const tower = world.towers.find((t) => t.id === world.hud.selected);
+      if (!tower || tower.kind !== "geese" || (mode !== "auto" && mode !== "manual")) return;
+      tower.trigger = mode;
+      cue("build");
+      world.hud.log = mode === "auto" ? "Anti-Geese Protocol: on Auto. It goes off when they crowd in or near the door." : "Anti-Geese Protocol: on Manual. Press Engage.";
+      notify();
+    },
+    engage() {
+      const tower = world.towers.find((t) => t.id === world.hud.selected);
+      if (!tower || tower.kind !== "geese" || world.hud.phase !== "combat") return;
+      const range = statsFor(tower).range;
+      const inRange = world.enemies.filter((e) => e.hp > 0 && (e.x - tower.x) ** 2 + (e.y - tower.y) ** 2 <= range * range);
+      if (!inRange.length) {
+        world.hud.log = "Nothing in the ring yet. Wait for them.";
+        notify();
+        return;
+      }
+      fireGeese(tower, inRange);
+      credit = null;
       notify();
     },
     sellSelected() {

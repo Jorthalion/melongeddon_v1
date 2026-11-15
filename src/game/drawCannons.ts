@@ -9,7 +9,7 @@ export const DRAWN_KINDS: TowerKind[] = [
   "spitter", "ballista", "reader", "bell", "hive", "lantern", "ink", "compost", "peeler", "bookworm",
   "boomerang", "orrery", "plane", "quill", "globe",
   "press", "organ", "scope",
-  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber",
+  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese",
 ];
 
 const WOOD = "#5a3a22";
@@ -901,6 +901,63 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.beginPath();
       ctx.arc(0, 0, 3, 0, Math.PI * 2);
       ctx.fill();
+      break;
+    }
+    case "geese": {
+      // Quackarot's Anti-Geese Protocol: a squat round stone tower in his orange, a crowned-duck
+      // banner, and a brass sight on top that blinks while it's armed.
+      shadow(ctx, x, y, 17);
+      ctx.translate(x, y);
+      // Stone drum.
+      ctx.fillStyle = "#5d5650";
+      rrect(ctx, -14, -6, 28, 22, 4);
+      ctx.fill();
+      ctx.fillStyle = "#77706a";
+      ctx.beginPath();
+      ctx.ellipse(0, -6, 14, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#3e3833";
+      ctx.lineWidth = 1;
+      for (const yy of [2, 9]) {
+        ctx.beginPath();
+        ctx.moveTo(-14, yy);
+        ctx.lineTo(14, yy);
+        ctx.stroke();
+      }
+      // Orange band and the crowned duck.
+      ctx.fillStyle = "#e8742a";
+      ctx.fillRect(-14, -3, 28, 4);
+      ctx.fillStyle = "#1d1a1c";
+      rrect(ctx, -5, 0, 10, 13, 1.5);
+      ctx.fill();
+      ctx.fillStyle = "#f2c94c";
+      ctx.beginPath();
+      ctx.arc(0, 8, 2.6, 0, Math.PI * 2);
+      ctx.arc(1, 5.4, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      // Brass sight on a post.
+      ctx.strokeStyle = "#c6a15a";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -8);
+      ctx.lineTo(0, -15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, -19, 5, 0, Math.PI * 2);
+      ctx.stroke();
+      const blink = 0.45 + 0.55 * Math.max(0, Math.sin(t * 5));
+      ctx.fillStyle = `rgba(255,140,40,${blink})`;
+      ctx.beginPath();
+      ctx.arc(0, -19, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255,140,40,${blink})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-4, -19);
+      ctx.lineTo(4, -19);
+      ctx.moveTo(0, -23);
+      ctx.lineTo(0, -15);
+      ctx.stroke();
       break;
     }
     default:

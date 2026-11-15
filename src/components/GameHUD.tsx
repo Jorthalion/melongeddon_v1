@@ -2,6 +2,7 @@ import { BookOpen, Coins, Heart, Lock, Menu, Pause, Play, Volume2, VolumeX, X } 
 import {
   BOARDS,
   CANNON,
+  CELL,
   GUIDE_HOLDS,
   KEEPER_NAMES,
   MODS,
@@ -244,6 +245,8 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
             const cost = Math.max(0, buildCost(hud.hero, placed, id, hud.builtKinds) - (hud.bookmark === "discount" ? 5 : 0));
             const on = hud.build === id;
             const built = groupOf(id).id === "keeper" && api.world.towers.some((t) => t.kind === id);
+            // The Anti-Geese Protocol went off this wave: it comes back when the wave is over.
+            const spent = id === "geese" && hud.geeseSpent;
             // Trick cannons open with the keeper's level (as it was when this night started).
             const needs = TRICK_LEVEL[id] ?? 0;
             // Keeper towers with an unlock goal (the Reserve Desk) stay locked until it's met.
@@ -266,7 +269,7 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
                     ? `${TOWERS[id].name}: opens at keeper level ${needs}. ${TOWERS[id].blurb}`
                     : `${TOWERS[id].name} (${slot + 1}) · ${TYPE_INFO[TOWER_TYPE[id]].name}: ${TOWERS[id].blurb}\n${describeStats(id, read)}`
                 }
-                className={`relative h-full min-w-0 rounded-lg border px-1 py-1.5 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built || locked ? "opacity-55" : ""}`}
+                className={`relative h-full min-w-0 rounded-lg border px-1 py-1.5 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built || spent || locked ? "opacity-55" : ""}`}
                 onClick={() => {
                   gesture();
                   api.chooseBuild(id);
@@ -280,7 +283,7 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
                 <span className="mt-0.5 block truncate text-xs leading-tight font-semibold">{SHORT_NAME[id]}</span>
                 <span className="block truncate text-[11px] leading-tight text-parchment"><CardStat kind={id} read={read} /></span>
                 <span className="block truncate text-[11px] leading-tight text-muted">
-                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : cost}
+                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                 </span>
               </button>
@@ -341,10 +344,12 @@ const SHORT_NAME: Record<TowerKind, string> = {
   copycat: "Copycat",
   lectern: "Lectern",
   quackliber: "Quack-Liber",
+  geese: "Anti-Geese",
 };
 
 /** The build card's one-line number: damage (and pace, on wider screens) for anything that hits. */
 function CardStat({ kind, read }: { kind: TowerKind; read: { dmg: number; interval: number } }) {
+  if (kind === "geese") return <>Throws back {CANNON.geeseShove / CELL} tiles</>;
   if (read.dmg <= 0 || PASSIVE.includes(kind) || kind === "flask" || kind === "copycat") return <>No damage</>;
   const dmg = Number.isInteger(read.dmg) ? String(read.dmg) : read.dmg.toFixed(1);
   if (kind === "scales") return <>{dmg} + {Math.round(CANNON.scalesShare * 100)}% hp</>;
@@ -402,6 +407,7 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   if (kind === "organ") return `DMG ${read.dmg} to all within ${tiles} · slows · every ${CANNON.organEvery}rd chord stops · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "scope") return `DMG ${read.dmg} · pierces armour · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "honey") return `No damage · sticky footprint every ${read.interval.toFixed(1)}s: +${Math.round((CANNON.honeyAmp - 1) * 100)}% damage taken for ${CANNON.honeyTime}s · ${tiles}`;
+  if (kind === "geese") return `One use · throws every fruit in ${tiles} back ${CANNON.geeseShove / CELL} tiles · ${CANNON.geeseDamage} dmg`;
   if (kind === "stomp") return `DMG ${read.dmg} + ${CANNON.stompStun}s stop · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "still") return `No shot · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   return `DMG ${read.dmg} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
@@ -443,6 +449,40 @@ function TowerInspector({
         </p>
       </div>
       <div className="flex shrink-0 flex-col gap-1.5">
+        {tower.kind === "geese" ? (
+          <span className="flex gap-1" role="group" aria-label="Anti-Geese Protocol trigger">
+            {(["auto", "manual"] as const).map((mode) => {
+              const on = (tower.trigger ?? "auto") === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={on}
+                  title={mode === "auto" ? "Goes off on its own when fruit crowd in or near the door" : "Goes off only when you press Engage"}
+                  className={`h-9 cursor-pointer rounded-lg border px-2 text-xs ${on ? "border-[#c6a15a] bg-[#c6a15a]/25 text-parchment" : "border-line text-muted hover:border-[#c6a15a]"}`}
+                  onClick={() => {
+                    onGesture();
+                    api.setTrigger(mode);
+                  }}
+                >
+                  {mode === "auto" ? "Auto" : "Manual"}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              title="Set it off now: every fruit in the ring is thrown back"
+              disabled={api.world.hud.phase !== "combat"}
+              className="h-9 cursor-pointer rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] px-2 text-xs font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => {
+                onGesture();
+                api.engage();
+              }}
+            >
+              Engage
+            </button>
+          </span>
+        ) : null}
         {tower.kind === "quackliber" ? (
           tower.aimMode ? (
             <span className="grid h-9 place-items-center rounded-lg border border-line px-3 text-xs text-muted" title="A Quack-Liber can be retargeted once">
