@@ -22,6 +22,8 @@ import {
   type KeeperProgress,
   SIGNATURE,
   isSignature,
+  bindLeg,
+  carpetLegs,
 } from "../src/game/engine.ts";
 
 /** lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves. */
@@ -48,6 +50,10 @@ export interface RunConfig {
   keepers?: KeeperProgress;
   /** Optional Overflow late slips. */
   slips?: SlipId[];
+  /** Quackarot's bots build the Pamphlet and the Reverse Driver (default true; false for before/after comparisons). */
+  quackTowers?: boolean;
+  /** Cannons down before Quackarot's bots buy the Pamphlet and the Driver (default 8). */
+  quackFrom?: number;
 }
 
 export interface RunResult {
@@ -137,6 +143,11 @@ function play(config: RunConfig, rng: () => number): RunResult {
       const big = (["bombard", "gourdgate"] as TowerKind[]).find((k) => !world.towers.some((t) => t.kind === k));
       if (big) return big;
     }
+    // Quackarot: once eight cannons are down, a Pamphlet beside the longest straight near the door, then a Driver near the door.
+    if (config.hero === "quack" && config.quackTowers !== false && config.strategy !== "melon" && !config.rotation && placed >= (config.quackFrom ?? 8)) {
+      const extra = (["pamphlet", "driver"] as TowerKind[]).find((k) => !world.towers.some((t) => t.kind === k));
+      if (extra) return extra;
+    }
     // Keeper towers are one of each: once one is down, the rotation moves past it.
     for (let i = 0; i < order.length; i++) {
       const kind = order[(placed + i) % order.length];
@@ -146,6 +157,28 @@ function play(config: RunConfig, rng: () => number): RunResult {
   };
 
   const bestCell = (range: number, kind: TowerKind) => {
+    if (kind === "pamphlet" || kind === "driver") {
+      // Pamphlet: beside the longest straight (the later one on a tie, so nearer the door). Driver: the open tile nearest the door.
+      const legs = carpetLegs(world.points);
+      let want = 0;
+      legs.forEach((l, i) => {
+        if (l.tiles.length >= legs[want].tiles.length) want = i;
+      });
+      const door = world.points[world.points.length - 1];
+      let pick: { c: number; r: number } | null = null;
+      let near = Infinity;
+      for (let c = 0; c < world.cols; c++)
+        for (let r = 0; r < world.rows; r++) {
+          if (world.pathCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+          if (kind === "pamphlet" && bindLeg(legs, c, r) !== want) continue;
+          const d = Math.hypot(c * CELL + CELL / 2 - door.x, r * CELL + CELL / 2 - door.y);
+          if (d < near) {
+            near = d;
+            pick = { c, r };
+          }
+        }
+      return pick;
+    }
     // Whole-board cannons score spots like a normal cannon would; anywhere works for them.
     if (range >= GLOBAL_RANGE) range = 132;
     let best: { c: number; r: number } | null = null;
@@ -232,7 +265,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       api.dismissSelection(); // a click with a tower selected only closes it
       click(spot.c, spot.r);
       if (world.towers.length === before) break;
-      if (kind !== signature && kind !== "bombard" && kind !== "gourdgate") placed++;
+      if (kind !== signature && kind !== "bombard" && kind !== "gourdgate" && kind !== "pamphlet" && kind !== "driver") placed++;
     }
     api.dismissSelection();
   };

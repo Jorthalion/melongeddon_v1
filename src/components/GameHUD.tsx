@@ -16,7 +16,9 @@ import {
   TOWER_TYPE,
   TYPE_INFO,
   buildCost,
+  carpetLegs,
   groupOf,
+  legsTouching,
   groupsFor,
   refundFor,
   towerReadout,
@@ -327,7 +329,11 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
               <p className="truncate font-display text-sm font-semibold text-gold">{TOWERS[hud.build].name}</p>
               <p className="truncate text-xs text-parchment">{describeStats(hud.build, towerReadout(hud.hero, hud.build, [], hud.upgrades))}</p>
               <p className="line-clamp-2 text-xs text-muted">
-                {hud.lockedTowers.includes(hud.build) ? `Locked: ${TOWER_GOALS[hud.build]?.goal}` : `${TOWERS[hud.build].blurb} One at a time.`}
+                {hud.lockedTowers.includes(hud.build)
+                  ? `Locked: ${TOWER_GOALS[hud.build]?.goal}`
+                  : TOWER_LINE[hud.build]
+                    ? `${TOWER_LINE[hud.build]} One at a time.`
+                    : `${TOWERS[hud.build].blurb} One at a time.`}
               </p>
             </div>
           ) : null}
@@ -379,12 +385,21 @@ const SHORT_NAME: Record<TowerKind, string> = {
   lionblade: "Lion Blade",
   gourdgate: "Gourd Gate",
   bombard: "Bombard",
+  pamphlet: "Pamphlet",
+  driver: "Driver",
+};
+/** Quackarot's newest towers: the one line under them on the build bar and in the inspector. */
+const TOWER_LINE: Partial<Record<TowerKind, string>> = {
+  pamphlet: "He holds it until the straight is full. Then the pamphlet goes off.",
+  driver: "One fruit is walked back. The others are not his problem.",
 };
 
 /** The build card's one-line number: damage (and pace, on wider screens) for anything that hits. */
 function CardStat({ kind, read }: { kind: TowerKind; read: { dmg: number; interval: number } }) {
   if (kind === "geese") return <>Throws back {CANNON.geeseShove / CELL} tiles</>;
   if (kind === "gourdgate") return <>Holds {CANNON.gateHold}s</>;
+  if (kind === "pamphlet") return <>Hits a straight</>;
+  if (kind === "driver") return <>Walks one back</>;
   if (read.dmg <= 0 || PASSIVE.includes(kind) || kind === "flask" || kind === "copycat") return <>No damage</>;
   const dmg = Number.isInteger(read.dmg) ? String(read.dmg) : read.dmg.toFixed(1);
   if (kind === "scales") return <>{dmg} + {Math.round(CANNON.scalesShare * 100)}% hp</>;
@@ -442,6 +457,8 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   if (kind === "organ") return `DMG ${read.dmg} to all within ${tiles} · slows · every ${CANNON.organEvery}rd chord stops · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "scope") return `DMG ${read.dmg} · pierces armour · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "honey") return `No damage · sticky footprint every ${read.interval.toFixed(1)}s: +${Math.round((CANNON.honeyAmp - 1) * 100)}% damage taken for ${CANNON.honeyTime}s · ${tiles}`;
+  if (kind === "pamphlet") return `Hit: ${read.dmg} per fruit on the straight · goes off at its corner when 2+ are on it`;
+  if (kind === "driver") return `No damage · walks the furthest fruit back ${CANNON.driverTime}s (Karl ${CANNON.driverKarl}s) · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "gourdgate") return `Holds the carpet beside it ${CANNON.gateHold}s (${CANNON.gateHoldOath}s in his oath's zone) every ${read.interval.toFixed(1)}s · ${read.dmg} dmg/s to held fruit${lit}`;
   if (kind === "bombard") return `DMG ${read.dmg} + ${Math.round(read.dmg * CANNON.bombardSplashRatio)} splash · whole board · shoves 1 tile · burns · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "lionblade") return `DMG ${read.dmg} to every fruit in ${tiles} · ${read.interval.toFixed(1)}s · a lost stack: swings now, +${Math.round((CANNON.bladeRally - 1) * 100)}%${lit}`;
@@ -478,8 +495,11 @@ function TowerInspector({
             ? tower.copy
               ? `Copying ${TOWERS[tower.copy.kind].name}, one step harder · ${describeStats(tower.copy.kind, read)}`
               : "Blank: put a Melon, Mortar, Still, Fire or Freeze cannon right beside it (not on a corner)"
-            : describeStats(tower.kind, read)}
+            : tower.kind === "pamphlet"
+              ? `Hit: ${read.dmg} per fruit on the straight · ${tower.armed === false ? "spent" : "armed"}`
+              : describeStats(tower.kind, read)}
         </p>
+        {TOWER_LINE[tower.kind] ? <p className="truncate text-[11px] text-muted italic">{TOWER_LINE[tower.kind]}</p> : null}
         <p className="mt-0.5 h-4 truncate text-xs">
           <ReachNote reach={api.reachOf(tower.id)} />
           <NightTally tally={api.tallyOf(tower.id)} />
@@ -520,6 +540,20 @@ function TowerInspector({
               Engage
             </button>
           </span>
+        ) : null}
+        {tower.kind === "pamphlet" && legsTouching(carpetLegs(api.world.points), tower.c, tower.r).length > 1 ? (
+          <button
+            type="button"
+            title="Watch the other straight beside this tile (between waves)"
+            disabled={api.world.hud.phase !== "prep"}
+            className="h-9 rounded-lg border border-[#c6a15a] px-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => {
+              onGesture();
+              api.otherStraight();
+            }}
+          >
+            Other straight
+          </button>
         ) : null}
         {tower.kind === "quackliber" ? (
           tower.aimMode ? (

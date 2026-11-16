@@ -152,6 +152,16 @@ function fire(kind: TowerKind | undefined) {
       voice({ freq: vary(130), to: 45, dur: 0.22, type: "sine", gain: 0.09 });
       hiss({ dur: 0.12, gain: 0.04, freq: 500 });
       break;
+    case "pamphlet":
+      // A soft "fwump" as the pamphlet goes off down the straight.
+      voice({ freq: vary(180), to: 60, dur: 0.18, type: "sine", gain: 0.08 });
+      hiss({ dur: 0.16, gain: 0.05, freq: 900, to: 200 });
+      break;
+    case "driver":
+      // A short electric buzz.
+      voice({ freq: vary(220, 0.05), to: 260, dur: 0.22, type: "sawtooth", gain: 0.025 });
+      voice({ freq: vary(1760, 0.05), dur: 0.18, type: "square", gain: 0.008 });
+      break;
     case "fire":
       hiss({ dur: 0.22, gain: 0.05, filter: "bandpass", freq: 1400, to: 500, q: 1.2 });
       break;

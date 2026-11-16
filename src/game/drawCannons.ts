@@ -9,7 +9,7 @@ export const DRAWN_KINDS: TowerKind[] = [
   "spitter", "ballista", "reader", "bell", "hive", "lantern", "ink", "compost", "peeler", "bookworm",
   "boomerang", "orrery", "plane", "quill", "globe",
   "press", "organ", "scope",
-  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese", "lionblade", "gourdgate", "bombard",
+  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese", "lionblade", "gourdgate", "bombard", "pamphlet", "driver",
 ];
 
 const WOOD = "#5a3a22";
@@ -854,6 +854,74 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.stroke();
       ctx.fillStyle = "#7a2630";
       ctx.fillRect(3, -9, 1.2, 8 + Math.sin(t * 2) * 0.8);
+      break;
+    }
+    case "pamphlet": {
+      // Quackarot's Pamphlet (stand-in): a stubby orange megaphone launcher on a round base, a rolled pamphlet in its mouth, a fuse on top.
+      shadow(ctx, x, y, 17);
+      ctx.translate(x, y);
+      ctx.fillStyle = "#1d1a1c";
+      ctx.beginPath();
+      ctx.ellipse(0, 10, 15, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // The megaphone: narrow at the back, wide at the mouth.
+      ctx.fillStyle = "#e8742a";
+      ctx.beginPath();
+      ctx.moveTo(-12, -2);
+      ctx.lineTo(8, -10);
+      ctx.lineTo(8, 10);
+      ctx.lineTo(-12, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#1d1a1c";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-6, -4.5);
+      ctx.lineTo(-6, 5.5);
+      ctx.stroke();
+      // The rolled pamphlet sticking out of the mouth.
+      ctx.fillStyle = "#f3e2c4";
+      rrect(ctx, 6, -4, 10, 8, 3);
+      ctx.fill();
+      ctx.strokeStyle = "#b9a37c";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(15, 0, 2.2, 0, Math.PI * 2);
+      ctx.stroke();
+      // The fuse.
+      ctx.strokeStyle = "#3a2618";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(-4, -5);
+      ctx.quadraticCurveTo(-8, -13, -2, -16);
+      ctx.stroke();
+      break;
+    }
+    case "driver": {
+      // Quackarot's Reverse Driver (stand-in): a chunky orange-and-black hand tool upright in a little stand, its tip glowing green-white.
+      shadow(ctx, x, y, 15);
+      ctx.translate(x, y);
+      ctx.fillStyle = "#2a2426";
+      rrect(ctx, -10, 8, 20, 6, 2);
+      ctx.fill();
+      ctx.fillStyle = "#e8742a";
+      rrect(ctx, -5, -6, 10, 15, 3);
+      ctx.fill();
+      ctx.fillStyle = "#1d1a1c";
+      ctx.fillRect(-5, -1, 10, 2.5);
+      ctx.fillRect(-5, 3.5, 10, 2.5);
+      ctx.fillStyle = "#5a5056";
+      rrect(ctx, -2.5, -17, 5, 12, 1.5);
+      ctx.fill();
+      const pulse = 0.6 + Math.sin(t * 9) * 0.3;
+      ctx.fillStyle = `rgba(200,255,215,${pulse})`;
+      ctx.beginPath();
+      ctx.arc(0, -18, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(120,255,160,0.25)";
+      ctx.beginPath();
+      ctx.arc(0, -18, 6.5, 0, Math.PI * 2);
+      ctx.fill();
       break;
     }
     case "quackliber": {

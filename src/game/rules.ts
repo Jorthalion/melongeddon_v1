@@ -257,7 +257,9 @@ export type TowerKind =
   | "geese"
   | "lionblade"
   | "gourdgate"
-  | "bombard";
+  | "bombard"
+  | "pamphlet"
+  | "driver";
 
 /** Each keeper's signature tower. */
 export const SIGNATURE: Record<HeroId, TowerKind> = {
@@ -278,7 +280,7 @@ export const KEEPER_TOWERS: Record<HeroId, TowerKind[]> = {
   elf: ["scales", "stomp", "honey"],
   ooze: ["mimic", "copycat"],
   scholar: ["lectern"],
-  quack: ["quackliber", "geese"],
+  quack: ["quackliber", "geese", "pamphlet", "driver"],
   asser: ["lionblade"],
 };
 /** All keeper-only towers. */
@@ -338,6 +340,8 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   trebuchet: "cannon",
   quackliber: "cannon",
   geese: "utility",
+  pamphlet: "utility",
+  driver: "utility",
   lionblade: "precision",
   gourdgate: "utility",
   bombard: "cannon",
@@ -671,6 +675,18 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 95,
     role: "Rockets",
   },
+  pamphlet: {
+    name: "The Pamphlet",
+    blurb: "Quackarot's third. Bound to the straight beside it. When the front fruit reaches that straight's corner with at least one more still on it, every fruit on the straight takes a hit worth two melon shots. Then it waits for the next group. Fruit that already turned the corner are safe.",
+    cost: 70,
+    role: "Line blast",
+  },
+  driver: {
+    name: "The Reverse Driver",
+    blurb: "Quackarot's fourth. Every 4 s it buzzes the fruit furthest along in reach and walks it back the way it came for 2.5 s. Everything else keeps walking. Husks are steered too: this is not cold. Karl only turns for a moment. A fruit it has just turned can't be turned again for a few seconds.",
+    cost: 50,
+    role: "Walk back",
+  },
   geese: {
     name: "Anti-Geese Protocol",
     blurb: "Quackarot's second. One use. It goes off on its own when fruit crowd into its ring or get near the door (or only when you press Engage, if you set it to Manual): every fruit within about two and a half tiles is thrown three tiles back down the carpet. Karl only takes the knock. Then it's gone, and it can be rebuilt after the wave.",
@@ -737,6 +753,8 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   gourdgate: { dmg: 10, pace: 4.45, range: 0.5 },
   // Harvest Bombard: 500 a pumpkin, every 3 s, whole board.
   bombard: { dmg: 35.72, pace: 3.34, range: 0 },
+  // Reverse Driver: no damage, a plain melon's reach; its pace is CANNON.driverEvery.
+  driver: { dmg: 0, pace: 1, range: 1 },
 };
 
 /** Tunable numbers for the newer cannons' special effects. */
@@ -834,6 +852,16 @@ export const CANNON = {
   bombardFireLife: 3,
   bombardFireBurn: 25,
   bombardSlingDiscount: 50,
+  /** Reverse Driver: seconds between buzzes, how long a fruit walks back, and Karl's (shorter) turn. */
+  driverEvery: 4,
+  driverTime: 2.5,
+  driverKarl: 0.6,
+  /** Seconds after a fruit turns back round before the Driver can take it again (or a lone fruit would rock back and forth forever). */
+  driverImmune: 4,
+  /** The Pamphlet: living fruit that must be on its straight (the one at the corner included) for it to go off. */
+  pamphletCrowd: 2,
+  /** The Pamphlet's hit, as a share of a fresh melon's (2: tuned in the simulator, so the 70 seeds pay back). */
+  pamphletHit: 2,
   /** How far a Trebuchet shove moves a fruit back along the carpet: one tile (times Heavier Pumpkins). */
   trebuchetKnock: CELL,
   /** Scales of Justice: extra damage as a share of the target's max health (Karl takes the boss share). */
@@ -914,7 +942,9 @@ export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind, 
   return TOWERS[kind].cost;
 }
 
-export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]) {
+export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]): { dmg: number; range: number; interval: number } {
+  // The Pamphlet hits each fruit on its straight for what a fresh Melon cannon would deal (no melon fittings), and has no reach circle.
+  if (kind === "pamphlet") return { dmg: Math.round(towerReadout(hero, "melon", [], upgradesOwned).dmg * CANNON.pamphletHit), range: 0, interval: 0 };
   // The Unstoppered drips like a Still from its own tile (its spills wet the carpet instead).
   if (kind === "flask") return towerReadout(hero, "still", mods, upgradesOwned);
   // The Copycat itself does nothing; the copy it makes uses the copied kind's numbers.
@@ -943,6 +973,8 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
     let dmg = 14;
     if (upgrades.includes("caliber")) dmg += 8;
     dmg = profile.dmg === 0 ? 0 : Math.max(1, Math.round(dmg * profile.dmg * (mods.includes("whetstone") ? 1.25 : 1)));
+    // The Reverse Driver buzzes on its own clock (card upgrades don't touch a utility tower anyway).
+    if (kind === "driver") return { dmg: 0, range, interval: CANNON.driverEvery };
     return { dmg, range, interval };
   }
   const farther = mods.some((id) => id === "reach" || id === "arc" || id === "flare" || id === "coldreach");
@@ -1631,6 +1663,63 @@ export function carpetAlong(points: Array<{ x: number; y: number }>, x: number, 
   const k = Math.max(0, Math.min(points.length - 1, wp));
   const d = Math.hypot(x - points[k].x, y - points[k].y);
   return { along: reverse ? cum[k] + d : cum[k] - d, total };
+}
+
+/**
+ * The carpet's straights ("legs"): one between each pair of consecutive points, the last ending at the door.
+ * `from`/`to` are how far along the carpet (px) the leg starts and ends; `tiles` are its board tiles, the
+ * start corner included and the end corner not (a corner belongs to the leg a fruit walks into).
+ */
+export function carpetLegs(points: Array<{ x: number; y: number }>) {
+  const legs: Array<{ a: { x: number; y: number }; b: { x: number; y: number }; from: number; to: number; length: number; tiles: Array<[number, number]> }> = [];
+  let run = 0;
+  for (let k = 1; k < points.length; k++) {
+    const a = points[k - 1];
+    const b = points[k];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const c0 = Math.floor(a.x / CELL);
+    const r0 = Math.floor(a.y / CELL);
+    const c1 = Math.floor(b.x / CELL);
+    const r1 = Math.floor(b.y / CELL);
+    const steps = Math.abs(c1 - c0) + Math.abs(r1 - r0);
+    const tiles: Array<[number, number]> = [];
+    for (let i = 0; i < steps; i++) tiles.push([c0 + Math.sign(c1 - c0) * i, r0 + Math.sign(r1 - r0) * i]);
+    legs.push({ a, b, from: run, to: run + length, length, tiles });
+    run += length;
+  }
+  return legs;
+}
+
+/** The leg a fruit is on (index), or -1 while it's still walking in from off the board or past the end. */
+export function legOf(legs: ReturnType<typeof carpetLegs>, along: number, reverse: boolean) {
+  for (let i = 0; i < legs.length; i++) {
+    const l = legs[i];
+    if (reverse ? along > l.from && along <= l.to : along >= l.from && along < l.to) return i;
+  }
+  return -1;
+}
+
+/** The legs with a carpet tile sharing an edge with tile (c, r), with how many of its tiles touch. */
+export function legsTouching(legs: ReturnType<typeof carpetLegs>, c: number, r: number) {
+  const out: Array<{ leg: number; touch: number }> = [];
+  legs.forEach((l, i) => {
+    const touch = l.tiles.filter(([lc, lr]) => Math.abs(lc - c) + Math.abs(lr - r) === 1).length;
+    if (touch) out.push({ leg: i, touch });
+  });
+  return out;
+}
+
+/** The Pamphlet's straight from tile (c, r): the leg with the most tiles touching it; a tie goes downstream. -1 if none. */
+export function bindLeg(legs: ReturnType<typeof carpetLegs>, c: number, r: number) {
+  let best = -1;
+  let most = 0;
+  for (const { leg, touch } of legsTouching(legs, c, r)) {
+    if (touch > most || (touch === most && leg > best)) {
+      best = leg;
+      most = touch;
+    }
+  }
+  return best;
 }
 
 /** The carpet stretch an oath's zone covers (door: the last three tiles; mouth: the first three; sling: none). */

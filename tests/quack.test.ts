@@ -65,7 +65,7 @@ test("Quackarot starts with 11 stacks and 150 seeds, and the Quack-Liber is his 
   const api = start();
   assert.equal(api.world.hud.seeds, 150);
   assert.equal(api.world.hud.lives, 999); // set by the test; the start was checked above
-  assert.deepEqual(KEEPER_TOWERS.quack, ["quackliber", "geese"]);
+  assert.deepEqual(KEEPER_TOWERS.quack, ["quackliber", "geese", "pamphlet", "driver"]);
   assert.equal(TOWERS.quackliber.cost, 95);
   const other = start("mynxi");
   other.world.hud.seeds = 999;

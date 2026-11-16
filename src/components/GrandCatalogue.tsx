@@ -25,6 +25,10 @@ const ROOM_ART: Partial<Record<RoomId, { restored: string; ruined?: string }>> =
   mezzanine: { restored: asset("sprites/cat-room-mezzanine.webp") },
   rarebooks: { restored: asset("sprites/cat-room-rarebooks.webp"), ruined: asset("sprites/cat-room-rarebooks-ruined.webp") },
   archive: { restored: asset("sprites/cat-room-archive.webp"), ruined: asset("sprites/cat-room-archive-ruined.webp") },
+  greathall: { restored: asset("sprites/cat-room-greathall.webp"), ruined: asset("sprites/cat-room-greathall-ruined.webp") },
+  readingroom: { restored: asset("sprites/cat-room-readingroom.webp"), ruined: asset("sprites/cat-room-readingroom-ruined.webp") },
+  bindery: { restored: asset("sprites/cat-room-bindery.webp"), ruined: asset("sprites/cat-room-bindery-ruined.webp") },
+  restricted: { restored: asset("sprites/cat-room-restricted.webp"), ruined: asset("sprites/cat-room-restricted-ruined.webp") },
 };
 /** Spines per shelf board, so each row stands on its own plank. */
 const PER_SHELF = 9;

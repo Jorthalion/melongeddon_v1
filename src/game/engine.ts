@@ -5,6 +5,7 @@ import {
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
+  carpetLegs, legOf, legsTouching, bindLeg,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 
@@ -117,6 +118,9 @@ interface Enemy {
   /** The tower whose bookworm is burrowing (for its damage count). */
   wormBy?: number;
   /** Act three. Pit: stone, shrugs off splash, burn and pulp. Gall: a rider healing the enemy `mends` while that one lives. Borrower: takes seeds at the door instead of a stack. */
+  /** Reverse Driver: seconds left walking back the way it came, and the world time it can be driven again. */
+  driven?: number;
+  driveReady?: number;
   pit?: boolean;
   gall?: boolean;
   mends?: number;
@@ -161,6 +165,11 @@ interface Tower {
   rally?: number;
   /** Gourd Gate: the carpet point its portcullis drops on (with how far along the carpet that is), seconds it stays down, and seconds since it dropped. */
   gate?: { x: number; y: number; along: number; total: number };
+  /** The Pamphlet: its straight (index into carpetLegs), whether it's armed, each fruit's place along the carpet last tick, and the shockwave's time left. */
+  leg?: number;
+  armed?: boolean;
+  prevAlong?: Record<number, number>;
+  blast?: number;
   gateDown?: number;
   gateAge?: number;
   /** Lion Blade: a lost stack rallied it; its next swing hits harder (they don't add up). */
@@ -734,6 +743,8 @@ export function createWorld(
   sellSelected: () => void;
   /** Quack-Liber: change what the selected one aims at. Once per turret. */
   retarget: (mode: "strong" | "rear") => void;
+  /** The Pamphlet: bind the selected one to the other straight its tile touches (between waves). */
+  otherStraight: () => void;
   /** Anti-Geese Protocol (selected): fire on its own, or only on Engage. */
   setTrigger: (mode: "auto" | "manual") => void;
   /** Anti-Geese Protocol (selected): set it off now (needs a fruit in the ring). */
@@ -1154,7 +1165,15 @@ export function createWorld(
   const goalLocked = (kind: TowerKind) => world.hud.lockedTowers.includes(kind);
   /** The Reserve Desk has to sit right beside the carpet, so melons really do walk past it. */
   const offCarpet = (kind: TowerKind, c: number, r: number) =>
-    (kind === "desk" || kind === "gourdgate") && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.pathCells.has(`${c + a},${r + b}`));
+    kind === "pamphlet"
+      ? bindLeg(legsNow(), c, r) < 0
+      : (kind === "desk" || kind === "gourdgate") && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.pathCells.has(`${c + a},${r + b}`));
+  /** The carpet's straights for the current board (worked out once per board). */
+  let legCache: { points: World["points"]; legs: ReturnType<typeof carpetLegs> } | null = null;
+  const legsNow = () => {
+    if (!legCache || legCache.points !== world.points) legCache = { points: world.points, legs: carpetLegs(world.points) };
+    return legCache.legs;
+  };
   /** Why the guide won't let the wave start yet ("" when it will). */
   const guideHold = () => {
     const g = world.hud.guide;
@@ -2228,6 +2247,46 @@ export function createWorld(
       hurt(e, null, dps * dt);
     }
   };
+  /**
+   * The Pamphlet: armed, it goes off when a fruit on its straight reaches the straight's far end (in its
+   * own walking direction) with at least `pamphletCrowd` living fruit there, that one included. Every one
+   * of them takes a fresh melon's direct hit. Spent, it re-arms once fewer than that are on the straight.
+   */
+  const tickPamphlet = (tower: Tower, dt: number) => {
+    tower.blast = Math.max(0, (tower.blast ?? 0) - dt);
+    const legs = legsNow();
+    const leg = legs[tower.leg ?? -1];
+    if (!leg) return;
+    const prev = tower.prevAlong ?? {};
+    const next: Record<number, number> = {};
+    const on: Enemy[] = [];
+    const turning: Enemy[] = [];
+    for (const e of world.enemies) {
+      if (e.hp <= 0) continue;
+      const { along } = carpetAlong(world.points, e.x, e.y, e.wp, e.reverse);
+      next[e.id] = along;
+      if (legOf(legs, along, e.reverse) === tower.leg) {
+        on.push(e);
+        continue;
+      }
+      // Just reached the far end this tick (a corner belongs to the leg it walks into, so it has left this one).
+      const was = prev[e.id];
+      const ended = e.reverse ? along <= leg.from : along >= leg.to;
+      if (was !== undefined && legOf(legs, was, e.reverse) === tower.leg && ended && !(e.driven && e.driven > 0)) turning.push(e);
+    }
+    tower.prevAlong = next;
+    if (!tower.armed) {
+      if (on.length < CANNON.pamphletCrowd) tower.armed = true;
+      return;
+    }
+    if (!turning.length || on.length + turning.length < CANNON.pamphletCrowd) return;
+    const dmg = statsFor(tower).dmg;
+    for (const e of [...on, ...turning]) hurt(e, null, dmg, 0, "shot");
+    tower.armed = false;
+    tower.blast = 0.3;
+    cue("fire", "pamphlet");
+    world.shake = Math.max(world.shake, world.reduced ? 0 : 2);
+  };
   /** Harvest Bombard: the fruit with the most others around it (ties go to the one furthest along). */
   const densest = (pool: Enemy[]) => {
     let best = pool[0];
@@ -2819,6 +2878,28 @@ export function createWorld(
           continue;
         }
       }
+      // Reverse Driver: walk back toward the corner behind it for a while (wait at the carpet's start or the chute's end).
+      if ((e.driven ?? 0) > 0) {
+        e.driven = Math.max(0, (e.driven ?? 0) - dt);
+        const backAt = e.reverse ? e.wp + 1 : e.wp - 1;
+        const back = world.points[backAt];
+        if (back) {
+          const bx = back.x - e.x;
+          const by = back.y - e.y;
+          const bd = Math.hypot(bx, by);
+          const studiedBack = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
+          const stepBack = e.speed * e.slow * studiedBack * perimeterAt(e) * dt;
+          if (bd <= stepBack + 0.5) {
+            e.x = back.x;
+            e.y = back.y;
+            e.wp = backAt;
+          } else if (bd > 0) {
+            e.x += (bx / bd) * stepBack;
+            e.y += (by / bd) * stepBack;
+          }
+        }
+        continue;
+      }
       const wp = world.points[e.wp];
       if (!wp) continue;
       const dx = wp.x - e.x;
@@ -2885,6 +2966,10 @@ export function createWorld(
         tickGate(tower, dt);
         continue;
       }
+      if (tower.kind === "pamphlet") {
+        tickPamphlet(tower, dt);
+        continue;
+      }
       let target: Enemy | null = null;
       let bestProg = -Infinity;
       const stats = statsFor(tower);
@@ -2918,6 +3003,27 @@ export function createWorld(
       if (tower.cd > 0) continue;
       if (tower.kind === "geese") {
         if ((tower.trigger ?? "auto") === "auto" && geeseShouldFire(inRange)) fireGeese(tower, inRange);
+        continue;
+      }
+      if (tower.kind === "driver") {
+        // The fruit furthest along its own way, not one already walking back.
+        let pick: Enemy | null = null;
+        let best = -1;
+        for (const e of inRange) {
+          if ((e.driven ?? 0) > 0 || (e.driveReady ?? 0) > world.anim) continue;
+          const p = progressOf(e);
+          if (p > best) {
+            best = p;
+            pick = e;
+          }
+        }
+        if (!pick) continue;
+        tower.cd = stats.interval;
+        tower.aim = Math.atan2(pick.y - tower.y, pick.x - tower.x);
+        pick.driven = pick.boss ? CANNON.driverKarl : CANNON.driverTime;
+        pick.driveReady = world.anim + pick.driven + CANNON.driverImmune;
+        world.lines.push({ x: tower.x, y: tower.y - 14, x2: pick.x, y2: pick.y, life: 0.35, max: 0.35, color: "200,255,215", width: 2 });
+        cue("fire", "driver");
         continue;
       }
       if (tower.kind === "bombard") {
@@ -3356,7 +3462,10 @@ export function createWorld(
         return;
       }
       if (offCarpet(buildKind, c, r)) {
-        world.hud.log = "The Reserve Desk goes right beside the carpet.";
+        world.hud.log =
+          buildKind === "pamphlet"
+            ? "The Pamphlet has to stand beside a straight."
+            : `The ${TOWERS[buildKind].name} goes right beside the carpet.`;
         notify();
         return;
       }
@@ -3391,6 +3500,11 @@ export function createWorld(
         paid: world.hud.towerCost,
         born: cleared,
       };
+      if (buildKind === "pamphlet") {
+        tower.leg = bindLeg(legsNow(), c, r);
+        tower.armed = true;
+        tower.prevAlong = {};
+      }
       world.towers.push(tower);
       towerKinds.set(tower.id, buildKind);
       world.runLog.built[buildKind] = (world.runLog.built[buildKind] ?? 0) + 1;
@@ -3492,6 +3606,18 @@ export function createWorld(
       world.hud.waveName = next.name;
       world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.`;
       if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
+      notify();
+    },
+    otherStraight() {
+      const tower = world.towers.find((t) => t.id === world.hud.selected);
+      if (!tower || tower.kind !== "pamphlet" || world.hud.phase !== "prep") return;
+      const options = legsTouching(legsNow(), tower.c, tower.r).map((o) => o.leg);
+      if (options.length < 2) return;
+      tower.leg = options[(options.indexOf(tower.leg ?? -1) + 1) % options.length];
+      tower.armed = true;
+      tower.prevAlong = {};
+      cue("build");
+      world.hud.log = "The Pamphlet watches the other straight now.";
       notify();
     },
     retarget(mode: "strong" | "rear") {

@@ -36,7 +36,7 @@ function buildByDoor(api: Api) {
 const along = (api: Api, e: Fruit) => carpetAlong(api.world.points, e.x, e.y, e.wp, e.reverse).along;
 
 test("the Anti-Geese Protocol is Quackarot's second tower, 60 seeds, his alone", () => {
-  assert.deepEqual(KEEPER_TOWERS.quack, ["quackliber", "geese"]);
+  assert.deepEqual(KEEPER_TOWERS.quack, ["quackliber", "geese", "pamphlet", "driver"]);
   assert.equal(TOWERS.geese.cost, 60);
   const other = createWorld(() => {}, { meta: EMPTY_META });
   other.openSetup();

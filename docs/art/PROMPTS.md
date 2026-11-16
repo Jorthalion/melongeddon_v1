@@ -124,9 +124,18 @@ Two images, each in the style of what's already in the game. Send them in **sepa
 >
 > Dignified and steady, a little heroic. 3/4 top-down view, transparent background, no text, no letters, no watermark.
 
-#### Anti-Geese Protocol, Quackarot's second (prompt only: still code-drawn)
+#### The Pamphlet and the Reverse Driver, Quackarot's third and fourth (done: `public/sprites/sig-pamphlet.webp` and `sig-driver.webp`)
 
-Not in the game yet: it is drawn with code shapes. A one-use tower: when it goes off, every fruit near it is thrown back down the carpet and the tower is gone. Match the **Quack-Liber art** (`sig-quackliber.webp`; attach it with the prompt) and Quackarot's colours: **orange canvas, black straps, the black crowned-duck emblem**, brass and dark walnut. Painterly like the other towers, **not** bold comic ink outlines.
+Attach **Quackarot's portrait** (`portrait-quack.webp`) and the **Quack-Liber art** (`sig-quackliber.webp`) with each prompt so the colours match: **orange canvas hoodie fabric, black drawstrings and straps, the black crowned-duck emblem**, brass and dark walnut. Painterly like the other towers, **not** bold comic ink outlines.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `sig-pamphlet.png` | A **stubby orange megaphone-shaped launcher** lying at a low angle on a **small round dark walnut base with brass rivets**, its wide mouth facing forward. The body is wrapped in **orange canvas with black drawstring cords** and a stitched **black crowned-duck emblem**. A **rolled-up paper pamphlet tied with string** sticks out of the mouth, ready to burst out. A **short twisted fuse** on top with a tiny glowing orange spark. Small brass fittings and a brass sight on the side. Playful and a bit absurd, but well made. 3/4 top-down view, transparent background, no text. |
+| `sig-driver.png` | A **chunky hand-held tool**, an original design (not a copy of any film or TV prop): a fat **orange-and-black grip with black rubber bands** and a stitched **black crowned-duck emblem**, a short **brushed-steel shaft**, and a **glowing green-white crystal tip** with a soft halo, standing **upright in a little dark walnut stand** with brass clips on a **small round base**. A few faint green-white sparks around the tip, as if it just buzzed. Neat and clever-looking, a field strategist's gadget. 3/4 top-down view, transparent background, no text. |
+
+#### Anti-Geese Protocol, Quackarot's second (done: `public/sprites/sig-geese.webp`)
+
+A one-use tower: when it goes off, every fruit near it is thrown back down the carpet and the tower is gone. Match the **Quack-Liber art** (`sig-quackliber.webp`; attach it with the prompt) and Quackarot's colours: **orange canvas, black straps, the black crowned-duck emblem**, brass and dark walnut. Painterly like the other towers, **not** bold comic ink outlines.
 
 | File name | Prompt (after the style line) |
 |---|---|

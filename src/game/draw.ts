@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, CARPET_DYE, CELL, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, type OathId, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, CARPET_DYE, CELL, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
@@ -65,6 +65,10 @@ const SPRITE_SRC = {
   mimic: asset("sprites/sig-mimic.webp"),
   lectern: asset("sprites/sig-lectern.webp"),
   quackliber: asset("sprites/sig-quackliber.webp"),
+  // Quackarot's Anti-Geese Protocol, Pamphlet and Reverse Driver.
+  geese: asset("sprites/sig-geese.webp"),
+  pamphlet: asset("sprites/sig-pamphlet.webp"),
+  driver: asset("sprites/sig-driver.webp"),
   // Asser's Lion Blade (the code-drawn sword is only a fallback while it loads).
   lionblade: asset("sprites/sig-lionblade.webp"),
   // Sir Michael's second and third: the Gourd Gate (and its portcullis) and the Harvest Bombard (and its pumpkin).
@@ -228,6 +232,18 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   }
 
+  // The Pamphlet's straight: while placing one, while one is selected, and (between waves) every one's.
+  {
+    const legs = carpetLegs(world.points);
+    const shown = new Set<number>();
+    if (hover && placing && world.hud.build === "pamphlet" && world.hud.canPlace) shown.add(bindLeg(legs, hover.c, hover.r));
+    for (const t of world.towers) {
+      if (t.kind !== "pamphlet") continue;
+      if (t.id === world.hud.selected || world.hud.phase === "prep") shown.add(t.leg ?? -1);
+    }
+    for (const i of shown) if (legs[i]) drawLegWash(ctx, legs[i]);
+  }
+
   const selected = world.towers.find((t) => t.id === world.hud.selected);
   if (selected) {
     const kind = selected.kind === "copycat" && selected.copy ? selected.copy.kind : selected.kind;
@@ -326,6 +342,21 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
     const next = world.points[Math.min(e.wp, world.points.length - 1)];
     const look = e.pit ? "pit" : e.gall ? "gall" : e.borrower ? "borrower" : null;
+    // Reverse Driver: a little green-white swirl over a fruit being walked back.
+    if ((e.driven ?? 0) > 0) {
+      ctx.save();
+      ctx.translate(e.x, e.y - e.r - 12);
+      ctx.rotate(world.anim * 9);
+      ctx.strokeStyle = "rgba(200,255,215,0.9)";
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(0, 0, 5, 0, Math.PI * 1.4);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.5, Math.PI, Math.PI * 2.2);
+      ctx.stroke();
+      ctx.restore();
+    }
     // A gall's mark is what it does: a pulsing green thread to the fruit it is healing.
     const host = e.gall && e.mends != null ? world.enemies.find((o) => o.id === e.mends && o.hp > 0) : undefined;
     if (host) {
@@ -494,6 +525,31 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       continue;
     }
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim);
+    // The Pamphlet: a lit fuse while armed; a shockwave down its straight when it goes off.
+    if (t.kind === "pamphlet") {
+      if (t.armed !== false) {
+        const flick = 0.55 + Math.sin(world.anim * 14 + t.id) * 0.3;
+        ctx.fillStyle = `rgba(255,190,90,${flick})`;
+        ctx.beginPath();
+        ctx.arc(t.x - 9, t.y - 23, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const leg = carpetLegs(world.points)[t.leg ?? -1];
+      if (leg && (t.blast ?? 0) > 0) {
+        const k = 1 - (t.blast ?? 0) / 0.3;
+        const hx = leg.a.x + (leg.b.x - leg.a.x) * k;
+        const hy = leg.a.y + (leg.b.y - leg.a.y) * k;
+        ctx.save();
+        ctx.strokeStyle = `rgba(232,116,42,${0.85 - k * 0.5})`;
+        ctx.lineWidth = CELL * 0.55;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(leg.a.x, leg.a.y);
+        ctx.lineTo(hx, hy);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
     // Gourd Gate: the portcullis down across the carpet while it holds (it slams in from above).
     if (t.kind === "gourdgate" && (t.gateDown ?? 0) > 0 && t.gate) {
       const drop = Math.max(0, 1 - (t.gateAge ?? 0) / 0.12) * 18;
@@ -1285,6 +1341,24 @@ const ROOM_LOOK: Partial<
   readingroom: { floor: ["#b08a3a", 0.3], carpet: "#1f7f86", light: { x: 0.5, y: 0.5, r: 0.6, color: "190,255,190", a: 0.1 } },
 };
 
+/** The Pamphlet's straight: a faint orange wash over its tiles and an arrowhead at the corner where it goes off. */
+function drawLegWash(ctx: CanvasRenderingContext2D, leg: ReturnType<typeof carpetLegs>[number]) {
+  ctx.save();
+  ctx.fillStyle = "rgba(232,116,42,0.22)";
+  for (const [c, r] of leg.tiles) ctx.fillRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4);
+  const ang = Math.atan2(leg.b.y - leg.a.y, leg.b.x - leg.a.x);
+  ctx.translate(leg.b.x - Math.cos(ang) * CELL * 0.55, leg.b.y - Math.sin(ang) * CELL * 0.55);
+  ctx.rotate(ang);
+  ctx.fillStyle = "rgba(255,170,90,0.9)";
+  ctx.beginPath();
+  ctx.moveTo(9, 0);
+  ctx.lineTo(-5, -7);
+  ctx.lineTo(-5, 7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 /** A soft pool of the room's own light. */
 function drawRoomLight(ctx: CanvasRenderingContext2D, world: World, l: { x: number; y: number; r: number; color: string; a: number }) {
   const x = l.x * world.w;
@@ -1381,6 +1455,9 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   mimic: { aim: false, w: 44, h: 54 },
   lectern: { aim: false, w: 46, h: 56 },
   quackliber: { aim: false, w: 48, h: 56 },
+  geese: { aim: false, w: 46, h: 54 },
+  pamphlet: { aim: false, w: 52, h: 54 },
+  driver: { aim: false, w: 38, h: 56 },
   lionblade: { aim: false, w: 40, h: 60 },
   gourdgate: { aim: false, w: 58, h: 58 },
   bombard: { aim: false, w: 62, h: 60 },
