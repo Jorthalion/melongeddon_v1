@@ -56,7 +56,7 @@ export const KEEPERS: Array<{
     name: "Ooze Clues",
     role: "Astral adventurer",
     flavor: "The world is a game, and she is here to 100% it.",
-    line: "The first leak each wave does not count.",
+    line: "The first leak each wave does not count. Her Copycat is free.",
     toneHz: 360,
     portrait: asset("sprites/portrait-ooze.webp"),
   },

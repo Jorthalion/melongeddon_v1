@@ -5,7 +5,7 @@ import {
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
-  carpetLegs, legOf, legsTouching, bindLeg,
+  carpetLegs, legOf, legsTouching, bindLeg, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 
@@ -143,6 +143,8 @@ interface Tower {
   /** The Copycat: the copy it is running right now (fires in its place), and the cannon it copies. */
   copy?: Tower;
   copyFrom?: number;
+  /** This tower is a Copycat's copy (heavy cannons hit for `CANNON.copyHeavyDmg`). */
+  copied?: boolean;
   /** Pipe Organ: chords played (every third is a crescendo). */
   chord?: number;
   /** Unstoppered: the extra tiles it has spilled onto, each dripping on its own timer. */
@@ -1381,19 +1383,19 @@ export function createWorld(
     return true;
   };
 
-  /** What The Copycat can copy. */
-  const MIMIC_KINDS: TowerKind[] = ["melon", "mortar", "still", "fire", "freeze"];
+  /** The Copycat's copy of `source`'s fittings: step kinds also get the hidden step. */
+  const copyMods = (source: Tower): ModId[] => (COPY_STEP_KINDS.includes(source.kind) ? [...source.mods, "mimicstep"] : [...source.mods]);
   /**
-   * The Copycat: copy the newest cannon right beside it (not on a corner), with that cannon's upgrades
-   * plus one hidden step. With nothing to copy it goes blank. `refit` also picks up upgrades bought
-   * for the original since the copy was made (done at the start of each wave).
+   * The Copycat: copy the newest copyable tower right beside it (not on a corner), with its upgrades
+   * (plus one hidden step for the step kinds; see COPY_STEP_KINDS). With nothing to copy it goes blank.
+   * `refit` also picks up upgrades bought for the original since the copy was made (at each wave start).
    */
   const syncMimics = (refit = false) => {
     for (const m of world.towers) {
       if (m.kind !== "copycat") continue;
       let source: Tower | null = null;
       for (const t of world.towers) {
-        if (!MIMIC_KINDS.includes(t.kind) || Math.abs(t.c - m.c) + Math.abs(t.r - m.r) !== 1) continue;
+        if (!canCopy(t.kind) || Math.abs(t.c - m.c) + Math.abs(t.r - m.r) !== 1) continue;
         if (!source || t.id > source.id) source = t;
       }
       if (!source) {
@@ -1403,9 +1405,13 @@ export function createWorld(
       }
       if (m.copyFrom !== source.id || !m.copy) {
         m.copyFrom = source.id;
-        m.copy = { ...m, kind: source.kind, mods: [...source.mods, "mimicstep"], orange: source.orange, cd: 0.4, pulpCd: 0, copy: undefined, spill: undefined };
+        // A fresh tower of the copied kind on the Copycat's tile and id (so its kills count for the Copycat).
+        m.copy = {
+          id: m.id, c: m.c, r: m.r, x: m.x, y: m.y, aim: m.aim, paid: 0, born: m.born,
+          kind: source.kind, mods: copyMods(source), orange: source.orange, cd: 0.4, pulpCd: 0, copied: true,
+        };
       } else if (refit) {
-        m.copy.mods = [...source.mods, "mimicstep"];
+        m.copy.mods = copyMods(source);
       }
     }
   };
@@ -1730,7 +1736,9 @@ export function createWorld(
   };
 
   const statsFor = (tower: Tower) => {
-    const read = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
+    const plain = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
+    // A Copycat's copy of a heavy cannon hits for a share of the original.
+    const read = tower.copied && COPY_HEAVY_KINDS.includes(tower.kind) ? { ...plain, dmg: Math.max(1, Math.round(plain.dmg * CANNON.copyHeavyDmg)) } : plain;
     if (PASSIVE.includes(tower.kind)) return read;
     // Dr. Samodovol's Close Reading: each Doctor's pick taken tonight makes his cannons fire a little faster.
     const read2 = fx.closeReading ? Math.min(3, world.runLog.doctorTaken) * fx.closeReading : 0;

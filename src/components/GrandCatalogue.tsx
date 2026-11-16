@@ -77,7 +77,7 @@ export function rewardBlurb(w: Reward): string {
     return k ? `${k.role}. ${k.line}` : "";
   }
   if (w.kind === "bookmark") return `Bookmark: ${BOOKMARK[w.id].blurb}`;
-  if (w.kind === "tower") return `${TOWERS[w.id].cost} seeds. ${TOWER_BLURB[w.id] ?? firstSentence(TOWERS[w.id].blurb)}`;
+  if (w.kind === "tower") return `${TOWERS[w.id].cost ? `${TOWERS[w.id].cost} seeds` : "Free"}. ${TOWER_BLURB[w.id] ?? firstSentence(TOWERS[w.id].blurb)}`;
   return COSMETIC_BLURB[w.id];
 }
 

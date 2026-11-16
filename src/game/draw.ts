@@ -603,8 +603,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   }
 
-  // Orrery: a faint orbit and the two planets.
-  for (const t of world.towers) {
+  // Orrery: a faint orbit and the two planets (a Copycat's copy too).
+  for (const t of world.towers.map((o) => (o.kind === "copycat" && o.copy ? o.copy : o))) {
     if (t.kind !== "orrery") continue;
     const orbit = t.orbit ?? 80;
     const spin = t.spin ?? world.anim * 2.6;

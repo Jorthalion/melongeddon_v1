@@ -261,6 +261,21 @@ export type TowerKind =
   | "pamphlet"
   | "driver";
 
+/**
+ * What the Copycat can copy. Step kinds get the hidden "one step harder" (`mimicstep`); plain kinds
+ * are copied exactly. Anything on neither list is never copied: keeper towers, another Copycat, and
+ * the helpers (Reading Lamp, Compost Heap). List new shared towers here by hand when they're added.
+ */
+export const COPY_STEP_KINDS: TowerKind[] = ["melon", "mortar", "still", "fire", "freeze"];
+export const COPY_PLAIN_KINDS: TowerKind[] = [
+  "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm",
+  "boomerang", "orrery", "plane", "quill", "globe",
+  "press", "organ", "scope",
+];
+/** Heavy cannons: a Copycat's copy of one hits for `CANNON.copyHeavyDmg`. */
+export const COPY_HEAVY_KINDS: TowerKind[] = ["press", "organ", "scope"];
+export const canCopy = (kind: TowerKind) => COPY_STEP_KINDS.includes(kind) || COPY_PLAIN_KINDS.includes(kind);
+
 /** Each keeper's signature tower. */
 export const SIGNATURE: Record<HeroId, TowerKind> = {
   mynxi: "catalogue",
@@ -653,8 +668,8 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   copycat: {
     name: "The Copycat",
-    blurb: "Ooze Clues' second. Blank until it sits right beside a Melon, Mortar, Still, Fire or Freeze cannon (corners don't count). Then it becomes a copy, upgrades and all, one step harder: farther, wider, sooner, longer. Never more damage.",
-    cost: 160,
+    blurb: "Ooze Clues' second. Free. Blank until it sits right beside a shared tower (corners don't count). Then it becomes a copy, upgrades and all. A Melon, Mortar, Still, Fire or Freeze copy is one step harder. A heavy cannon copy hits for 75%. It can't copy keeper towers or helpers.",
+    cost: 0,
     role: "Copy",
   },
   mimic: {
@@ -806,6 +821,8 @@ export const CANNON = {
   mimicDrip: 0.75,
   mimicBurn: 1.2,
   mimicFreeze: 0.4,
+  /** The Copycat: a copy of a heavy cannon (Press, Organ, Telescope) deals this share of the original's damage. */
+  copyHeavyDmg: 0.75,
   deskReach: 60,
   wormDps: 26,
   wormTime: 4,

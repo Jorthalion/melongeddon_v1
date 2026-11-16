@@ -24,6 +24,8 @@ import {
   towerReadout,
   type TowerKind,
   type World,
+  COPY_STEP_KINDS,
+  COPY_HEAVY_KINDS,
 } from "@/game/engine";
 import { tone } from "@/game/audio";
 import { TowerIcon } from "@/components/TowerIcon";
@@ -316,7 +318,7 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
                 <span className="mt-0.5 block truncate text-xs leading-tight font-semibold">{SHORT_NAME[id]}</span>
                 <span className="block truncate text-[11px] leading-tight text-parchment"><CardStat kind={id} read={read} /></span>
                 <span className="block truncate text-[11px] leading-tight text-muted">
-                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : cost}
+                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : cost === 0 ? "Free" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                 </span>
               </button>
@@ -493,8 +495,8 @@ function TowerInspector({
         <p className="mt-1 truncate text-xs text-muted sm:text-sm">
           {tower.kind === "copycat"
             ? tower.copy
-              ? `Copying ${TOWERS[tower.copy.kind].name}, one step harder · ${describeStats(tower.copy.kind, read)}`
-              : "Blank: put a Melon, Mortar, Still, Fire or Freeze cannon right beside it (not on a corner)"
+              ? `Copying: ${TOWERS[tower.copy.kind].name}${COPY_STEP_KINDS.includes(tower.copy.kind) ? ", one step harder" : COPY_HEAVY_KINDS.includes(tower.copy.kind) ? ", 75% damage" : ""} · ${describeStats(tower.copy.kind, read)}`
+              : "Blank: put a shared tower right beside it (not on a corner)"
             : tower.kind === "pamphlet"
               ? `Hit: ${read.dmg} per fruit on the straight · ${tower.armed === false ? "spent" : "armed"}`
               : describeStats(tower.kind, read)}

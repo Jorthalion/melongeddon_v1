@@ -180,7 +180,7 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
                           <span className="font-semibold text-gold">{TOWERS[kind].name}</span>
                           <span className="text-muted">
                             {" "}
-                            · {TOWERS[kind].cost} seeds{i === 0 ? " · signature" : ""}. {TOWERS[kind].blurb}
+                            · {TOWERS[kind].cost ? `${TOWERS[kind].cost} seeds` : "Free"}{i === 0 ? " · signature" : ""}. {TOWERS[kind].blurb}
                           </span>
                           {goal ? <span className="mt-0.5 block text-xs text-flesh">Locked: {goal}</span> : null}
                         </p>

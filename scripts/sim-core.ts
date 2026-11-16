@@ -21,6 +21,8 @@ import {
   type SlipId,
   type KeeperProgress,
   SIGNATURE,
+  TOWERS,
+  canCopy,
   isSignature,
   bindLeg,
   carpetLegs,
@@ -54,6 +56,8 @@ export interface RunConfig {
   quackTowers?: boolean;
   /** Cannons down before Quackarot's bots buy the Pamphlet and the Driver (default 8). */
   quackFrom?: number;
+  /** Ooze's bots place the free Copycat beside their most expensive copyable tower (default true). */
+  oozeCopycat?: boolean;
 }
 
 export interface RunResult {
@@ -148,6 +152,9 @@ function play(config: RunConfig, rng: () => number): RunResult {
       const extra = (["pamphlet", "driver"] as TowerKind[]).find((k) => !world.towers.some((t) => t.kind === k));
       if (extra) return extra;
     }
+    // Ooze: once the Mimic Chest is down, the free Copycat goes beside the priciest tower it can copy.
+    if (config.hero === "ooze" && config.oozeCopycat !== false && config.strategy !== "melon" && !config.rotation && world.towers.some((t) => t.kind === "mimic") && !world.towers.some((t) => t.kind === "copycat") && copySpot())
+      return "copycat";
     // Keeper towers are one of each: once one is down, the rotation moves past it.
     for (let i = 0; i < order.length; i++) {
       const kind = order[(placed + i) % order.length];
@@ -156,7 +163,22 @@ function play(config: RunConfig, rng: () => number): RunResult {
     return "melon";
   };
 
+  /** An open tile right beside the most expensive tower the Copycat can copy (the newest on a tie). */
+  const copySpot = () => {
+    const sources = world.towers.filter((t) => canCopy(t.kind)).sort((a, b) => TOWERS[b.kind].cost - TOWERS[a.kind].cost || b.id - a.id);
+    for (const s of sources)
+      for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const c = s.c + a;
+        const r = s.r + b;
+        if (c < 0 || r < 0 || c >= world.cols || r >= world.rows) continue;
+        if (world.pathCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+        return { c, r };
+      }
+    return null;
+  };
+
   const bestCell = (range: number, kind: TowerKind) => {
+    if (kind === "copycat") return copySpot();
     if (kind === "pamphlet" || kind === "driver") {
       // Pamphlet: beside the longest straight (the later one on a tie, so nearer the door). Driver: the open tile nearest the door.
       const legs = carpetLegs(world.points);
@@ -265,7 +287,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       api.dismissSelection(); // a click with a tower selected only closes it
       click(spot.c, spot.r);
       if (world.towers.length === before) break;
-      if (kind !== signature && kind !== "bombard" && kind !== "gourdgate" && kind !== "pamphlet" && kind !== "driver") placed++;
+      if (kind !== signature && kind !== "copycat" && kind !== "bombard" && kind !== "gourdgate" && kind !== "pamphlet" && kind !== "driver") placed++;
     }
     api.dismissSelection();
   };

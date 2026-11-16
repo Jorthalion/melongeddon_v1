@@ -60,7 +60,7 @@ export const KEEPER_SHEETS: Record<
     rules: [
       "The first fruit to leak each wave is absorbed: no stack lost.",
       "Mimic Chest (Memec) swallows a fruit whole every few seconds; Karl only loses a bite.",
-      "The Copycat copies the cannon beside it, one step harder.",
+      "The Copycat is free and copies the shared tower beside it, upgrades and all.",
     ],
     suits: "A forgiving start, and players who like a trick tower.",
   },
