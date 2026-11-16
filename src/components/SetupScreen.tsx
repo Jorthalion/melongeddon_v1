@@ -9,8 +9,11 @@ import {
   PICKABLE_MAPS,
   TOWER_GOALS,
   TOWERS,
+  activePerks,
   levelFor,
   roomFor,
+  type HeroId,
+  type Hud,
   type CardFrame,
   type Difficulty,
 } from "@/game/engine";
@@ -22,6 +25,7 @@ import { SlipPicker } from "@/components/LateSlips";
 import { MapPreview } from "@/components/MapPreview";
 import { TowerIcon } from "@/components/TowerIcon";
 import { KEEPERS } from "@/components/keeperCards";
+import { KEEPER_SHEETS } from "@/game/keeperSheets";
 import { MenuCard, type GameApi } from "@/components/ui";
 
 /** Keeper-card frames (Bindery and Restricted Section cosmetics): the card's border when it isn't picked. */
@@ -158,6 +162,7 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
                 </div>
                 <p className="mt-1 text-lg leading-snug">{chosen.line}</p>
                 <p className="mt-1 text-sm text-muted italic">{chosen.flavor}</p>
+                <KeeperSheet hud={hud} hero={chosen.id} />
                 {/* Every tower only this keeper can build: the signature first, then the rest of the Keeper tab. */}
                 <p className="mt-2.5 border-t border-line/50 pt-2.5 text-[10px] tracking-[0.22em] text-gold uppercase">
                   {towers.length > 1 ? `${chosen.name}'s towers` : `${chosen.name}'s tower`}
@@ -435,6 +440,51 @@ function Footer({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+const DIFFICULTY_TONE = { Gentle: "text-[#7fc98f]", Steady: "text-gold", Tricky: "text-[#e8a35a]", Hard: "text-flesh" } as const;
+
+/** The keeper sheet: what they start with, how forgiving they are, how they play, who they suit, and their perks. */
+function KeeperSheet({ hud, hero }: { hud: Hud; hero: HeroId }) {
+  const sheet = KEEPER_SHEETS[hero];
+  const rec = hud.keepers[hero];
+  const level = levelFor(rec.xp);
+  const perks = activePerks(hero, rec);
+  const next = PERK_LEVELS.find((at) => at > level);
+  const chip = "rounded-full border border-line/70 bg-ink/40 px-2 py-0.5 text-xs";
+  return (
+    <div className="mt-2.5 border-t border-line/50 pt-2.5">
+      <div className="flex flex-wrap gap-1.5">
+        <span className={chip}>
+          <span className="font-semibold text-parchment">{sheet.stacks}</span> <span className="text-muted">stacks</span>
+        </span>
+        <span className={chip}>
+          <span className="font-semibold text-parchment">{sheet.seeds}</span> <span className="text-muted">seeds</span>
+        </span>
+        <span className={chip} title="How forgiving this keeper is to play">
+          <span className={`font-semibold ${DIFFICULTY_TONE[sheet.difficulty]}`}>{sheet.difficulty}</span> <span className="text-muted">to play</span>
+        </span>
+        <span className={chip}>
+          <span className="text-muted">Level</span> <span className="font-semibold text-parchment">{level}</span>
+        </span>
+      </div>
+      <p className="mt-2.5 text-[10px] tracking-[0.22em] text-gold uppercase">How they play</p>
+      <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-5 text-sm leading-snug marker:text-gold/70">
+        {sheet.rules.map((r) => (
+          <li key={r}>{r}</li>
+        ))}
+      </ul>
+      <p className="mt-1.5 text-sm text-muted">
+        <span className="font-semibold text-parchment">Good for:</span> {sheet.suits}
+      </p>
+      <p className="mt-1.5 text-sm text-muted">
+        <span className="font-semibold text-parchment">Perks:</span>{" "}
+        {perks.length ? perks.map((p) => p.name).join(", ") : "none yet"}
+        {next ? ` · the next opens at level ${next}` : " · all five open"}
+        {perks.length ? " (choose them on the next page)" : ""}
+      </p>
     </div>
   );
 }
