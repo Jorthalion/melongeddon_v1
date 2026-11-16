@@ -26,8 +26,9 @@ export interface RunLog {
   /** Stacks lost to Karl reaching the door. */
   karlStacksLost: number;
   picks: number;
-  wrongBookTaken: boolean;
-  wrongBookOffered: number;
+  /** Dr. Samodovol: Doctor's picks shown, and taken. */
+  doctorOffered: number;
+  doctorTaken: number;
   kills: number;
   /** The tower whose hit or effect landed each kill. */
   killsBy: Partial<Record<TowerKind, number>>;
@@ -65,8 +66,8 @@ export function emptyRunLog(): RunLog {
     minStacks: Infinity,
     karlStacksLost: 0,
     picks: 0,
-    wrongBookTaken: false,
-    wrongBookOffered: 0,
+    doctorOffered: 0,
+    doctorTaken: 0,
     kills: 0,
     killsBy: {},
     karlKills: 0,
@@ -250,18 +251,18 @@ const LIST: Array<Omit<Achievement, "tier">> = [
     progress: (l) => [l.oathsWon.length, OATHS.length],
   },
   {
-    id: "wrong-book",
+    id: "well-read",
     name: "Well Read",
-    blurb: "As Dr. Samodovol, win a night where the wrong book was offered at least 3 times and never taken.",
+    blurb: "As Dr. Samodovol, win a night taking the Doctor's pick at least 3 times.",
     shelf: "staff",
-    check: (c) => storyWin(c) && c.hero === "scholar" && c.log.wrongBookOffered >= 3 && !c.log.wrongBookTaken,
+    check: (c) => storyWin(c) && c.hero === "scholar" && c.log.doctorTaken >= 3,
   },
   {
-    id: "misread",
-    name: "Misread",
-    blurb: "As Dr. Samodovol, win a night after taking the wrong book.",
+    id: "off-the-shelf",
+    name: "Off the Shelf",
+    blurb: "As Dr. Samodovol, win a night without taking a single Doctor's pick.",
     shelf: "staff",
-    check: (c) => storyWin(c) && c.hero === "scholar" && c.log.wrongBookTaken,
+    check: (c) => storyWin(c) && c.hero === "scholar" && c.log.doctorOffered >= 3 && c.log.doctorTaken === 0,
   },
   { id: "sisu-max", name: "Unbroken", blurb: "As Asser, win a night after Sisu reached its cap.", shelf: "staff", check: (c) => storyWin(c) && c.hero === "asser" && c.log.sisuCapped },
   { id: "mender", name: "Field Dressing", blurb: "As Asser, have the Lion Blade mend 20 stacks in one night.", shelf: "staff", check: (c) => c.hero === "asser" && c.log.mended >= 20 },
@@ -394,7 +395,7 @@ const LIST: Array<Omit<Achievement, "tier">> = [
 ];
 
 const TIER_1 = ["fragments-10", "restorer", "first-night", "librarian", "overflow", "endless-20", "minimalist", "no-signature", "hoarder", "back-room-ban", "slow-cooker", "massacre"];
-const TIER_3 = ["archivist", "overdue", "endless-30", "full-staff", "pet", "still-standing", "all-slips", "perfect", "wrong-book", "maps", "difficulties", "massacre-10k"];
+const TIER_3 = ["archivist", "overdue", "endless-30", "full-staff", "pet", "still-standing", "all-slips", "perfect", "well-read", "maps", "difficulties", "massacre-10k"];
 const tierOf = (a: Omit<Achievement, "tier">): 1 | 2 | 3 =>
   a.secret || TIER_3.includes(a.id) ? 3 : TIER_1.includes(a.id) || a.id.startsWith("win-") ? 1 : 2;
 

@@ -249,7 +249,7 @@ After the guide, the next waves show short tips. Bring them back any time with *
 | Pause | Pause button in the header | `P`, or `Space` during a wave |
 | Pause menu | ☰ button | `Esc` (when nothing is selected) |
 | Game speed | − / + in the header (0.5×, 1×, 2×, 3×) | `-` / `+` |
-| Pick a card choice | Tap it | `1`–`3` (`1`–`4` on Dr. Samodovol's shelves, which hold one wrong book) |
+| Pick a card choice | Tap it | `1`–`3` (`1`–`4` on Dr. Samodovol's shelves, which hold the Doctor's pick; `1`–`5` with Second Opinion) |
 | Press a card's main button | Tap it | `Enter` |
 | Checkout card (everything shaping this run) | Library-card button in the header | `C` (`C` or `Esc` closes it) |
 | Sound on/off | Speaker button | `M` |
@@ -277,7 +277,7 @@ Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't 
 | **Sir Michael**, Pumpkin Knight | 11 stacks, 145 seeds, no cannon | Ordinary shots. On the intro, with the board in view, he picks one oath; the other two are refused for the night. **Hold the last tiles**: towers that reach the last three tiles of carpet fire 20% faster, but he starts with 2 fewer stacks. **Meet them coming in**: fruit on the first three tiles take 30% more damage from everything, but he starts with 10 fewer seeds. **Bring one pumpkin**: the Trebuchet costs 30 seeds less, with no zone | **Pumpkin Trebuchet** (110): a huge, slow splash that knocks non-boss fruit back one tile (more with Heavier Pumpkins). Also **The Gourd Gate** (300): a pumpkin gatehouse built right beside the carpet. Every few seconds it slams a portcullis on the carpet next to it: nothing gets past for 3 seconds (Karl for 1; husks too), and its crossbows shoot everything held there. Inside his oath's zone it holds for 4. And **The Harvest Bombard** (400, or 350 under "Bring one pumpkin"): anywhere on the board, a flaming giant pumpkin lands on the biggest crowd every 3 seconds, hits hard, shoves everything but Karl back a tile and sets the carpet burning |
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Copycat** (160): see below |
-| **Dr. Samodovol**, The Scholar | 8 stacks, 100 seeds. He's the weakest keeper, on purpose | **One of the books is wrong.** Each shelf shows four cards: three real upgrades and one that only looks real. It names a real upgrade, gives nothing, and in the next wave his cannons hit 15% softer and 15% slower. He will not say which | **History Lectern** (65): no shot, and it helps no cannon. After each wave it looks at how far the fruit got: if any got three-quarters of the way along the carpet (or leaked), the kind that got furthest walks 15% slower next wave, and the Doctor says so ("The corn got furthest. They will be slower."). If none did: "Nothing reached the stacks. I have nothing to add." One kind, one wave, one Lectern |
+| **Dr. Samodovol**, The Scholar | 8 stacks, 100 seeds: fewer than anyone | **The Doctor's pick.** Each shelf shows four cards: the usual three, plus one more marked "Doctor's pick", a real upgrade from further along the shelves (one you'd normally see later) | **History Lectern** (65): no shot, and it helps no cannon. After each wave it looks at how far the fruit got: if any got three-quarters of the way along the carpet (or leaked), the kind that got furthest walks 15% slower next wave, and the Doctor says so ("The corn got furthest. They will be slower."). If none did: "Nothing reached the stacks. I have nothing to add." One kind, one wave, one Lectern |
 | **Quackarot**, Field strategist | 11 stacks, 150 seeds | **Small duck, big plan.** While his turret stands, every other tower within three tiles of it fires 15% faster (the panel says "quick") | **Quack-Liber** (95): a two-barrel backpack turret. Its orange rockets burst over a small area and slow everything they hit for a moment. Once, after placing it, tap it and choose **Toughest** (the fruit with the most health in reach) or **Rearmost** (the back of the line); after that its aim is locked. Also **Anti-Geese Protocol** (60): one use. Every fruit within about two and a half tiles is thrown three tiles back down the carpet (Karl only takes a knock). Tap it to choose **Auto** (goes off by itself when four fruit crowd in, or one gets near the door) or **Manual** (only when you press **Engage**). Then it's gone; you can rebuild it after the wave. Also **the Pamphlet** (70) and **the Reverse Driver** (50): see below |
 | **Asser Mälkki**, Author-Knight | 25 stacks, 100 seeds | **Built to take hits.** Every stack he loses pays 4 seeds (**Material**), and every stack he is missing makes all his towers hit 2% harder, up to +30% (**Sisu**, shown next to his stacks) | **Lion Blade** (90): a sword in a stone that sweeps every fruit right beside it at once. When he loses a stack it swings at once and harder. After each wave it stood through, it puts 2 stacks back |
 
@@ -358,13 +358,13 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 
 | Level | Option A | Option B |
 |---|---|---|
-| 2 | **Erratum**: The wrong book's penalty is 8% instead of 15%. | **Shorter Lecture**: The penalty ends halfway through the next wave. |
+| 2 | **Footnote**: The Doctor's pick always comes from the last shelf: the strongest cards. | **Annotated**: Taking the Doctor's pick also pays 20 seeds. |
 | 4 | **Cited Edition**: The kind the Lectern remembers is 20% slower instead of 15%. | **Midpoint**: The Lectern speaks if a fruit got halfway along the carpet. |
-| 6 | **Carried Note**: The Lectern's slow lasts one extra wave. | **Different Hand**: The wrong book never repeats the previous shelf's. |
-| 8 | **Lecture Notes**: The Lectern costs 25 seeds less. | **Margin**: The wrong book's description is one line shorter. A careful reader can tell. |
-| 10 | **Marginalia**: Once he has been fooled, later wrong books carry a small pencilled "sic". Easy to miss. | (no second choice) |
+| 6 | **Carried Note**: The Lectern's slow lasts one extra wave. | **Second Opinion**: His shelves show two Doctor's picks. |
+| 8 | **Lecture Notes**: The Lectern costs 25 seeds less. | **Close Reading**: Each Doctor's pick he takes makes his cannons fire 4% faster that night (up to three). |
+| 10 | **Second Lectern**: You can build two History Lecterns. | (no second choice) |
 
-None of his perks add damage, seeds, stacks or a second Lectern.
+His perks bend the Doctor's pick and the Lectern. None of them add damage, reach or starting seeds and stacks.
 
 **Quackarot**
 
@@ -490,7 +490,7 @@ Mynxi's first upgrade of the night costs 15, the Legal Elf pays 30% less, and th
 
 ## Upgrade picks
 
-After waves **1**, **2** and **6**, you choose one upgrade from three. Dr. Samodovol's shelves show four, but one of them is a wrong book (see [Keepers](#keepers)). Upgrades last for the whole night, and each choice shapes which ones come next.
+After waves **1**, **2** and **6**, you choose one upgrade from three. Dr. Samodovol's shelves show four: the fourth is the Doctor's pick, a real upgrade from further along (see [Keepers](#keepers)). Upgrades last for the whole night, and each choice shapes which ones come next.
 
 | Upgrade | What it does | Affects |
 |---|---|---|
@@ -716,8 +716,8 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 - **Full Staff**: Win with every keeper.
 - **The Librarian's Pet**: Win 10 nights as the same keeper.
 - **Three Oaths**: Win as Sir Michael once with each oath.
-- **Well Read**: As Dr. Samodovol, win a night where the wrong book was offered at least 3 times and never taken.
-- **Misread**: As Dr. Samodovol, win a night after taking the wrong book.
+- **Well Read**: As Dr. Samodovol, win a night taking the Doctor's pick at least 3 times.
+- **Off the Shelf**: As Dr. Samodovol, win a night without taking a single Doctor's pick.
 - **Unbroken**: As Asser, win a night after Sisu reached its cap.
 - **Field Dressing**: As Asser, have the Lion Blade mend 20 stacks in one night.
 

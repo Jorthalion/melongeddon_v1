@@ -877,7 +877,6 @@ export const CANNON = {
   lectureAt: 0.75,
   lectureSlow: 0.85,
   /** Dr. Samodovol's false book: next combat his cannons deal (1 - this) damage and take (1 + this) time between shots. */
-  misread: 0.15,
   /** Quack-Liber: rocket burst radius (px) and share of the hit it deals there, and how long what it hits stays slowed (s). */
   quackSplash: 44,
   quackSplashRatio: 0.6,

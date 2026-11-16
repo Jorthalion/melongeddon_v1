@@ -78,17 +78,16 @@ export interface PerkFx {
   absorb?: number;
   /** Mimic Chest: extra seeds per meal. */
   loot?: number;
-  /** Dr. Samodovol's false book: penalty taken off the 15% (Erratum), and 1 = it ends halfway through the wave (Shorter Lecture). */
-  misreadCut?: number;
-  shortLecture?: number;
+  /** Dr. Samodovol's pick: 1 = drawn from the last shelf (Footnote), seeds paid when he takes it (Annotated). */
+  footnote?: number;
+  annotated?: number;
   /** History Lectern: extra slow on the noted kind (Cited Edition), 1 = notes fruit past halfway (Midpoint), extra waves the note lasts (Carried Note). */
   lectureSlow?: number;
   midpoint?: number;
   carriedNote?: number;
-  /** False book: 1 = never the previous shelf's name (Different Hand), 1 = its blurb is one line shorter (Margin), 1 = "sic" once he's been fooled (Marginalia). */
-  differentHand?: number;
-  margin?: number;
-  marginalia?: number;
+  /** Doctor's pick: extra picks on each shelf (Second Opinion), faster firing per pick taken, up to 3 (Close Reading). */
+  secondOpinion?: number;
+  closeReading?: number;
   /** Quackarot: aura reach multiplier, extra attack speed in it (0.1 = +10% more), and 1 = on (Quiet Confidence, Lane Lockdown, Covering Fire, Defensive Perimeter). */
   auraReach?: number;
   auraHaste?: number;
@@ -222,11 +221,11 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
       { name: "Bottomless", blurb: "Absorbs one more leak each wave.", fx: { absorb: 1 } },
     ],
   ],
-  // Dr. Samodovol is the weakest keeper on purpose: his perks add no damage, seeds or stacks.
+  // Dr. Samodovol: his perks bend the Doctor's pick (the extra book on his shelves) and the Lectern.
   scholar: [
     [
-      { name: "Erratum", blurb: "The wrong book's penalty is 8% instead of 15%.", fx: { misreadCut: 0.07 } },
-      { name: "Shorter Lecture", blurb: "The wrong book's penalty ends halfway through the next wave.", fx: { shortLecture: 1 } },
+      { name: "Footnote", blurb: "The Doctor's pick always comes from the last shelf: the strongest cards.", fx: { footnote: 1 } },
+      { name: "Annotated", blurb: "Taking the Doctor's pick also pays 20 seeds.", fx: { annotated: 20 } },
     ],
     [
       { name: "Cited Edition", blurb: "The kind the Lectern remembers is 20% slower instead of 15%.", fx: { lectureSlow: 0.05 } },
@@ -234,13 +233,13 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
     ],
     [
       { name: "Carried Note", blurb: "The Lectern's slow lasts one extra wave.", fx: { carriedNote: 1 } },
-      { name: "Different Hand", blurb: "The wrong book never repeats the previous shelf's.", fx: { differentHand: 1 } },
+      { name: "Second Opinion", blurb: "His shelves show two Doctor's picks.", fx: { secondOpinion: 1 } },
     ],
     [
       { name: "Lecture Notes", blurb: "The Lectern costs 25 seeds less.", fx: { sigCost: 25 } },
-      { name: "Margin", blurb: "The wrong book's description is one line shorter. A careful reader can tell.", fx: { margin: 1 } },
+      { name: "Close Reading", blurb: "Each Doctor's pick he takes makes his cannons fire 4% faster tonight (up to three).", fx: { closeReading: 0.04 } },
     ],
-    [{ name: "Marginalia", blurb: "Once he has been fooled, he pencils a small note on later wrong books. Easy to miss.", fx: { marginalia: 1 } }],
+    [{ name: "Second Lectern", blurb: "You can build two History Lecterns.", fx: { sigExtra: 1 } }],
   ],
   // Quackarot controls the carpet and makes the towers around him better; his perks lean that way.
   quack: [
@@ -359,14 +358,13 @@ export function perkFx(hero: HeroId | null, rec: KeeperRecord | undefined): Requ
     fee: 0,
     absorb: 0,
     loot: 0,
-    misreadCut: 0,
-    shortLecture: 0,
+    footnote: 0,
+    annotated: 0,
     lectureSlow: 0,
     midpoint: 0,
     carriedNote: 0,
-    differentHand: 0,
-    margin: 0,
-    marginalia: 0,
+    secondOpinion: 0,
+    closeReading: 0,
     auraReach: 1,
     auraHaste: 0,
     confidence: 0,

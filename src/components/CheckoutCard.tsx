@@ -98,9 +98,9 @@ export function CheckoutPanel({ api, onGesture }: { api: GameApi; onGesture: () 
                           late
                         </span>
                       ) : null}
-                      {/* Marginalia: the Doctor's own pencilled "sic", as faint as on the shelf. */}
+                      {/* The Doctor's pick, marked as on the shelf. */}
                       {e.note ? (
-                        <span className="pointer-events-none absolute right-1 bottom-1 font-display text-[10px] text-[#7a6a5a]/70 italic" aria-hidden="true">
+                        <span className="pointer-events-none absolute right-1 bottom-1 font-display text-[10px] text-[#7a5a3a] italic">
                           {e.note}
                         </span>
                       ) : null}

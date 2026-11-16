@@ -66,7 +66,7 @@ function winNight(api: Api) {
   const w = api.world;
   for (let i = 0; i < 60 * 60 * 30 && w.hud.phase !== "victory" && w.hud.phase !== "defeat"; i++) {
     if (w.hud.phase === "prep" || w.hud.phase === "consequence") api.startWave();
-    else if (w.hud.phase === "upgrade") api.pickUpgrade(w.hud.offer.find((u) => u.id !== w.hud.falseCard)!.id as never);
+    else if (w.hud.phase === "upgrade") api.pickUpgrade(w.hud.offer[0].id as never);
     else {
       for (const e of w.enemies) e.hp = 0;
       w.enemies = [];

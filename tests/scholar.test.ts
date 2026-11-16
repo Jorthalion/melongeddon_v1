@@ -82,75 +82,45 @@ test("he starts poorer: 8 stacks and 100 seeds", () => {
   assert.equal(api.world.hud.maxLives, 8);
 });
 
-test("his shelf has three real upgrades and one wrong book; Mynxi's has three real ones", () => {
+test("his shelf has three upgrades and the Doctor's pick, a real fourth one; Mynxi's has three", () => {
   const api = start();
   playWave(api, noDamage(api));
   const h = api.world.hud;
   assert.equal(h.phase, "upgrade");
   assert.equal(h.offer.length, 4);
-  const wrong = h.falseCard!;
-  assert.ok(wrong, "one card is the wrong book");
-  assert.ok(h.offer.some((u) => u.id === wrong));
-  assert.equal(h.offer.filter((u) => u.id !== wrong).length, 3, "three real ones");
-  assert.ok(!h.upgrades.includes(wrong), "it is not one he owns");
-  const card = h.offer.find((u) => u.id === wrong)!;
-  assert.equal(card.name, UPGRADES[wrong].name, "it looks like the real thing");
-  assert.equal(card.blurb, UPGRADES[wrong].blurb);
-  assert.equal(new Set(h.offer.map((u) => u.id)).size, 4, "and it isn't a copy of a card on the shelf");
+  assert.equal(h.pickCards.length, 1, "one Doctor's pick");
+  const pick = h.pickCards[0];
+  assert.ok(h.offer.some((u) => u.id === pick), "on the shelf");
+  assert.equal(h.offer.find((u) => u.id === pick)!.name, UPGRADES[pick].name, "a real upgrade");
+  assert.ok(!h.upgrades.includes(pick), "not one he owns");
+  assert.equal(new Set(h.offer.map((u) => u.id)).size, 4, "no copies");
 
   const mynxi = start("mynxi");
   playWave(mynxi, noDamage(mynxi));
   assert.equal(mynxi.world.hud.offer.length, 3);
-  assert.equal(mynxi.world.hud.falseCard, null);
+  assert.deepEqual(mynxi.world.hud.pickCards, []);
 });
 
-test("the wrong book adds nothing; the next wave his cannons hit softer and slower; the wave after, they don't", () => {
+test("taking the Doctor's pick adds it for real, and it is counted", () => {
   const api = start();
-  const melon = build(api, "melon");
-  api.dismissSelection();
-  const plain = api.statsOf(melon.id)!;
   playWave(api, noDamage(api));
-  const h = api.world.hud;
-  const owned = [...h.upgrades];
-  const wrong = h.falseCard as UpgradeId;
-  api.pickUpgrade(wrong);
-  assert.deepEqual(h.upgrades, owned, "nothing was added");
-  assert.equal(h.phase, "prep");
-  assert.equal(api.world.hud.keepers.scholar.misread, true, "he has now been fooled once");
-
-  // Next wave: the penalty.
-  const during: { v: { dmg: number; interval: number } | null } = { v: null };
-  playWave(api, () => {
-    noDamage(api)();
-    during.v ??= api.statsOf(melon.id)!;
-  });
-  const seen = during.v;
-  assert.ok(seen, "measured during the wave");
-  assert.ok(Math.abs(seen.dmg - plain.dmg * (1 - CANNON.misread)) < 1e-9, `damage ${seen.dmg} vs ${plain.dmg}`);
-  assert.ok(Math.abs(seen.interval - plain.interval * (1 + CANNON.misread)) < 1e-9, "slower between shots");
-
-  // The wave after: gone.
-  if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer.find((u) => u.id !== api.world.hud.falseCard)!.id);
-  const later: { v: { dmg: number; interval: number } | null } = { v: null };
-  const base = api.statsOf(melon.id)!; // with whatever real upgrade was just taken
-  playWave(api, () => {
-    noDamage(api)();
-    later.v ??= api.statsOf(melon.id)!;
-  });
-  assert.ok(later.v);
-  assert.equal(later.v.dmg, base.dmg);
-  assert.equal(later.v.interval, base.interval);
+  const pick = api.world.hud.pickCards[0];
+  api.pickUpgrade(pick);
+  assert.ok(api.world.hud.upgrades.includes(pick), "he has it");
+  assert.equal(api.world.runLog.doctorTaken, 1);
+  assert.deepEqual(api.world.hud.cardPicks.at(-1), { id: pick, pick: true });
+  assert.deepEqual(api.world.hud.pickCards, [], "the shelf is cleared");
 });
 
 test("a real card lasts the night", () => {
   const api = start();
   playWave(api, noDamage(api));
-  const real = api.world.hud.offer.find((u) => u.id !== api.world.hud.falseCard)!.id as UpgradeId;
+  const real = api.world.hud.offer[0].id as UpgradeId;
   api.pickUpgrade(real);
   assert.ok(api.world.hud.upgrades.includes(real));
   for (let n = 0; n < 3; n++) {
     playWave(api, noDamage(api));
-    if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer.find((u) => u.id !== api.world.hud.falseCard)!.id);
+    if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer[0].id);
   }
   assert.ok(api.world.hud.upgrades.includes(real), "still there three waves later");
 });
@@ -175,7 +145,7 @@ test("a fruit that got 75% of the way slows its kind next wave at 0.85, and not 
   const m = log.match(/(The melons|The corn|The pumpkins|Karl) got furthest\. (They|He) will be slower\./);
   assert.ok(m, `the Lectern speaks: "${log}"`);
   const kind = KIND_OF[m![1]];
-  if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer.find((u) => u.id !== api.world.hud.falseCard)!.id);
+  if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer[0].id);
 
   /** How far one fruit of `kind` moves in one frame, as a share of its full speed (no puddles about). */
   const pace = () => {
@@ -206,7 +176,7 @@ test("a fruit that got 75% of the way slows its kind next wave at 0.85, and not 
   assert.ok(next.share != null, `a ${kind} walked`);
   assert.ok(Math.abs(next.share! - CANNON.lectureSlow) < 0.02, `${kind} at ${next.share}`);
   if (next.other != null) assert.ok(Math.abs(next.other - 1) < 0.02, "other kinds walk as usual");
-  if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer.find((u) => u.id !== api.world.hud.falseCard)!.id);
+  if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer[0].id);
   // The wave after: back to normal.
   const later = pace();
   if (later.share != null) assert.ok(Math.abs(later.share - 1) < 0.02, `${kind} back to full speed (${later.share})`);
@@ -218,7 +188,7 @@ test("a fruit that died near the entrance slows nothing", () => {
   api.dismissSelection();
   const log = playWave(api, popAtDoor(api));
   assert.match(log, /Nothing reached the stacks\. I have nothing to add\./);
-  if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer.find((u) => u.id !== api.world.hud.falseCard)!.id);
+  if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer[0].id);
   // Next wave every fruit walks at full speed.
   let slowest = 1;
   playWave(api, () => {
@@ -237,56 +207,45 @@ test("a fruit that died near the entrance slows nothing", () => {
   assert.ok(slowest > 0.98, `nobody slowed (${slowest})`);
 });
 
-test("Marginalia: once he's been fooled, a later shelf's wrong book is the one marked \"sic\"", () => {
-  const top = (misread: boolean): KeeperProgress => ({
-    ...emptyProgress(),
-    scholar: { xp: xpForLevel(MAX_LEVEL), picks: [0, 0, 0, 0, 0], misread },
-  });
-  const fresh = start("scholar", top(false));
-  playWave(fresh, noDamage(fresh));
-  assert.ok(fresh.world.hud.falseCard);
-  assert.equal(fresh.world.hud.sicCard, null, "not before he's ever been fooled");
-  // Take it: now he has been.
-  fresh.pickUpgrade(fresh.world.hud.falseCard!);
-  assert.equal(fresh.world.hud.keepers.scholar.misread, true);
-  playWave(fresh, noDamage(fresh));
-  if (fresh.world.hud.phase === "upgrade") {
-    assert.ok(fresh.world.hud.falseCard);
-    assert.equal(fresh.world.hud.sicCard, fresh.world.hud.falseCard, "this night's next shelf is marked");
-  }
-  // And on a later night.
-  const later = start("scholar", top(true));
-  playWave(later, noDamage(later));
-  assert.ok(later.world.hud.falseCard);
-  assert.equal(later.world.hud.sicCard, later.world.hud.falseCard);
-  // Without Marginalia (below level 10), never.
-  const low = start("scholar", { ...emptyProgress(), scholar: { xp: xpForLevel(8), picks: [0, 0, 0, 0, null], misread: true } });
-  playWave(low, noDamage(low));
-  assert.equal(low.world.hud.sicCard, null);
+/** The Doctor at `level`, with these perk picks per open tier. */
+const doctor = (level: number, picks: Array<0 | 1 | null>): KeeperProgress => ({ ...emptyProgress(), scholar: { xp: xpForLevel(level), picks } });
+
+test("Annotated: taking the Doctor's pick pays 20 seeds; a normal card doesn't", () => {
+  const api = start("scholar", doctor(2, [1, null, null, null, null]));
+  playWave(api, noDamage(api));
+  const before = api.world.hud.seeds;
+  const pick = api.world.hud.pickCards[0];
+  api.pickUpgrade(pick);
+  assert.equal(api.world.hud.seeds - before, 20 + (pick === "seeds" ? 55 : 0));
 });
 
-test("his perks bend the wrong book, never the numbers: Erratum and Margin", () => {
-  // Erratum (level 2, first): the penalty is 8%.
-  const erratum: KeeperProgress = { ...emptyProgress(), scholar: { xp: xpForLevel(2), picks: [0, null, null, null, null] } };
-  const api = start("scholar", erratum);
+test("Second Opinion: his shelves show two Doctor's picks (five cards)", () => {
+  const api = start("scholar", doctor(6, [0, 0, 1, null, null]));
+  playWave(api, noDamage(api));
+  assert.equal(api.world.hud.pickCards.length, 2);
+  assert.equal(api.world.hud.offer.length, 5);
+});
+
+test("Close Reading: each Doctor's pick taken makes his cannons fire 4% faster, up to three", () => {
+  const api = start("scholar", doctor(8, [0, 0, 0, 1, null]));
   const melon = build(api, "melon");
   api.dismissSelection();
-  const plain = api.statsOf(melon.id)!.dmg;
+  const plain = api.statsOf(melon.id)!.interval;
   playWave(api, noDamage(api));
-  api.pickUpgrade(api.world.hud.falseCard!);
-  const during: { v: number | null } = { v: null };
-  playWave(api, () => {
-    noDamage(api)();
-    during.v ??= api.statsOf(melon.id)!.dmg;
-  });
-  assert.ok(during.v != null && Math.abs(during.v - plain * 0.92) < 1e-9, `8% softer (${during.v} vs ${plain})`);
+  api.pickUpgrade(api.world.hud.pickCards[0]);
+  const after = api.statsOf(melon.id)!.interval;
+  // The pick may itself be a speed card; compare against the same cards without the perk's share.
+  api.world.runLog.doctorTaken = 0;
+  const without = api.statsOf(melon.id)!.interval;
+  assert.ok(Math.abs(after - without / 1.04) < 1e-9, `${after} vs ${without} (plain ${plain})`);
+  api.world.runLog.doctorTaken = 7;
+  assert.ok(Math.abs(api.statsOf(melon.id)!.interval - without / 1.12) < 1e-9, "capped at three");
+});
 
-  // Margin (level 8, second): the wrong book's description is shorter than the real one's.
-  const margin: KeeperProgress = { ...emptyProgress(), scholar: { xp: xpForLevel(8), picks: [0, 0, 0, 1, null] } };
-  const m = start("scholar", margin);
-  playWave(m, noDamage(m));
-  const wrong = m.world.hud.falseCard!;
-  const card = m.world.hud.offer.find((u) => u.id === wrong)!;
-  assert.equal(card.name, UPGRADES[wrong].name, "same name");
-  assert.ok(card.blurb.length < UPGRADES[wrong].blurb.length, `shorter: "${card.blurb}"`);
+test("Second Lectern (level 10): he can build two History Lecterns", () => {
+  const api = start("scholar", doctor(MAX_LEVEL, [0, 0, 0, 0, 0]));
+  build(api, "lectern");
+  api.dismissSelection();
+  build(api, "lectern");
+  assert.equal(api.world.towers.filter((t) => t.kind === "lectern").length, 2);
 });

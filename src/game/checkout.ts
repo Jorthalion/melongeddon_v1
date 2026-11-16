@@ -15,7 +15,7 @@ export interface CheckoutEntry {
   name: string;
   blurb: string;
   tone: "buff" | "drawback" | "info";
-  /** Marginalia's pencilled "sic" on a wrong book. */
+  /** A small note beside the name (the Doctor's pick). */
   note?: string;
 }
 
@@ -43,14 +43,14 @@ export function checkoutCard(hud: Hud, keeperLine?: string): CheckoutCard {
   const fx = perkFx(hero, rec);
   const groups: CheckoutCard["groups"] = [];
 
-  // Cards: real and wrong books together, in pick order, looking the same.
+  // Cards, in pick order (the Doctor's picks marked).
   const seen = new Set<string>();
   const cards: CheckoutEntry[] = [];
   for (const pick of hud.cardPicks) {
     if (seen.has(pick.id)) continue;
     seen.add(pick.id);
     const u = UPGRADES[pick.id];
-    cards.push({ name: u.name, blurb: u.blurb, tone: "buff", ...(pick.sic ? { note: "sic" } : {}) });
+    cards.push({ name: u.name, blurb: u.blurb, tone: "buff", ...(pick.pick ? { note: "Doctor's pick" } : {}) });
   }
   if (cards.length) groups.push({ id: "cards", title: "Cards", entries: cards });
 

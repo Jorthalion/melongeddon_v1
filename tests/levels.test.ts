@@ -153,15 +153,15 @@ test("the level 10 perk allows a second signature tower (not for the Doctor)", (
   }
 });
 
-test("none of the Doctor's perks add damage, seeds, stacks, range or a second Lectern", () => {
+test("the Doctor's perks bend his pick and the Lectern: no damage, range, starting seeds or stacks", () => {
   for (const pick of [0, 1] as const) {
     const fx = perkFx("scholar", maxedProgress(pick).scholar);
     assert.equal(fx.allDmg, 1);
     assert.equal(fx.sigDmg, 1);
     assert.equal(fx.allRange, 1);
-    assert.equal(fx.seeds + fx.lives + fx.killSeeds + fx.waveSeeds + fx.sigExtra, 0, `picks ${pick}`);
+    assert.equal(fx.seeds + fx.lives + fx.killSeeds + fx.waveSeeds, 0, `picks ${pick}`);
   }
-  assert.equal(perkFx("scholar", maxedProgress(1).scholar).marginalia, 1, "Marginalia is the level 10 perk either way");
+  assert.equal(perkFx("scholar", maxedProgress(1).scholar).sigExtra, 1, "Second Lectern is the level 10 perk either way");
 });
 
 test("Ooze's Gelatinous perk absorbs two leaks a wave", () => {

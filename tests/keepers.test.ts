@@ -119,7 +119,7 @@ test("Dr. Samodovol's shelf: three real books and one wrong one", () => {
   runWave(api);
   assert.equal(api.world.hud.phase, "upgrade");
   assert.equal(api.world.hud.offer.length, 4);
-  assert.ok(api.world.hud.falseCard);
+  assert.equal(api.world.hud.pickCards.length, 1, "the Doctor's pick");
 });
 
 test("Card Catalogue shots chain into more fruit", () => {

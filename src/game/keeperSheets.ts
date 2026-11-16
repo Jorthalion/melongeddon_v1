@@ -69,11 +69,11 @@ export const KEEPER_SHEETS: Record<
     seeds: 100,
     difficulty: "Hard",
     rules: [
-      "Every upgrade shelf has a fourth card: a wrong book that looks real, does nothing, and weakens his cannons next wave.",
+      "Every upgrade shelf has a fourth card, the Doctor's pick: a real upgrade from further along the shelves.",
       "Fewer stacks and seeds than anyone. He is the hardest keeper, on purpose.",
       "History Lectern: the kind of fruit that got furthest walks slower next wave.",
     ],
-    suits: "Experienced players who read the cards carefully.",
+    suits: "Experienced players who like choosing their upgrades with care.",
   },
   quack: {
     stacks: 11,

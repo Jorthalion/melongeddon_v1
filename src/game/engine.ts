@@ -424,17 +424,12 @@ export interface Hud {
   /** The Heavy tab opens at wave 6, or once you have held 200 seeds tonight. */
   heavyOpen: boolean;
   /**
-   * Dr. Samodovol's shelves: the id of the wrong book on the current shelf (it looks like a real
-   * upgrade but gives nothing), and the one the UI pencils "sic" on (Marginalia, once he's been fooled).
+   * Dr. Samodovol's shelves: the "Doctor's pick" on the current shelf, an extra real upgrade from
+   * further along the shelves (two with Second Opinion). Empty for everyone else.
    */
-  falseCard: UpgradeId | null;
-  sicCard: UpgradeId | null;
-  /**
-   * Wrong books taken this run (they gave nothing; never read these for effects), and every card
-   * taken in pick order, real or wrong (`sic`: Marginalia had pencilled it), for the checkout card.
-   */
-  misreads: UpgradeId[];
-  cardPicks: Array<{ id: UpgradeId; sic: boolean }>;
+  pickCards: UpgradeId[];
+  /** Every card taken this run, in pick order (`pick`: it was the Doctor's pick), for the checkout card. */
+  cardPicks: Array<{ id: UpgradeId; pick: boolean }>;
   /** The checkout card (everything shaping this run) is open. */
   checkout: boolean;
   /** Grand Catalogue: achievements earned (id -> when), the lifetime ledger, and the ones earned this night. */
@@ -877,9 +872,7 @@ export function createWorld(
       heavyOpen: false,
       setupPage: "who",
       builtKinds: [],
-      falseCard: null,
-      sicCard: null,
-      misreads: [],
+      pickCards: [],
       cardPicks: [],
       checkout: false,
       shelves: {},
@@ -945,13 +938,8 @@ export function createWorld(
   let queueCursor = 0;
   let spawnClock = 0;
   let karlReward = false;
-  /** Dr. Samodovol: a wrong book was taken (applies next combat), and it is in force this combat. */
-  let misreadNext = false;
-  let misread = false;
   /** Whether the board was paused before the checkout card opened. */
   let pausedBeforeCheckout = false;
-  /** The wrong book on the previous shelf (Different Hand). */
-  let lastFalse: UpgradeId | null = null;
   /**
    * History Lectern: the kind it noted and how many more waves it stays slow, the kind slowed this
    * wave, and how far each kind got this wave (0 = the entrance, 1 = leaked).
@@ -982,26 +970,29 @@ export function createWorld(
   };
   const noteReach = (e: Enemy, p: number) => reached.set(e.kind, Math.max(reached.get(e.kind) ?? 0, p));
   /**
-   * Dr. Samodovol's shelf: after the three real upgrades, one wrong book, shown exactly like a real
-   * upgrade not on the shelf and not owned. Taking it gives nothing (see pickUpgrade).
+   * Dr. Samodovol's shelf: after the three usual upgrades, the "Doctor's pick", a real upgrade from
+   * further along the shelves (the next shelf's first, then any other he could be offered), marked
+   * on the card. Footnote draws it from the last shelf first; Second Opinion adds a second pick.
    */
-  const withWrongBook = (real: UpgradeDef[]): UpgradeDef[] => {
-    world.hud.falseCard = null;
-    world.hud.sicCard = null;
+  const withDoctorsPick = (real: UpgradeDef[], step: 1 | 2 | 3): UpgradeDef[] => {
+    world.hud.pickCards = [];
     if (world.hud.hero !== "scholar" || !real.length) return real;
-    const pool = (Object.keys(UPGRADES) as UpgradeId[]).filter(
-      (id) => !real.some((u) => u.id === id) && !has(id) && !(fx.differentHand && id === lastFalse),
-    );
+    const taken = (id: string) => has(id as UpgradeId) || real.some((u) => u.id === id);
+    const pool: UpgradeDef[] = [];
+    const steps = (fx.footnote ? [3, 2, 1] : [Math.min(3, step + 1), 1, 2, 3]) as Array<1 | 2 | 3>;
+    for (const s of steps)
+      for (const u of buildOffer(world.hud.hero, s, world.hud.upgrades, world.hud.branch, builtKinds()))
+        if (!taken(u.id) && !pool.some((p) => p.id === u.id)) pool.push(u);
     if (!pool.length) return real;
-    const id = pool[Math.floor(Math.random() * pool.length)];
-    const shown = UPGRADES[id];
-    const card: UpgradeDef = { ...shown, blurb: fx.margin ? shorterBlurb(shown.blurb) : shown.blurb };
-    lastFalse = id;
-    world.hud.falseCard = id;
-    world.runLog.wrongBookOffered += 1;
-    if (fx.marginalia && world.hud.keepers.scholar.misread) world.hud.sicCard = id;
-    const at = Math.floor(Math.random() * (real.length + 1));
-    return [...real.slice(0, at), card, ...real.slice(at)];
+    const picks: UpgradeDef[] = [];
+    for (let n = 0; n < 1 + fx.secondOpinion && pool.length; n++) {
+      // From the front of the pool (the shelf it is drawn from), with a little variety.
+      const u = pool.splice(Math.floor(Math.random() * Math.min(pool.length, 3)), 1)[0];
+      picks.push(u);
+    }
+    world.hud.pickCards = picks.map((u) => u.id as UpgradeId);
+    world.runLog.doctorOffered += picks.length;
+    return [...real, ...picks];
   };
   /** Ooze Clues: leaks absorbed this wave (one a wave, more with perks). */
   let absorbed = 0;
@@ -1741,9 +1732,9 @@ export function createWorld(
   const statsFor = (tower: Tower) => {
     const read = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
     if (PASSIVE.includes(tower.kind)) return read;
-    // Dr. Samodovol's wrong book: for the next combat his cannons hit softer and slower.
-    const cut = misread ? CANNON.misread - fx.misreadCut : 0;
-    const studied = cut > 0 ? { ...read, dmg: read.dmg * (1 - cut), interval: read.interval * (1 + cut) } : read;
+    // Dr. Samodovol's Close Reading: each Doctor's pick taken tonight makes his cannons fire a little faster.
+    const read2 = fx.closeReading ? Math.min(3, world.runLog.doctorTaken) * fx.closeReading : 0;
+    const studied = read2 > 0 ? { ...read, interval: read.interval / (1 + read2) } : read;
     const haste = quackHaste(tower) * doorHaste(tower, studied.range);
     const base = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true } : studied;
     if (base.range >= GLOBAL_RANGE) return base;
@@ -1980,9 +1971,6 @@ export function createWorld(
   const resetRunState = () => {
     resetRunLog();
     world.wet = new Set();
-    misread = false;
-    misreadNext = false;
-    lastFalse = null;
     lecture = null;
     lectureNow = null;
     reached.clear();
@@ -2040,9 +2028,7 @@ export function createWorld(
       heavyOpen: false,
       setupPage: "who",
       builtKinds: [],
-      falseCard: null,
-      sicCard: null,
-      misreads: [],
+      pickCards: [],
       cardPicks: [],
       checkout: false,
       newShelves: [],
@@ -2679,9 +2665,8 @@ export function createWorld(
       syncSisu();
     }
     const mendLine = mended > 0 ? `The Lion Blade puts ${mended} stack${mended > 1 ? "s" : ""} back.` : "";
-    // Dr. Samodovol: the wrong book's penalty is over; the Lectern's note from this wave counts down,
-    // and if a lectern stands it notes the kind that got furthest (one kind, the newest note wins).
-    misread = false;
+    // Dr. Samodovol: the Lectern's note from this wave counts down, and if a lectern stands it notes
+    // the kind that got furthest (one kind, the newest note wins).
     if (lectureNow && lecture) {
       lecture.waves -= 1;
       if (lecture.waves <= 0) lecture = null;
@@ -2738,7 +2723,7 @@ export function createWorld(
     const step = cleared === 1 ? 1 : cleared === 2 ? 2 : 3;
     const offer =
       beat === "upgrade"
-        ? withWrongBook(buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds()))
+        ? withDoctorsPick(buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds()), step)
         : [];
     if (beat === "upgrade" && offer.length) {
       world.hud.offer = offer;
@@ -2776,7 +2761,6 @@ export function createWorld(
 
   const tickCombat = (dt: number) => {
     clock += dt;
-    if (misread && fx.shortLecture && queueCursor * 2 >= queue.length) misread = false;
     const scale = hpScaleFor(world.hud.night, cleared);
     spawnClock += dt;
     while (queueCursor < queue.length && spawnClock >= queue[queueCursor].t) {
@@ -3537,8 +3521,6 @@ export function createWorld(
       absorbed = 0;
       // Lion Blades standing now will mend when this wave is cleared; ones built mid-wave won't.
       for (const blade of world.towers) if (blade.kind === "lionblade") blade.mendReady = true;
-      misread = misreadNext;
-      misreadNext = false;
       lectureNow = lecture && lecture.waves > 0 ? lecture.kind : null;
       reached.clear();
       syncMimics(true);
@@ -3563,37 +3545,17 @@ export function createWorld(
     pickUpgrade(upgradeId: UpgradeId) {
       if (world.hud.phase !== "upgrade" || world.hud.checkout) return;
       if (!world.hud.offer.some((u) => u.id === upgradeId)) return;
-      if (upgradeId === world.hud.falseCard) {
-        // Kept apart from `upgrades` (it does nothing), but listed with the real picks on the checkout card.
-        world.hud.misreads = [...world.hud.misreads, upgradeId];
-        world.runLog.picks += 1;
-        world.runLog.wrongBookTaken = true;
-        world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, sic: world.hud.sicCard === upgradeId }];
-        // The wrong book: nothing is added, and the next combat goes worse. It reads like any other pick.
-        misreadNext = true;
-        const rec = world.hud.keepers.scholar;
-        if (!rec.misread) {
-          world.hud.keepers = { ...world.hud.keepers, scholar: { ...rec, misread: true } };
-          if (persistKeepers) saveProgress(world.hud.keepers);
-        }
-        world.hud.falseCard = null;
-        world.hud.sicCard = null;
-        world.hud.offer = [];
-        world.hud.phase = "prep";
-        const next = waveAt(cleared, world.hud.night);
-        world.hud.blurb = next.blurb;
-        world.hud.waveName = next.name;
-        world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.`;
-        if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
-        notify();
-        return;
-      }
-      world.hud.falseCard = null;
-      world.hud.sicCard = null;
+      // The Doctor's pick is a real upgrade like any other; it is only counted (Close Reading, Annotated, achievements).
+      const doctors = world.hud.pickCards.includes(upgradeId);
+      world.hud.pickCards = [];
       world.runLog.picks += 1;
+      if (doctors) {
+        world.runLog.doctorTaken += 1;
+        if (fx.annotated) world.hud.seeds += fx.annotated;
+      }
       if (!has(upgradeId)) {
         world.hud.upgrades = [...world.hud.upgrades, upgradeId];
-        world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, sic: false }];
+        world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, pick: doctors }];
       }
       // Cannon upgrades don't choose the keeper's path (see buildOffer).
       if (!world.hud.branch && !Object.values(CANNON_UPGRADES).includes(upgradeId)) world.hud.branch = upgradeId;
@@ -3703,7 +3665,6 @@ export function createWorld(
       world.hud.blurb = opening.blurb;
       resetRunLog();
       world.hud.upgrades = [];
-      world.hud.misreads = [];
       world.hud.cardPicks = [];
       world.hud.checkout = false;
       world.hud.offer = [];
@@ -3741,7 +3702,7 @@ export function createWorld(
                 ? overflow
                   ? "He has lost stacks before. He kept the notes."
                   : "Twenty-five stacks. He expects to lose some. Every one he loses pays seeds and makes his towers hit harder. The Lion Blade is on the Keeper tab."
-                : "One of the books is wrong. He will not say which. The Lectern is on the Keeper tab.";
+                : "Every shelf has one more book: the Doctor's pick. The Lectern is on the Keeper tab.";
       } else {
         world.hud.seeds = BALANCE.michaelSeeds;
         world.hud.lives = BALANCE.michaelLives;
@@ -4193,15 +4154,6 @@ export function createWorld(
   return api;
 }
 
-/** Margin: the wrong book's description, one line shorter (its last sentence, or its last clause, gone). */
-export function shorterBlurb(text: string) {
-  const sentences = text.match(/[^.!?]+[.!?]+/g)?.map((t) => t.trim()) ?? [text];
-  if (sentences.length > 1) return sentences.slice(0, -1).join(" ");
-  const cut = Math.max(text.lastIndexOf(", "), text.lastIndexOf(" and "));
-  if (cut > text.length * 0.35) return `${text.slice(0, cut)}.`;
-  const words = text.split(" ");
-  return `${words.slice(0, Math.max(3, Math.ceil(words.length * 0.6))).join(" ")}.`;
-}
 
 export function stepWorld(world: World, dt: number) {
   const fn = (world as World & { step?: (dt: number) => void }).step;

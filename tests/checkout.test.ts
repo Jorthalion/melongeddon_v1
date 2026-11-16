@@ -121,42 +121,16 @@ test("damage totals multiply the way the engine does: +8% perk with Damp Powder 
   assert.deepEqual(totals, [`All cannons −${-real}% damage`]);
 });
 
-test("the Doctor's wrong book looks exactly like a real card, still gives nothing, and still bites", () => {
+test("the Doctor's pick shows on the card, marked as his", () => {
   const api = start("scholar");
   playWave(api);
-  const h = api.world.hud;
-  const wrong = h.falseCard as UpgradeId;
-  const owned = [...h.upgrades];
-  api.pickUpgrade(wrong);
-  assert.deepEqual(h.upgrades, owned, "nothing added for real");
-  assert.deepEqual(h.misreads, [wrong]);
-  const entry = group(api, "cards")!.entries.find((e) => e.name === UPGRADES[wrong].name)!;
-  assert.deepEqual(entry, { name: UPGRADES[wrong].name, blurb: UPGRADES[wrong].blurb, tone: "buff" }, "no marker");
-
-  // The next wave still goes worse.
-  const melonless = api.world.towers.length === 0;
-  assert.ok(melonless);
-  api.world.hud.seeds = 999;
-  api.chooseBuild("melon");
-  for (let r = 0; r < api.world.rows && !api.world.towers.length; r++)
-    for (let c = 0; c < api.world.cols && !api.world.towers.length; c++) api.pointer(c * 48 + 24, r * 48 + 24, "down");
-  const melon = api.world.towers[0];
-  api.dismissSelection();
-  const plain = api.statsOf(melon.id)!.dmg;
-  api.startWave();
-  stepWorld(api.world, 1 / 60);
-  assert.ok(Math.abs(api.statsOf(melon.id)!.dmg - plain * (1 - CANNON.misread)) < 1e-9);
+  const pick = api.world.hud.pickCards[0] as UpgradeId;
+  api.pickUpgrade(pick);
+  assert.ok(api.world.hud.upgrades.includes(pick), "a real upgrade");
+  const entry = group(api, "cards")!.entries.find((e) => e.name === UPGRADES[pick].name)!;
+  assert.deepEqual(entry, { name: UPGRADES[pick].name, blurb: UPGRADES[pick].blurb, tone: "buff", note: "Doctor's pick" });
 });
 
-test("with Marginalia, the wrong book on the card carries a pencilled sic", () => {
-  const api = start("scholar", at("scholar", 10, true));
-  playWave(api);
-  const wrong = api.world.hud.falseCard as UpgradeId;
-  assert.equal(api.world.hud.sicCard, wrong, "Marginalia pencilled it on the shelf");
-  api.pickUpgrade(wrong);
-  const entry = group(api, "cards")!.entries.find((e) => e.name === UPGRADES[wrong].name)!;
-  assert.equal(entry.note, "sic");
-});
 
 test("Sir Michael's oath and Asser's Sisu show under Keeper", () => {
   const api = createWorld(() => {}, { meta: EMPTY_META, keepers: emptyProgress() });
@@ -219,24 +193,23 @@ test("opening it closes the back room and the inspector; the pause menu replaces
   api.closeCheckout();
 });
 
-test("restartNight and backToSetup clear the wrong books and close the card", () => {
+test("restartNight and backToSetup clear the picks and close the card", () => {
   const api = start("scholar");
   playWave(api);
-  api.pickUpgrade(api.world.hud.falseCard as UpgradeId);
+  api.pickUpgrade(api.world.hud.pickCards[0] as UpgradeId);
   api.openCheckout();
   api.restartNight();
-  assert.deepEqual(api.world.hud.misreads, []);
   assert.deepEqual(api.world.hud.cardPicks, []);
+  assert.deepEqual(api.world.hud.pickCards, []);
   assert.equal(api.world.hud.checkout, false);
 
   api.beginNight();
   api.world.hud.lives = 999;
   playWave(api);
-  api.pickUpgrade(api.world.hud.falseCard as UpgradeId);
-  api.openCheckout();
-  api.closeCheckout();
+  api.pickUpgrade(api.world.hud.offer[0].id as UpgradeId);
   api.restartNight(); // back on the intro poster
-  api.world.hud.misreads = ["seeds"];
+  api.world.hud.cardPicks = [{ id: "seeds", pick: false }];
   api.backToSetup();
-  assert.deepEqual(api.world.hud.misreads, []);
+  assert.deepEqual(api.world.hud.cardPicks, []);
 });
+
