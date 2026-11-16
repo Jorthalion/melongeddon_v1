@@ -28,6 +28,9 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "mezzanine" },
   { night: "midnight", map: "rarebooks" },
   { night: "midnight", map: "archive" },
+  { night: "midnight", map: "sorting" },
+  { night: "midnight", map: "greenhouse" },
+  { night: "midnight", map: "belltower" },
   { night: "overflow", map: "overflow" },
 ];
 

@@ -140,10 +140,13 @@ export const MAP_GOALS: Partial<Record<MapId, { goal: string }>> = {
   archive: { goal: restoreText("map", "archive") },
   greathall: { goal: restoreText("map", "greathall") },
   readingroom: { goal: restoreText("map", "readingroom") },
+  sorting: { goal: restoreText("map", "sorting") },
+  greenhouse: { goal: restoreText("map", "greenhouse") },
+  belltower: { goal: restoreText("map", "belltower") },
 };
 
 /** Maps the player can pick on the setup screen (the Overflow is night two's, never picked). */
-export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom"];
+export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom", "sorting", "greenhouse", "belltower"];
 
 /** Maps the restored rooms have opened. */
 export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {

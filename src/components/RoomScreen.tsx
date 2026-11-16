@@ -11,6 +11,9 @@ export const ROOM_JOKE: Partial<Record<MapId, string>> = {
   archive: "Somebody turned the lights off. Somebody round and green.",
   greathall: "The hall is very long. So is the queue.",
   readingroom: "Silence in the reading room. The melons are whispering anyway.",
+  sorting: "Everything returned tonight goes on the belt. Everything.",
+  greenhouse: "The fruit are home. They feel much better here.",
+  belltower: "The clock strikes on the hour. The hour is whenever it likes.",
   overflow: "The chute is open. The returns have opinions.",
 };
 

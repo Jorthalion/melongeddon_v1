@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, CARPET_DYE, CELL, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, type OathId, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
@@ -204,8 +204,10 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   drawShelves(ctx, world, art);
   drawCarpet(ctx, world, art);
+  drawFloors(ctx, world);
   if (look?.light) drawRoomLight(ctx, world, look.light);
   drawWet(ctx, world);
+  drawBell(ctx, world);
   if (BOARDS[world.hud.map].dark) drawDark(ctx, world);
 
   const hover = world.hover;
@@ -1164,6 +1166,147 @@ function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number
 }
 
 /** The Unstoppered's wet carpet: a cool sheen and a few slow ripples on each soaked cell. */
+/**
+ * Belts, stairs and growth beds, drawn over the carpet so a fast or healing stretch never looks
+ * like plain carpet: belts are dark rubber with amber chevrons that run the carpet's way, stairs are
+ * treads (blue going up and slow, orange coming down and fast), beds are soil with green shoots.
+ */
+function drawFloors(ctx: CanvasRenderingContext2D, world: World) {
+  if (!world.floors.size) return;
+  ctx.save();
+  for (const [key, tile] of world.floors) {
+    const [c, r] = key.split(",").map(Number);
+    const x = c * CELL;
+    const y = r * CELL;
+    const cx = x + CELL / 2;
+    const cy = y + CELL / 2;
+    const ang = Math.atan2(tile.dr, tile.dc);
+    if (tile.kind === "bed") {
+      ctx.fillStyle = "rgba(52,34,20,0.82)";
+      ctx.fillRect(x + 4, y + 4, CELL - 8, CELL - 8);
+      ctx.strokeStyle = "rgba(143,220,106,0.75)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8);
+      // Shoots, swaying a little.
+      for (let i = 0; i < 4; i++) {
+        const sx = x + 10 + i * 9.5;
+        const sway = Math.sin(world.anim * 2 + i + c) * 2;
+        ctx.strokeStyle = "#8fdc6a";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx, y + CELL - 10);
+        ctx.quadraticCurveTo(sx + sway, y + CELL - 18, sx + sway * 1.5, y + CELL - 24 - (i % 2) * 5);
+        ctx.stroke();
+      }
+      const glow = 0.12 + 0.08 * Math.sin(world.anim * 2.4 + c + r);
+      ctx.fillStyle = `rgba(143,220,106,${glow})`;
+      ctx.fillRect(x + 4, y + 4, CELL - 8, CELL - 8);
+      continue;
+    }
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(ang);
+    if (tile.kind === "belt") {
+      ctx.fillStyle = "rgba(28,26,30,0.85)";
+      ctx.fillRect(-CELL / 2, -CELL / 2 + 6, CELL, CELL - 12);
+      ctx.fillStyle = "rgba(150,150,160,0.5)";
+      ctx.fillRect(-CELL / 2, -CELL / 2 + 6, CELL, 2);
+      ctx.fillRect(-CELL / 2, CELL / 2 - 8, CELL, 2);
+      // Chevrons slide along with the belt.
+      const shift = ((world.anim * 40) % 16) - 8;
+      ctx.strokeStyle = "rgba(240,180,60,0.9)";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      for (let k = -2; k <= 1; k++) {
+        const px = k * 16 + shift + 4;
+        if (px < -CELL / 2 + 4 || px > CELL / 2 - 4) continue;
+        ctx.beginPath();
+        ctx.moveTo(px - 5, -8);
+        ctx.lineTo(px + 2, 0);
+        ctx.lineTo(px - 5, 8);
+        ctx.stroke();
+      }
+    } else {
+      // Treads across the carpet; going up is slow (blue), coming down is fast (orange).
+      const up = tile.kind === "up";
+      for (let k = 0; k < 4; k++) {
+        const px = -CELL / 2 + 6 + k * 11;
+        const shade = up ? 0.18 + k * 0.08 : 0.42 - k * 0.08;
+        ctx.fillStyle = `rgba(0,0,0,${shade})`;
+        ctx.fillRect(px, -CELL / 2 + 4, 5, CELL - 8);
+        ctx.fillStyle = up ? "rgba(140,190,255,0.55)" : "rgba(255,170,80,0.55)";
+        ctx.fillRect(px + 5, -CELL / 2 + 4, 1.5, CELL - 8);
+      }
+      ctx.fillStyle = up ? "rgba(140,190,255,0.85)" : "rgba(255,170,80,0.9)";
+      ctx.beginPath();
+      ctx.moveTo(8, 0);
+      ctx.lineTo(-2, -6);
+      ctx.lineTo(-2, 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/** The Bell Tower's bell over its 2×2 frame: it swings when it strikes, and counts down the last seconds. */
+function drawBell(ctx: CanvasRenderingContext2D, world: World) {
+  const spot = BOARDS[world.hud.map].bell;
+  if (!spot) return;
+  const x = (spot[0] + 1) * CELL;
+  const y = (spot[1] + 1) * CELL;
+  const bell = world.bell;
+  const quiet = bell?.quiet ?? 0;
+  ctx.save();
+  // The frame: a dark timber square under the bell.
+  ctx.fillStyle = "rgba(30,20,16,0.92)";
+  ctx.fillRect(x - CELL + 3, y - CELL + 3, CELL * 2 - 6, CELL * 2 - 6);
+  ctx.strokeStyle = "rgba(120,84,48,0.9)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(x - CELL + 5, y - CELL + 5, CELL * 2 - 10, CELL * 2 - 10);
+  ctx.beginPath();
+  ctx.moveTo(x - CELL + 5, y - CELL + 14);
+  ctx.lineTo(x + CELL - 5, y - CELL + 14);
+  ctx.stroke();
+  // The bell: swings while it strikes.
+  const swing = quiet > 0 ? Math.sin(world.anim * 14) * 0.35 * (quiet / 2.5) : Math.sin(world.anim * 1.2) * 0.03;
+  ctx.translate(x, y - CELL + 14);
+  ctx.rotate(swing);
+  const g = ctx.createLinearGradient(-26, 0, 26, 0);
+  g.addColorStop(0, "#8a6420");
+  g.addColorStop(0.45, "#f0cf78");
+  g.addColorStop(1, "#7a5618");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-10, 6);
+  ctx.quadraticCurveTo(-12, 30, -28, 52);
+  ctx.lineTo(28, 52);
+  ctx.quadraticCurveTo(12, 30, 10, 6);
+  ctx.quadraticCurveTo(0, -2, -10, 6);
+  ctx.fill();
+  ctx.fillStyle = "#5a3e12";
+  ctx.beginPath();
+  ctx.arc(0, 56, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  if (!bell) return;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.font = "600 13px Georgia, serif";
+  if (quiet > 0) {
+    // Every tower is listening: a gold hush over the room.
+    ctx.fillStyle = `rgba(230,195,106,${0.08 + 0.06 * Math.sin(world.anim * 10)})`;
+    ctx.fillRect(0, 0, world.w, world.h);
+    ctx.fillStyle = "#f3e2c4";
+    ctx.fillText("The towers are listening", x, y + CELL + 16);
+  } else if (world.hud.phase === "combat" && bell.next <= FLOOR.bellWarn) {
+    ctx.fillStyle = "#e6c36a";
+    ctx.fillText(`Strikes in ${Math.ceil(bell.next)}`, x, y + CELL + 16);
+  }
+  ctx.restore();
+}
+
 function drawWet(ctx: CanvasRenderingContext2D, world: World) {
   if (!world.wet.size) return;
   ctx.save();
@@ -1339,6 +1482,12 @@ const ROOM_LOOK: Partial<
   greathall: { floor: ["#5a6a8a", 0.4], carpet: "#6a2fa0", light: { x: 0.15, y: 0.0, r: 0.8, color: "170,196,255", a: 0.16 } },
   // The Reading Room: honey wood and green banker's lamps, a teal runner.
   readingroom: { floor: ["#b08a3a", 0.3], carpet: "#1f7f86", light: { x: 0.5, y: 0.5, r: 0.6, color: "190,255,190", a: 0.1 } },
+  // The Sorting Room: grey concrete and strip lights, a mustard runner between the belts.
+  sorting: { floor: ["#6a7078", 0.45], carpet: "#b88a1e", light: { x: 0.5, y: 0.0, r: 0.75, color: "220,235,255", a: 0.14 } },
+  // The Greenhouse: green glass light from above, a terracotta path.
+  greenhouse: { floor: ["#4f7a3a", 0.4], carpet: "#b0552e", light: { x: 0.6, y: 0.1, r: 0.8, color: "200,255,170", a: 0.18 } },
+  // The Bell Tower: cold stone, a deep red runner, moonlight through the louvres.
+  belltower: { floor: ["#6a6a78", 0.45], carpet: "#8a1f2a", light: { x: 0.5, y: 0.45, r: 0.5, color: "230,200,140", a: 0.14 } },
 };
 
 /** The Pamphlet's straight: a faint orange wash over its tiles and an arrowhead at the corner where it goes off. */

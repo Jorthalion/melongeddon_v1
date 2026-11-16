@@ -1121,7 +1121,72 @@ export function sellValue(paid: number) {
   return Math.round((paid * SELL_PERCENT) / 100); // integer math: 45 * 0.7 would round to 31
 }
 
-export type MapId = "stacks" | "annex" | "mezzanine" | "rarebooks" | "archive" | "greathall" | "readingroom" | "overflow";
+export type MapId =
+  | "stacks"
+  | "annex"
+  | "mezzanine"
+  | "rarebooks"
+  | "archive"
+  | "greathall"
+  | "readingroom"
+  | "sorting"
+  | "greenhouse"
+  | "belltower"
+  | "overflow";
+
+/**
+ * Floors that change the carpet: a belt carries fruit faster the way the carpet runs (and holds
+ * back anything walking the other way), stairs are slow going up and fast coming down, and a
+ * growth bed heals fruit standing on it (not while they burn).
+ */
+export type FloorKind = "belt" | "up" | "down" | "bed";
+export interface FloorRun {
+  kind: FloorKind;
+  /** A straight run of carpet tiles, both ends included, listed in the carpet's own direction. */
+  from: [number, number];
+  to: [number, number];
+}
+/** Floor numbers (tune with the simulator). */
+export const FLOOR = {
+  /** Speed on a belt (the carpet's way); walking against it is 1 / this. */
+  belt: 1.6,
+  /** Speed going up stairs, and coming down (walking back up or down reverses them). */
+  up: 0.7,
+  down: 1.4,
+  /** A growth bed heals this share of a fruit's health each second. */
+  bedHeal: 0.05,
+  /** The Bell Tower: seconds into each wave between strikes, how long the towers stay quiet, and the warning. */
+  bellEvery: 24,
+  bellQuiet: 2.5,
+  bellWarn: 3,
+};
+/** One floor tile: what it is and which way the carpet runs across it. */
+export interface FloorTile {
+  kind: FloorKind;
+  dc: number;
+  dr: number;
+}
+/** A board's floor tiles by "c,r". */
+export function floorTiles(map: MapId): Map<string, FloorTile> {
+  const out = new Map<string, FloorTile>();
+  for (const run of BOARDS[map].floors ?? []) {
+    const dc = Math.sign(run.to[0] - run.from[0]);
+    const dr = Math.sign(run.to[1] - run.from[1]);
+    let [c, r] = run.from;
+    for (;;) {
+      out.set(`${c},${r}`, { kind: run.kind, dc, dr });
+      if (c === run.to[0] && r === run.to[1]) break;
+      c += dc;
+      r += dr;
+    }
+  }
+  return out;
+}
+/** How a floor tile changes a fruit's pace: `back` = walking toward the entrance. Beds don't. */
+export function floorPace(kind: FloorKind | undefined, back: boolean) {
+  const fwd = kind === "belt" ? FLOOR.belt : kind === "up" ? FLOOR.up : kind === "down" ? FLOOR.down : 1;
+  return back ? 1 / fwd : fwd;
+}
 export type NightId = "midnight" | "overflow" | "endless";
 
 export interface Board {
@@ -1140,6 +1205,12 @@ export interface Board {
   rows?: number;
   /** Bookshelf cells: cannons can't be built on them (default: the classic layout). */
   shelves?: Array<[number, number]>;
+  /** Belts, stairs and growth beds on the carpet (see FloorKind). */
+  floors?: FloorRun[];
+  /** Damp air: burning does 45% less (as on the Overflow). */
+  damp?: boolean;
+  /** The Bell Tower's bell: its top-left cell (it fills a 2×2 block of shelf cells). It strikes during waves and every tower goes quiet. */
+  bell?: [number, number];
 }
 
 /** The classic bookshelf layout, used by boards that don't list their own. */
@@ -1314,6 +1385,88 @@ export const BOARDS: Record<MapId, Board> = {
       [1, 0], [2, 0], [3, 0], [7, 0], [8, 0], [9, 0], [13, 0], [14, 0], [15, 0], [20, 0],
       [0, 13], [1, 13], [5, 13], [6, 13], [7, 13], [12, 13], [13, 13], [14, 13], [19, 13], [20, 13],
       [21, 4], [21, 5], [0, 7], [0, 8], [7, 4], [13, 4], [7, 8], [13, 8], [21, 12],
+    ],
+  },
+  sorting: {
+    id: "sorting",
+    name: "The Sorting Room",
+    blurb: "Book-return belts run along the carpet: fruit ride them 60% faster. Short, quick, and no time to waste.",
+    corners: [
+      [0, 3],
+      [5, 3],
+      [5, 7],
+      [10, 7],
+      [10, 2],
+      [15, 2],
+    ],
+    floors: [
+      { kind: "belt", from: [6, 7], to: [9, 7] },
+      { kind: "belt", from: [10, 6], to: [10, 3] },
+      { kind: "belt", from: [11, 2], to: [14, 2] },
+    ],
+    michaelCannon: [2, 5],
+    // Sorting cages and mail sacks.
+    shelves: [
+      [2, 0], [3, 0], [7, 0], [8, 0], [12, 0], [13, 0],
+      [0, 9], [1, 9], [6, 9], [7, 9], [12, 9], [13, 9],
+      [7, 4], [8, 4], [13, 5], [14, 5],
+    ],
+  },
+  greenhouse: {
+    id: "greenhouse",
+    name: "The Greenhouse",
+    blurb: "Where the fruit grow. Growth beds heal anything standing in them, unless it's burning. The air is damp: fire burns 45% less.",
+    hp: 1.1,
+    damp: true,
+    corners: [
+      [0, 8],
+      [3, 8],
+      [3, 2],
+      [8, 2],
+      [8, 6],
+      [12, 6],
+      [12, 1],
+      [15, 1],
+    ],
+    floors: [
+      { kind: "bed", from: [5, 2], to: [6, 2] },
+      { kind: "bed", from: [9, 6], to: [10, 6] },
+      { kind: "bed", from: [12, 3], to: [12, 2] },
+    ],
+    michaelCannon: [1, 6],
+    // Planters and potting benches.
+    shelves: [
+      [1, 1], [2, 1], [6, 0], [7, 0], [10, 9], [11, 9], [14, 8], [15, 8],
+      [5, 5], [6, 5], [10, 3], [0, 4], [1, 4], [14, 4], [15, 4],
+    ],
+  },
+  belltower: {
+    id: "belltower",
+    name: "The Bell Tower",
+    blurb: "Up the stairs (slow), round the bell, and down the stairs (fast). When the clock strikes, every tower stops for a moment.",
+    hp: 1.1,
+    corners: [
+      [0, 9],
+      [2, 9],
+      [2, 1],
+      [13, 1],
+      [13, 9],
+      [15, 9],
+    ],
+    floors: [
+      { kind: "up", from: [2, 8], to: [2, 2] },
+      { kind: "down", from: [13, 2], to: [13, 8] },
+    ],
+    bell: [7, 4],
+    michaelCannon: [4, 8],
+    // The bell's frame, the beams, and the walls either side of the stairs: narrow ledges to build on.
+    shelves: [
+      [7, 4], [8, 4], [7, 5], [8, 5],
+      [4, 3], [11, 3], [4, 7], [11, 7], [6, 6], [9, 6],
+      [0, 2], [0, 3], [0, 5], [0, 6], [1, 4],
+      [15, 2], [15, 3], [15, 5], [15, 6], [14, 4],
+      [5, 0], [6, 0], [9, 0], [10, 0],
+      [6, 9], [7, 9], [8, 9], [9, 9],
     ],
   },
   overflow: {

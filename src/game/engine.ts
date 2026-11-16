@@ -6,6 +6,7 @@ import {
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
   carpetLegs, legOf, legsTouching, bindLeg, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
+  FLOOR, floorTiles, floorPace, type FloorTile,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 
@@ -686,6 +687,10 @@ export interface World {
   floaters: Floater[];
   shake: number;
   pathCells: Set<string>;
+  /** Belts, stairs and growth beds on the carpet, by "c,r" (set with the map). */
+  floors: Map<string, FloorTile>;
+  /** The Bell Tower: seconds until the clock strikes (counted during waves), and seconds the towers stay quiet. */
+  bell: { next: number; quiet: number } | null;
   /** Bookshelf cells: part of the room, so nothing can be built there. */
   shelfCells: Set<string>;
   points: Waypoint[];
@@ -906,6 +911,8 @@ export function createWorld(
     floaters: [],
     shake: 0,
     pathCells: STACKS.cells,
+    floors: new Map(),
+    bell: null,
     shelfCells: shelfCells("stacks", STACKS.cells),
     points: STACKS.points,
     turns: STACKS.turns,
@@ -1735,6 +1742,30 @@ export function createWorld(
     return d <= CANNON.quackLine + e.r ? CANNON.quackLineSlow : 1;
   };
 
+  /** The floor tile a fruit stands on (belt, stairs or bed), if any. */
+  const floorAt = (e: Enemy) => world.floors.get(`${Math.floor(e.x / CELL)},${Math.floor(e.y / CELL)}`);
+  /** The Bell Tower: count down to the strike during a wave; when it strikes, every tower goes quiet for a moment. */
+  const tickBell = (dt: number) => {
+    const bell = world.bell;
+    const spot = BOARDS[world.hud.map].bell;
+    if (!bell || !spot) return;
+    if (bell.quiet > 0) {
+      bell.quiet = Math.max(0, bell.quiet - dt);
+      return;
+    }
+    bell.next -= dt;
+    if (bell.next > 0) return;
+    bell.next = FLOOR.bellEvery;
+    bell.quiet = FLOOR.bellQuiet;
+    const x = (spot[0] + 1) * CELL;
+    const y = (spot[1] + 1) * CELL;
+    cue("fire", "bell");
+    world.rings.push({ x, y, r: Math.max(world.w, world.h), life: 0.9, max: 0.9, color: "230,195,106" });
+    world.shake = world.reduced ? 0 : Math.max(world.shake, 5);
+    float(x, y - 40, "BONG", "#e6c36a");
+    world.hud.log = "The clock strikes. Every tower stops to listen.";
+  };
+
   const statsFor = (tower: Tower) => {
     const plain = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
     // A Copycat's copy of a heavy cannon hits for a share of the original.
@@ -1966,6 +1997,8 @@ export function createWorld(
     world.shelfCells = shelfCells(map, built.cells);
     world.points = built.points;
     world.turns = built.turns;
+    world.floors = floorTiles(map);
+    world.bell = BOARDS[map].bell ? { next: FLOOR.bellEvery, quiet: 0 } : null;
     Object.assign(world, boardSize(map));
     world.hud.map = map;
   };
@@ -2394,7 +2427,7 @@ export function createWorld(
       return;
     }
     if (e.bread && via === "burn") return;
-    if (world.hud.map === "overflow" && via === "burn") amount *= 0.55;
+    if ((world.hud.map === "overflow" || BOARDS[world.hud.map].damp) && via === "burn") amount *= 0.55;
     if (e.guard === "rind" && e.shell > 0 && (via === "shot" || via === "splash") && amount >= 1) {
       e.shell = 0;
       float(e.x, e.y - 16, "crack", "#f3e2c4");
@@ -2793,6 +2826,7 @@ export function createWorld(
 
     for (const pool of world.pools) pool.life -= dt;
     world.pools = world.pools.filter((p) => p.life > 0);
+    tickBell(dt);
 
     for (const e of world.enemies) {
       let slow = 1;
@@ -2858,6 +2892,11 @@ export function createWorld(
       credit = burnBy ?? null;
       if (burn) hurt(e, null, burn * dt, 0, "burn");
       credit = null;
+      // A growth bed heals whatever stands in it, unless it's burning.
+      if (e.hp > 0 && !burn && e.hp < e.maxHp && floorAt(e)?.kind === "bed") {
+        e.hp = Math.min(e.maxHp, e.hp + e.maxHp * FLOOR.bedHeal * dt);
+        if (!world.reduced && Math.random() < dt * 3) burst(e.x, e.y - 8, "#8fdc6a", 2);
+      }
       // A gall rides its host: heals it and stays a step behind. With the host gone it is only a corn.
       if (e.gall && e.hp > 0) {
         const host = world.enemies.find((o) => o.id === e.mends && o.hp > 0);
@@ -2880,7 +2919,7 @@ export function createWorld(
           const by = back.y - e.y;
           const bd = Math.hypot(bx, by);
           const studiedBack = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
-          const stepBack = e.speed * e.slow * studiedBack * perimeterAt(e) * dt;
+          const stepBack = e.speed * e.slow * studiedBack * perimeterAt(e) * floorPace(floorAt(e)?.kind, !e.reverse) * dt;
           if (bd <= stepBack + 0.5) {
             e.x = back.x;
             e.y = back.y;
@@ -2899,7 +2938,7 @@ export function createWorld(
       const dist = Math.hypot(dx, dy);
       // The History Lectern's note: the kind that got furthest last wave walks slower.
       const studied = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
-      const step = e.speed * e.slow * studied * perimeterAt(e) * dt;
+      const step = e.speed * e.slow * studied * perimeterAt(e) * floorPace(floorAt(e)?.kind, Boolean(e.reverse)) * dt;
       if (dist <= step + 0.5) {
         e.x = wp.x;
         e.y = wp.y;
@@ -2940,7 +2979,8 @@ export function createWorld(
     }
 
     syncMimics();
-    for (const tower of actingTowers()) {
+    // While the Bell Tower's clock strikes, no tower acts (shots already in the air still land).
+    for (const tower of (world.bell?.quiet ?? 0) > 0 ? [] : actingTowers()) {
       credit = tower.id;
       tower.cd -= dt;
       tower.pulpCd = (tower.pulpCd ?? 0) - dt;
@@ -3542,6 +3582,8 @@ export function createWorld(
       world.hud.waveSize = queue.length;
       world.hud.left = queue.length;
       world.hud.phase = "combat";
+      // The Bell Tower's clock counts from the start of each wave.
+      if (world.bell) world.bell = { next: FLOOR.bellEvery, quiet: 0 };
       cue(queue.some((q) => q.kind === "karl") ? "boss" : "wave");
       world.hud.wave = cleared + 1;
       world.hud.waveName = spec.name;

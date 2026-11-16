@@ -7,7 +7,18 @@
 import type { Difficulty, HeroId, MapId, NightId, TowerKind } from "./rules.ts";
 import type { BookmarkId, MetaStats } from "./meta.ts";
 
-export type RoomId = "stacks" | "mezzanine" | "rarebooks" | "archive" | "greathall" | "readingroom" | "bindery" | "restricted";
+export type RoomId =
+  | "stacks"
+  | "mezzanine"
+  | "rarebooks"
+  | "archive"
+  | "greathall"
+  | "readingroom"
+  | "sorting"
+  | "greenhouse"
+  | "belltower"
+  | "bindery"
+  | "restricted";
 
 export type Reward =
   | { kind: "map"; id: MapId }
@@ -97,6 +108,28 @@ export const ROOMS: Room[] = [
       { kind: "keeper", id: "asser" },
       { kind: "bookmark", id: "latefee" },
     ],
+  },
+  // Beyond the library's own rooms: harder maps with floors of their own.
+  {
+    id: "sorting",
+    name: "The Sorting Room",
+    blurb: "Get the return belts running again. The fruit will ride them too.",
+    cost: 14,
+    rewards: [{ kind: "map", id: "sorting" }],
+  },
+  {
+    id: "greenhouse",
+    name: "The Greenhouse",
+    blurb: "Open the glasshouse on the roof. This is where the fruit came from.",
+    cost: 18,
+    rewards: [{ kind: "map", id: "greenhouse" }],
+  },
+  {
+    id: "belltower",
+    name: "The Bell Tower",
+    blurb: "Wind the clock. Everyone stops to listen when it strikes, cannons included.",
+    cost: 24,
+    rewards: [{ kind: "map", id: "belltower" }],
   },
   {
     id: "bindery",

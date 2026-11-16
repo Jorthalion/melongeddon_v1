@@ -638,6 +638,9 @@ No last wave. Waves keep coming and keep getting tougher, Karl arrives every fif
 | The Archive | Dark: cannons have 20% less reach unless a Reading Lamp reaches them | Restore The Archive |
 | The Great Hall | **Big map** (22 × 14). One very long carpet snaking up and down the hall; fruit have 20% more health | Restore The Great Hall |
 | The Reading Room | **Big map** (22 × 14). Three long lanes between the tables, so a cannon between two lanes covers both; fruit have 40% more health | Restore The Reading Room |
+| The Sorting Room | Short and quick. **Return belts** (dark rubber with amber arrows) carry fruit **60% faster** the way the carpet runs; anything walking back against a belt (the Reverse Driver's fruit) goes slower | Restore The Sorting Room |
+| The Greenhouse | Where the fruit grow. **Growth beds** (soil with green shoots) heal a hurt fruit **5% of its health every second** it stands in one, **unless it's burning**. The air is damp: burning does **45% less**. Fruit have 10% more health | Restore The Greenhouse |
+| The Bell Tower | **Stairs**: going up is slow (blue treads, 70% pace), coming down is fast (orange treads, 140%). **The clock strikes** every 24 seconds of a wave (a countdown shows from 3): every tower stops for 2.5 seconds; shots already flying still land. Narrow ledges, and fruit have 10% more health | Restore The Bell Tower |
 
 On the big maps the whole room still fits on screen, so towers and fruit are drawn about a third smaller.
 
@@ -689,6 +692,9 @@ The library is in pieces. You put it back together with **Catalogue Fragments**,
 | The Archive | 10 | The Archive map; Dr. Samodovol; Bulk Order; Mynxi's Reserve Desk |
 | The Great Hall | 15 | The Great Hall map; Quackarot; Back-room Key; Vaelithra's Unstoppered |
 | The Reading Room | 20 | The Reading Room map; Asser Mälkki; Late Fees |
+| The Sorting Room | 14 | The Sorting Room map |
+| The Greenhouse | 18 | The Greenhouse map |
+| The Bell Tower | 24 | The Bell Tower map |
 | The Bindery | 12 | Carpet colours and keeper-card frames |
 | The Restricted Section | 30 | A gilded title screen and the Archivist's frame |
 
