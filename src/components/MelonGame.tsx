@@ -3,7 +3,7 @@ import { BOARDS, KEEPER_NAMES, createWorld, stepWorld } from "@/game/engine";
 import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
 import { useHotkeys } from "@/components/hotkeys";
-import { ChuteTip, TutorialHint } from "@/components/TutorialHint";
+import { ChuteTip, NativesTip, TutorialHint } from "@/components/TutorialHint";
 import { MynxiTutor } from "@/components/MynxiTutor";
 import { canInstall, isDesktopApp, onInstallChange, promptInstall } from "@/lib/install";
 import { BuildFooter, GameHeader } from "@/components/GameHUD";
@@ -229,6 +229,7 @@ export function MelonGame() {
         ) : null}
         {(phase === "prep" || phase === "combat") && !hud.tutorial && !hud.guide ? <TutorialHint api={api} /> : null}
         {phase === "prep" || phase === "combat" ? <ChuteTip api={api} /> : null}
+        {phase === "prep" || phase === "combat" ? <NativesTip api={api} /> : null}
         {(phase === "prep" || phase === "combat") && !hud.menu ? <BackRoomTab api={api} onGesture={gesture} /> : null}
         {phase === "select" ? <SetupScreen api={api} onGesture={gesture} /> : null}
         {phase !== "combat" && phase !== "prep" && phase !== "select" && phase !== "coldopen" && phase !== "poster" ? (

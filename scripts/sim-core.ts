@@ -25,6 +25,7 @@ import {
   canCopy,
   isSignature,
   bindLeg,
+  besideCarpet,
   carpetLegs,
 } from "../src/game/engine.ts";
 
@@ -171,7 +172,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
         const c = s.c + a;
         const r = s.r + b;
         if (c < 0 || r < 0 || c >= world.cols || r >= world.rows) continue;
-        if (world.pathCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+        if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
         return { c, r };
       }
     return null;
@@ -191,7 +192,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       let near = Infinity;
       for (let c = 0; c < world.cols; c++)
         for (let r = 0; r < world.rows; r++) {
-          if (world.pathCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
           if (kind === "pamphlet" && bindLeg(legs, c, r) !== want) continue;
           const d = Math.hypot(c * CELL + CELL / 2 - door.x, r * CELL + CELL / 2 - door.y);
           if (d < near) {
@@ -211,7 +212,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       let score = -Infinity;
       for (let c = 0; c < world.cols; c++)
         for (let r = 0; r < world.rows; r++) {
-          if (world.pathCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
           const x = c * CELL + CELL / 2;
           const y = r * CELL + CELL / 2;
           let v = 0;
@@ -230,9 +231,9 @@ function play(config: RunConfig, rng: () => number): RunResult {
     }
     for (let c = 0; c < world.cols; c++) {
       for (let r = 0; r < world.rows; r++) {
-        if (world.pathCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`)) continue;
+        if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`)) continue;
         if (world.towers.some((t) => t.c === c && t.r === r)) continue;
-        if ((kind === "gourdgate" || kind === "desk") && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.pathCells.has(`${c + a},${r + b}`))) continue;
+        if ((kind === "gourdgate" || kind === "desk") && !besideCarpet(world, c, r)) continue;
         const x = c * CELL + CELL / 2;
         const y = r * CELL + CELL / 2;
         let score = 0;

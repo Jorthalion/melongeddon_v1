@@ -1170,6 +1170,7 @@ export interface FloorTile {
 export function floorTiles(map: MapId): Map<string, FloorTile> {
   const out = new Map<string, FloorTile>();
   for (const run of BOARDS[map].floors ?? []) {
+    if (run.from[0] !== run.to[0] && run.from[1] !== run.to[1]) throw new Error(`${map}: a ${run.kind} floor has to run straight, not diagonally`);
     const dc = Math.sign(run.to[0] - run.from[0]);
     const dr = Math.sign(run.to[1] - run.from[1]);
     let [c, r] = run.from;
@@ -1211,6 +1212,10 @@ export interface Board {
   damp?: boolean;
   /** The Bell Tower's bell: its top-left cell (it fills a 2×2 block of shelf cells). It strikes during waves and every tower goes quiet. */
   bell?: [number, number];
+  /** The room's own fruit, swapped into the ordinary waves (see NATIVES). */
+  natives?: { common: NativeId; elite: NativeId };
+  /** How the carpet draws: "tiles" (square tiles and corner pieces, the default) or "path" (one band with rounded turns). */
+  carpet?: "tiles" | "path";
 }
 
 /** The classic bookshelf layout, used by boards that don't list their own. */
@@ -1239,17 +1244,28 @@ export const DEFAULT_SHELVES: Array<[number, number]> = [
  * The bookshelf cells on a board, as "c,r" keys. Cannons can't go there. A shelf listed on the
  * carpet, outside the board, or on the kept-open `michaelCannon` tile is left out.
  */
-export function shelfCells(map: MapId, path: Set<string>): Set<string> {
+export function shelfCells(map: MapId, path: Set<string>, verge: Set<string> = new Set()): Set<string> {
   const b = BOARDS[map];
   const { cols, rows } = boardSize(map);
   const fixed = new Set([b.michaelCannon].map(([c, r]) => `${c},${r}`));
   const out = new Set<string>();
   for (const [c, r] of b.shelves ?? DEFAULT_SHELVES) {
     const key = `${c},${r}`;
-    if (c < 0 || r < 0 || c >= cols || r >= rows || path.has(key) || fixed.has(key)) continue;
+    if (c < 0 || r < 0 || c >= cols || r >= rows || path.has(key) || verge.has(key) || fixed.has(key)) continue;
     out.add(key);
   }
   return out;
+}
+
+/** What the game says when you try to build on a verge (a tile a diagonal stretch of carpet half-covers). */
+export const VERGE_NOTE = "Too close to the carpet.";
+
+/** Whether tile (c, r) shares an edge with the carpet or with a verge tile beside a diagonal. */
+export function besideCarpet(world: { pathCells: Set<string>; vergeCells?: Set<string> }, c: number, r: number) {
+  return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => {
+    const key = `${c + a},${r + b}`;
+    return world.pathCells.has(key) || Boolean(world.vergeCells?.has(key));
+  });
 }
 
 /** A board's size in cells and in world pixels. */
@@ -1395,6 +1411,7 @@ export const BOARDS: Record<MapId, Board> = {
     rows: 14,
     // Half the carpet is belt, so fruit cross it fast: weaker fruit keep it about as hard as the Stacks (tuned with the simulator).
     hp: 0.8,
+    carpet: "path",
     corners: [
       [0, 3],
       [6, 3],
@@ -1411,6 +1428,7 @@ export const BOARDS: Record<MapId, Board> = {
       { kind: "belt", from: [16, 4], to: [16, 9] },
     ],
     michaelCannon: [3, 7],
+    natives: { common: "express", elite: "parcel" },
     // Sorting cages and mail sacks, mostly along the walls.
     shelves: [
       [1, 0], [2, 0], [3, 0], [7, 1], [8, 0], [9, 0], [12, 1], [13, 0], [14, 0], [18, 0], [19, 0], [20, 0],
@@ -1425,14 +1443,17 @@ export const BOARDS: Record<MapId, Board> = {
     cols: 22,
     rows: 14,
     // Nine bed tiles on a long walk heal a lot: slightly weaker fruit keep it about as hard as the Stacks (tuned with the simulator).
-    hp: 0.95,
+    hp: 0.85,
     damp: true,
+    carpet: "path",
+    // The middle drop is a garden path running diagonally.
     corners: [
       [0, 11],
       [4, 11],
       [4, 2],
       [10, 2],
-      [10, 8],
+      [10, 5],
+      [13, 8],
       [15, 8],
       [15, 3],
       [19, 3],
@@ -1441,10 +1462,11 @@ export const BOARDS: Record<MapId, Board> = {
     ],
     floors: [
       { kind: "bed", from: [6, 2], to: [8, 2] },
-      { kind: "bed", from: [12, 8], to: [13, 8] },
+      { kind: "bed", from: [13, 8], to: [14, 8] },
       { kind: "bed", from: [19, 6], to: [19, 9] },
     ],
     michaelCannon: [2, 8],
+    natives: { common: "sprout", elite: "squash" },
     // Planters and potting benches, mostly along the walls.
     shelves: [
       [0, 0], [1, 0], [2, 0], [6, 0], [7, 0], [8, 0], [12, 0], [13, 0], [17, 0], [18, 0], [20, 0], [21, 0],
@@ -1458,16 +1480,18 @@ export const BOARDS: Record<MapId, Board> = {
     blurb: "Up the stairs (slow), round the bell, and down the stairs (fast). When the clock strikes, every tower stops for a moment.",
     cols: 22,
     rows: 14,
-    // A long carpet, but the clock silences every tower: slightly tougher fruit keep it about as hard as the Stacks (tuned with the simulator).
-    hp: 1.05,
+    // A long carpet, but the clock silences every tower: its own fruit and the diagonals make it harder, so slightly weaker fruit keep it about as hard as the Stacks (tuned with the simulator).
+    hp: 0.9,
+    carpet: "path",
+    // The dip under the bell is a V, like a bell rope.
     corners: [
       [0, 12],
       [3, 12],
       [3, 1],
-      [8, 1],
-      [8, 5],
-      [13, 5],
-      [13, 1],
+      [7, 1],
+      [10, 4],
+      [11, 4],
+      [14, 1],
       [18, 1],
       [18, 12],
       [21, 12],
@@ -1478,6 +1502,7 @@ export const BOARDS: Record<MapId, Board> = {
     ],
     bell: [10, 8],
     michaelCannon: [5, 11],
+    natives: { common: "chimer", elite: "gargoyle" },
     // The bell's frame, oak beams and the walls either side of the stairs.
     shelves: [
       [10, 8], [11, 8], [10, 9], [11, 9], [0, 2], [0, 3], [0, 5], [0, 6], [0, 8], [0, 9], [21, 2], [21, 3],
@@ -1521,23 +1546,37 @@ export function cornerRot(prev: [number, number], corner: [number, number], next
   return rot[outer.join("")] ?? 0;
 }
 
+/**
+ * The carpet from its corners. Each stretch runs straight or at exactly 45°. `cells` are the carpet tiles
+ * (fruit walk them); `verge` are the tiles a diagonal half-covers beside each step: nothing can be built
+ * there, and nothing else treats them as carpet.
+ */
 export function buildBoard(corners: Array<[number, number]>) {
   const cells = new Set<string>();
+  const sides = new Set<string>();
   const mark = (c: number, r: number) => cells.add(`${c},${r}`);
   for (let i = 0; i < corners.length - 1; i++) {
     const [c0, r0] = corners[i];
     const [c1, r1] = corners[i + 1];
     const dc = Math.sign(c1 - c0);
     const dr = Math.sign(r1 - r0);
+    const diagonal = dc !== 0 && dr !== 0;
+    if (diagonal && Math.abs(c1 - c0) !== Math.abs(r1 - r0))
+      throw new Error(`The carpet from [${c0},${r0}] to [${c1},${r1}] has to run straight or at exactly 45°`);
     let c = c0;
     let r = r0;
     mark(c, r);
     while (c !== c1 || r !== r1) {
+      if (diagonal) {
+        sides.add(`${c + dc},${r}`);
+        sides.add(`${c},${r + dr}`);
+      }
       c += dc;
       r += dr;
       mark(c, r);
     }
   }
+  const verge = new Set([...sides].filter((k) => !cells.has(k)));
   const points = corners.map(([c, r]) => ({
     x: c * CELL + CELL / 2,
     y: r * CELL + CELL / 2,
@@ -1547,7 +1586,7 @@ export function buildBoard(corners: Array<[number, number]>) {
     r: corner[1],
     rot: cornerRot(corners[i], corner, corners[i + 2]),
   }));
-  return { cells, points, turns };
+  return { cells, verge, points, turns };
 }
 export type Difficulty = "easy" | "normal" | "hard" | "overdue";
 export type Guard = "none" | "rind" | "husk" | "damp";
@@ -1574,6 +1613,116 @@ export interface SpawnSpec {
   gall?: boolean;
   /** Act three. Fast and frail; at the door it takes seeds instead of a stack. */
   borrower?: boolean;
+}
+
+/**
+ * The three newest rooms' own fruit. Each is a flag on an ordinary kind (its `base`), swapped into the
+ * shared waves on its own room only: a common one from wave 4, an elite from wave 10 (not on Story).
+ */
+export type NativeId = "express" | "parcel" | "sprout" | "squash" | "chimer" | "gargoyle";
+export const NATIVE_INFO: Record<NativeId, { name: string; base: EnemyKind; line: string }> = {
+  express: { name: "Express Corn", base: "corn", line: "Express post. These ones don't stop on the belts." },
+  parcel: { name: "Parcel", base: "pumpkin", line: "A parcel. Tear the paper off first: there's something inside." },
+  sprout: { name: "Sprout", base: "corn", line: "Sprouts. Two seconds in the beds and they're melons." },
+  squash: { name: "Creeping Squash", base: "pumpkin", line: "A creeping squash. The carpet behind it turns into a bed." },
+  chimer: { name: "Chimer", base: "corn", line: "Chimers. Every one still walking hurries the clock." },
+  gargoyle: { name: "Gargoyle Gourd", base: "pumpkin", line: "A gargoyle gourd. Stone until the clock strikes, then it runs." },
+};
+/** Room fruit numbers (tune with the simulator). */
+export const NATIVES = {
+  /** From this wave (1-based), every `commonEvery`th fruit of the common's base kind becomes the common. */
+  commonFrom: 4,
+  commonEvery: 4,
+  /** From this wave the first fruit(s) of the elite's base kind become the elite: one, or two in act three. */
+  eliteFrom: 10,
+  actThreeFrom: 16,
+  elites: 1,
+  elitesActThree: 2,
+  /** Express Corn: belt pace (instead of FLOOR.belt); on a belt nothing slows or stops it. */
+  expressBelt: 2,
+  /** Parcel: direct hits through the wrapping, and the corn inside. */
+  parcelWrapped: 0.5,
+  parcelContents: 3,
+  /** Sprout: seconds on beds (or vines) to grow into a melon, and its radius until then. */
+  sproutGrow: 2,
+  sproutR: 9,
+  /** Creeping Squash: a vine every this many seconds, lasting this long, withering this long after the squash dies. */
+  vineEvery: 1.5,
+  vineLife: 6,
+  vineWither: 1,
+  /** Chimer: each one alive runs the clock this much faster, up to `chimerMax` times. */
+  chimerRush: 0.25,
+  chimerMax: 2,
+  /** Gargoyle Gourd: speed while the clock silences the towers, and damage taken the rest of the time. */
+  gargoyleAwake: 3,
+  gargoyleSkin: 0.75,
+};
+
+/** One fruit in a wave's spawn queue. */
+export interface QueueItem {
+  kind: EnemyKind;
+  t: number;
+  tough: number;
+  guard: Guard;
+  split: boolean;
+  raw: boolean;
+  chute: boolean;
+  pit: boolean;
+  gall: boolean;
+  borrower: boolean;
+  native: NativeId | null;
+}
+
+/** A wave's spawns as one queue, in spawn order. */
+export function waveQueue(spawns: SpawnSpec[]): QueueItem[] {
+  const items: QueueItem[] = [];
+  let t = 0.35;
+  for (const group of spawns) {
+    for (let i = 0; i < group.count; i++) {
+      items.push({
+        kind: group.kind,
+        t,
+        tough: group.tough ?? 1,
+        guard: group.guard ?? "none",
+        split: Boolean(group.split),
+        raw: Boolean(group.raw),
+        chute: Boolean(group.chute),
+        pit: Boolean(group.pit),
+        gall: Boolean(group.gall),
+        borrower: Boolean(group.borrower),
+        native: null,
+      });
+      t += group.every;
+    }
+  }
+  return items.sort((a, b) => a.t - b.t);
+}
+
+/** A plain fruit of this kind: no Karl, no flag or guard, not up the chute. Only those become room fruit. */
+const plainFruit = (q: QueueItem, kind: EnemyKind) =>
+  q.kind === kind && q.kind !== "karl" && q.guard === "none" && !q.split && !q.raw && !q.chute && !q.pit && !q.gall && !q.borrower && !q.native;
+
+/** Swap a room's own fruit into a wave's queue (in place): `wave` is 1-based. Story nights get no elites. */
+export function assignNatives(items: QueueItem[], natives: Board["natives"], wave: number, difficulty: Difficulty): QueueItem[] {
+  if (!natives) return items;
+  if (wave >= NATIVES.eliteFrom && difficulty !== "easy") {
+    let left = wave >= NATIVES.actThreeFrom ? NATIVES.elitesActThree : NATIVES.elites;
+    for (const q of items) {
+      if (left <= 0) break;
+      if (!plainFruit(q, NATIVE_INFO[natives.elite].base)) continue;
+      q.native = natives.elite;
+      left -= 1;
+    }
+  }
+  if (wave >= NATIVES.commonFrom) {
+    let seen = 0;
+    for (const q of items) {
+      if (!plainFruit(q, NATIVE_INFO[natives.common].base)) continue;
+      seen += 1;
+      if (seen % NATIVES.commonEvery === 0) q.native = natives.common;
+    }
+  }
+  return items;
 }
 
 export const WAVES: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> = [
@@ -1856,7 +2005,16 @@ export function carpetAlong(points: Array<{ x: number; y: number }>, x: number, 
  * start corner included and the end corner not (a corner belongs to the leg a fruit walks into).
  */
 export function carpetLegs(points: Array<{ x: number; y: number }>) {
-  const legs: Array<{ a: { x: number; y: number }; b: { x: number; y: number }; from: number; to: number; length: number; tiles: Array<[number, number]> }> = [];
+  const legs: Array<{
+    a: { x: number; y: number };
+    b: { x: number; y: number };
+    from: number;
+    to: number;
+    length: number;
+    tiles: Array<[number, number]>;
+    /** A diagonal's half-covered side tiles (none on a straight). */
+    verge: Array<[number, number]>;
+  }> = [];
   let run = 0;
   for (let k = 1; k < points.length; k++) {
     const a = points[k - 1];
@@ -1866,13 +2024,70 @@ export function carpetLegs(points: Array<{ x: number; y: number }>) {
     const r0 = Math.floor(a.y / CELL);
     const c1 = Math.floor(b.x / CELL);
     const r1 = Math.floor(b.y / CELL);
-    const steps = Math.abs(c1 - c0) + Math.abs(r1 - r0);
+    // A diagonal steps both ways at once, so it has as many tiles as its longer side.
+    const steps = Math.max(Math.abs(c1 - c0), Math.abs(r1 - r0));
+    const dc = Math.sign(c1 - c0);
+    const dr = Math.sign(r1 - r0);
     const tiles: Array<[number, number]> = [];
-    for (let i = 0; i < steps; i++) tiles.push([c0 + Math.sign(c1 - c0) * i, r0 + Math.sign(r1 - r0) * i]);
-    legs.push({ a, b, from: run, to: run + length, length, tiles });
+    const verge: Array<[number, number]> = [];
+    for (let i = 0; i < steps; i++) {
+      const c = c0 + dc * i;
+      const r = r0 + dr * i;
+      tiles.push([c, r]);
+      if (dc && dr) verge.push([c + dc, r], [c, r + dr]);
+    }
+    legs.push({ a, b, from: run, to: run + length, length, tiles, verge });
     run += length;
   }
   return legs;
+}
+
+/**
+ * Where to draw something standing at (x, y) on a rounded ("path") carpet. Within reach of a turn it sits on
+ * the quarter-circle (a 45° turn: a shorter arc) instead of the sharp corner; elsewhere it's unchanged. The
+ * rules position stays on the straight lines: the two differ by at most a third of a tile.
+ */
+export function roundedSpot(points: Array<{ x: number; y: number }>, x: number, y: number, radius = CELL / 2) {
+  for (let k = 1; k < points.length - 1; k++) {
+    const p = points[k];
+    if (Math.abs(x - p.x) > CELL || Math.abs(y - p.y) > CELL) continue;
+    const a = points[k - 1];
+    const b = points[k + 1];
+    const la = Math.hypot(p.x - a.x, p.y - a.y);
+    const lb = Math.hypot(b.x - p.x, b.y - p.y);
+    if (!la || !lb) continue;
+    const inX = (p.x - a.x) / la;
+    const inY = (p.y - a.y) / la;
+    const outX = (b.x - p.x) / lb;
+    const outY = (b.y - p.y) / lb;
+    const turn = Math.acos(Math.max(-1, Math.min(1, inX * outX + inY * outY)));
+    if (turn < 1e-3) continue;
+    const t = radius * Math.tan(turn / 2);
+    const dx = x - p.x;
+    const dy = y - p.y;
+    const back = dx * inX + dy * inY;
+    let s: number;
+    if (back < -1e-6) {
+      // On the way in: it must be on the incoming line.
+      if (Math.abs(dx * inY - dy * inX) > 1) continue;
+      s = back;
+    } else {
+      const fwd = dx * outX + dy * outY;
+      if (Math.abs(dx * outY - dy * outX) > 1) continue;
+      s = fwd;
+    }
+    if (Math.abs(s) >= t) continue;
+    // The arc runs from the tangent point on the way in to the one on the way out.
+    const side = inX * outY - inY * outX > 0 ? 1 : -1;
+    const nX = -inY * side;
+    const nY = inX * side;
+    const cx = p.x - inX * t + nX * radius;
+    const cy = p.y - inY * t + nY * radius;
+    const start = Math.atan2(-nY, -nX);
+    const ang = start + side * turn * ((s + t) / (2 * t));
+    return { x: cx + Math.cos(ang) * radius, y: cy + Math.sin(ang) * radius };
+  }
+  return { x, y };
 }
 
 /** The leg a fruit is on (index), or -1 while it's still walking in from off the board or past the end. */
@@ -1884,11 +2099,12 @@ export function legOf(legs: ReturnType<typeof carpetLegs>, along: number, revers
   return -1;
 }
 
-/** The legs with a carpet tile sharing an edge with tile (c, r), with how many of its tiles touch. */
+/** The legs with a carpet tile (or, on a diagonal, a verge tile) sharing an edge with tile (c, r), with how many touch. */
 export function legsTouching(legs: ReturnType<typeof carpetLegs>, c: number, r: number) {
   const out: Array<{ leg: number; touch: number }> = [];
   legs.forEach((l, i) => {
-    const touch = l.tiles.filter(([lc, lr]) => Math.abs(lc - c) + Math.abs(lr - r) === 1).length;
+    const near = [...l.tiles, ...l.verge].filter(([lc, lr]) => Math.abs(lc - c) + Math.abs(lr - r) === 1);
+    const touch = new Set(near.map(([lc, lr]) => `${lc},${lr}`)).size;
     if (touch) out.push({ leg: i, touch });
   });
   return out;

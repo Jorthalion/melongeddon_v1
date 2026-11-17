@@ -524,6 +524,12 @@ Everything shaping your run is on one library checkout card, stamped **DUE: DAWN
 | **Corn** | Small and fast; comes in swarms |
 | **Pumpkin** | Slow and tough |
 | **Karl** | The boss. Leaking him costs 3 stacks; popping him gives back 2 stacks and splashes everything around him |
+| **Express Corn** | The Sorting Room only. A corn with a red stamp: on a belt nothing slows or stops it, and the belt carries it at double speed |
+| **Parcel** | The Sorting Room only. A pumpkin in brown paper: direct shots do half until splash, fire or a puddle tears the paper; three corn walk out when it pops |
+| **Sprout** | The Greenhouse only. A small melon shoot: two seconds in the beds and it grows into a full melon |
+| **Creeping Squash** | The Greenhouse only. A pumpkin trailing vines: the carpet behind it heals fruit like a bed for a few seconds |
+| **Chimer** | The Bell Tower only. A corn with a little bell: every one still walking makes the clock strike sooner |
+| **Gargoyle Gourd** | The Bell Tower only. A stone squash: tougher between strikes, three times as fast while the towers are silent |
 
 ### Armour and guards
 
@@ -586,6 +592,12 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | Pits (stone melons) | Direct shots: Melon, Ballista, Long Reader, Telescope | Mortar, fire, Still, Cauldron |
 | Galls (the small green thing riding behind a pumpkin) | Kill the rider: anything that hits the small fruit a step behind | Shooting only the pumpkin in front |
 | Borrowers (running pea pods with a sack of seeds) | Kill the fast, frail corn early | Letting them through because they cost no stack: each one takes 12 seeds |
+| Express Corn (red stamp, the Sorting Room) | Slows and hits before or after the belts | Freezing or slowing it on a belt |
+| Parcels (brown paper, the Sorting Room) | Mortar, fire or any splash first, then direct shots; something left for the three corn inside | Single shots on the paper |
+| Sprouts (the Greenhouse) | Kill them before the first bed, or keep them burning across the beds | Letting them stand in a bed |
+| Creeping Squash (the Greenhouse) | Kill it fast, or keep fire on the carpet behind it | Fighting the fruit behind it on its vines |
+| Chimers (little bells, the Bell Tower) | Pick them off early | Leaving a crowd of them alive |
+| Gargoyle Gourds (stone, the Bell Tower) | Kill it between strikes, or slow it just before one | Counting on your towers during a strike |
 
 ## Nights
 
@@ -639,10 +651,31 @@ No last wave. Waves keep coming and keep getting tougher, Karl arrives every fif
 | The Great Hall | **Big map** (22 × 14). One very long carpet snaking up and down the hall; fruit have 20% more health | Restore The Great Hall |
 | The Reading Room | **Big map** (22 × 14). Three long lanes between the tables, so a cannon between two lanes covers both; fruit have 40% more health | Restore The Reading Room |
 | The Sorting Room | **Big map** (22 × 14), 42 tiles of carpet up and down three long columns. The columns are **return belts** (dark rubber with amber arrows) that carry fruit **60% faster** the way the carpet runs; anything walking back against a belt (the Reverse Driver's fruit) goes slower. Fruit are quick here, so they have 20% less health | Restore The Sorting Room |
-| The Greenhouse | **Big map** (22 × 14), a 50-tile winding walk. **Growth beds** (soil with green shoots) heal a hurt fruit **5% of its health every second** it stands in one, **unless it's burning**. The air is damp: burning does **45% less**. Fruit have 5% less health | Restore The Greenhouse |
-| The Bell Tower | **Big map** (22 × 14), 51 tiles of carpet: up a long flight of **stairs**, a dip under the bell, and down again. Going up is slow (blue treads, 70% pace), coming down is fast (orange treads, 140%). **The clock strikes** every 24 seconds of a wave (a countdown shows from 3): every tower stops for 2.5 seconds; shots already flying still land. Fruit have 5% more health | Restore The Bell Tower |
+| The Greenhouse | **Big map** (22 × 14), a 48-tile winding walk with a **diagonal garden path** through the middle. **Growth beds** (soil with green shoots) heal a hurt fruit **5% of its health every second** it stands in one, **unless it's burning**. The air is damp: burning does **45% less**. Fruit have 15% less health | Restore The Greenhouse |
+| The Bell Tower | **Big map** (22 × 14), 46 tiles of carpet: up a long flight of **stairs**, a **V-shaped dip** under the bell (two diagonals, like a bell rope), and down again. Going up is slow (blue treads, 70% pace), coming down is fast (orange treads, 140%). **The clock strikes** every 24 seconds of a wave (a countdown shows from 3): every tower stops for 2.5 seconds; shots already flying still land. Fruit have 10% less health | Restore The Bell Tower |
 
 On the big maps the whole room still fits on screen, so towers and fruit are drawn about a third smaller.
+
+The three newest rooms (the Sorting Room, the Greenhouse and the Bell Tower) have a **rounded carpet**: one band with soft corners instead of square tiles. The Greenhouse and the Bell Tower also have **diagonal stretches**. A diagonal half-covers the tiles either side of it (the **verge**): you can't build there ("Too close to the carpet"), but a tower on the next tile out counts as beside the carpet.
+
+### Each room's own fruit
+
+The Sorting Room, the Greenhouse and the Bell Tower each have two fruit of their own, mixed into the ordinary waves on that room only. From **wave 4**, every 4th plain corn is the room's common fruit. From **wave 10**, the first plain pumpkin of a wave is its elite (the first two in act three). Fruit that already have a shell, husk or other mark, Karl, and anything up the chute are never swapped. **Story** nights get the commons but never the elites. The first time each one comes out, the log says so, and a tip explains the room's two.
+
+**The Sorting Room**
+
+- **Express Corn** (a corn stamped in red ink). While it's on a belt, nothing slows or stops it: freezes, chills, stuns, puddles, honey and the Reverse Driver all slide off, and the belt carries it at **double speed** instead of 60% faster. Off the belt it's an ordinary corn. *Answer:* slow it and hit it before or after the belts, not on them.
+- **Parcel** (a pumpkin wrapped in brown paper and string). While it's wrapped, **direct shots do half**. Any splash, burn or puddle damage tears the paper off at once, and then it's a normal pumpkin. When it pops, **three corn** walk on from where it stood; they pay no seeds. *Answer:* fire, a mortar or any splash first, then single shots, and keep some damage after it for what's inside.
+
+**The Greenhouse**
+
+- **Sprout** (a small green melon shoot). If it spends **2 seconds in total** in the growth beds (or on a squash's vines) it **grows into a full melon** at the same share of its health, and walks at melon speed. A burning sprout doesn't grow, the same rule that stops beds healing. *Answer:* kill it before the first bed, or keep it burning across the beds (hard here, since the damp weakens fire).
+- **Creeping Squash** (a pumpkin trailing vines). Every 1.5 seconds it leaves a **vine** on the carpet tile it's on, and for 6 seconds that tile heals every fruit like a growth bed (not while they burn). Vines don't go on a real bed or on another vine. Fire on a vine, a fire patch or a burning fruit standing on it, kills it at once, and when the squash dies its vines wither within a second. *Answer:* kill it quickly, or keep fire on the carpet behind it.
+
+**The Bell Tower**
+
+- **Chimer** (a corn with a little brass bell). Every Chimer still walking makes the **clock run 25% faster**, up to twice as fast with four or more, so the strike comes sooner. The countdown still shows 3 seconds before it strikes. *Answer:* pick them off early: they're frail corn, but they come in numbers.
+- **Gargoyle Gourd** (a grey stone squash with stubby wings). Between strikes it walks at pumpkin speed and takes **25% less damage**. While the clock silences your towers it **wakes up and moves three times as fast** (glowing faintly). The stairs still apply: slow going up, fast coming down. *Answer:* kill it between strikes, or slow it right before one.
 
 ## Difficulty
 
@@ -746,7 +779,7 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 - **Chaos Librarian**: Win the Overflow with every late slip on.
 - **Perfect Night**: Win on Melongeddon or harder with no stack lost, nothing absorbed and no tower sold.
 
-**The Workshop** (8)
+**The Workshop** (14)
 
 - **Rocket Mail**: The Quack-Liber gets 100 kills, across all nights.
 - **Chain Reaction**: One Card Catalogue shot kills 3 fruit.
@@ -756,6 +789,12 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 - **Mimic Feast**: The Mimic Chest swallows 30 fruit in one night.
 - **Stonecutter**: Kill 20 pits with direct hits, across all nights.
 - **Nothing Borrowed**: Win Midnight with no borrower reaching the door on the last wave.
+- **Return to Sender**: Kill 30 Express Corn while they're on a belt, across all nights.
+- **Opened by Mistake**: Kill a Parcel before its wrapping comes off.
+- **Weeded**: Win the Greenhouse without a single Sprout growing into a melon.
+- **Pruned**: Kill 10 Creeping Squash, across all nights.
+- **Quiet Hours**: Win the Bell Tower with no strike coming early because of a Chimer.
+- **Caught Napping**: Kill a Gargoyle Gourd while the clock is silencing your towers.
 
 **Atlas Room** (7)
 

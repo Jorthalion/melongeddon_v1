@@ -46,6 +46,14 @@ export interface RunLog {
   pitDirectKills: number;
   borrowersAtDoor: number;
   borrowersOnLastWave: number;
+  /** Room fruit: Express Corn killed on a belt, Parcels killed still wrapped, Sprouts that grew, Creeping Squash killed,
+   * Bell Tower strikes a Chimer hurried, and Gargoyle Gourds killed while the clock silenced the towers. */
+  expressBeltKills: number;
+  parcelWrappedKills: number;
+  sproutsGrown: number;
+  squashKills: number;
+  chimerEarly: number;
+  gargoyleQuietKills: number;
   oath: OathId | null;
   /** Asser: highest Sisu in percent, and whether it reached its cap. */
   sisuPeak: number;
@@ -79,6 +87,12 @@ export function emptyRunLog(): RunLog {
     pitDirectKills: 0,
     borrowersAtDoor: 0,
     borrowersOnLastWave: 0,
+    expressBeltKills: 0,
+    parcelWrappedKills: 0,
+    sproutsGrown: 0,
+    squashKills: 0,
+    chimerEarly: 0,
+    gargoyleQuietKills: 0,
     oath: null,
     sisuPeak: 0,
     sisuCapped: false,
@@ -92,6 +106,9 @@ export interface Ledger {
   /** Only the kinds an achievement reads. */
   killsBy: { quackliber: number };
   pitDirectKills: number;
+  /** Room fruit across nights: Express Corn killed on a belt, and Creeping Squash killed. */
+  expressBeltKills: number;
+  squashKills: number;
   winsByKeeper: Partial<Record<HeroId, number>>;
   winsByMap: Partial<Record<MapId, number>>;
   winsByDifficulty: Partial<Record<Difficulty, number>>;
@@ -99,7 +116,7 @@ export interface Ledger {
 }
 
 export function emptyLedger(): Ledger {
-  return { kills: 0, killsBy: { quackliber: 0 }, pitDirectKills: 0, winsByKeeper: {}, winsByMap: {}, winsByDifficulty: {}, oathsWon: [] };
+  return { kills: 0, killsBy: { quackliber: 0 }, pitDirectKills: 0, expressBeltKills: 0, squashKills: 0, winsByKeeper: {}, winsByMap: {}, winsByDifficulty: {}, oathsWon: [] };
 }
 
 export interface AchievementSave {
@@ -344,6 +361,44 @@ const LIST: Array<Omit<Achievement, "tier">> = [
     shelf: "workshop",
     check: (c) => c.won && c.night === "midnight" && c.log.borrowersOnLastWave === 0,
   },
+  {
+    id: "express",
+    name: "Return to Sender",
+    blurb: "Kill 30 Express Corn while they're on a belt, across all nights.",
+    shelf: "workshop",
+    check: (c) => c.ledger.expressBeltKills >= 30,
+    progress: (l) => [l.expressBeltKills, 30],
+  },
+  { id: "parcel", name: "Opened by Mistake", blurb: "Kill a Parcel before its wrapping comes off.", shelf: "workshop", check: (c) => c.log.parcelWrappedKills > 0 },
+  {
+    id: "sprout",
+    name: "Weeded",
+    blurb: "Win the Greenhouse without a single Sprout growing into a melon.",
+    shelf: "workshop",
+    check: (c) => c.won && c.map === "greenhouse" && c.log.sproutsGrown === 0,
+  },
+  {
+    id: "squash",
+    name: "Pruned",
+    blurb: "Kill 10 Creeping Squash, across all nights.",
+    shelf: "workshop",
+    check: (c) => c.ledger.squashKills >= 10,
+    progress: (l) => [l.squashKills, 10],
+  },
+  {
+    id: "chimer",
+    name: "Quiet Hours",
+    blurb: "Win the Bell Tower with no strike coming early because of a Chimer.",
+    shelf: "workshop",
+    check: (c) => c.won && c.map === "belltower" && c.log.chimerEarly === 0,
+  },
+  {
+    id: "gargoyle",
+    name: "Caught Napping",
+    blurb: "Kill a Gargoyle Gourd while the clock is silencing your towers.",
+    shelf: "workshop",
+    check: (c) => c.log.gargoyleQuietKills > 0,
+  },
 
   // Atlas Room
   {
@@ -395,7 +450,7 @@ const LIST: Array<Omit<Achievement, "tier">> = [
 ];
 
 const TIER_1 = ["fragments-10", "restorer", "first-night", "librarian", "overflow", "endless-20", "minimalist", "no-signature", "hoarder", "back-room-ban", "slow-cooker", "massacre"];
-const TIER_3 = ["archivist", "overdue", "endless-30", "full-staff", "pet", "still-standing", "all-slips", "perfect", "well-read", "maps", "difficulties", "massacre-10k"];
+const TIER_3 = ["gargoyle", "archivist", "overdue", "endless-30", "full-staff", "pet", "still-standing", "all-slips", "perfect", "well-read", "maps", "difficulties", "massacre-10k"];
 const tierOf = (a: Omit<Achievement, "tier">): 1 | 2 | 3 =>
   a.secret || TIER_3.includes(a.id) ? 3 : TIER_1.includes(a.id) || a.id.startsWith("win-") ? 1 : 2;
 
@@ -415,6 +470,8 @@ export function addNight(ledger: Ledger, c: Omit<NightContext, "ledger" | "endle
     kills: ledger.kills + c.log.kills,
     killsBy: { quackliber: ledger.killsBy.quackliber + (c.log.killsBy.quackliber ?? 0) },
     pitDirectKills: ledger.pitDirectKills + c.log.pitDirectKills,
+    expressBeltKills: ledger.expressBeltKills + c.log.expressBeltKills,
+    squashKills: ledger.squashKills + c.log.squashKills,
     winsByKeeper: { ...ledger.winsByKeeper },
     winsByMap: { ...ledger.winsByMap },
     winsByDifficulty: { ...ledger.winsByDifficulty },
@@ -461,6 +518,8 @@ export function parseSave(raw: unknown): AchievementSave {
     out.ledger.kills = num(l.kills);
     out.ledger.killsBy.quackliber = num((l.killsBy as Record<string, unknown> | undefined)?.quackliber);
     out.ledger.pitDirectKills = num(l.pitDirectKills);
+    out.ledger.expressBeltKills = num(l.expressBeltKills);
+    out.ledger.squashKills = num(l.squashKills);
     out.ledger.winsByKeeper = counts(l.winsByKeeper, HEROES);
     out.ledger.winsByMap = counts(l.winsByMap, PICKABLE_MAPS);
     out.ledger.winsByDifficulty = counts(l.winsByDifficulty, DIFFICULTIES.map((d) => d.id));

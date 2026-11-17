@@ -5,8 +5,9 @@ import {
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
-  carpetLegs, legOf, legsTouching, bindLeg, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
+  carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile,
+  NATIVES, NATIVE_INFO, waveQueue, assignNatives, type NativeId, type QueueItem,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 
@@ -126,6 +127,18 @@ interface Enemy {
   gall?: boolean;
   mends?: number;
   borrower?: boolean;
+  /** A room's own fruit (the Sorting Room, the Greenhouse, the Bell Tower). See NATIVES. */
+  native?: NativeId;
+  /** Parcel: still in its paper (direct hits do half). */
+  wrapped?: boolean;
+  /** Fell out of a Parcel: pays no seeds. */
+  contents?: boolean;
+  /** Sprout: seconds spent on beds so far. */
+  bedTime?: number;
+  /** Creeping Squash: seconds until it lays the next vine. */
+  vineCd?: number;
+  /** A sprout that just grew into a melon (seconds left of its pop). */
+  grew?: number;
 }
 
 interface Tower {
@@ -405,6 +418,8 @@ export interface Hud {
   setupNote: string;
   /** The Overflow: the current or next wave sends fruit up the chute (they walk the carpet backwards). */
   chuteWave: boolean;
+  /** Room fruit seen so far tonight (each logs a line the first time; the room's tip shows once any has come). */
+  nativesSeen: NativeId[];
   /** Quack-Liber speed-up reach in px for the run in play (perks can widen it), for drawing it. */
   quackAura: number;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
@@ -687,10 +702,14 @@ export interface World {
   floaters: Floater[];
   shake: number;
   pathCells: Set<string>;
+  /** Tiles a diagonal stretch of carpet half-covers ("c,r"): nothing can be built there, and nothing else treats them as carpet. */
+  vergeCells: Set<string>;
   /** Belts, stairs and growth beds on the carpet, by "c,r" (set with the map). */
   floors: Map<string, FloorTile>;
   /** The Bell Tower: seconds until the clock strikes (counted during waves), and seconds the towers stay quiet. */
   bell: { next: number; quiet: number } | null;
+  /** Creeping Squash vines on the carpet ("c,r"): seconds left, and the squash that laid them. They heal like a bed. */
+  vines: Map<string, { life: number; by: number; max: number }>;
   /** Bookshelf cells: part of the room, so nothing can be built there. */
   shelfCells: Set<string>;
   points: Waypoint[];
@@ -863,6 +882,7 @@ export function createWorld(
       saved: false,
       setupNote: "",
       chuteWave: false,
+      nativesSeen: [],
       quackAura: CANNON.quackAura,
       geeseSpent: false,
       sisu: 0,
@@ -911,8 +931,10 @@ export function createWorld(
     floaters: [],
     shake: 0,
     pathCells: STACKS.cells,
+    vergeCells: STACKS.verge,
     floors: new Map(),
     bell: null,
+    vines: new Map(),
     shelfCells: shelfCells("stacks", STACKS.cells),
     points: STACKS.points,
     turns: STACKS.turns,
@@ -929,7 +951,9 @@ export function createWorld(
   let cleared = 0;
   /** Seconds of combat so far (trick-shot hit timing). */
   let clock = 0;
-  let queue: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean; pit: boolean; gall: boolean; borrower: boolean }> = [];
+  let queue: QueueItem[] = [];
+  /** The Bell Tower: a Chimer hurried the clock since the last strike. */
+  let bellRushed = false;
   let absurdDrops = 0;
   /** Has a Still been built this night? (The Unstoppered's unlock.) */
   let stillBuilt = false;
@@ -1167,7 +1191,7 @@ export function createWorld(
   const offCarpet = (kind: TowerKind, c: number, r: number) =>
     kind === "pamphlet"
       ? bindLeg(legsNow(), c, r) < 0
-      : (kind === "desk" || kind === "gourdgate") && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => world.pathCells.has(`${c + a},${r + b}`));
+      : (kind === "desk" || kind === "gourdgate") && !besideCarpet(world, c, r);
   /** The carpet's straights for the current board (worked out once per board). */
   let legCache: { points: World["points"]; legs: ReturnType<typeof carpetLegs> } | null = null;
   const legsNow = () => {
@@ -1371,7 +1395,7 @@ export function createWorld(
         const c = t.c + dc;
         const r = t.r + dr;
         const key = `${c},${r}`;
-        if (!inMap(c, r) || world.pathCells.has(key) || world.shelfCells.has(key) || occupied(c, r)) continue;
+        if (!inMap(c, r) || world.pathCells.has(key) || world.vergeCells.has(key) || world.shelfCells.has(key) || occupied(c, r)) continue;
         if (options.some((o) => o.c === c && o.r === r)) continue;
         const cells = reach(c, r);
         if (!cells.length) continue; // a tile that can't reach the carpet would be wasted
@@ -1744,6 +1768,14 @@ export function createWorld(
 
   /** The floor tile a fruit stands on (belt, stairs or bed), if any. */
   const floorAt = (e: Enemy) => world.floors.get(`${Math.floor(e.x / CELL)},${Math.floor(e.y / CELL)}`);
+  const tileOf = (e: { x: number; y: number }) => `${Math.floor(e.x / CELL)},${Math.floor(e.y / CELL)}`;
+  /** Express Corn on a belt: nothing slows or stops it, and the belt carries it faster. */
+  const expressOnBelt = (e: Enemy) => e.native === "express" && floorAt(e)?.kind === "belt";
+  /** A fruit's floor pace, walking back (`back`) or on. */
+  const paceOf = (e: Enemy, back: boolean) =>
+    expressOnBelt(e) ? (back ? 1 / NATIVES.expressBelt : NATIVES.expressBelt) : floorPace(floorAt(e)?.kind, back);
+  /** Gargoyle Gourd: wide awake while the clock silences the towers. */
+  const awake = (e: Enemy) => (e.native === "gargoyle" && (world.bell?.quiet ?? 0) > 0 ? NATIVES.gargoyleAwake : 1);
   /** The Bell Tower: count down to the strike during a wave; when it strikes, every tower goes quiet for a moment. */
   const tickBell = (dt: number) => {
     const bell = world.bell;
@@ -1753,10 +1785,16 @@ export function createWorld(
       bell.quiet = Math.max(0, bell.quiet - dt);
       return;
     }
-    bell.next -= dt;
+    // Each Chimer on the board runs the clock faster.
+    const chimers = world.enemies.filter((e) => e.native === "chimer" && e.hp > 0).length;
+    const rush = Math.min(NATIVES.chimerMax, 1 + NATIVES.chimerRush * chimers);
+    if (rush > 1) bellRushed = true;
+    bell.next -= dt * rush;
     if (bell.next > 0) return;
     bell.next = FLOOR.bellEvery;
     bell.quiet = FLOOR.bellQuiet;
+    if (bellRushed) world.runLog.chimerEarly += 1;
+    bellRushed = false;
     const x = (spot[0] + 1) * CELL;
     const y = (spot[1] + 1) * CELL;
     cue("fire", "bell");
@@ -1843,6 +1881,7 @@ export function createWorld(
       pit?: boolean;
       gall?: boolean;
       borrower?: boolean;
+      native?: NativeId | null;
       at?: { x: number; y: number; wp: number };
     } = {},
   ) => {
@@ -1888,6 +1927,20 @@ export function createWorld(
     });
     const host = world.enemies[world.enemies.length - 1];
     if (flags.pit) host.pit = true;
+    if (flags.native) {
+      const native = flags.native;
+      host.native = native;
+      if (native === "parcel") host.wrapped = true;
+      if (native === "sprout") {
+        host.r = NATIVES.sproutR;
+        host.bedTime = 0;
+      }
+      if (native === "squash") host.vineCd = NATIVES.vineEvery;
+      if (!world.hud.nativesSeen.includes(native)) {
+        world.hud.nativesSeen = [...world.hud.nativesSeen, native];
+        world.hud.log = NATIVE_INFO[native].line;
+      }
+    }
     if (flags.borrower) {
       host.borrower = true;
       host.hp = host.maxHp = Math.max(1, Math.round(host.maxHp * 0.4));
@@ -1924,6 +1977,52 @@ export function createWorld(
         mends: host.id,
       });
     }
+  };
+
+  /** Creeping Squash vines: count down, burn away under fire, and wither soon after their squash is gone. */
+  const tickVines = (dt: number) => {
+    if (!world.vines.size) return;
+    for (const [key, vine] of world.vines) {
+      const [c, r] = key.split(",").map(Number);
+      const cx = c * CELL + CELL / 2;
+      const cy = r * CELL + CELL / 2;
+      if (world.pools.some((p) => p.hot && Math.hypot(p.x - cx, p.y - cy) <= p.r)) {
+        world.vines.delete(key);
+        continue;
+      }
+      if (!world.enemies.some((o) => o.id === vine.by && o.hp > 0)) vine.life = Math.min(vine.life, NATIVES.vineWither);
+      vine.life -= dt;
+      if (vine.life <= 0) world.vines.delete(key);
+    }
+  };
+
+  /** A Sprout that stood long enough in the beds: a full melon, at the same share of its health. */
+  const growSprout = (e: Enemy) => {
+    const share = e.hp / e.maxHp;
+    e.kind = "melon";
+    e.maxHp = Math.max(1, Math.round((e.maxHp * STATS.melon.hp) / STATS.corn.hp));
+    e.hp = e.maxHp * share;
+    e.speed *= STATS.melon.speed / STATS.corn.speed;
+    e.r = STATS.melon.r;
+    e.native = undefined;
+    e.grew = 0.5;
+    world.runLog.sproutsGrown += 1;
+    burst(e.x, e.y, "#8fdc6a", 10);
+    float(e.x, e.y - 22, "grew!", "#8fdc6a");
+  };
+
+  /** A Parcel pops: the corn inside walk on from where it stood (they pay nothing). */
+  const openParcel = (e: Enemy) => {
+    const scale = hpScaleFor(world.hud.night, cleared);
+    for (let i = 0; i < NATIVES.parcelContents; i++) {
+      const spread = (i - (NATIVES.parcelContents - 1) / 2) * 10;
+      spawnEnemy("corn", scale, "none", { at: { x: e.x + spread, y: e.y + spread * 0.5, wp: Math.min(e.wp, world.points.length - 1) } });
+      const corn = world.enemies[world.enemies.length - 1];
+      corn.contents = true;
+      corn.gold = 0;
+      corn.reverse = e.reverse;
+    }
+    float(e.x, e.y - 24, "contents", "#d8b98a");
   };
 
   const spill = (parent: Enemy) => {
@@ -1965,28 +2064,8 @@ export function createWorld(
 
   const buildQueue = (extra: SpawnSpec[] = []) => {
     const spec = waveAt(cleared, world.hud.night);
-    const list = [...spec.spawns, ...extra];
-    const items: Array<{ kind: EnemyKind; t: number; tough: number; guard: Guard; split: boolean; raw: boolean; chute: boolean; pit: boolean; gall: boolean; borrower: boolean }> = [];
-    let t = 0.35;
-    for (const group of list) {
-      for (let i = 0; i < group.count; i++) {
-        items.push({
-          kind: group.kind,
-          t,
-          tough: group.tough ?? 1,
-          guard: group.guard ?? "none",
-          split: Boolean(group.split),
-          raw: Boolean(group.raw),
-          chute: Boolean(group.chute),
-          pit: Boolean(group.pit),
-          gall: Boolean(group.gall),
-          borrower: Boolean(group.borrower),
-        });
-        t += group.every;
-      }
-    }
-    items.sort((a, b) => a.t - b.t);
-    queue = items;
+    // The room's own fruit take the place of some ordinary ones.
+    queue = assignNatives(waveQueue([...spec.spawns, ...extra]), BOARDS[world.hud.map].natives, cleared + 1, world.hud.difficulty);
     queueCursor = 0;
     spawnClock = 0;
   };
@@ -1994,11 +2073,13 @@ export function createWorld(
   const applyBoard = (map: MapId) => {
     const built = buildBoard(BOARDS[map].corners);
     world.pathCells = built.cells;
-    world.shelfCells = shelfCells(map, built.cells);
+    world.vergeCells = built.verge;
+    world.shelfCells = shelfCells(map, built.cells, built.verge);
     world.points = built.points;
     world.turns = built.turns;
     world.floors = floorTiles(map);
     world.bell = BOARDS[map].bell ? { next: FLOOR.bellEvery, quiet: 0 } : null;
+    world.vines = new Map();
     Object.assign(world, boardSize(map));
     world.hud.map = map;
   };
@@ -2081,6 +2162,7 @@ export function createWorld(
       newUnlocks: [],
       newMaps: [],
       chuteWave: false,
+      nativesSeen: [],
       quackAura: CANNON.quackAura,
       geeseSpent: false,
       sisu: 0,
@@ -2369,8 +2451,14 @@ export function createWorld(
         if (by) log.karlKilledBy.push(by);
       }
       if (e.pit && by && (deathVia === "shot" || deathVia === "pierce")) log.pitDirectKills += 1;
+      if (e.native === "express" && floorAt(e)?.kind === "belt") log.expressBeltKills += 1;
+      if (e.native === "parcel" && e.wrapped) log.parcelWrappedKills += 1;
+      if (e.native === "squash") log.squashKills += 1;
+      if (e.native === "gargoyle" && (world.bell?.quiet ?? 0) > 0) log.gargoyleQuietKills += 1;
     }
-    world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
+    // What fell out of a Parcel pays nothing.
+    if (!e.contents) world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
+    if (e.native === "parcel") openParcel(e);
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
     const juice = e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : e.kind === "corn" ? "#e6c36a" : "#e23b4a";
     burst(e.x, e.y, juice, e.boss ? 28 : 12);
@@ -2440,6 +2528,15 @@ export function createWorld(
     if (e.guard === "damp" && via === "shot") amount *= 1.15;
     // A pit is stone: splash, fire and puddles barely touch it. Direct shots, pierce and worms do.
     if (e.pit && (via === "splash" || via === "burn" || via === "pulp")) amount *= BALANCE.pitResist;
+    // A Parcel's paper: direct hits do half; any splash, burn or puddle tears it off.
+    if (e.wrapped && amount > 0) {
+      if (via === "splash" || via === "burn" || via === "pulp") {
+        e.wrapped = false;
+        float(e.x, e.y - 20, "unwrapped", "#d8b98a");
+      } else if (via === "shot" || via === "pierce") amount *= NATIVES.parcelWrapped;
+    }
+    // A Gargoyle Gourd has stone skin until the clock strikes.
+    if (e.native === "gargoyle" && (world.bell?.quiet ?? 0) <= 0) amount *= NATIVES.gargoyleSkin;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
     // Sir Michael's mouth oath: fruit on the first three tiles take more from everything.
@@ -2812,6 +2909,7 @@ export function createWorld(
         pit: queue[queueCursor].pit,
         gall: queue[queueCursor].gall,
         borrower: queue[queueCursor].borrower,
+        native: queue[queueCursor].native,
       });
       queueCursor += 1;
     }
@@ -2827,6 +2925,7 @@ export function createWorld(
     for (const pool of world.pools) pool.life -= dt;
     world.pools = world.pools.filter((p) => p.life > 0);
     tickBell(dt);
+    tickVines(dt);
 
     for (const e of world.enemies) {
       let slow = 1;
@@ -2879,6 +2978,15 @@ export function createWorld(
         e.stomped = (e.stomped ?? 0) - dt;
         slow = 0;
       }
+      // Express Corn on a belt: no slow, stop, honey or walk-back takes hold.
+      if (expressOnBelt(e)) {
+        e.chill = 0;
+        e.freeze = 0;
+        e.stomped = 0;
+        e.honeyed = 0;
+        e.driven = 0;
+        slow = 1;
+      }
       e.slow = slow;
       credit = dotBy ?? null;
       if (dot) hurt(e, null, dot * dt, 0, "pulp");
@@ -2892,10 +3000,28 @@ export function createWorld(
       credit = burnBy ?? null;
       if (burn) hurt(e, null, burn * dt, 0, "burn");
       credit = null;
-      // A growth bed heals whatever stands in it, unless it's burning.
-      if (e.hp > 0 && !burn && e.hp < e.maxHp && floorAt(e)?.kind === "bed") {
+      // A growth bed (or a Creeping Squash's vine) heals whatever stands in it, unless it's burning. Fire burns a vine away.
+      const vine = world.vines.has(tileOf(e));
+      if (burn && vine) world.vines.delete(tileOf(e));
+      const onBed = floorAt(e)?.kind === "bed" || (vine && !burn);
+      if (e.hp > 0 && !burn && e.hp < e.maxHp && onBed) {
         e.hp = Math.min(e.maxHp, e.hp + e.maxHp * FLOOR.bedHeal * dt);
         if (!world.reduced && Math.random() < dt * 3) burst(e.x, e.y - 8, "#8fdc6a", 2);
+      }
+      if (e.native === "sprout" && e.hp > 0 && !burn && onBed) {
+        e.bedTime = (e.bedTime ?? 0) + dt;
+        if (e.bedTime >= NATIVES.sproutGrow) growSprout(e);
+      }
+      if ((e.grew ?? 0) > 0) e.grew = Math.max(0, (e.grew ?? 0) - dt);
+      if (e.native === "squash" && e.hp > 0) {
+        e.vineCd = (e.vineCd ?? NATIVES.vineEvery) - dt;
+        if (e.vineCd <= 0) {
+          e.vineCd += NATIVES.vineEvery;
+          const key = tileOf(e);
+          if (world.pathCells.has(key) && world.floors.get(key)?.kind !== "bed" && !world.vines.has(key)) {
+            world.vines.set(key, { life: NATIVES.vineLife, by: e.id, max: NATIVES.vineLife });
+          }
+        }
       }
       // A gall rides its host: heals it and stays a step behind. With the host gone it is only a corn.
       if (e.gall && e.hp > 0) {
@@ -2919,7 +3045,7 @@ export function createWorld(
           const by = back.y - e.y;
           const bd = Math.hypot(bx, by);
           const studiedBack = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
-          const stepBack = e.speed * e.slow * studiedBack * perimeterAt(e) * floorPace(floorAt(e)?.kind, !e.reverse) * dt;
+          const stepBack = e.speed * e.slow * studiedBack * perimeterAt(e) * paceOf(e, !e.reverse) * awake(e) * dt;
           if (bd <= stepBack + 0.5) {
             e.x = back.x;
             e.y = back.y;
@@ -2938,7 +3064,7 @@ export function createWorld(
       const dist = Math.hypot(dx, dy);
       // The History Lectern's note: the kind that got furthest last wave walks slower.
       const studied = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
-      const step = e.speed * e.slow * studied * perimeterAt(e) * floorPace(floorAt(e)?.kind, Boolean(e.reverse)) * dt;
+      const step = e.speed * e.slow * studied * perimeterAt(e) * paceOf(e, Boolean(e.reverse)) * awake(e) * dt;
       if (dist <= step + 0.5) {
         e.x = wp.x;
         e.y = wp.y;
@@ -3432,11 +3558,13 @@ export function createWorld(
       }
       world.hover = { c, r };
       const path = world.pathCells.has(`${c},${r}`);
+      const verge = world.vergeCells.has(`${c},${r}`);
       const shelf = world.shelfCells.has(`${c},${r}`);
       const taken = occupied(c, r);
       world.hud.canPlace =
         world.hud.selected == null &&
         !path &&
+        !verge &&
         !shelf &&
         !taken &&
         !signatureBlocked(world.hud.build) &&
@@ -3471,6 +3599,11 @@ export function createWorld(
         return;
       }
       if (path) return;
+      if (verge) {
+        world.hud.log = VERGE_NOTE;
+        notify();
+        return;
+      }
       if (shelf) {
         world.hud.log = "That's a bookshelf. Build on the open floor.";
         notify();
@@ -3584,6 +3717,8 @@ export function createWorld(
       world.hud.phase = "combat";
       // The Bell Tower's clock counts from the start of each wave.
       if (world.bell) world.bell = { next: FLOOR.bellEvery, quiet: 0 };
+      bellRushed = false;
+      world.vines = new Map();
       cue(queue.some((q) => q.kind === "karl") ? "boss" : "wave");
       world.hud.wave = cleared + 1;
       world.hud.waveName = spec.name;

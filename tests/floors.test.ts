@@ -61,6 +61,13 @@ test("every floor tile sits on its own board's carpet, running the carpet's way"
   }
   assert.equal([...floorTiles("sorting").values()].filter((t) => t.kind === "belt").length, 18);
   assert.equal([...floorTiles("greenhouse").values()].filter((t) => t.kind === "bed").length, 9);
+  // The Greenhouse's middle bed moved one tile along when its middle drop became a diagonal.
+  assert.equal(floorTiles("greenhouse").get("13,8")?.kind, "bed");
+  assert.equal(floorTiles("greenhouse").get("14,8")?.kind, "bed");
+  assert.ok(!floorTiles("greenhouse").has("12,8"));
+  assert.deepEqual(BOARDS.greenhouse.corners.slice(3, 6), [[10, 2], [10, 5], [13, 8]]);
+  assert.deepEqual(BOARDS.belltower.corners.slice(3, 7), [[7, 1], [10, 4], [11, 4], [14, 1]]);
+  for (const map of NEW_MAPS) assert.equal(BOARDS[map].carpet, "path", `${map} draws a rounded carpet`);
   assert.equal([...floorTiles("belltower").values()].filter((t) => t.kind === "up").length, 10);
   assert.equal([...floorTiles("belltower").values()].filter((t) => t.kind === "down").length, 10);
   // The bell stands on four shelf cells.

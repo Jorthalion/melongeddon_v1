@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, type OathId, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 
 const SPRITE_SRC = {
@@ -11,6 +11,14 @@ const SPRITE_SRC = {
   pit: asset("sprites/enemy-pit.webp"),
   gall: asset("sprites/enemy-gall.webp"),
   borrower: asset("sprites/enemy-borrower.webp"),
+  // The three newest rooms' own fruit (flags on the kinds above), and the Creeping Squash's vine tile.
+  express: asset("sprites/enemy-express.webp"),
+  parcel: asset("sprites/enemy-parcel.webp"),
+  sprout: asset("sprites/enemy-sprout.webp"),
+  squash: asset("sprites/enemy-squash.webp"),
+  chimer: asset("sprites/enemy-chimer.webp"),
+  gargoyle: asset("sprites/enemy-gargoyle.webp"),
+  tileVine: asset("sprites/tile-vine.webp"),
   base: asset("sprites/cannon-base.webp"),
   barrel: asset("sprites/cannon-barrel.webp"),
   allyBarrel: asset("sprites/pumpkin-barrel.webp"),
@@ -65,6 +73,8 @@ const SPRITE_SRC = {
   shotWorm: asset("sprites/shot-worm.webp"),
   carpet: asset("sprites/tile-carpet.webp"),
   corner: asset("sprites/tile-carpet-corner.webp"),
+  /** The rounded ("path") carpet's fabric: a seamless damask, filled along the band. */
+  carpetPath: asset("sprites/carpet-path-fabric.webp"),
   shelf: asset("sprites/tile-shelf.webp"),
   door: asset("sprites/prop-stacks.webp"),
   catalogue: asset("sprites/sig-catalogue.webp"),
@@ -218,9 +228,17 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   drawShelves(ctx, world, art);
   drawCarpet(ctx, world, art);
+  // On a rounded carpet, floors, vines and puddles stay inside the band (a bed on a turn doesn't poke out).
+  ctx.save();
+  if (isBand(world)) ctx.clip(bandShape(world.points));
   drawFloors(ctx, world, art);
+  drawVines(ctx, world, art);
+  ctx.restore();
   if (look?.light) drawRoomLight(ctx, world, look.light);
+  ctx.save();
+  if (isBand(world)) ctx.clip(bandShape(world.points));
   drawWet(ctx, world);
+  ctx.restore();
   drawBell(ctx, world);
   if (BOARDS[world.hud.map].dark) drawDark(ctx, world);
 
@@ -228,10 +246,11 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   const placing = world.hud.phase === "prep" || world.hud.phase === "combat";
   if (hover && placing) {
     const path = world.pathCells.has(`${hover.c},${hover.r}`);
+    const verge = world.vergeCells.has(`${hover.c},${hover.r}`);
     const taken = world.towers.some((t) => t.c === hover.c && t.r === hover.r);
     const cx = hover.c * CELL + CELL / 2;
     const cy = hover.r * CELL + CELL / 2;
-    const open = !path && !taken;
+    const open = !path && !taken && !verge;
     if (open && world.hud.canPlace) {
       ctx.save();
       ctx.globalAlpha = 0.5;
@@ -245,6 +264,20 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.strokeStyle = "rgba(226,59,74,0.65)";
       ctx.lineWidth = 1.5;
       ctx.strokeRect(hover.c * CELL + 3, hover.r * CELL + 3, CELL - 6, CELL - 6);
+      if (verge && !taken) {
+        // A verge: the carpet's diagonal half-covers it.
+        ctx.save();
+        ctx.font = "600 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        const w = ctx.measureText(VERGE_NOTE).width + 10;
+        const ty = hover.r === 0 ? cy + CELL / 2 + 20 : cy - CELL / 2 - 4;
+        ctx.fillStyle = "rgba(20,14,18,0.85)";
+        ctx.fillRect(cx - w / 2, ty - 17, w, 18);
+        ctx.fillStyle = "#f3e2c4";
+        ctx.fillText(VERGE_NOTE, cx, ty);
+        ctx.restore();
+      }
     }
   }
 
@@ -348,7 +381,12 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   }
 
   // Galls last, so a rider is never hidden under the pumpkin walking behind its host.
+  const band = isBand(world);
   for (const e of [...world.enemies.filter((f) => !f.gall), ...world.enemies.filter((f) => f.gall)]) {
+    // On a rounded carpet, a fruit at a turn is drawn on the curve (its rules position stays on the corner).
+    const drawn = band ? roundedSpot(world.points, e.x, e.y) : null;
+    ctx.save();
+    if (drawn) ctx.translate(drawn.x - e.x, drawn.y - e.y);
     if (e.chill > 0) {
       ctx.strokeStyle = "rgba(106,74,138,0.85)";
       ctx.lineWidth = 2;
@@ -357,7 +395,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.stroke();
     }
     const next = world.points[Math.min(e.wp, world.points.length - 1)];
-    const look = e.pit ? "pit" : e.gall ? "gall" : e.borrower ? "borrower" : null;
+    // A Parcel out of its paper is a plain pumpkin.
+    const look: Look | null = e.pit ? "pit" : e.gall ? "gall" : e.borrower ? "borrower" : e.native === "parcel" && !e.wrapped ? null : (e.native ?? null);
     // Reverse Driver: a little green-white swirl over a fruit being walked back.
     if ((e.driven ?? 0) > 0) {
       ctx.save();
@@ -395,7 +434,27 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.restore();
     }
     const painted = look != null && ready(art[look]);
-    drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, next ? next.x < e.x - 4 : false, painted ? look : null);
+    const quiet = (world.bell?.quiet ?? 0) > 0;
+    if (!painted && e.native === "sprout") drawSproutShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim);
+    else if (!painted && e.native === "gargoyle") drawGargoyleShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, quiet);
+    else drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, next ? next.x < e.x - 4 : false, painted ? look : null);
+    if (painted && e.native === "gargoyle" && quiet) {
+      // Awake: a faint pale glow while the clock silences the towers.
+      ctx.fillStyle = `rgba(200,220,255,${0.25 + Math.sin(world.anim * 12) * 0.1})`;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (!painted && e.native) drawNativeMark(ctx, e, world.anim);
+    if ((e.grew ?? 0) > 0) {
+      // A sprout just grew: a green ring opens out.
+      const k = 1 - (e.grew ?? 0) / 0.5;
+      ctx.strokeStyle = `rgba(143,220,106,${1 - k})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 4 + k * 18, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     // Act three marks, while their art loads: a stone ring on a pit, a green dot on a gall, a gold ring on a borrower.
     if (painted) {
       // The art says it.
@@ -497,6 +556,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         ctx.fill();
       }
     }
+    ctx.restore();
   }
 
   for (const t of world.towers) {
@@ -917,12 +977,148 @@ function drawDark(ctx: CanvasRenderingContext2D, world: World) {
   ctx.drawImage(layer, 0, 0);
 }
 
+/** Whether this board's carpet draws as one rounded band ("path") rather than square tiles. */
+const isBand = (world: World) => BOARDS[world.hud.map].carpet === "path";
+
+/**
+ * Trace a centre line through `pts`, rounding each turn with radius `round` (0: sharp). With `lead`/`tail`
+ * it starts that far before the first point and ends that far past the last, along the end stretches.
+ */
+function traceLine(ctx: CanvasRenderingContext2D, pts: Array<{ x: number; y: number }>, round: number, lead = 0, tail = 0) {
+  if (pts.length < 2) return;
+  const a = pts[0];
+  const a1 = pts[1];
+  const la = Math.hypot(a1.x - a.x, a1.y - a.y) || 1;
+  ctx.moveTo(a.x - ((a1.x - a.x) / la) * lead, a.y - ((a1.y - a.y) / la) * lead);
+  for (let k = 1; k < pts.length - 1; k++) {
+    if (round > 0) ctx.arcTo(pts[k].x, pts[k].y, pts[k + 1].x, pts[k + 1].y, round);
+    else ctx.lineTo(pts[k].x, pts[k].y);
+  }
+  const z = pts[pts.length - 1];
+  const z0 = pts[pts.length - 2];
+  const lz = Math.hypot(z.x - z0.x, z.y - z0.y) || 1;
+  ctx.lineTo(z.x + ((z.x - z0.x) / lz) * tail, z.y + ((z.y - z0.y) / lz) * tail);
+}
+
+/**
+ * The outline of a "path" carpet as a fillable shape (for clipping): each stretch is a tile-wide strip,
+ * trimmed where its turns begin, and each turn is a pie slice (inner radius 0, outer a full tile).
+ */
+const bandCache = new WeakMap<object, Path2D>();
+function bandShape(points: Array<{ x: number; y: number }>) {
+  const hit = bandCache.get(points);
+  if (hit) return hit;
+  const shape = new Path2D();
+  const R = CELL / 2;
+  const n = points.length;
+  const trim = new Array(n).fill(0);
+  for (let k = 1; k < n - 1; k++) {
+    const a = points[k - 1];
+    const p = points[k];
+    const b = points[k + 1];
+    const la = Math.hypot(p.x - a.x, p.y - a.y) || 1;
+    const lb = Math.hypot(b.x - p.x, b.y - p.y) || 1;
+    const inX = (p.x - a.x) / la;
+    const inY = (p.y - a.y) / la;
+    const outX = (b.x - p.x) / lb;
+    const outY = (b.y - p.y) / lb;
+    const turn = Math.acos(Math.max(-1, Math.min(1, inX * outX + inY * outY)));
+    if (turn < 1e-3) continue;
+    const t = R * Math.tan(turn / 2);
+    trim[k] = t;
+    const side = inX * outY - inY * outX > 0 ? 1 : -1;
+    const cx = p.x - inX * t - inY * side * R;
+    const cy = p.y - inY * t + inX * side * R;
+    const start = Math.atan2(-(inX * side), inY * side);
+    const end = start + side * turn;
+    shape.moveTo(cx, cy);
+    shape.arc(cx, cy, CELL, Math.min(start, end), Math.max(start, end));
+    shape.closePath();
+  }
+  for (let i = 0; i < n - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const dx = (b.x - a.x) / len;
+    const dy = (b.y - a.y) / len;
+    const s0 = i === 0 ? -CELL * 1.5 : trim[i];
+    const s1 = i === n - 2 ? -CELL / 2 : trim[i + 1];
+    const ax = a.x + dx * s0;
+    const ay = a.y + dy * s0;
+    const bx = b.x - dx * s1;
+    const by = b.y - dy * s1;
+    const nx = -dy * R;
+    const ny = dx * R;
+    shape.moveTo(ax - nx, ay - ny);
+    shape.lineTo(bx - nx, by - ny);
+    shape.lineTo(bx + nx, by + ny);
+    shape.lineTo(ax + nx, ay + ny);
+    shape.closePath();
+  }
+  bandCache.set(points, shape);
+  return shape;
+}
+
+/**
+ * A "path" carpet: one band a tile wide along the points, from a tile before the first to the door, with
+ * each turn rounded (centre radius half a tile, so the outside edge sweeps a full tile). A thin gold rule
+ * runs along both edges with a slight shadow inside it, like the corner tile's border; the room's dye (or
+ * the Bindery colour) is clipped to the same band.
+ */
+function drawBand(ctx: CanvasRenderingContext2D, world: World, art: Partial<Record<SpriteName, HTMLImageElement>>) {
+  const path = () => {
+    ctx.beginPath();
+    traceLine(ctx, world.points, CELL / 2, CELL * 1.5, CELL / 2);
+  };
+  ctx.save();
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "round";
+  path();
+  const fabric = ready(art.carpetPath) ? art.carpetPath : ready(art.carpet) ? art.carpet : null;
+  const pattern = fabric ? ctx.createPattern(fabric, "repeat") : null;
+  ctx.strokeStyle = "rgba(230,195,106,0.9)";
+  ctx.lineWidth = CELL;
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(40,12,16,0.45)";
+  ctx.lineWidth = CELL - 4;
+  ctx.stroke();
+  if (pattern) {
+    ctx.strokeStyle = pattern;
+    ctx.lineWidth = CELL - 6;
+    ctx.stroke();
+  } else {
+    // Art not loaded yet: the same two reds as the tiled fallback.
+    ctx.strokeStyle = "#6a2a32";
+    ctx.lineWidth = CELL - 6;
+    ctx.stroke();
+    ctx.strokeStyle = "#8d3a42";
+    ctx.lineWidth = 22;
+    ctx.stroke();
+  }
+  const chosen = world.hud.cosmetics?.carpet ?? "crimson";
+  const dye = CARPET_DYE[chosen] ?? ROOM_LOOK[world.hud.map]?.carpet;
+  if (dye && pattern) {
+    ctx.globalCompositeOperation = chosen === "black" ? "color" : "hue";
+    ctx.strokeStyle = dye;
+    ctx.lineWidth = CELL - 4;
+    ctx.stroke();
+    if (chosen === "black") {
+      ctx.globalCompositeOperation = "multiply";
+      ctx.strokeStyle = "rgba(90,90,100,1)";
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 function drawCarpet(
   ctx: CanvasRenderingContext2D,
   world: World,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
 ) {
   const cells = [...world.pathCells];
+  if (BOARDS[world.hud.map].carpet === "path") drawBand(ctx, world, art);
+  else {
   if (ready(art.carpet)) {
     const pattern = ctx.createPattern(art.carpet, "repeat");
     if (pattern) {
@@ -1015,6 +1211,7 @@ function drawCarpet(
     }
   }
   ctx.stroke();
+  }
 
   const end = world.points[world.points.length - 1];
   const doorLight = ctx.createRadialGradient(end.x, end.y, 6, end.x, end.y, 78);
@@ -1299,6 +1496,38 @@ function drawFloors(ctx: CanvasRenderingContext2D, world: World, art: Partial<Re
   ctx.restore();
 }
 
+/** Creeping Squash vines: a leafy green wash over the carpet tile, fading as it withers. */
+function drawVines(ctx: CanvasRenderingContext2D, world: World, art: Partial<Record<SpriteName, HTMLImageElement>>) {
+  if (!world.vines.size) return;
+  const img = art.tileVine;
+  ctx.save();
+  for (const [key, vine] of world.vines) {
+    const [c, r] = key.split(",").map(Number);
+    const x = c * CELL;
+    const y = r * CELL;
+    ctx.globalAlpha = Math.min(1, vine.life / 1);
+    if (ready(img)) {
+      ctx.drawImage(img, x + 1, y + 1, CELL - 2, CELL - 2);
+      continue;
+    }
+    ctx.fillStyle = "rgba(90,170,70,0.35)";
+    ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4);
+    ctx.strokeStyle = "rgba(143,220,106,0.85)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y + CELL - 8);
+    ctx.bezierCurveTo(x + CELL * 0.3, y + 6, x + CELL * 0.6, y + CELL - 4, x + CELL - 4, y + 8);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(143,220,106,0.9)";
+    for (const [lx, ly] of [[0.28, 0.45], [0.55, 0.62], [0.78, 0.3]]) {
+      ctx.beginPath();
+      ctx.ellipse(x + CELL * lx, y + CELL * ly, 4.5, 2.4, 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 /** The Bell Tower's bell over its 2×2 frame: it swings when it strikes, and counts down the last seconds. */
 function drawBell(ctx: CanvasRenderingContext2D, world: World) {
   const spot = BOARDS[world.hud.map].bell;
@@ -1445,13 +1674,13 @@ function drawReach(
       ? { stretches: points.slice(1).map((p, i) => ({ x1: points[i].x, y1: points[i].y, x2: p.x, y2: p.y })), length: 0 }
       : carpetInReach(points, x, y, range, shape.inner);
     // Dim the carpet it can't reach...
+    const round = isBand(world) ? CELL / 2 : 0;
     if (!whole) {
       ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (const p of points.slice(1)) ctx.lineTo(p.x, p.y);
+      traceLine(ctx, points, round);
       ctx.strokeStyle = "rgba(10,6,8,0.5)";
       ctx.lineWidth = CELL - 8;
-      ctx.lineJoin = "miter";
+      ctx.lineJoin = round ? "round" : "miter";
       ctx.lineCap = "butt";
       ctx.stroke();
     }
@@ -1466,9 +1695,8 @@ function drawReach(
     }
     for (const run of runs) {
       ctx.beginPath();
-      ctx.moveTo(run[0].x, run[0].y);
-      for (const p of run.slice(1)) ctx.lineTo(p.x, p.y);
-      ctx.lineJoin = "miter";
+      traceLine(ctx, run, round);
+      ctx.lineJoin = round ? "round" : "miter";
       ctx.strokeStyle = "rgba(230,195,106,0.24)";
       ctx.lineWidth = CELL - 8;
       ctx.lineCap = "butt";
@@ -1795,8 +2023,9 @@ const NEW_SHOT = {
 } as const satisfies Record<string, { sprite: SpriteName; size: number }>;
 
 const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108 } as const;
-/** Act three: the stone melon is a little squat and heavy, the gall small, the borrower a lanky runner. */
-const LOOK_H = { pit: 50, gall: 34, borrower: 46 } as const;
+/** Act three: the stone melon is a little squat and heavy, the gall small, the borrower a lanky runner. Then the rooms' own fruit. */
+const LOOK_H = { pit: 50, gall: 34, borrower: 46, express: 48, parcel: 58, sprout: 30, squash: 58, chimer: 48, gargoyle: 56 } as const;
+type Look = keyof typeof LOOK_H;
 
 function drawTower(
   ctx: CanvasRenderingContext2D,
@@ -1884,6 +2113,167 @@ function ring(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.stroke();
 }
 
+/** A health bar over a code-drawn fruit. */
+function hpBar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hp: number) {
+  const bw = r * 2;
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  ctx.fillRect(x - bw / 2, y - r - 10, bw, 4);
+  ctx.fillStyle = "#f3e2c4";
+  ctx.fillRect(x - bw / 2, y - r - 10, bw * Math.max(0, hp), 4);
+}
+
+/** Sprout stand-in: a small green melon shoot with two leaves. */
+function drawSproutShape(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hp: number, anim: number) {
+  const sway = Math.sin(anim * 5 + x * 0.1) * 0.15;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = "#4f9a3a";
+  ctx.beginPath();
+  ctx.arc(0, 3, r * 0.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#245a1c";
+  ctx.lineWidth = 1.2;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.arc(0, 3, r * 0.8, -0.4 + i * 0.4, 0.4 + i * 0.4);
+    ctx.stroke();
+  }
+  ctx.rotate(sway);
+  ctx.strokeStyle = "#8fdc6a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.4);
+  ctx.lineTo(0, -r * 1.3);
+  ctx.stroke();
+  ctx.fillStyle = "#8fdc6a";
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(side * 4, -r * 1.3, 4.5, 2.2, side * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  if (hp < 0.995) hpBar(ctx, x, y, r, hp);
+}
+
+/** Gargoyle Gourd stand-in: a grey stone squash with stubby wings; it glows faintly while awake. */
+function drawGargoyleShape(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hp: number, anim: number, awake: boolean) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (awake) {
+    ctx.shadowColor = "rgba(200,220,255,0.95)";
+    ctx.shadowBlur = 14;
+  }
+  const flap = awake ? Math.sin(anim * 22) * 0.5 : 0;
+  ctx.fillStyle = "#6f6f78";
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(side * r * 0.75, -r * 0.3);
+    ctx.rotate(side * (0.5 + flap));
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(side * r * 0.75, -r * 0.45);
+    ctx.lineTo(side * r * 0.55, r * 0.1);
+    ctx.lineTo(side * r * 0.3, r * 0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = "#8a8a92";
+  ctx.beginPath();
+  ctx.ellipse(0, 2, r, r * 0.86, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "rgba(40,40,48,0.6)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.6);
+  ctx.lineTo(0, r * 0.7);
+  ctx.moveTo(-r * 0.35, -r * 0.2);
+  ctx.quadraticCurveTo(-r * 0.2, 0, -r * 0.15, r * 0.6);
+  ctx.moveTo(r * 0.35, -r * 0.2);
+  ctx.quadraticCurveTo(r * 0.2, 0, r * 0.15, r * 0.6);
+  ctx.stroke();
+  ctx.fillStyle = awake ? "#cfe0ff" : "#3a3a42";
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(side * r * 0.3, -r * 0.15, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  if (hp < 0.995) hpBar(ctx, x, y, r, hp);
+}
+
+/** Room fruit marks drawn over the base fruit while their art loads. */
+function drawNativeMark(ctx: CanvasRenderingContext2D, e: World["enemies"][number], anim: number) {
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  if (e.native === "express") {
+    // A red EXPRESS stamp: a tilted ink box with two bars, no letters.
+    ctx.rotate(-0.35);
+    ctx.strokeStyle = "rgba(214,40,52,0.95)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-e.r * 0.85, -e.r * 0.35, e.r * 1.7, e.r * 0.7);
+    ctx.fillStyle = "rgba(214,40,52,0.85)";
+    ctx.fillRect(-e.r * 0.6, -e.r * 0.15, e.r * 1.2, 2);
+    ctx.fillRect(-e.r * 0.6, e.r * 0.08, e.r * 0.8, 2);
+  } else if (e.native === "parcel" && e.wrapped) {
+    // Brown paper over the pumpkin, tied with string.
+    ctx.fillStyle = "#b08a5a";
+    ctx.strokeStyle = "#6a4a28";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(-e.r * 0.95, -e.r * 0.8, e.r * 1.9, e.r * 1.7, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = "#efe2c4";
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(0, -e.r * 0.8);
+    ctx.lineTo(0, e.r * 0.9);
+    ctx.moveTo(-e.r * 0.95, 0);
+    ctx.lineTo(e.r * 0.95, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(-4, -e.r * 0.85, 4, 2.5, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(4, -e.r * 0.85, 4, 2.5, 0.4, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (e.native === "squash") {
+    // Trailing tendrils.
+    ctx.strokeStyle = "#6fbf4a";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const a = Math.PI * 0.6 + i * 0.9 + Math.sin(anim * 2 + i) * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * e.r * 0.8, Math.sin(a) * e.r * 0.8);
+      ctx.quadraticCurveTo(Math.cos(a) * e.r * 1.5, Math.sin(a) * e.r * 1.1, Math.cos(a + 0.4) * e.r * 1.6, Math.sin(a + 0.4) * e.r * 1.6);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#6fbf4a";
+    ctx.beginPath();
+    ctx.ellipse(e.r * 0.5, -e.r * 0.85, 5, 2.5, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (e.native === "chimer") {
+    // A little gold bell tied on, swinging.
+    ctx.translate(e.r * 0.7, -e.r * 0.7);
+    ctx.rotate(Math.sin(anim * 9 + e.x * 0.1) * 0.5);
+    ctx.fillStyle = "#e6c36a";
+    ctx.strokeStyle = "#7a5618";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-2, 0);
+    ctx.quadraticCurveTo(-3, 4, -5, 7);
+    ctx.lineTo(5, 7);
+    ctx.quadraticCurveTo(3, 4, 2, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 8, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawEnemy(
   ctx: CanvasRenderingContext2D,
   kind: "melon" | "corn" | "pumpkin" | "karl",
@@ -1895,7 +2285,7 @@ function drawEnemy(
   boss: boolean,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
   faceLeft: boolean,
-  look: "pit" | "gall" | "borrower" | null = null,
+  look: Look | null = null,
 ) {
   const img = art[look ?? kind];
   const height = look ? LOOK_H[look] : UNIT_H[kind];
