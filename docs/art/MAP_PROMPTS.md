@@ -2,6 +2,8 @@
 
 These three maps already play with drawn stand-ins (plain library floor, bookshelves on the blocked tiles, code-drawn belts, beds, stairs and bell). Each image below replaces one stand-in. Send them back in any order and they'll be wired in. See [the design doc](../new-maps-design.md) for what each map does.
 
+**In the game so far:** the three floors, `tile-belt`, `tile-stairs`, `tile-bed`, `prop-sorting-cage`, `prop-sorting-door` and `prop-greenhouse-planter`. Still to come: `prop-bell`, `prop-greenhouse-door`, `prop-belltower-beam`, `prop-belltower-door` and the six Catalogue paintings.
+
 **Paste this style line at the start of every prompt:**
 
 > Painterly hand-painted game asset, dark gothic library fantasy, rich dark walnut wood, polished antique brass and gold trim, deep crimson cloth with gold embroidery, warm candlelight, soft rim light, crisp readable silhouette, highly detailed, no text, no watermark.

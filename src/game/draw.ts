@@ -36,6 +36,13 @@ const SPRITE_SRC = {
   floorRarebooks: asset("sprites/tile-floor-rarebooks.webp"),
   floorArchive: asset("sprites/tile-floor-archive.webp"),
   floorOverflow: asset("sprites/tile-floor-overflow.webp"),
+  floorSorting: asset("sprites/tile-floor-sorting.webp"),
+  floorGreenhouse: asset("sprites/tile-floor-greenhouse.webp"),
+  floorBelltower: asset("sprites/tile-floor-belltower.webp"),
+  // Floor marks on the carpet, painted pointing right (the way the carpet runs).
+  tileBelt: asset("sprites/tile-belt.webp"),
+  tileStairs: asset("sprites/tile-stairs.webp"),
+  tileBed: asset("sprites/tile-bed.webp"),
   chuteProp: asset("sprites/prop-returns-chute.webp"),
   // Each room's own furniture (on its shelf cells) and exit.
   archiveCabinet: asset("sprites/prop-archive-cabinet.webp"),
@@ -44,6 +51,9 @@ const SPRITE_SRC = {
   rarebooksDoor: asset("sprites/prop-rarebooks-door.webp"),
   annexStorage: asset("sprites/prop-annex-storage.webp"),
   annexHatch: asset("sprites/prop-annex-hatch.webp"),
+  sortingCage: asset("sprites/prop-sorting-cage.webp"),
+  sortingDoor: asset("sprites/prop-sorting-door.webp"),
+  greenhousePlanter: asset("sprites/prop-greenhouse-planter.webp"),
   shotSeed: asset("sprites/shot-seed.webp"),
   shotFly: asset("sprites/shot-fly.webp"),
   shotInk: asset("sprites/shot-ink.webp"),
@@ -173,14 +183,14 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   ctx.fillRect(-8, -8, world.w + 16, world.h + 16);
 
   const art = getSprites();
-  const ownFloor =
-    world.hud.map === "rarebooks"
-      ? art.floorRarebooks
-      : world.hud.map === "archive"
-        ? art.floorArchive
-        : world.hud.map === "overflow"
-          ? art.floorOverflow
-          : undefined;
+  const ownFloor = ({
+    rarebooks: art.floorRarebooks,
+    archive: art.floorArchive,
+    overflow: art.floorOverflow,
+    sorting: art.floorSorting,
+    greenhouse: art.floorGreenhouse,
+    belltower: art.floorBelltower,
+  } as Partial<Record<string, HTMLImageElement>>)[world.hud.map];
   const floor = ready(ownFloor) ? ownFloor : art.floor;
   if (ready(floor)) {
     const pattern = ctx.createPattern(floor, "repeat");
@@ -192,7 +202,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   }
   const look = ROOM_LOOK[world.hud.map];
-  if (look?.floor) {
+  if (look?.floor && floor === art.floor) {
     // A colour wash over the shared floor, so rooms without their own tile still feel like their own room.
     ctx.save();
     ctx.globalCompositeOperation = "color";
@@ -204,7 +214,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   drawShelves(ctx, world, art);
   drawCarpet(ctx, world, art);
-  drawFloors(ctx, world);
+  drawFloors(ctx, world, art);
   if (look?.light) drawRoomLight(ctx, world, look.light);
   drawWet(ctx, world);
   drawBell(ctx, world);
@@ -1171,8 +1181,9 @@ function drawChute(ctx: CanvasRenderingContext2D, world: World, end: { x: number
  * like plain carpet: belts are dark rubber with amber chevrons that run the carpet's way, stairs are
  * treads (blue going up and slow, orange coming down and fast), beds are soil with green shoots.
  */
-function drawFloors(ctx: CanvasRenderingContext2D, world: World) {
+function drawFloors(ctx: CanvasRenderingContext2D, world: World, art: Partial<Record<SpriteName, HTMLImageElement>>) {
   if (!world.floors.size) return;
+  const { tileBelt, tileStairs, tileBed } = art;
   ctx.save();
   for (const [key, tile] of world.floors) {
     const [c, r] = key.split(",").map(Number);
@@ -1181,6 +1192,13 @@ function drawFloors(ctx: CanvasRenderingContext2D, world: World) {
     const cx = x + CELL / 2;
     const cy = y + CELL / 2;
     const ang = Math.atan2(tile.dr, tile.dc);
+    if (tile.kind === "bed" && ready(tileBed)) {
+      ctx.drawImage(tileBed, x + 1, y + 1, CELL - 2, CELL - 2);
+      const glow = 0.06 + 0.06 * Math.sin(world.anim * 2.4 + c + r);
+      ctx.fillStyle = `rgba(143,220,106,${glow})`;
+      ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
+      continue;
+    }
     if (tile.kind === "bed") {
       ctx.fillStyle = "rgba(52,34,20,0.82)";
       ctx.fillRect(x + 4, y + 4, CELL - 8, CELL - 8);
@@ -1206,7 +1224,34 @@ function drawFloors(ctx: CanvasRenderingContext2D, world: World) {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(ang);
-    if (tile.kind === "belt") {
+    if (tile.kind === "belt" && ready(tileBelt)) {
+      // The painted belt scrolls the carpet's way: two copies, offset by the shift.
+      const h = CELL - 8;
+      const w = (h * tileBelt.naturalWidth) / tileBelt.naturalHeight;
+      const shift = (world.anim * 26) % w;
+      ctx.beginPath();
+      ctx.rect(-CELL / 2, -h / 2, CELL, h);
+      ctx.clip();
+      for (let px = -CELL / 2 - w + shift; px < CELL / 2; px += w) ctx.drawImage(tileBelt, px, -h / 2, w, h);
+    } else if (tile.kind !== "belt" && ready(tileStairs)) {
+      // Painted low on the left, high on the right: going up reads as is; coming down is mirrored.
+      const up = tile.kind === "up";
+      if (!up) ctx.scale(-1, 1);
+      ctx.drawImage(tileStairs, -CELL / 2 + 1, -CELL / 2 + 3, CELL - 2, CELL - 6);
+      ctx.fillStyle = up ? "rgba(90,150,255,0.22)" : "rgba(255,140,50,0.22)";
+      ctx.fillRect(-CELL / 2 + 1, -CELL / 2 + 3, CELL - 2, CELL - 6);
+      if (!up) ctx.scale(-1, 1);
+      ctx.fillStyle = up ? "rgba(140,190,255,0.9)" : "rgba(255,170,80,0.95)";
+      ctx.strokeStyle = "rgba(0,0,0,0.6)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(8, 0);
+      ctx.lineTo(-2, -6);
+      ctx.lineTo(-2, 6);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fill();
+    } else if (tile.kind === "belt") {
       ctx.fillStyle = "rgba(28,26,30,0.85)";
       ctx.fillRect(-CELL / 2, -CELL / 2 + 6, CELL, CELL - 12);
       ctx.fillStyle = "rgba(150,150,160,0.5)";
@@ -1524,10 +1569,12 @@ function drawRoomLight(ctx: CanvasRenderingContext2D, world: World, l: { x: numb
 }
 
 /** Rooms with their own furniture on the shelf cells and their own exit (the rest use the Stacks' shelves and door). */
-const ROOM_ART: Partial<Record<string, { shelf: SpriteName; door: SpriteName }>> = {
+const ROOM_ART: Partial<Record<string, { shelf: SpriteName; door?: SpriteName }>> = {
   archive: { shelf: "archiveCabinet", door: "archiveVault" },
   rarebooks: { shelf: "rarebooksCase", door: "rarebooksDoor" },
   annex: { shelf: "annexStorage", door: "annexHatch" },
+  sorting: { shelf: "sortingCage", door: "sortingDoor" },
+  greenhouse: { shelf: "greenhousePlanter" },
 };
 
 function drawShelves(
