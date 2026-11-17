@@ -54,6 +54,9 @@ const SPRITE_SRC = {
   sortingCage: asset("sprites/prop-sorting-cage.webp"),
   sortingDoor: asset("sprites/prop-sorting-door.webp"),
   greenhousePlanter: asset("sprites/prop-greenhouse-planter.webp"),
+  greenhouseDoor: asset("sprites/prop-greenhouse-door.webp"),
+  belltowerBeam: asset("sprites/prop-belltower-beam.webp"),
+  belltowerDoor: asset("sprites/prop-belltower-door.webp"),
   shotSeed: asset("sprites/shot-seed.webp"),
   shotFly: asset("sprites/shot-fly.webp"),
   shotInk: asset("sprites/shot-ink.webp"),
@@ -1574,7 +1577,8 @@ const ROOM_ART: Partial<Record<string, { shelf: SpriteName; door?: SpriteName }>
   rarebooks: { shelf: "rarebooksCase", door: "rarebooksDoor" },
   annex: { shelf: "annexStorage", door: "annexHatch" },
   sorting: { shelf: "sortingCage", door: "sortingDoor" },
-  greenhouse: { shelf: "greenhousePlanter" },
+  greenhouse: { shelf: "greenhousePlanter", door: "greenhouseDoor" },
+  belltower: { shelf: "belltowerBeam", door: "belltowerDoor" },
 };
 
 function drawShelves(
