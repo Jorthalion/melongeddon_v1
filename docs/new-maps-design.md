@@ -27,7 +27,7 @@ A board can now list `floors`: straight runs of carpet tiles marked as `belt`, `
 
 ## The maps
 
-All three are 16 × 10, like the Stacks.
+**Update:** all three are now big boards (22 × 14, like the Great Hall) with carpets of 42, 50 and 51 tiles, and their fruit health was re-tuned with the simulator to Sorting Room 0.8, Greenhouse 0.95 and Bell Tower 1.05. The layouts and numbers below describe the first, 16 × 10 version.
 
 ### The Sorting Room
 

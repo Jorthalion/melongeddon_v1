@@ -127,9 +127,9 @@ Night one (and Endless) can be played on any unlocked map. Night two is always t
 | The Archive | dark: cannons have 20% less range unless a Reading Lamp reaches them (`BALANCE.archiveDark`) | restoring The Archive |
 | The Great Hall | big (22 × 14): one very long snaking carpet; fruit have 20% more health | restoring The Great Hall |
 | The Reading Room | big (22 × 14): three long lanes, cannons between lanes cover two; fruit have 40% more health | restoring The Reading Room |
-| The Sorting Room | short; three belts (`floors`) carry fruit ×`FLOOR.belt` (1.6) the carpet's way, ×1/1.6 against it | restoring The Sorting Room |
-| The Greenhouse | growth beds heal `FLOOR.bedHeal` (5%) of max health a second unless the fruit burns; `damp`: burning ×0.55; `hp` 1.1 | restoring The Greenhouse |
-| The Bell Tower | stairs ×`FLOOR.up` (0.7) going up, ×`FLOOR.down` (1.4) coming down; the `bell` strikes every `FLOOR.bellEvery` (24) s of a wave and no tower acts for `FLOOR.bellQuiet` (2.5) s; `hp` 1.1 | restoring The Bell Tower |
+| The Sorting Room | big (22 × 14), 42-tile carpet; three 6-tile belt columns (`floors`) carry fruit ×`FLOOR.belt` (1.6) the carpet's way, ×1/1.6 against it; `hp` 0.8 | restoring The Sorting Room |
+| The Greenhouse | big (22 × 14), 50-tile carpet; 9 growth-bed tiles heal `FLOOR.bedHeal` (5%) of max health a second unless the fruit burns; `damp`: burning ×0.55; `hp` 0.95 | restoring The Greenhouse |
+| The Bell Tower | big (22 × 14), 51-tile carpet; 10 stair tiles ×`FLOOR.up` (0.7) going up, 10 ×`FLOOR.down` (1.4) coming down; the `bell` strikes every `FLOOR.bellEvery` (24) s of a wave and no tower acts for `FLOOR.bellQuiet` (2.5) s; `hp` 1.05 | restoring The Bell Tower |
 
 **Floors.** A board may list `floors`: straight runs of carpet tiles (`from`/`to`, in the carpet's direction) that are a `belt`, `up` or `down` stairs, or a growth `bed`. `floorTiles(map)` expands them to `world.floors` ("c,r" to kind and direction); the movement step multiplies by `floorPace(kind, back)` (walking toward the entrance, a chute walker or a driven fruit, takes the inverse). Beds heal in the enemy loop unless the fruit burns. A board with a `bell` gets `world.bell` (`next`, `quiet`), counted down by `tickBell` during waves and reset at each wave start; while `quiet` is above 0 the tower loop skips every tower. The marks are drawn by `drawFloors` and `drawBell` in `draw.ts`; painted art is listed in `docs/art/MAP_PROMPTS.md`, and the design notes are in `docs/new-maps-design.md`.
 
