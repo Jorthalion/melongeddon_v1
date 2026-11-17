@@ -2,7 +2,7 @@
 
 These three maps already play with drawn stand-ins (plain library floor, bookshelves on the blocked tiles, code-drawn belts, beds, stairs and bell). Each image below replaces one stand-in. Send them back in any order and they'll be wired in. See [the design doc](../new-maps-design.md) for what each map does.
 
-**In the game so far:** the three floors, `tile-belt`, `tile-stairs`, `tile-bed`, `prop-sorting-cage`, `prop-sorting-door`, `prop-greenhouse-planter`, `prop-greenhouse-door`, `prop-belltower-beam` and `prop-belltower-door`. Still to come: `prop-bell` and the six Catalogue paintings.
+**In the game:** all 19 images.
 
 **Paste this style line at the start of every prompt:**
 

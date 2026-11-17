@@ -57,6 +57,7 @@ const SPRITE_SRC = {
   greenhouseDoor: asset("sprites/prop-greenhouse-door.webp"),
   belltowerBeam: asset("sprites/prop-belltower-beam.webp"),
   belltowerDoor: asset("sprites/prop-belltower-door.webp"),
+  bellFrame: asset("sprites/prop-bell.webp"),
   shotSeed: asset("sprites/shot-seed.webp"),
   shotFly: asset("sprites/shot-fly.webp"),
   shotInk: asset("sprites/shot-ink.webp"),
@@ -1306,38 +1307,55 @@ function drawBell(ctx: CanvasRenderingContext2D, world: World) {
   const y = (spot[1] + 1) * CELL;
   const bell = world.bell;
   const quiet = bell?.quiet ?? 0;
-  ctx.save();
-  // The frame: a dark timber square under the bell.
-  ctx.fillStyle = "rgba(30,20,16,0.92)";
-  ctx.fillRect(x - CELL + 3, y - CELL + 3, CELL * 2 - 6, CELL * 2 - 6);
-  ctx.strokeStyle = "rgba(120,84,48,0.9)";
-  ctx.lineWidth = 4;
-  ctx.strokeRect(x - CELL + 5, y - CELL + 5, CELL * 2 - 10, CELL * 2 - 10);
-  ctx.beginPath();
-  ctx.moveTo(x - CELL + 5, y - CELL + 14);
-  ctx.lineTo(x + CELL - 5, y - CELL + 14);
-  ctx.stroke();
-  // The bell: swings while it strikes.
-  const swing = quiet > 0 ? Math.sin(world.anim * 14) * 0.35 * (quiet / 2.5) : Math.sin(world.anim * 1.2) * 0.03;
-  ctx.translate(x, y - CELL + 14);
-  ctx.rotate(swing);
-  const g = ctx.createLinearGradient(-26, 0, 26, 0);
-  g.addColorStop(0, "#8a6420");
-  g.addColorStop(0.45, "#f0cf78");
-  g.addColorStop(1, "#7a5618");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.moveTo(-10, 6);
-  ctx.quadraticCurveTo(-12, 30, -28, 52);
-  ctx.lineTo(28, 52);
-  ctx.quadraticCurveTo(12, 30, 10, 6);
-  ctx.quadraticCurveTo(0, -2, -10, 6);
-  ctx.fill();
-  ctx.fillStyle = "#5a3e12";
-  ctx.beginPath();
-  ctx.arc(0, 56, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  const painted = getSprites().bellFrame;
+  if (ready(painted)) {
+    // The painted bell in its frame: a shadow, then the whole frame rocks from the top while it strikes.
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + CELL - 8, CELL * 0.85, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const rock = quiet > 0 ? Math.sin(world.anim * 14) * 0.07 * (quiet / FLOOR.bellQuiet) : 0;
+    ctx.translate(x, y - CELL + 4);
+    ctx.rotate(rock);
+    const h = CELL * 2 - 4;
+    const w = (h * painted.naturalWidth) / painted.naturalHeight;
+    ctx.drawImage(painted, -w / 2, 0, w, h);
+    ctx.restore();
+  } else {
+    ctx.save();
+    // The frame: a dark timber square under the bell.
+    ctx.fillStyle = "rgba(30,20,16,0.92)";
+    ctx.fillRect(x - CELL + 3, y - CELL + 3, CELL * 2 - 6, CELL * 2 - 6);
+    ctx.strokeStyle = "rgba(120,84,48,0.9)";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x - CELL + 5, y - CELL + 5, CELL * 2 - 10, CELL * 2 - 10);
+    ctx.beginPath();
+    ctx.moveTo(x - CELL + 5, y - CELL + 14);
+    ctx.lineTo(x + CELL - 5, y - CELL + 14);
+    ctx.stroke();
+    // The bell: swings while it strikes.
+    const swing = quiet > 0 ? Math.sin(world.anim * 14) * 0.35 * (quiet / 2.5) : Math.sin(world.anim * 1.2) * 0.03;
+    ctx.translate(x, y - CELL + 14);
+    ctx.rotate(swing);
+    const g = ctx.createLinearGradient(-26, 0, 26, 0);
+    g.addColorStop(0, "#8a6420");
+    g.addColorStop(0.45, "#f0cf78");
+    g.addColorStop(1, "#7a5618");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(-10, 6);
+    ctx.quadraticCurveTo(-12, 30, -28, 52);
+    ctx.lineTo(28, 52);
+    ctx.quadraticCurveTo(12, 30, 10, 6);
+    ctx.quadraticCurveTo(0, -2, -10, 6);
+    ctx.fill();
+    ctx.fillStyle = "#5a3e12";
+    ctx.beginPath();
+    ctx.arc(0, 56, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
   if (!bell) return;
   ctx.save();
   ctx.textAlign = "center";
@@ -1591,7 +1609,11 @@ function drawShelves(
   const ownShelf = ROOM_ART[world.hud.map]?.shelf;
   const furniture = ownShelf ? art[ownShelf] : undefined;
   const shelf = art.shelf;
+  // The Bell Tower's bell stands on its own 2×2 block of shelf cells: drawn by drawBell, not here.
+  const bellAt = BOARDS[world.hud.map].bell;
+  const underBell = (c: number, r: number) => Boolean(bellAt && ready(art.bellFrame) && c - bellAt[0] >= 0 && c - bellAt[0] <= 1 && r - bellAt[1] >= 0 && r - bellAt[1] <= 1);
   for (const [c, r] of spots) {
+    if (underBell(c, r)) continue;
     const x = c * CELL + CELL / 2;
     const y = r * CELL + CELL / 2;
     if (ready(furniture)) {
