@@ -603,7 +603,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   ballista: {
     name: "Shelf Ballista",
-    blurb: "A bookend spear that goes through everything in a straight line.",
+    blurb: "A bookend spear that goes through the first four fruit in a straight line.",
     cost: 80,
     role: "Pierce",
   },
@@ -922,6 +922,9 @@ export const CANNON = {
   /** Extra seeds per Compost Heap payout with Interest. */
   interestBase: 20,
   barbedSlow: 1.5,
+  /** Shelf Ballista: the spear goes through this many fruit on its line, nearest first (Through and through: `ballistaPierceMore` more). */
+  ballistaPierce: 4,
+  ballistaPierceMore: 3,
   blotRadius: 64,
   interestRate: 0.1,
   interestCap: 20,
@@ -1135,7 +1138,8 @@ export type ModId =
   | "wildfire"
   | "barbs"
   | "virulent"
-  | "grit";
+  | "grit"
+  | "pierce";
 
 export interface ModDef {
   id: ModId;
@@ -1186,6 +1190,7 @@ export const MODS: ModDef[] = [
   { id: "barbs", name: "Barbed stingers", blurb: "Its stingers stay in for 5 seconds instead of 3.", kinds: ["hive"] },
   { id: "virulent", name: "Virulent", blurb: "Its poison stacks up to five times instead of three.", kinds: ["cauldron"] },
   { id: "grit", name: "Grit", blurb: "A seed drives two stingers deeper instead of one.", kinds: ["spitter"] },
+  { id: "pierce", name: "Through and through", blurb: "The spear goes through 3 more fruit.", kinds: ["ballista"] },
 ];
 
 /**
@@ -1227,6 +1232,11 @@ export const FITTING_NAMES: Partial<Record<TowerKind, Partial<Record<ModId, { na
   organ: { haste: { name: "Bellows", blurb: "Plays a little more often." } },
   scope: { reach: { name: "Long lens", blurb: "Sees farther down the carpet." }, haste: { name: "Steady hand", blurb: "Fires a little faster." } },
 };
+
+/** How many fruit a Shelf Ballista's spear goes through, with these fittings. */
+export function ballistaPierce(mods: readonly ModId[]) {
+  return CANNON.ballistaPierce + (mods.includes("pierce") ? CANNON.ballistaPierceMore : 0);
+}
 
 /** A fitting as `kind` calls it (its own name for the shared reach and pace fittings). */
 export function fittingName(kind: TowerKind, id: ModId): string {

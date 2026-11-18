@@ -317,6 +317,27 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   }
 
+  // The back room: an upgrade under the pointer shows each tower's reach now and with it.
+  for (const ring of world.hud.shopRings) {
+    ctx.save();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(243,226,196,0.35)";
+    ctx.beginPath();
+    ctx.arc(ring.x, ring.y, ring.now, 0, Math.PI * 2);
+    ctx.stroke();
+    if (Math.abs(ring.next - ring.now) > 0.5) {
+      ctx.strokeStyle = "rgba(230,195,106,0.95)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.lineDashOffset = -world.anim * 18;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.next, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
   // The Pamphlet's straight: while placing one, while one is selected, and (between waves) every one's.
   {
     const legs = carpetLegs(world.points);

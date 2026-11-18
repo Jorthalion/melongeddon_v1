@@ -7,7 +7,7 @@ import {
   OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
   nearestOnCarpet, gateStrip,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
-  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, fittingName,
+  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, assignNatives, type NativeId, type QueueItem,
   SIEGE, type SiegeVariant,
 } from "./rules.ts";
@@ -234,6 +234,8 @@ export interface PreviewStats {
   dmg: number;
   range: number;
   interval: number;
+  /** Shelf Ballista: fruit the spear goes through. */
+  pierce?: number;
   lit?: boolean;
   quick?: boolean;
   base: { dmg: number; range: number; interval: number };
@@ -570,6 +572,8 @@ export interface Hud {
   fitted: Partial<Record<TowerKind, ModId[]>>;
   /** The back-room side tab: the tower kind it is showing, or null when it is closed. */
   workshop: TowerKind | null;
+  /** The back room: rings to draw while an upgrade is hovered, each tower's reach now and with it. */
+  shopRings: Array<{ x: number; y: number; now: number; next: number }>;
   speed: number;
   paused: boolean;
   /** Pause menu state. While it is open the board is paused and most keys are ignored. */
@@ -1020,13 +1024,15 @@ export function createWorld(
   /** Setup: choose perk `pick` (0 or 1) for the chosen keeper's tier `tier` (0-4). Saved. */
   setPerk: (tier: number, pick: 0 | 1) => void;
   /** Live stats for a placed tower (includes a Reading Lamp's boost). */
-  statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean } | null;
+  statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; pierce?: number } | null;
   /**
    * The numbers a `kind` will have once built (on tile `at`, or anywhere): through the same `statsFor` a placed
    * tower uses, so fittings, perks, the dark, Close Reading and (on a tile) a lamp or the Quack-Liber all count.
    * `base` is the plain numbers (no fittings or perks); `why` says what moved each number.
    */
-  previewStats: (kind: TowerKind, at?: { c: number; r: number }) => PreviewStats;
+  previewStats: (kind: TowerKind, at?: { c: number; r: number }, extra?: ModId[]) => PreviewStats;
+  /** The back room: hovering an upgrade (or null) shows the reach it would give each tower of the shown kind. */
+  shopHover: (modId: ModId | null) => void;
   /** Wave `index` (0-based) as it will walk in: groups, notes, threat and flags (api.comingUp for the bar). */
   wavePreview: (index: number) => WavePreview;
   /** The Coming up bar: the next wave between waves; during one, what's still to come. */
@@ -1090,6 +1096,7 @@ export function createWorld(
       dropWave: [],
       feuds: 0,
       comboTips: [],
+      shopRings: [],
       dropSeen: false,
       quackAura: CANNON.quackAura,
       geeseSpent: false,
@@ -2035,7 +2042,12 @@ export function createWorld(
     world.hud.log = "The clock strikes. Every tower stops to listen.";
   };
 
+  /** A tower's numbers: statsCore, plus how many fruit a Ballista's spear goes through. */
   const statsFor = (tower: Tower) => {
+    const s = statsCore(tower);
+    return tower.kind === "ballista" ? { ...s, pierce: ballistaPierce(tower.mods) } : s;
+  };
+  const statsCore = (tower: Tower) => {
     const plain = withPerks(tower.kind, towerReadout(world.hud.hero, tower.kind, tower.mods, world.hud.upgrades));
     // A Copycat's copy of a heavy cannon hits for a share of the original.
     const read = tower.copied && COPY_HEAVY_KINDS.includes(tower.kind) ? { ...plain, dmg: Math.max(1, Math.round(plain.dmg * CANNON.copyHeavyDmg)) } : plain;
@@ -2067,11 +2079,11 @@ export function createWorld(
    * A not-yet-built `kind`'s numbers: a throwaway tower with this kind's back-room fittings, on tile `at` (its
    * neighbours count) or off the board (no neighbours), through the same statsFor a placed tower uses.
    */
-  const previewStats = (kind: TowerKind, at?: { c: number; r: number }): PreviewStats => {
-    const mods = [...(world.hud.fitted[kind] ?? [])];
+  const previewStats = (kind: TowerKind, at?: { c: number; r: number }, extra: ModId[] = []): PreviewStats => {
+    const mods = [...new Set([...(world.hud.fitted[kind] ?? []), ...extra])];
     const p = at ? cellCenter(at.c, at.r) : { x: -1e6, y: -1e6 };
     const ghost: Tower = { id: -1, c: at?.c ?? -1, r: at?.r ?? -1, x: p.x, y: p.y, cd: 0, aim: 0, orange: false, kind, mods, paid: 0 };
-    const now: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean } = statsFor(ghost);
+    const now: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; pierce?: number } = statsFor(ghost);
     const base = towerReadout(world.hud.hero, kind, [], world.hud.upgrades);
     const fitted = towerReadout(world.hud.hero, kind, mods, world.hud.upgrades);
     const perked = withPerks(kind, fitted);
@@ -2726,6 +2738,7 @@ export function createWorld(
       dropWave: [],
       feuds: 0,
       comboTips: [],
+      shopRings: [],
       dropSeen: false,
       quackAura: CANNON.quackAura,
       geeseSpent: false,
@@ -4388,6 +4401,8 @@ export function createWorld(
           // The spear flies the full reach and hits everything near its line.
           const ux = Math.cos(ang);
           const uy = Math.sin(ang);
+          // The spear goes through the first few fruit on its line, nearest first (Through and through: more).
+          const onLine: Array<{ e: Enemy; along: number }> = [];
           for (const e of world.enemies) {
             if (e.hp <= 0) continue;
             const rx = e.x - tower.x;
@@ -4395,6 +4410,10 @@ export function createWorld(
             const along = rx * ux + ry * uy;
             if (along < 0 || along > range) continue;
             if (Math.abs(rx * uy - ry * ux) > e.r + 8) continue;
+            onLine.push({ e, along });
+          }
+          onLine.sort((a, b) => a.along - b.along);
+          for (const { e } of onLine.slice(0, ballistaPierce(tower.mods))) {
             if (has("barbed") && e.guard !== "husk") {
               e.chill = Math.max(e.chill, CANNON.barbedSlow);
               addFrost(e, COMBO.chillHit);
@@ -5025,6 +5044,7 @@ export function createWorld(
     shopKind(kind: TowerKind) {
       if (world.hud.workshop == null) return;
       world.hud.workshop = kind;
+      world.hud.shopRings = [];
       notify();
     },
     shopPriceFor(kind: TowerKind) {
@@ -5069,6 +5089,7 @@ export function createWorld(
     closeShop() {
       if (world.hud.workshop == null) return;
       world.hud.workshop = null;
+      world.hud.shopRings = [];
       if (world.hud.guide === "backroom") finishGuide();
       notify();
     },
@@ -5384,8 +5405,25 @@ export function createWorld(
       const { length } = carpetInReach(world.points, tower.x, tower.y, shape.outer, shape.inner);
       return { tiles: Math.round((length / CELL) * 2) / 2, towers: shape.aura ? near(world.hud.quackAura) : 0 };
     },
-    previewStats(kind: TowerKind, at?: { c: number; r: number }) {
-      return previewStats(kind, at);
+    previewStats(kind: TowerKind, at?: { c: number; r: number }, extra?: ModId[]) {
+      return previewStats(kind, at, extra);
+    },
+    shopHover(modId: ModId | null) {
+      const kind = world.hud.workshop;
+      if (!kind || !modId || (world.hud.fitted[kind] ?? []).includes(modId)) {
+        world.hud.shopRings = [];
+        return;
+      }
+      // Each tower of the kind (a Copycat copying one too): its reach now, and with the upgrade.
+      const rings: World["hud"]["shopRings"] = [];
+      for (const t of world.towers) {
+        const own = t.kind === "copycat" && t.copy ? t.copy : t;
+        if (own.kind !== kind) continue;
+        const now = statsFor(own).range;
+        const next = statsFor({ ...own, mods: [...new Set([...own.mods, modId])] }).range;
+        rings.push({ x: t.x, y: t.y, now, next });
+      }
+      world.hud.shopRings = rings;
     },
     wavePreview(index: number) {
       return wavePreview(index);

@@ -1,9 +1,45 @@
 import { useState } from "react";
 import { Check, ChevronDown, Wrench, X } from "lucide-react";
-import { TOWERS, TRICK_LEVEL, fittingsFor, groupOf, groupsFor, type TowerKind } from "@/game/engine";
+import { CELL, TOWERS, TRICK_LEVEL, fittingName, fittingsFor, groupOf, groupsFor, type ModId, type TowerKind } from "@/game/engine";
+import { describeStats } from "@/components/GameHUD";
 import { tone } from "@/game/audio";
 import { TowerIcon } from "@/components/TowerIcon";
 import type { ScreenProps } from "@/components/ui";
+
+/**
+ * The shown kind's numbers now (with the upgrades it owns), and, while an upgrade is hovered, what they'd be
+ * with it: changed numbers in gold. The board draws each tower's reach now and with it at the same time.
+ */
+function ShopNumbers({ api, kind, hovered }: { api: ScreenProps["api"]; kind: TowerKind; hovered: ModId | null }) {
+  const owned = api.world.hud.fitted[kind] ?? [];
+  const now = api.previewStats(kind);
+  const next = hovered ? api.previewStats(kind, undefined, [hovered]) : null;
+  const diff = (a: number, b: number, fmt: (n: number) => string, lowerIsBetter = false) =>
+    Math.abs(a - b) < 1e-6 ? null : (lowerIsBetter ? b < a : b > a) ? `${fmt(a)} → ${fmt(b)}` : `${fmt(a)} → ${fmt(b)}`;
+  const changes = next
+    ? [
+        diff(now.dmg, next.dmg, (n) => `${Math.round(n)} dmg`),
+        diff(now.range, next.range, (n) => `${(n / CELL).toFixed(1)} tiles`),
+        diff(now.interval, next.interval, (n) => `${n.toFixed(1)}s`, true),
+        diff(now.pierce ?? 0, next.pierce ?? 0, (n) => `through ${n}`),
+      ].filter(Boolean)
+    : [];
+  return (
+    <div className="mt-2 rounded-lg border border-line/60 bg-[#140e12]/70 px-2.5 py-2 text-xs">
+      <p>
+        <span className="text-[0.625rem] tracking-[0.16em] text-gold uppercase">Now </span>
+        <span className="text-parchment">{describeStats(kind, now)}</span>
+      </p>
+      <p className="mt-0.5 text-muted">{owned.length ? `Owned: ${owned.map((id) => fittingName(kind, id)).join(", ")}` : "No upgrades yet."}</p>
+      {hovered ? (
+        <p className="mt-1 border-t border-line/50 pt-1">
+          <span className="text-[0.625rem] tracking-[0.16em] text-gold uppercase">With {fittingName(kind, hovered)} </span>
+          <span className="font-semibold text-gold">{changes.length ? changes.join(" · ") : "no change to these numbers"}</span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * The back room, as a tab on the side of the board. Upgrades belong to a tower kind: buying one
@@ -16,10 +52,17 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
   /** Which build tab's kinds are folded open (one at a time); null = follow the kind being shown. */
   const [openTab, setOpenTab] = useState<string | null>(null);
   const [shownFor, setShownFor] = useState<TowerKind | null>(kind);
+  /** The upgrade under the pointer (or focused): its numbers show beside the current ones, its reach on the board. */
+  const [hovered, setHovered] = useState<ModId | null>(null);
+  const hoverMod = (id: ModId | null) => {
+    setHovered(id);
+    api.shopHover(id);
+  };
   // When the back room switches kind from outside (Upgrades on a cannon), open that kind's tab.
   if (shownFor !== kind) {
     setShownFor(kind);
     setOpenTab(null);
+    setHovered(null);
   }
 
   if (kind == null && docked) {
@@ -29,16 +72,16 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
         type="button"
         data-board-controls
         title="Back room (B): upgrade every tower of a kind"
-        className="flex w-full items-center gap-2 rounded-xl border border-[#c6a15a]/70 bg-[#241418]/95 px-3 py-2.5 text-left text-gold"
+        className="flex w-full items-center gap-2.5 rounded-xl border border-[#c6a15a] bg-[#2c1a20]/95 px-3.5 py-3.5 text-left text-gold shadow-[0_0_14px_rgba(198,161,90,0.3)] hover:bg-[#3a242c]"
         onClick={() => {
           onGesture();
           tone(200, 0.06, "triangle", 0.03);
           api.openShop();
         }}
       >
-        <Wrench className="size-4 shrink-0" aria-hidden="true" />
+        <Wrench className="size-5 shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold">Back room</span>
+          <span className="block text-base font-semibold">Back room</span>
           <span className="block text-xs text-muted">Upgrade every tower of a kind</span>
         </span>
         <kbd className="rounded border border-line px-1 font-sans text-[0.625rem] text-muted">B</kbd>
@@ -51,15 +94,15 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
         type="button"
         data-board-controls
         title="Back room (B): upgrade every tower of a kind"
-        className="absolute top-1/2 right-0 z-10 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-l-lg border border-r-0 border-[#c6a15a]/70 bg-[#241418]/95 px-1.5 py-3 text-gold shadow-lg sm:right-3"
+        className="absolute top-1/2 right-0 z-10 flex -translate-y-1/2 flex-col items-center gap-2.5 rounded-l-xl border border-r-0 border-[#c6a15a] bg-[#2c1a20]/95 px-3 py-6 text-gold shadow-[0_0_14px_rgba(198,161,90,0.35)] hover:bg-[#3a242c] sm:right-3"
         onClick={() => {
           onGesture();
           tone(200, 0.06, "triangle", 0.03);
           api.openShop();
         }}
       >
-        <Wrench className="size-4" aria-hidden="true" />
-        <span className="text-xs font-semibold tracking-wide [writing-mode:vertical-rl]">Back room</span>
+        <Wrench className="size-6" aria-hidden="true" />
+        <span className="text-base font-semibold tracking-wide [writing-mode:vertical-rl]">Back room</span>
         <kbd className="hidden rounded border border-line px-1 font-sans text-[0.625rem] text-muted sm:block">B</kbd>
       </button>
     );
@@ -125,6 +168,7 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
           className="grid size-8 shrink-0 place-items-center rounded-lg border border-line text-muted"
           onClick={() => {
             onGesture();
+            hoverMod(null);
             api.closeShop();
           }}
         >
@@ -168,6 +212,7 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
             </p>
           </div>
         </div>
+        <ShopNumbers api={api} kind={kind} hovered={hovered} />
 
         <div className="mt-2 flex flex-col gap-1.5">
           {fittingsFor(kind).map((mod, i) => {
@@ -178,6 +223,10 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
                 key={mod.id}
                 type="button"
                 disabled={got}
+                onPointerEnter={() => hoverMod(got ? null : mod.id)}
+                onPointerLeave={() => hoverMod(null)}
+                onFocus={() => hoverMod(got ? null : mod.id)}
+                onBlur={() => hoverMod(null)}
                 aria-disabled={got || !between || short}
                 className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left ${got ? "border-rind/60 bg-rind-deep/20" : "border-line bg-panel-2"} ${!got && (!between || short) ? "opacity-60" : ""}`}
                 onClick={() => {

@@ -525,7 +525,7 @@ function NightTally({ tally }: { tally: { dmg: number; pops: number; share: numb
   );
 }
 
-function describeStats(kind: TowerKind, read: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean }) {
+export function describeStats(kind: TowerKind, read: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; pierce?: number }) {
   const tiles = read.range >= 900 ? "whole board" : `${(read.range / 48).toFixed(1)} tiles`;
   // "lit" by a Reading Lamp; "quick" beside a Quack-Liber.
   const lit = (read.lit ? " · lit" : "") + (read.quick ? " · quick" : "");
@@ -557,6 +557,7 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   if (kind === "geese") return `One use · throws every fruit in ${tiles} back ${CANNON.geeseShove / CELL} tiles (geese twice as far) · ${CANNON.geeseDamage} dmg`;
   if (kind === "stomp") return `DMG ${read.dmg} + ${CANNON.stompStun}s stop · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "still") return `No shot · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
+  if (kind === "ballista") return `DMG ${read.dmg} · through ${read.pierce ?? CANNON.ballistaPierce} fruit · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   return `DMG ${read.dmg} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
 }
 

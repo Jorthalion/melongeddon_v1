@@ -433,7 +433,7 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | Melon cannon | 60 | Steady shot at whoever is furthest along the carpet |
 | Pumpkin mortar | 75 | Slow lob; the splash hits everyone nearby |
 | Seed Spitter | 50 | Very fast, tiny seeds, short reach. Great on corn; bounces off shells |
-| Shelf Ballista | 80 | A spear that goes through everything in a straight line |
+| Shelf Ballista | 80 | A spear that goes through the first four fruit in a straight line (seven with **Through and through**) |
 | Long Reader | 95 | Sees the whole board; one huge, slow shot at the toughest fruit |
 | Still | 45 | No shot; leaves a slowing puddle on a timer |
 | Fire cannon | 70 | Leaves fire on the carpet that burns whoever stands in it. Prefers the front fruit that isn't burning yet |
@@ -539,6 +539,8 @@ Every tower also has a **type**. The type decides which shared upgrades affect i
 ### Back room (upgrades for a whole kind)
 
 The **Back room** is a tab on the right edge of the board (on a phone it opens as a sheet from the bottom, so the carpet above stays in view). Open it with the tab, with `B`, or with **Upgrades** in a cannon's inspector (that opens it on the cannon's kind). At the top are the same groups as the build bar (Damage, Control, Support, Trick, Heavy, and Keeper when a keeper tower takes upgrades). Tap one to fold it open and pick a tower kind; a small ×2 under a kind means two are on the floor, and a gold number shows how many upgrades it has. Below are **all** of that kind's upgrades, each with its price.
+
+- **Now and with it.** Under the kind's name, **Now** shows its numbers with the upgrades it already has, and lists them. Hover (or focus) an upgrade and **With …** shows what changes, for example "3.7 tiles → 4.3 tiles", while the board draws every tower of that kind's reach now (faint) and with the upgrade (gold, dashed).
 
 - **Each tower names its own reach and pace upgrades.** They do the same thing everywhere (reach farther, cycle faster), but each tower calls them what they are: the Melon's **Longer barrel** and **Oiled breech**, the Spitter's **Long straw** and **Deep breath**, the Ballista's **Taut string** and **Ratchet winch**, the Orrery's **Wider orbit** and **Spin faster**, the Fly Hive's **Queen bee**, the Shush Bell's **Lighter clapper**, the Organ's **Bellows**, and so on.
 - **An upgrade belongs to the kind, not to one tower.** Buy Longer barrel for the Melon cannon and every Melon cannon on the floor reaches farther, and so does every one you build later tonight. A Mimic copying a Melon cannon gets it too.
