@@ -1243,6 +1243,95 @@ export function fittingName(kind: TowerKind, id: ModId): string {
   return FITTING_NAMES[kind]?.[id]?.name ?? MODS.find((m) => m.id === id)?.name ?? id;
 }
 
+/**
+ * What a back-room fitting does, with its numbers, for the back room's hover card. Reach and pace changes are
+ * also shown there as before → after from the tower's own stats, so these lines say the rest.
+ */
+export function fittingDetail(kind: TowerKind, id: ModId): string {
+  const tiles = (px: number) => `${+(px / CELL).toFixed(1)} tile${px === CELL ? "" : "s"}`;
+  const reach = `${tiles(28)} more reach.`;
+  switch (id) {
+    case "reach":
+      return kind === "orrery" ? `The planets circle ${tiles(28)} farther out.` : reach;
+    case "haste":
+      return "15% less time between shots.";
+    case "chill":
+      return COMBO.on
+        ? "Every hit slows the fruit to about 62% speed for 0.75 seconds and adds one frost (one frost slows to 80%, two to 55%)."
+        : "Every hit slows the fruit to about 62% speed for 0.75 seconds.";
+    case "loud":
+      return `The shush reaches ${tiles(28)} farther.`;
+    case "bigpipes":
+      return `The chord reaches ${tiles(28)} farther.`;
+    case "longsheet":
+      return `Each sheet slides ${tiles(CANNON.pressSheet * 1.5)} instead of ${tiles(CANNON.pressSheet)}.`;
+    case "wetink":
+      return `The sheet's ink stays on a fruit for ${CANNON.pressInkTime * 2} seconds instead of ${CANNON.pressInkTime}.`;
+    case "crescendo":
+      return `Every 2nd chord is a crescendo instead of every ${CANNON.organEvery === 3 ? "3rd" : `${CANNON.organEvery}th`}.`;
+    case "swarm":
+      return "Two flies leave the hive each time instead of one.";
+    case "wick":
+      return `The lamp's light reaches ${tiles(CANNON.lanternRadius + 30)} instead of ${tiles(CANNON.lanternRadius)}.`;
+    case "bright":
+      return `Cannons in its light reach 25% farther and wait 22% less between shots (instead of ${Math.round((CANNON.lanternRange - 1) * 100)}% and ${Math.round((1 - CANNON.lanternPace) * 100)}%).`;
+    case "indelible":
+      return `The mark lasts ${CANNON.inkTime * 1.5} seconds instead of ${CANNON.inkTime}, and a marked fruit takes ${Math.round((CANNON.inkBonus + 0.1 - 1) * 100)}% more damage instead of ${Math.round((CANNON.inkBonus - 1) * 100)}%.`;
+    case "loam":
+      return `The heap pays ${Math.round(CANNON.compostSeeds * 1.5)} seeds instead of ${CANNON.compostSeeds}.`;
+    case "venom":
+      return `The worms burrow for ${Math.round(CANNON.wormDps * 1.5)} damage a second instead of ${CANNON.wormDps}.`;
+    case "whetstone":
+      return "Every swing hits 25% harder, rally swings included.";
+    case "dressing":
+      return "It puts 3 stacks back after each wave it stood through, instead of 2.";
+    case "scar":
+      return `A rally swing (after you lose a stack) hits ${Math.round((CANNON.bladeScar - 1) * 100)}% harder instead of ${Math.round((CANNON.bladeRally - 1) * 100)}%.`;
+    case "wide":
+      return `The splash reaches ${tiles(64)} from where it lands instead of ${tiles(46)}.`;
+    case "heavy":
+      return "Fruit caught in the splash take 80% of the shot instead of 55%.";
+    case "arc":
+      return `Lobs ${tiles(28)} farther.`;
+    case "flare":
+      return `Throws the fire ${tiles(28)} farther.`;
+    case "coldreach":
+      return `Freezes ${tiles(28)} farther down the carpet.`;
+    case "drip":
+      return "A puddle every 1 second instead of every 1.45.";
+    case "spread":
+      return `Each puddle reaches ${tiles(16)} farther across.`;
+    case "cling":
+      return "Each puddle lasts 1.2 seconds longer.";
+    case "lasting":
+      return "The fire patch burns for 3.6 seconds instead of 2.4.";
+    case "hotter":
+      return "The fire patch burns for 34 damage a second instead of 22.";
+    case "hold":
+      return "The freeze holds a fruit 0.55 seconds longer.";
+    case "brittle":
+      return "The frozen shot hits for 70% of a cannon shot instead of 45%.";
+    case "deepfreeze":
+      return `Each hit adds ${COMBO.deepFreezeHit} frost instead of ${COMBO.freezeHit}, so one hit freezes a fruit solid.`;
+    case "blackice":
+      return `A fruit with ${COMBO.frostMax} frost takes ${Math.round((COMBO.blackIce - 1) * 100)}% more damage from everything.`;
+    case "shrapnel":
+      return `A shattered fruit's ice shards fly ${tiles(COMBO.shardRadius * COMBO.shrapnelWide)} instead of ${tiles(COMBO.shardRadius)}.`;
+    case "wildfire":
+      return "A burning, slowed fruit sets a neighbour alight every half second instead of every second.";
+    case "barbs":
+      return `Stingers stay in for ${AFFLICT.barbsTime} seconds instead of ${AFFLICT.stingTime}.`;
+    case "virulent":
+      return `Poison stacks up to ${AFFLICT.virulentMax} times instead of ${AFFLICT.poisonMax}.`;
+    case "grit":
+      return `A seed drives ${AFFLICT.gritStacks} stingers deeper into a stung fruit instead of ${AFFLICT.seedStacks}.`;
+    case "pierce":
+      return `The spear goes through ${CANNON.ballistaPierce + CANNON.ballistaPierceMore} fruit instead of ${CANNON.ballistaPierce}.`;
+    default:
+      return MODS.find((m) => m.id === id)?.blurb ?? "";
+  }
+}
+
 /** The back-room fittings a kind takes, named as that kind calls them. */
 export function fittingsFor(kind: TowerKind): ModDef[] {
   return MODS.filter((m) => m.kinds.includes(kind)).map((m) => {

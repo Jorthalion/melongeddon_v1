@@ -1,43 +1,62 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, Wrench, X } from "lucide-react";
-import { CELL, TOWERS, TRICK_LEVEL, fittingName, fittingsFor, groupOf, groupsFor, type ModId, type TowerKind } from "@/game/engine";
-import { describeStats } from "@/components/GameHUD";
+import { CELL, TOWERS, TRICK_LEVEL, fittingDetail, fittingName, fittingsFor, groupOf, groupsFor, type ModId, type TowerKind } from "@/game/engine";
 import { tone } from "@/game/audio";
 import { TowerIcon } from "@/components/TowerIcon";
 import type { ScreenProps } from "@/components/ui";
 
+/** The upgrade under the pointer (or focused), and where its card sits on screen. */
+type Hovered = { id: ModId; rect: DOMRect };
+
 /**
- * The shown kind's numbers now (with the upgrades it owns), and, while an upgrade is hovered, what they'd be
- * with it: changed numbers in gold. The board draws each tower's reach now and with it at the same time.
+ * The hovered upgrade's card, beside the back room (above it on a narrow screen): what it does, with its
+ * numbers, and how the kind's own stats change (before → after). The board draws the reach now and with it.
  */
-function ShopNumbers({ api, kind, hovered }: { api: ScreenProps["api"]; kind: TowerKind; hovered: ModId | null }) {
-  const owned = api.world.hud.fitted[kind] ?? [];
-  const now = api.previewStats(kind);
-  const next = hovered ? api.previewStats(kind, undefined, [hovered]) : null;
-  const diff = (a: number, b: number, fmt: (n: number) => string, lowerIsBetter = false) =>
-    Math.abs(a - b) < 1e-6 ? null : (lowerIsBetter ? b < a : b > a) ? `${fmt(a)} → ${fmt(b)}` : `${fmt(a)} → ${fmt(b)}`;
-  const changes = next
-    ? [
-        diff(now.dmg, next.dmg, (n) => `${Math.round(n)} dmg`),
-        diff(now.range, next.range, (n) => `${(n / CELL).toFixed(1)} tiles`),
-        diff(now.interval, next.interval, (n) => `${n.toFixed(1)}s`, true),
-        diff(now.pierce ?? 0, next.pierce ?? 0, (n) => `through ${n}`),
-      ].filter(Boolean)
-    : [];
-  return (
-    <div className="mt-2 rounded-lg border border-line/60 bg-[#140e12]/70 px-2.5 py-2 text-[0.8125rem]">
-      <p>
-        <span className="text-[0.6875rem] tracking-[0.16em] text-gold uppercase">Now </span>
-        <span className="text-parchment">{describeStats(kind, now)}</span>
-      </p>
-      <p className="mt-0.5 text-muted">{owned.length ? `Owned: ${owned.map((id) => fittingName(kind, id)).join(", ")}` : "No upgrades yet."}</p>
-      {hovered ? (
-        <p className="mt-1 border-t border-line/50 pt-1">
-          <span className="text-[0.6875rem] tracking-[0.16em] text-gold uppercase">With {fittingName(kind, hovered)} </span>
-          <span className="font-semibold text-gold">{changes.length ? changes.join(" · ") : "no change to these numbers"}</span>
-        </p>
+function FittingCard({ api, kind, hovered, got, price }: { api: ScreenProps["api"]; kind: TowerKind; hovered: Hovered; got: boolean; price: number }) {
+  const { id, rect } = hovered;
+  const before = api.previewStats(kind);
+  const after = got ? before : api.previewStats(kind, undefined, [id]);
+  const change = (label: string, a: number, b: number, fmt: (n: number) => string) =>
+    Math.abs(a - b) < 1e-6 ? null : { label, text: `${fmt(a)} → ${fmt(b)}` };
+  const changes = [
+    change("Damage", before.dmg, after.dmg, (n) => `${Math.round(n)}`),
+    change("Reach", before.range, after.range, (n) => `${(n / CELL).toFixed(1)} tiles`),
+    change("Between shots", before.interval, after.interval, (n) => `${n.toFixed(2)}s`),
+    change("Goes through", before.pierce ?? 0, after.pierce ?? 0, (n) => `${n} fruit`),
+  ].filter((c): c is { label: string; text: string } => c != null);
+  const WIDTH = 288;
+  const side = rect.left >= WIDTH + 16;
+  const style: React.CSSProperties = side
+    ? { right: window.innerWidth - rect.left + 8, top: Math.max(8, Math.min(rect.top, window.innerHeight - 220)), width: WIDTH }
+    : { left: Math.max(8, Math.min(rect.left, window.innerWidth - WIDTH - 8)), bottom: window.innerHeight - rect.top + 8, width: WIDTH };
+  return createPortal(
+    <div
+      role="tooltip"
+      data-fitting-card
+      style={style}
+      className="pointer-events-none fixed z-50 rounded-xl border border-[#c6a15a]/70 bg-[#1c1216]/97 px-3.5 py-3 text-sm shadow-2xl"
+    >
+      <div className="flex items-baseline gap-2">
+        <p className="min-w-0 flex-1 font-display text-base leading-tight font-semibold text-gold">{fittingName(kind, id)}</p>
+        <span className="shrink-0 text-[0.8125rem] text-muted">{got ? "Owned" : price ? `${price} seeds` : "Free"}</span>
+      </div>
+      <p className="mt-1.5 leading-snug text-parchment">{fittingDetail(kind, id)}</p>
+      {changes.length ? (
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 border-t border-line/50 pt-2 text-[0.8125rem]">
+          {changes.map((c) => (
+            <div key={c.label} className="contents">
+              <dt className="text-muted">{c.label}</dt>
+              <dd className="font-semibold text-gold">{c.text}</dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
-    </div>
+      <p className="mt-2 text-[0.8125rem] text-muted">
+        {got ? `Every ${TOWERS[kind].name} has it tonight.` : `Every ${TOWERS[kind].name} gets it, and every one you build later tonight.`}
+      </p>
+    </div>,
+    document.body,
   );
 }
 
@@ -52,11 +71,11 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
   /** Which build tab's kinds are folded open (one at a time); null = follow the kind being shown. */
   const [openTab, setOpenTab] = useState<string | null>(null);
   const [shownFor, setShownFor] = useState<TowerKind | null>(kind);
-  /** The upgrade under the pointer (or focused): its numbers show beside the current ones, its reach on the board. */
-  const [hovered, setHovered] = useState<ModId | null>(null);
-  const hoverMod = (id: ModId | null) => {
-    setHovered(id);
-    api.shopHover(id);
+  /** The upgrade under the pointer (or focused): its card shows beside the back room, its reach on the board. */
+  const [hovered, setHovered] = useState<Hovered | null>(null);
+  const hoverMod = (id: ModId | null, el?: Element, owned = false) => {
+    setHovered(id && el ? { id, rect: el.getBoundingClientRect() } : null);
+    api.shopHover(id && !owned ? id : null);
   };
   // When the back room switches kind from outside (Upgrades on a cannon), open that kind's tab.
   if (shownFor !== kind) {
@@ -197,7 +216,7 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 break-words">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 break-words" onScroll={() => hovered && hoverMod(null)}>
         <div className="flex flex-col gap-1">
           {tabs.map((g) => {
             const isOpen = open === g.id;
@@ -233,7 +252,7 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
             </p>
           </div>
         </div>
-        <ShopNumbers api={api} kind={kind} hovered={hovered} />
+        {hovered ? <FittingCard api={api} kind={kind} hovered={hovered} got={owned.includes(hovered.id)} price={price} /> : null}
 
         <div className="mt-2 flex flex-col gap-1.5">
           {fittingsFor(kind).map((mod, i) => {
@@ -243,16 +262,16 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
               <button
                 key={mod.id}
                 type="button"
-                disabled={got}
-                onPointerEnter={() => hoverMod(got ? null : mod.id)}
+                onPointerEnter={(e) => hoverMod(mod.id, e.currentTarget, got)}
                 onPointerLeave={() => hoverMod(null)}
-                onFocus={() => hoverMod(got ? null : mod.id)}
+                onFocus={(e) => hoverMod(mod.id, e.currentTarget, got)}
                 onBlur={() => hoverMod(null)}
                 aria-disabled={got || !between || short}
                 className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left ${got ? "border-rind/60 bg-rind-deep/20" : "border-line bg-panel-2"} ${!got && (!between || short) ? "opacity-60" : ""}`}
                 onClick={() => {
                   onGesture();
-                  if (!got && between && !short) tone(280, 0.08, "triangle", 0.04);
+                  if (got) return;
+                  if (between && !short) tone(280, 0.08, "triangle", 0.04);
                   api.pickMod(mod.id);
                 }}
               >

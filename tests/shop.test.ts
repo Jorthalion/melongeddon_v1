@@ -80,3 +80,17 @@ test("the back room: hovering an upgrade shows each tower's reach now and with i
   api.shopHover("reach");
   assert.equal(w.hud.shopRings.length, 0);
 });
+
+test("every back-room fitting has its own hover line, and the numbers in it are real", async () => {
+  const { TOWERS, fittingDetail, fittingsFor, MODS } = await import("../src/game/engine.ts");
+  for (const kind of Object.keys(TOWERS) as Array<keyof typeof TOWERS>) {
+    for (const mod of fittingsFor(kind)) {
+      const line = fittingDetail(kind, mod.id);
+      assert.ok(line.length > 10, `${kind}/${mod.id} has a line`);
+      assert.ok(!/NaN|undefined/.test(line), `${kind}/${mod.id}: ${line}`);
+    }
+  }
+  // Every fitting in MODS has its own case, not the blurb fallback.
+  for (const mod of MODS) assert.notEqual(fittingDetail(mod.kinds[0], mod.id), mod.blurb, mod.id);
+  assert.equal(fittingDetail("ballista", "pierce"), "The spear goes through 7 fruit instead of 4.");
+});
