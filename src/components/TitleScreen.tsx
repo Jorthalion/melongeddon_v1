@@ -149,11 +149,28 @@ export function TitleScreen({
   );
 }
 
+/**
+ * The full how-to-play page (public/how-to-play.html). On the web it sits next to the game; the desktop
+ * app loads from file://, so it opens the published copy in the normal browser instead.
+ */
+const GUIDE_URL =
+  typeof location !== "undefined" && location.protocol === "file:"
+    ? "https://jorthalion.github.io/melongeddon_v1/how-to-play.html"
+    : "how-to-play.html";
+
 /** Title › How to play: controls, cannon tabs, keepers, nights and rooms. */
 export function HowToPlay() {
   const h = "mt-4 mb-1 text-[10px] tracking-[0.22em] text-gold uppercase first:mt-0";
   return (
     <div className="text-left">
+      <a
+        href={GUIDE_URL}
+        target="_blank"
+        rel="noopener"
+        className="mb-3 block rounded-md border border-gold/60 bg-ink/40 px-3 py-2 text-center font-semibold text-gold hover:bg-ink/60"
+      >
+        Read the full guide, with an index of every section ↗
+      </a>
       <p className={h}>The basics</p>
       <p>
         Produce walks the carpet. Build cannons on the floor beside it; anything that reaches the far end costs a stack.
