@@ -1,6 +1,21 @@
 import { asset } from "../lib/asset.ts";
 import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
+import {
+  STATUS_LOOK,
+  applyStatusMotion,
+  barFill,
+  beginStatusFrame,
+  bodyTintAlpha,
+  drawStatusAbove,
+  drawStatusBody,
+  drawStatusGround,
+  drawStatusMarks,
+  drawStatusPips,
+  statusLook,
+  tintedSprite,
+  type Body,
+} from "./drawStatus.ts";
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
 /** The picture for a Coming up chip: the enemy's own sprite (its look, as the board draws it). */
@@ -437,6 +452,10 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   }
 
+  // Status trails on the carpet (scorch, drips, honey prints, frost), under the fruit.
+  const statusOpts = beginStatusFrame(ctx);
+  if (STATUS_LOOK.on) drawStatusMarks(ctx, world);
+
   // Galls last, so a rider is never hidden under the pumpkin walking behind its host.
   const band = isBand(world);
   // The selected tower's current target (a Copycat aims through its copy): a thin gold ring.
@@ -447,6 +466,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     const drawn = band ? roundedSpot(world.points, e.x, e.y) : null;
     ctx.save();
     if (drawn) ctx.translate(drawn.x - e.x, drawn.y - e.y);
+    // What its statuses look like (drawStatus.ts): body, particles, ground, pips, motion.
+    const sl = STATUS_LOOK.on ? statusLook(e, world, statusOpts) : null;
     if (aimedAt === e.id) {
       ctx.save();
       ctx.strokeStyle = "rgba(230,195,106,0.95)";
@@ -458,7 +479,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.stroke();
       ctx.restore();
     }
-    if (e.chill > 0) {
+    if (!sl && e.chill > 0) {
       ctx.strokeStyle = "rgba(106,74,138,0.85)";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -466,6 +487,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.stroke();
     }
     const next = world.points[Math.min(e.wp, world.points.length - 1)];
+    // Walked back (Reverse Driver, panic, a scatter): it turns to face the way it's going.
+    const faceLeft = (next ? next.x < e.x - 4 : false) !== Boolean(sl?.motion.faceBack);
     // A goose or a cat wears its variant's face. A Parcel out of its paper is a plain pumpkin.
     const siegeLook = siegeLookOf(e);
     const look: Look | null =
@@ -530,10 +553,26 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
     const painted = look != null && ready(art[look]);
     const quiet = (world.bell?.quiet ?? 0) > 0;
-    if (!painted && siegeLook) drawSiegeShape(ctx, siegeLook, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, next ? next.x < e.x - 4 : false, Boolean(e.leader));
+    const shape = !painted && (siegeLook || e.native === "sprout" || e.native === "gargoyle");
+    // Whether a painted sprite is drawn (it takes its body look as a pre-tinted copy); a code-drawn one gets an overlay.
+    const sprite = !shape && ready(painted ? art[look] : e.kind === "goose" || e.kind === "cat" ? undefined : art[e.kind]);
+    // Status looks are sized to what's drawn: a painted sprite is bigger than the fruit's hit radius.
+    const drawnR = sprite ? ((painted && look ? LOOK_H[look] : (UNIT_H as Record<string, number>)[e.kind]) ?? e.r * 2.4) * 0.42 : e.r;
+    const se = drawnR === e.r ? e : { ...e, r: drawnR };
+    if (sl) drawStatusGround(ctx, se, sl, world.anim);
+    ctx.save();
+    if (sl) applyStatusMotion(ctx, se, sl, world.anim);
+    const stretch = sl?.extras.stretch ? STATUS_LOOK.stretch : 0;
+    if (!painted && siegeLook) drawSiegeShape(ctx, siegeLook, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, faceLeft, Boolean(e.leader), stretch);
     else if (!painted && e.native === "sprout") drawSproutShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim);
     else if (!painted && e.native === "gargoyle") drawGargoyleShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, quiet);
-    else drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, next ? next.x < e.x - 4 : false, painted ? look : null);
+    else
+      drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, faceLeft, painted ? look : null, {
+        bob: sl ? sl.motion.bob : 1,
+        tint: sl?.body ? { body: sl.body, alpha: bodyTintAlpha(sl, world.anim) } : null,
+      });
+    if (sl) drawStatusBody(ctx, se, sl, world.anim, sprite);
+    ctx.restore();
     if (painted && e.native === "gargoyle" && quiet) {
       // Awake: a faint pale glow while the clock silences the towers.
       ctx.fillStyle = `rgba(200,220,255,${0.25 + Math.sin(world.anim * 12) * 0.1})`;
@@ -552,7 +591,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.closePath();
       ctx.fill();
     }
-    if (e.mittened) {
+    if (!sl && e.mittened) {
       // Carrying General Mittens' bonus: a small gold star.
       ctx.fillStyle = "#e6c36a";
       ctx.beginPath();
@@ -646,20 +685,20 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.stroke();
       ctx.restore();
     }
-    if (e.freeze > 0) {
+    if (!sl && e.freeze > 0) {
       ctx.fillStyle = "rgba(186,220,232,0.38)";
       ctx.beginPath();
       ctx.arc(e.x, e.y, e.r + 3, 0, Math.PI * 2);
       ctx.fill();
     }
-    if ((e.ink ?? 0) > 0) {
+    if (!sl && (e.ink ?? 0) > 0) {
       ctx.fillStyle = "rgba(29,38,64,0.85)";
       ctx.beginPath();
       ctx.arc(e.x + e.r * 0.5, e.y - e.r * 0.6, 4, 0, Math.PI * 2);
       ctx.arc(e.x + e.r * 0.5 + 4, e.y - e.r * 0.6 + 3, 2, 0, Math.PI * 2);
       ctx.fill();
     }
-    if ((e.honeyed ?? 0) > 0) {
+    if (!sl && (e.honeyed ?? 0) > 0) {
       // Honeyed Heel: an amber drip on top of the fruit.
       ctx.fillStyle = "rgba(232,176,64,0.9)";
       ctx.beginPath();
@@ -669,7 +708,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.arc(e.x - e.r * 0.3 + 2, e.y - e.r * 0.75 + 5, 1.8, 0, Math.PI * 2);
       ctx.fill();
     }
-    if ((e.worm ?? 0) > 0) {
+    if (!sl && (e.worm ?? 0) > 0) {
       ctx.fillStyle = "#e79ab0";
       for (let i = 0; i < 3; i++) {
         ctx.beginPath();
@@ -677,7 +716,10 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         ctx.fill();
       }
     }
-    drawPips(ctx, e);
+    if (sl) {
+      drawStatusAbove(ctx, se, sl, world.anim, faceLeft);
+      drawStatusPips(ctx, se, sl);
+    } else drawPips(ctx, e);
     ctx.restore();
   }
 
@@ -2401,7 +2443,7 @@ function hpBar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, h
   const bw = r * 2;
   ctx.fillStyle = "rgba(0,0,0,0.45)";
   ctx.fillRect(x - bw / 2, y - r - 10, bw, 4);
-  ctx.fillStyle = "#f3e2c4";
+  ctx.fillStyle = barFill(hp, false);
   ctx.fillRect(x - bw / 2, y - r - 10, bw * Math.max(0, hp), 4);
 }
 
@@ -2570,11 +2612,12 @@ function drawEnemy(
   art: Partial<Record<SpriteName, HTMLImageElement>>,
   faceLeft: boolean,
   look: Look | null = null,
+  status: { bob?: number; tint?: { body: Body; alpha: number } | null } = {},
 ) {
   const img = look ? art[look] : kind === "goose" || kind === "cat" ? undefined : art[kind];
   const height = look ? LOOK_H[look] : UNIT_H[kind];
   if (ready(img)) {
-    const bob = Math.sin(anim * 3 + x * 0.05) * (boss ? 0 : 1.2);
+    const bob = Math.sin(anim * 3 + x * 0.05) * (boss ? 0 : 1.2) * (status.bob ?? 1);
     ctx.fillStyle = "rgba(0,0,0,0.38)";
     ctx.beginPath();
     ctx.ellipse(x, y + height * 0.36, height * 0.28, height * 0.1, 0, 0, Math.PI * 2);
@@ -2587,13 +2630,24 @@ function drawEnemy(
     ctx.shadowBlur = look === "gall" ? 12 : 7;
     const w = height * (img.naturalWidth / img.naturalHeight);
     ctx.drawImage(img, -w / 2, -height / 2, w, height);
+    const tint = status.tint;
+    if (tint && tint.alpha > 0) {
+      // The body look: a copy of the sprite tinted once and reused, laid over it.
+      const tinted = tintedSprite(img, tint.body);
+      if (tinted) {
+        ctx.shadowColor = "transparent";
+        ctx.globalAlpha = tint.alpha;
+        ctx.drawImage(tinted, -w / 2, -height / 2, w, height);
+        ctx.globalAlpha = 1;
+      }
+    }
     ctx.restore();
     if (hp < 0.995) {
       const bw = Math.min(44, height * 0.55);
       const top = y - height * 0.48;
       ctx.fillStyle = "rgba(0,0,0,0.45)";
       ctx.fillRect(x - bw / 2, top, bw, 4);
-      ctx.fillStyle = boss ? "#e6c36a" : "#f3e2c4";
+      ctx.fillStyle = barFill(hp, boss);
       ctx.fillRect(x - bw / 2, top, bw * Math.max(0, hp), 4);
     }
     return;
@@ -2660,7 +2714,7 @@ function drawEnemy(
   const bw = r * 2;
   ctx.fillStyle = "rgba(0,0,0,0.45)";
   ctx.fillRect(x - bw / 2, y - r - 10, bw, 4);
-  ctx.fillStyle = boss ? "#e6c36a" : "#f3e2c4";
+  ctx.fillStyle = barFill(hp, boss);
   ctx.fillRect(x - bw / 2, y - r - 10, bw * Math.max(0, hp), 4);
 }
 

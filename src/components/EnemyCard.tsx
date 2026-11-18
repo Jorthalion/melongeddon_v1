@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { describeEnemy, type EnemyInfo } from "@/game/enemyInfo";
+import { effectColor } from "@/game/drawStatus";
 import type { GameApi } from "@/components/ui";
 
 /** The fruit under the mouse, and where the mouse is inside the board area (CSS px). */
@@ -35,9 +36,15 @@ export function EnemyCardBody({ info, preview = false }: { info: EnemyInfo; prev
         <>
           <p className="mt-1.5 text-[0.625rem] tracking-[0.16em] text-gold uppercase">Right now</p>
           <ul className="flex flex-col gap-0.5 text-xs text-[#9fd4f0]">
-            {info.effects.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
+            {info.effects.map((t) => {
+              const tone = effectColor(t);
+              return (
+                <li key={t} className="flex items-baseline gap-1.5" style={tone ? { color: tone } : undefined}>
+                  <span aria-hidden="true" className="inline-block size-1.5 shrink-0 rounded-full" style={{ background: tone ?? "currentColor" }} />
+                  {t}
+                </li>
+              );
+            })}
           </ul>
         </>
       ) : null}

@@ -1,6 +1,7 @@
 // The Siege's code-drawn art: geese, cats, the Courtyard's props, drop targets and fights.
 // Stand-ins until painted sprites exist (see docs/art/ENEMY_PROMPTS.md and docs/art/PROMPTS.md).
 import { CELL } from "./rules.ts";
+import { barFill } from "./drawStatus.ts";
 
 export type SiegeLook = "honker" | "gosling" | "matriarch" | "whiskers" | "boxcat" | "para" | "tank" | "general";
 
@@ -22,7 +23,7 @@ export function siegeLookOf(e: {
 function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, hp: number, boss: boolean) {
   ctx.fillStyle = "rgba(0,0,0,0.45)";
   ctx.fillRect(x - w / 2, y, w, 4);
-  ctx.fillStyle = boss ? "#e6c36a" : "#f3e2c4";
+  ctx.fillStyle = barFill(hp, boss);
   ctx.fillRect(x - w / 2, y, w * Math.max(0, Math.min(1, hp)), 4);
 }
 
@@ -34,7 +35,7 @@ function shadow(ctx: CanvasRenderingContext2D, w: number, y: number) {
 }
 
 /** A goose, facing right: white body, long neck, orange beak (a gosling is small and yellow; the Matriarch wears a crest). */
-function goose(ctx: CanvasRenderingContext2D, r: number, look: "honker" | "gosling" | "matriarch", anim: number, leader: boolean) {
+function goose(ctx: CanvasRenderingContext2D, r: number, look: "honker" | "gosling" | "matriarch", anim: number, leader: boolean, stretch = 0) {
   const baby = look === "gosling";
   const body = baby ? "#f2d45c" : "#f6f3ea";
   const shade = baby ? "#d2ad38" : "#cfcabd";
@@ -71,8 +72,9 @@ function goose(ctx: CanvasRenderingContext2D, r: number, look: "honker" | "gosli
   ctx.ellipse(-r * 0.25, r * 0.05, r * 0.6, r * 0.38, -0.2, 0, Math.PI * 2);
   ctx.fill();
   // Neck up to the head (a gosling's head sits right on its body).
-  const hx = baby ? r * 0.75 : r * 0.85;
-  const hy = baby ? -r * 0.45 : -r * 1.05;
+  // Rallied: the neck stretched forward.
+  const hx = (baby ? r * 0.75 : r * 0.85) + r * stretch;
+  const hy = (baby ? -r * 0.45 : -r * 1.05) + r * stretch * 0.45;
   if (!baby) {
     ctx.strokeStyle = body;
     ctx.lineWidth = r * 0.42;
@@ -338,11 +340,12 @@ export function drawSiegeShape(
   boss: boolean,
   faceLeft: boolean,
   leader = false,
+  stretch = 0,
 ) {
   ctx.save();
   ctx.translate(x, y);
   if (faceLeft) ctx.scale(-1, 1);
-  if (look === "honker" || look === "gosling" || look === "matriarch") goose(ctx, r, look, anim, leader);
+  if (look === "honker" || look === "gosling" || look === "matriarch") goose(ctx, r, look, anim, leader, stretch);
   else if (look === "boxcat") box(ctx, r, anim);
   else if (look === "tank") tank(ctx, r, anim);
   else {

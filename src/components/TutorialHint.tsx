@@ -69,7 +69,7 @@ export const COMBO_TIP_KEYS = {
 const COMBO_TIPS: Record<keyof typeof COMBO_TIP_KEYS, { title: string; body: string }> = {
   shatter: { title: "Frozen fruit shatter.", body: "Hit them with something that explodes: a fruit with two frost takes half again, and its ice flies into its neighbours." },
   thermal: { title: "Ice first, then fire.", body: "Fire on a frosted fruit thaws it with a burst. Freezing a burning fruit puts the fire out instead." },
-  mixed: { title: "Damage over time adds up.", body: "Stings, poison and fire all stack on the same fruit. The dots under it show what it's carrying." },
+  mixed: { title: "Damage over time adds up.", body: "Stings, poison and fire all stack on the same fruit. The little shapes under it show what it's carrying, and how many." },
   contagion: { title: "A fruit that dies loaded spreads it.", body: "With three of anything on it, it passes one of each to the fruit around it." },
 };
 

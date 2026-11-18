@@ -12,6 +12,7 @@ import {
   SIEGE, type SiegeVariant,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
+import { STATUS_LOOK } from "./drawStatus.ts";
 
 export * from "./rules.ts";
 // Dev only: the open game keeps its world (and its api) across hot updates, so a changed engine or
@@ -189,6 +190,24 @@ interface Enemy {
   flamed?: boolean;
   /** Wildfire: progress toward setting the next neighbour alight (1 = now). */
   wildAcc?: number;
+  /** Drawing only: what stopped it, when `freeze` is a stun rather than ice (stars for the Bell, notes for the Organ). */
+  stunBy?: "bell" | "organ";
+  /** Drawing only: seconds it has burned lately (char spots build up), seconds since it was last healed, and the trail timer. */
+  charred?: number;
+  healT?: number;
+  markCd?: number;
+}
+
+/** Drawing only: a status trail on the carpet (scorch, green drip, honey print, frost), a shatter's frost star or a thermal shock's steam. */
+export interface StatusMark {
+  x: number;
+  y: number;
+  kind: "scorch" | "drip" | "print" | "frost" | "star" | "steam";
+  life: number;
+  max: number;
+  /** Which way it was walking (honey prints), and a fixed random number for its shape. */
+  rot: number;
+  seed: number;
 }
 
 /** One group of identical enemies in a wave preview, in spawn order: what one of them will really have. */
@@ -880,6 +899,8 @@ export interface World {
   wet: Set<string>;
   flyers: Flyer[];
   stains: Stain[];
+  /** Drawing only: status trails and combo marks on the carpet (capped at STATUS_LOOK.maxMarks, cleared with the wave). */
+  marks: StatusMark[];
   bits: Bit[];
   floaters: Floater[];
   shake: number;
@@ -1142,6 +1163,7 @@ export function createWorld(
     wet: new Set<string>(),
     flyers: [],
     stains: [],
+    marks: [],
     bits: [],
     floaters: [],
     shake: 0,
@@ -1516,6 +1538,12 @@ export function createWorld(
   const stain = (x: number, y: number, r: number, color: string) => {
     world.stains.push({ x, y, r, color, life: 2.2, max: 2.2, seed: Math.floor(Math.random() * 1000) });
     if (world.stains.length > 40) world.stains.splice(0, world.stains.length - 40);
+  };
+
+  /** Drawing only: leave a status mark on the carpet (the oldest goes past the cap). */
+  const addMark = (x: number, y: number, kind: StatusMark["kind"], life: number, rot = 0) => {
+    world.marks.push({ x, y, kind, life, max: life, rot, seed: Math.random() });
+    if (world.marks.length > STATUS_LOOK.maxMarks) world.marks.splice(0, world.marks.length - STATUS_LOOK.maxMarks);
   };
 
   const float = (x: number, y: number, text: string, color: string) => {
@@ -2677,6 +2705,7 @@ export function createWorld(
     world.stomps = [];
     world.flyers = [];
     world.stains = [];
+    world.marks = [];
     world.bits = [];
     world.floaters = [];
     world.shake = 0;
@@ -3058,6 +3087,8 @@ export function createWorld(
     // A Gosling Line's leader down: the rest of its line stand there for a moment.
     if (e.gosling && e.leader) {
       for (const o of world.enemies) if (o !== e && o.gosling && o.line === e.line && o.hp > 0) o.halt = Math.max(o.halt ?? 0, SIEGE.goslingStun);
+      world.floaters.push({ x: e.x, y: e.y - 30, text: "LEADER DOWN", life: 0.9, color: "#f2d45c", size: 14 });
+      world.rings.push({ x: e.x, y: e.y, r: e.r + 22, life: 0.4, max: 0.4, color: "242,212,92" });
     }
     // General Mittens down: every cat loses her bonus and scatters back down the carpet.
     if (e.general) {
@@ -3126,6 +3157,7 @@ export function createWorld(
       // Frozen solid for today's freeze time, then back to two (see the tick).
       const hold = (e.boss ? 0.6 : 1.45) * (e.guard === "damp" ? 1.4 : 1);
       e.freeze = Math.max(e.freeze, hold);
+      e.stunBy = undefined;
       douse(e);
     }
   };
@@ -3139,6 +3171,7 @@ export function createWorld(
     comboSeen("thermal");
     world.rings.push({ x: e.x, y: e.y - 6, r: e.r + 14, life: 0.6, max: 0.6, color: "235,235,240", fill: true });
     world.floaters.push({ x: e.x, y: e.y - 28, text: "HISS", life: 0.7, color: "#eef0f2", size: 14 });
+    addMark(e.x, e.y, "steam", STATUS_LOOK.steamLife);
   };
   const frosted = (e: Enemy) => frozen(e) || (e.frost ?? 0) >= 1;
   /** Stung: `n` stacks (up to AFFLICT.stingMax), refreshed. */
@@ -3282,6 +3315,7 @@ export function createWorld(
     world.runLog.contagion += spread;
     comboSeen("contagion");
     world.rings.push({ x: e.x, y: e.y, r: AFFLICT.contagionRadius, life: 0.4, max: 0.4, color: "190,220,120" });
+    world.floaters.push({ x: e.x, y: e.y - 30, text: "SPREAD", life: 0.8, color: "#c8e88a", size: 14 });
   };
   /** An explosion at (x, y): puddles in it spread out once, fire patches in it flare up. */
   const explode = (x: number, y: number, r: number) => {
@@ -3327,6 +3361,9 @@ export function createWorld(
       world.runLog.shatters += 1;
       comboSeen("shatter");
       world.floaters.push({ x: e.x, y: e.y - 30, text: "SHATTER", life: 0.8, color: "#cfe9f5", size: 16 });
+      addMark(e.x, e.y + e.r * 0.5, "star", STATUS_LOOK.starLife);
+      world.rings.push({ x: e.x, y: e.y, r: e.r + 16, life: 0.35, max: 0.35, color: "207,233,245" });
+      burst(e.x, e.y, "#d8f0fa", 8);
       const reach = COMBO.shardRadius * (fitted("freeze", "shrapnel") ? COMBO.shrapnelWide : 1);
       for (let k = 0; k < 8; k++) {
         const a = (k / 8) * Math.PI * 2;
@@ -3492,6 +3529,7 @@ export function createWorld(
     if (shot.element === "ice" && e.guard !== "husk") {
       const hold = (e.boss ? 0.6 : 1.45) + shot.freezeExtra;
       e.freeze = Math.max(e.freeze, e.guard === "damp" ? hold * 1.4 : hold);
+      e.stunBy = undefined;
       float(e.x, e.y - 18, "frozen", "#d5e4ee");
       if (COMBO.on) {
         // Fire, then ice: it puts a fire out. Then it gains its frost as usual.
@@ -4018,13 +4056,34 @@ export function createWorld(
       credit = burnBy ?? null;
       if (burn) hurt(e, null, burn * dt, 0, "burn");
       credit = null;
+      // Drawing only: char builds while it burns; the healing glow fades; a trail is laid as it walks.
+      {
+        const burning = burn > 0 || (e.burnT ?? 0) > 0;
+        e.charred = burning ? Math.min(STATUS_LOOK.charMax, (e.charred ?? 0) + dt) : Math.max(0, (e.charred ?? 0) - dt * 0.5);
+        if ((e.healT ?? 0) > 0) e.healT = Math.max(0, (e.healT ?? 0) - dt);
+        e.markCd = (e.markCd ?? 0) - dt;
+        if (e.hp > 0 && e.slow > 0 && e.markCd <= 0) {
+          const kind: StatusMark["kind"] | null = burning
+            ? "scorch"
+            : (e.poison ?? 0) > 0
+              ? "drip"
+              : (e.honeyed ?? 0) > 0
+                ? "print"
+                : COMBO.on ? ((e.frost ?? 0) >= 1 ? "frost" : null) : e.chill > 0 ? "frost" : null;
+          if (kind) {
+            const to = world.points[e.wp];
+            addMark(e.x, e.y + e.r * 0.6, kind, STATUS_LOOK.trailLife, to ? Math.atan2(to.y - e.y, to.x - e.x) : 0);
+            e.markCd = STATUS_LOOK.trailEvery;
+          } else e.markCd = 0;
+        }
+      }
       // A growth bed (or a Creeping Squash's vine) heals whatever stands in it, unless it's burning. Fire burns a vine away.
       const vine = world.vines.has(tileOf(e));
       if (burn && vine) world.vines.delete(tileOf(e));
       const onBed = floorAt(e)?.kind === "bed" || (vine && !burn);
       if (e.hp > 0 && !burn && e.hp < e.maxHp && onBed) {
         e.hp = Math.min(e.maxHp, e.hp + e.maxHp * FLOOR.bedHeal * dt);
-        if (!world.reduced && Math.random() < dt * 3) burst(e.x, e.y - 8, "#8fdc6a", 2);
+        e.healT = STATUS_LOOK.healGlow;
       }
       if (e.native === "sprout" && e.hp > 0 && !burn && onBed) {
         e.bedTime = (e.bedTime ?? 0) + dt;
@@ -4046,6 +4105,7 @@ export function createWorld(
         const host = world.enemies.find((o) => o.id === e.mends && o.hp > 0);
         if (host) {
           host.hp = Math.min(host.maxHp, host.hp + host.maxHp * BALANCE.gallHeal * dt);
+          if (host.hp < host.maxHp) host.healT = STATUS_LOOK.healGlow;
           const spot = stepBehind(host, CANNON_GALL_GAP);
           e.x = spot.x;
           e.y = spot.y;
@@ -4299,7 +4359,10 @@ export function createWorld(
           if (e.guard === "husk") continue;
           e.chill = Math.max(e.chill, CANNON.organChill);
           addFrost(e, COMBO.chillHit);
-          if (swell) e.freeze = Math.max(e.freeze, e.boss ? CANNON.organStunBoss : CANNON.organStun);
+          if (swell) {
+            e.freeze = Math.max(e.freeze, e.boss ? CANNON.organStunBoss : CANNON.organStun);
+            e.stunBy = "organ";
+          }
         }
         world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.5, max: 0.5, color: swell ? "230,195,106" : "170,130,210" });
         float(tower.x, tower.y - 28, swell ? "CRESCENDO" : "♪", swell ? "#e6c36a" : "#c9b2ec");
@@ -4311,6 +4374,7 @@ export function createWorld(
         for (const e of inRange) {
           if (e.guard === "husk") continue;
           e.freeze = Math.max(e.freeze, e.boss ? CANNON.bellStunBoss : CANNON.bellStun);
+          e.stunBy = "bell";
         }
         world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.45, max: 0.45, color: "230,195,106" });
         float(tower.x, tower.y - 26, "SHHH", "#e6c36a");
@@ -4582,6 +4646,8 @@ export function createWorld(
     world.stomps = world.stomps.filter((st) => st.life > 0);
     for (const st of world.stains) st.life -= dt;
     world.stains = world.stains.filter((st) => st.life > 0);
+    for (const m of world.marks) m.life -= dt;
+    world.marks = world.marks.filter((m) => m.life > 0);
     world.sparks = world.sparks.filter((s) => s.life > 0);
     for (const f of world.floaters) {
       f.life -= dt;
@@ -4748,6 +4814,7 @@ export function createWorld(
       }
       world.hud.paused = false;
       absorbed = 0;
+      world.marks = [];
       // Lion Blades standing now will mend when this wave is cleared; ones built mid-wave won't.
       for (const blade of world.towers) if (blade.kind === "lionblade") blade.mendReady = true;
       lectureNow = lecture && lecture.waves > 0 ? lecture.kind : null;

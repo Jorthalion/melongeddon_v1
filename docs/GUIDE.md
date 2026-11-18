@@ -588,6 +588,34 @@ Everything shaping your run is on one library checkout card, stamped **DUE: DAWN
 | **Chimer** | The Bell Tower only. A corn with a little bell: every one still walking makes the clock strike sooner |
 | **Gargoyle Gourd** | The Bell Tower only. A stone squash: tougher between strikes, three times as fast while the towers are silent |
 
+### Reading the carpet
+
+Everything on a fruit shows on the fruit itself. Its body takes one coating, for the most important effect (frozen, then burning, frost, poison, ink, honey); everything else shows as particles above it, a mark at its feet or the way it walks.
+
+| What you see | What it means |
+|---|---|
+| Pale blue frosting at the edges, a little breath puff, a slower bob; frost at its feet | **Frost** (1 or 2 stacks, or a chill): it's slowed |
+| Inside a clear **ice block** with icicles; frost spreading under it | **Frozen solid**: it can't move. **Cracks** appear in the last 0.6 s, so you can time a shatter |
+| The block bursts, shards fly, "SHATTER", a frost star on the carpet | **Shatter**: an explosion hit a frozen or frosty fruit |
+| An orange glow underneath, flames on top, smoke; **char spots** build up; scorch marks behind it | **Burning** |
+| A big puff of steam and "HISS" | **Thermal shock**: fire met frost |
+| A pulsing green sheen, bubbles (one more per stack), green drips behind it | **Poisoned** |
+| Small **stingers** stuck in it (one per stack), a fly or two around it | **Stung** |
+| Dark ink splatter that fades, a slow drip | **Inked**: it takes more damage |
+| A glossy amber glaze, sticky footprints behind it, a fly | **Honeyed** |
+| Bulges moving under the skin, two little holes, a worm popping out | **Burrowed** by the Bookworm |
+| Ripples at its feet | Slowed by a **puddle** |
+| Stars (the Shush Bell) or music notes (the Organ) circling, rocking in place | **Stunned** |
+| Squashed flat, with a dust ring | **Stomped** by the Foot of the Law, or held by the Gourd Gate |
+| Turned round to face back, sweating; panicking geese drop feathers | **Walked back** (the Reverse Driver, the Anti-Geese Protocol, the General's scatter) |
+| A "!" over its head | **Standing still** (a Gosling leader fell); a fight has its own dust cloud |
+| A soft green glow and rising "+" | **Healing** on a bed, a vine, or from a gall |
+| Speed lines; a goose stretches its neck forward | **Rallied** by the Matriarch |
+| A small gold medal | Carrying **General Mittens' bonus** |
+| Cracks, a little juice, a wobble, a **red health bar** | **Badly hurt** (under a quarter of its health) |
+
+**Pips** under a fruit list its timed and stacking effects, most important first, four at most, with the stack count: a **snowflake** (frost, blue like the Freeze cannon), a **star** (stunned), a **flame** (burning), a **drop** (poison, the Cauldron's green), a **stinger** (stings, the Hive's amber), a **worm** (burrowed), an **ink blot** (inked) and a **honeycomb** (sticky). The enemy card's "Right now" lines use the same colours. With **Reduce motion** on, nothing rocks, shakes or circles, but the looks stay: a frozen fruit keeps its block and a walked-back one still faces backwards. On a phone the particles are halved, so the body look and the pips carry the meaning.
+
 ### Armour and guards
 
 **Hover over any fruit** (with a mouse) to see its name, its health, what it is (armour, marks like Split's X, its own rules) and what's on it right now (frozen, inked, burning and so on).

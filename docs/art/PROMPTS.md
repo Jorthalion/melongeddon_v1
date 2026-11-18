@@ -192,6 +192,15 @@ The Siege's map is the library's back courtyard at night: flagstones, a hedge ma
 |---|---|
 | `prop-chute.png` | A square **iron-and-brass book-returns chute hatch set into the floor**, seen from straight above at a slight angle, its hinged lid propped half open with darkness and a little water inside, a brass plate on the lid with a **downward arrow** (no readable text), rivets around the frame, a few wet returned books stacked beside it. Transparent background, 512 × 512. |
 
+### 2c. Status effects (optional; drawn by code)
+
+The game draws every status look in code (`src/game/drawStatus.ts`), and these would only replace two of them. Both are overlays laid over any fruit, so they must be centred, symmetrical and read at about 40 px. Transparent background, no fruit inside.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `fx-ice-block.png` | A **translucent block of clear blue ice**, roughly cube-shaped with rounded edges, seen from the front at a slight angle from above, a bright white highlight along the top-left edge, **two small icicles** hanging from the bottom edge, faint frosted swirls inside, **empty and see-through in the middle** so a fruit can show through it. Transparent background, 512 × 512. |
+| `fx-flame-tongues.png` | **Three small cartoon flame tongues** in a row, orange outside and yellow inside, leaning slightly as if in a breeze, flat at the bottom so they sit on top of something, a few sparks above. No smoke, no fuel. Transparent background, 512 × 256. |
+
 ---
 
 ## 3. Map art (only if you want painted maps back)

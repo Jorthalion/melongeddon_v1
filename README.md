@@ -212,11 +212,15 @@ The pause menu (`Esc` or the menu button) has Resume, Settings, Restart night an
 
 All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `world.sfx` and the UI plays them.
 
+## Status looks
+
+`src/game/drawStatus.ts` draws every status effect, and nothing in it changes a rule. `statusLook(e, world, { small })` is a pure function that picks what one enemy shows in five layers: `body` (one coating, by priority: `ice`, `burn`, `frost`, `poison`, `ink`, `honey`), `particles` (kinds and counts, capped per fruit and halved on a phone), `ground` (`frost`, `ripple` or `dust`), `pips` (shape, colour and count, most important first, four at most) and `motion` (bob, `faceBack`, rock, wobble, shiver, flatten; none animated with `world.reduced`), plus fixed `extras` (stingers, ice cracks in the last `crackAt` seconds, char, burrow, hurt, heal, the General's medal, the "!"). `draw.ts` calls it once per enemy and hands the result to `drawStatusGround`, `applyStatusMotion`, `drawStatusBody`, `drawStatusAbove` and `drawStatusPips`; a painted sprite takes its body look as a tinted copy made once per sprite and look (`tintedSprite`), and a code-drawn stand-in gets an overlay. Every drawing number (sizes, alphas, `maxParticles` 6 and `maxParticlesTotal` 200, `trailLife` 3 s, `maxMarks` 60) is in `STATUS_LOOK`, and `STATUS_COLOR` holds one colour per effect, also used on the enemy card (`effectColor`). Trails and combo marks (scorch, drips, honey prints, frost, a shatter's star, a thermal shock's steam) are drawing state in `world.marks` (`StatusMark`), laid in the enemy step every `trailEvery` and cleared with the wave. Drawing-only enemy fields: `stunBy` (`"bell"` or `"organ"`, set where those stun, so a stun isn't drawn as ice), `charred`, `healT` and `markCd`. `STATUS_LOOK.on = false` draws the old marks instead. Tests: `tests/status-look.test.ts`.
+
 ## Layout
 
 - `src/game/rules.ts` – towers, upgrades, mods, maps, waves, enemy stats (pure data)
 - `src/game/engine.ts` – the simulation: world state, combat, phases (no DOM)
-- `src/game/draw.ts` – canvas renderer
+- `src/game/draw.ts` – canvas renderer; `drawStatus.ts` – how status effects look on the fruit and the carpet
 - `src/game/audio.ts` – Web Audio tones
 - `src/components/MelonGame.tsx` – the shell: game loop, canvas input, Back gesture, and which screen shows
 - `src/components/TitleScreen.tsx`, `SetupScreen.tsx`, `RoomScreen.tsx` – Title (with How to play), New night setup, the intro
