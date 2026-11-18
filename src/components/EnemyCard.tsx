@@ -16,7 +16,7 @@ export function EnemyCardBody({ info, preview = false }: { info: EnemyInfo; prev
     <>
       <p className="flex items-baseline justify-between gap-2">
         <span className="font-display text-base leading-tight font-semibold text-gold">{info.name}</span>
-        <span className="shrink-0 text-xs text-parchment">{preview ? `${info.maxHp} health` : `${info.hp} / ${info.maxHp}`}</span>
+        <span className="shrink-0 text-[0.8125rem] text-parchment">{preview ? `${info.maxHp} health` : `${info.hp} / ${info.maxHp}`}</span>
       </p>
       {preview ? null : (
         <div className="mt-1 h-1 overflow-hidden rounded-full bg-panel-2">
@@ -24,18 +24,18 @@ export function EnemyCardBody({ info, preview = false }: { info: EnemyInfo; prev
         </div>
       )}
       {info.traits.length ? (
-        <ul className="mt-1.5 flex flex-col gap-0.5 text-xs text-parchment">
+        <ul className="mt-1.5 flex flex-col gap-0.5 text-[0.8125rem] text-parchment">
           {info.traits.map((t) => (
             <li key={t}>{t}</li>
           ))}
         </ul>
       ) : (
-        <p className="mt-1.5 text-xs text-muted">No armour or tricks.</p>
+        <p className="mt-1.5 text-[0.8125rem] text-muted">No armour or tricks.</p>
       )}
       {info.effects.length ? (
         <>
-          <p className="mt-1.5 text-[0.625rem] tracking-[0.16em] text-gold uppercase">Right now</p>
-          <ul className="flex flex-col gap-0.5 text-xs text-[#9fd4f0]">
+          <p className="mt-1.5 text-[0.6875rem] tracking-[0.16em] text-gold uppercase">Right now</p>
+          <ul className="flex flex-col gap-0.5 text-[0.8125rem] text-[#9fd4f0]">
             {info.effects.map((t) => {
               const tone = effectColor(t);
               return (
@@ -50,8 +50,8 @@ export function EnemyCardBody({ info, preview = false }: { info: EnemyInfo; prev
       ) : null}
       {info.beats.length ? (
         <>
-          <p className="mt-1.5 text-[0.625rem] tracking-[0.16em] text-gold uppercase">Beaten by</p>
-          <ul className="flex flex-col gap-0.5 text-xs text-[#b8e0a0]">
+          <p className="mt-1.5 text-[0.6875rem] tracking-[0.16em] text-gold uppercase">Beaten by</p>
+          <ul className="flex flex-col gap-0.5 text-[0.8125rem] text-[#b8e0a0]">
             {info.beats.map((t) => (
               <li key={t}>{t}</li>
             ))}

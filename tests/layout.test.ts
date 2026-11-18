@@ -66,6 +66,24 @@ test("layoutFor: a tall window keeps the normal layout; the 16 × 10 and 22 × 1
   assert.ok(stacks > hall, `the Stacks (16:10) needs a wider window (${stacks}) than the Great Hall (${hall}) at this height`);
 });
 
+test("layoutFor picks the layout that draws the bigger board (1366 × 768 to 2560 × 1440)", () => {
+  for (const [vw, vh] of [
+    [1366, 768],
+    [1440, 900],
+    [1920, 1080],
+    [2560, 1440],
+  ])
+    for (const board of [STACKS, HALL]) {
+      const l = mode(vw, vh, board);
+      const chosen = l.mode === "wide" ? l.wideBoard : l.normalBoard;
+      const other = l.mode === "wide" ? l.normalBoard : l.wideBoard;
+      assert.ok(chosen >= other - 4, `${vw}×${vh} ${board[0]}×${board[1]}: ${l.mode} gives ${Math.round(chosen)} px, the other ${Math.round(other)} px`);
+    }
+  // On a laptop the wide layout only wins when its board really is bigger.
+  const laptop = mode(1440, 900, STACKS);
+  assert.equal(laptop.mode, "normal", `1440×900: normal ${Math.round(laptop.normalBoard)}, wide ${Math.round(laptop.wideBoard)}`);
+});
+
 test("Interface size: Auto by default, saves and loads, and unknown values fall back to Auto", () => {
   const data = new Map<string, string>();
   const store = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) };

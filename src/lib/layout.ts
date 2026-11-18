@@ -64,27 +64,42 @@ export const FOOTER_REM = 15.25;
 /** The wide layout's columns, in rem: the build column on the left, the back room on the right. */
 export const LEFT_REM = 19;
 export const RIGHT_REM = 20;
-/** Switch to the wide layout when the board would leave more than this much empty space on each side (rem). */
-export const WIDE_MARGIN_REM = 14;
+/** Below this width (CSS px) the back room button and the tips leave the board for the bottom area (phones). */
+export const NARROW_PX = 640;
 /** Below this width (CSS px) the layout never switches: phones and small tablets. */
 export const WIDE_MIN_PX = 1024;
 
+/** The Coming up bar over the board, in both layouts (rem). */
+export const BAR_REM = 2.75;
+/** The wide layout's board area loses this much height to its top and bottom padding (rem). */
+export const WIDE_PAD_REM = 1.5;
+/** The wide layout may give a board this many CSS px narrower than the normal one and still be chosen. */
+export const WIDE_SLACK_PX = 4;
+
 /**
  * Which layout fits a `boxW` × `boxH` area (everything under the top bar, in CSS px) for a
- * `boardW` × `boardH` board (world px). It measures the normal layout: the board above the build
- * bar, scaled to fit. If that leaves more than WIDE_MARGIN_REM empty on each side, the wide
- * layout moves the build bar into a left column and docks the back room on the right.
+ * `boardW` × `boardH` board (world px). It works out the board's drawn width in both layouts — the
+ * normal one (the board above the build bar) and the wide one (the build bar in a left column, the
+ * back room docked on the right) — and picks the wide one only if its board is at least as big
+ * (within WIDE_SLACK_PX). Never on screens under WIDE_MIN_PX wide.
  */
 export function layoutFor(boxW: number, boxH: number, boardW: number, boardH: number, remPx: number) {
   const footer = FOOTER_REM * remPx;
-  const h = Math.max(1, boxH - footer);
+  const h = Math.max(1, boxH - footer - BAR_REM * remPx);
   const scale = Math.min(boxW / boardW, h / boardH);
   const margin = (boxW - boardW * scale) / 2;
-  const wide = boxW >= WIDE_MIN_PX && margin > WIDE_MARGIN_REM * remPx;
+  const normalBoard = boardW * scale;
+  const sideW = Math.max(1, boxW - (LEFT_REM + RIGHT_REM) * remPx);
+  const sideH = Math.max(1, boxH - (WIDE_PAD_REM + BAR_REM) * remPx);
+  const wideBoard = boardW * Math.min(sideW / boardW, sideH / boardH);
+  const wide = boxW >= WIDE_MIN_PX && wideBoard >= normalBoard - WIDE_SLACK_PX;
   return {
     mode: wide ? ("wide" as const) : ("normal" as const),
     /** Empty space each side of the board in the normal layout (CSS px). */
     margin,
+    /** The board's drawn width in each layout (CSS px). */
+    normalBoard,
+    wideBoard,
     left: wide ? LEFT_REM * remPx : 0,
     right: wide ? RIGHT_REM * remPx : 0,
   };

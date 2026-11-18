@@ -31,7 +31,7 @@ import {
   COPY_STEP_KINDS,
   COPY_HEAVY_KINDS,
 } from "@/game/engine";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { tone } from "@/game/audio";
 import { TowerIcon } from "@/components/TowerIcon";
 import { checkoutCount } from "@/components/CheckoutCard";
@@ -69,7 +69,7 @@ export function GameHeader({
         <BookOpen className={`size-5 text-gold ${inRun ? "hidden sm:block" : ""}`} aria-hidden="true" />
         <div className={inRun ? "hidden sm:block" : ""}>
           <p className="font-display text-lg leading-none font-semibold">Melongeddon</p>
-          <p className="text-xs text-muted">
+          <p className="text-[0.8125rem] text-muted">
             {phase === "coldopen"
               ? "Tonight only"
               : !inRun
@@ -82,7 +82,7 @@ export function GameHeader({
         </div>
         {hud.dev ? (
           <span
-            className={`rounded border border-[#6fc6ef]/70 px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-[0.18em] text-[#6fc6ef] ${inRun ? "hidden sm:inline" : ""}`}
+            className={`rounded border border-[#6fc6ef]/70 px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-[0.18em] text-[#6fc6ef] ${inRun ? "hidden sm:inline" : ""}`}
             title="Developer mode: everything unlocked, nothing saved to your progress"
           >
             DEV
@@ -102,13 +102,13 @@ export function GameHeader({
                 {hud.lives}/{hud.maxLives}
               </span>
               {hud.sisu > 0 ? (
-                <span className="text-xs font-semibold whitespace-nowrap text-[#8fbcf2]" title="Sisu: Asser's towers hit harder for every stack he is missing">
+                <span className="text-[0.8125rem] font-semibold whitespace-nowrap text-[#8fbcf2]" title="Sisu: Asser's towers hit harder for every stack he is missing">
                   Sisu +{hud.sisu}%
                 </span>
               ) : null}
             </span>
             {menuable ? <CheckoutButton api={api} onGesture={gesture} /> : null}
-            <span className="hidden text-xs text-muted sm:inline">Absurdity {hud.absurdity}</span>
+            <span className="hidden text-[0.8125rem] text-muted sm:inline">Absurdity {hud.absurdity}</span>
             <div className="flex items-center gap-1">
               {showPlace ? (
               <>
@@ -147,7 +147,7 @@ export function GameHeader({
               >
                 +
               </button>
-              <span className="hidden w-8 text-center text-xs text-muted sm:inline">{hud.paused ? "||" : `${hud.speed}×`}</span>
+              <span className="hidden w-8 text-center text-[0.8125rem] text-muted sm:inline">{hud.paused ? "||" : `${hud.speed}×`}</span>
               </>
               ) : null}
               {menuable ? (
@@ -201,7 +201,7 @@ function CheckoutButton({ api, onGesture }: { api: GameApi; onGesture: () => voi
     >
       <IdCard className="size-4 text-[#f3e2c4]" aria-hidden="true" />
       {n ? (
-        <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[0.625rem] leading-none font-bold text-ink" aria-hidden="true">
+        <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[0.8125rem] leading-none font-bold text-ink" aria-hidden="true">
           {n}
         </span>
       ) : null}
@@ -210,7 +210,18 @@ function CheckoutButton({ api, onGesture }: { api: GameApi; onGesture: () => voi
 }
 
 /** Bottom bar while building or fighting: start button or wave progress, build tabs, build bar or inspector, log. */
-export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; onGesture: () => void; column?: boolean }) {
+export function BuildFooter({
+  api,
+  onGesture,
+  column = false,
+  backRoom = null,
+}: {
+  api: GameApi;
+  onGesture: () => void;
+  column?: boolean;
+  /** Phones: the back room button, at the end of the tab row (off the board). */
+  backRoom?: ReactNode;
+}) {
   const hud = api.world.hud;
   const phase = hud.phase;
   const gesture = onGesture;
@@ -226,8 +237,9 @@ export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; 
           : "flex shrink-0 flex-col gap-2 border-t border-line px-3 py-2.5 sm:px-4 sm:py-3"
       }
     >
+      <div className={backRoom ? "flex shrink-0 items-stretch gap-2" : "contents"}>
       {phase === "combat" ? (
-        <div className="flex min-h-12 shrink-0 flex-col justify-center">
+        <div className={`flex min-h-12 shrink-0 flex-col justify-center ${backRoom ? "min-w-0 flex-1" : ""}`}>
           <div className={`flex items-baseline justify-between gap-3 ${column ? "flex-wrap gap-y-0.5" : ""}`}>
             <p className="font-display text-lg leading-none font-semibold">
               {hud.waveCount ? `Wave ${Math.min(hud.wave, hud.waveCount)}/${hud.waveCount}` : `Wave ${hud.wave}`}
@@ -247,7 +259,7 @@ export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; 
           type="button"
           aria-disabled={held}
           title="Space: start the wave (works any time between waves)"
-          className={`min-h-12 w-full shrink-0 rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink ${held ? "opacity-45" : ""}`}
+          className={`min-h-12 w-full shrink-0 rounded-lg ${backRoom ? "min-w-0 flex-1" : ""} bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink ${held ? "opacity-45" : ""}`}
           onClick={() => {
             gesture();
             if (!held) tone(320, 0.08, "triangle", 0.04);
@@ -255,9 +267,11 @@ export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; 
           }}
         >
           Start wave {hud.wave}
-          <span className="ml-2 hidden text-xs font-normal opacity-70 sm:inline">Space</span>
+          <span className="ml-2 hidden text-[0.8125rem] font-normal opacity-70 sm:inline">Space</span>
         </button>
       )}
+      {backRoom}
+      </div>
       <div className={`flex items-center gap-2 ${column ? "shrink-0" : "h-7"}`}>
         <div className={`flex gap-1 ${column ? "flex-wrap" : "shrink-0"}`} role="tablist" aria-label="Cannon type">
           {groupsFor(hud.hero).map((g) => {
@@ -269,7 +283,7 @@ export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; 
                 role="tab"
                 aria-selected={on}
                 title={`${g.name} (${g.key.toUpperCase()})`}
-                className={`h-7 rounded-md px-2 text-xs font-semibold sm:px-2.5 ${on ? "bg-[#3a242c] text-gold ring-1 ring-[#c6a15a]" : "text-muted"}`}
+                className={`h-7 rounded-md px-2 text-[0.8125rem] font-semibold sm:px-2.5 ${on ? "bg-[#3a242c] text-gold ring-1 ring-[#c6a15a]" : "text-muted"}`}
                 onClick={() => {
                   gesture();
                   api.dismissSelection();
@@ -282,7 +296,6 @@ export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; 
             );
           })}
         </div>
-
       </div>
       {selected ? (
         <TowerInspector
@@ -334,15 +347,15 @@ export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; 
                   api.chooseBuild(id);
                 }}
               >
-                <span className={`absolute text-[0.625rem] text-muted ${column ? "top-0.5 right-1.5" : "top-1 left-1.5 hidden sm:block"}`}>{slot + 1}</span>
+                <span className={`absolute text-[0.6875rem] text-muted ${column ? "top-0.5 right-1.5" : "top-1 left-1.5 hidden sm:block"}`}>{slot + 1}</span>
                 <span className={`relative block ${column ? "size-10 shrink-0" : ""}`}>
                   <TowerIcon kind={id} className={`mx-auto block ${column ? "h-10 w-10" : "h-7 w-full"} ${locked ? "grayscale" : ""}`} />
                   {locked ? <Lock className="absolute top-1/2 left-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-gold" aria-hidden="true" /> : null}
                 </span>
                 <span className={column ? "block min-w-0 flex-1" : "contents"}>
-                <span className={`block truncate leading-tight font-semibold ${column ? "text-sm" : "mt-0.5 text-xs"}`}>{column ? TOWERS[id].name : SHORT_NAME[id]}</span>
-                <span className={`block truncate leading-tight text-parchment ${column ? "text-xs" : "text-[0.6875rem]"}`}><CardStat kind={id} read={read} /></span>
-                <span className={`block truncate leading-tight text-muted ${column ? "text-xs" : "text-[0.6875rem]"}`}>
+                <span className={`block truncate leading-tight font-semibold ${column ? "text-sm" : "mt-0.5 text-[0.8125rem]"}`}>{column ? TOWERS[id].name : SHORT_NAME[id]}</span>
+                <span className={`block truncate leading-tight text-parchment ${column ? "text-[0.8125rem]" : "text-[0.8125rem]"}`}><CardStat kind={id} read={read} /></span>
+                <span className={`block truncate leading-tight text-muted ${column ? "text-[0.8125rem]" : "text-[0.8125rem]"}`}>
                   {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : cost === 0 ? "Free" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                 </span>
@@ -356,7 +369,7 @@ export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; 
             >
               <p className="truncate font-display text-sm font-semibold text-gold">{TOWERS[hud.build].name}</p>
               <BuildLine api={api} kind={hud.build} />
-              <p className="line-clamp-2 text-xs text-muted">
+              <p className="line-clamp-2 text-[0.8125rem] text-muted">
                 {hud.lockedTowers.includes(hud.build)
                   ? `Locked: ${TOWER_GOALS[hud.build]?.goal}`
                   : TOWER_LINE[hud.build]
@@ -367,7 +380,7 @@ export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; 
           ) : null}
         </div>
       )}
-      <p className={column ? "mt-auto shrink-0 text-xs text-muted" : "line-clamp-2 h-8 text-xs text-muted"}>{hud.log}</p>
+      <p className={column ? "mt-auto shrink-0 text-[0.8125rem] text-muted" : "line-clamp-2 h-8 text-[0.8125rem] text-muted"}>{hud.log}</p>
     </footer>
   );
 }
@@ -490,7 +503,7 @@ function BuildLine({ api, kind }: { api: GameApi; kind: TowerKind }) {
   const read = api.previewStats(kind, onFloor ? h : undefined);
   const moved = read.why.dmg.length + read.why.range.length + read.why.interval.length > 0;
   return (
-    <p className="truncate text-xs text-parchment" title={`${describeStats(kind, read)}${whyText(read)}`}>
+    <p className="truncate text-[0.8125rem] text-parchment" title={`${describeStats(kind, read)}${whyText(read)}`}>
       {describeStats(kind, read)}
       {moved ? (
         <span className={read.range < read.base.range && !read.why.dmg.length ? "text-muted" : "text-gold"}>
@@ -597,7 +610,7 @@ function AimMenu({ api, towerId, onGesture, compact = false }: { api: GameApi; t
         aria-haspopup="listbox"
         aria-expanded={open}
         title={`What it aims at among the fruit in reach. ${TARGET_HINT[aim.mode]} (A cycles it.)`}
-        className={`flex w-full items-center gap-1.5 rounded-md border border-[#c6a15a]/70 bg-[#1a1014] text-left hover:border-[#c6a15a] ${compact ? "h-7 px-2 text-xs" : "h-8 px-2.5 text-sm"}`}
+        className={`flex w-full items-center gap-1.5 rounded-md border border-[#c6a15a]/70 bg-[#1a1014] text-left hover:border-[#c6a15a] ${compact ? "h-7 px-2 text-[0.8125rem]" : "h-8 px-2.5 text-sm"}`}
         onClick={() => {
           onGesture();
           setOpen((o) => !o);
@@ -605,7 +618,7 @@ function AimMenu({ api, towerId, onGesture, compact = false }: { api: GameApi; t
       >
         <Crosshair className="size-3.5 shrink-0 text-gold" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate font-semibold text-parchment">{TARGET_LABEL[aim.mode]}</span>
-        {aim.mode === aim.recommended && !compact ? <span className="shrink-0 rounded bg-gold/15 px-1 text-[0.625rem] text-gold">best</span> : null}
+        {aim.mode === aim.recommended && !compact ? <span className="shrink-0 rounded bg-gold/15 px-1 text-[0.8125rem] text-gold">best</span> : null}
         <ChevronDown className={`size-3.5 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
       {open ? (
@@ -614,7 +627,7 @@ function AimMenu({ api, towerId, onGesture, compact = false }: { api: GameApi; t
           aria-label="What it aims at"
           className="absolute bottom-full left-0 z-30 mb-1.5 w-[17rem] overflow-hidden rounded-lg border border-[#c6a15a]/70 bg-[#1a1014] py-1 shadow-2xl"
         >
-          <li className="px-3 pt-1 pb-1.5 text-[0.625rem] tracking-[0.16em] text-gold uppercase">Aims at · A cycles</li>
+          <li className="px-3 pt-1 pb-1.5 text-[0.6875rem] tracking-[0.16em] text-gold uppercase">Aims at · A cycles</li>
           {aim.modes.map((mode) => {
             const on = mode === aim.mode;
             return (
@@ -632,9 +645,9 @@ function AimMenu({ api, towerId, onGesture, compact = false }: { api: GameApi; t
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-1.5">
                       <span className={`text-sm font-semibold ${on ? "text-gold" : "text-parchment"}`}>{TARGET_LABEL[mode]}</span>
-                      {mode === aim.recommended ? <span className="rounded bg-gold/15 px-1 text-[0.625rem] text-gold">recommended</span> : null}
+                      {mode === aim.recommended ? <span className="rounded bg-gold/15 px-1 text-[0.8125rem] text-gold">recommended</span> : null}
                     </span>
-                    <span className="block text-xs leading-snug text-muted">{TARGET_HINT[mode]}</span>
+                    <span className="block text-[0.8125rem] leading-snug text-muted">{TARGET_HINT[mode]}</span>
                   </span>
                 </button>
               </li>
@@ -647,7 +660,7 @@ function AimMenu({ api, towerId, onGesture, compact = false }: { api: GameApi; t
 }
 
 /** A small uppercase label over a section of the inspector. */
-const Label = ({ children }: { children: string }) => <p className="text-[0.625rem] leading-none tracking-[0.16em] text-gold/80 uppercase">{children}</p>;
+const Label = ({ children }: { children: string }) => <p className="text-[0.6875rem] leading-none tracking-[0.16em] text-gold/80 uppercase">{children}</p>;
 
 /** The selected tower's numbers: what it does (and its line), then its reach and tonight's tally. */
 function InspectorNumbers({
@@ -677,11 +690,11 @@ function InspectorNumbers({
       <span className="hidden sm:block">
         <Label>Does</Label>
       </span>
-      <p className={`mt-0.5 text-xs text-parchment sm:mt-1 sm:text-sm ${clip}`} title={what}>
+      <p className={`mt-0.5 text-[0.8125rem] text-parchment sm:mt-1 sm:text-sm ${clip}`} title={what}>
         {what}
       </p>
-      {TOWER_LINE[tower.kind] && column ? <p className="text-[0.6875rem] text-muted italic">{TOWER_LINE[tower.kind]}</p> : null}
-      <p className={`mt-0.5 text-xs text-muted ${clip}`}>
+      {TOWER_LINE[tower.kind] && column ? <p className="text-[0.8125rem] text-muted italic">{TOWER_LINE[tower.kind]}</p> : null}
+      <p className={`mt-0.5 text-[0.8125rem] text-muted ${clip}`}>
         <ReachNote reach={reach} />
         <NightTally tally={tally} />
         {tower.mods.length ? <span className="text-gold"> · {tower.mods.map((id) => fittingName(tower.kind === "copycat" && tower.copy ? tower.copy.kind : tower.kind, id)).join(", ")}</span> : null}
@@ -720,7 +733,7 @@ function TowerInspector({
         <p className={`font-display text-lg leading-none font-semibold ${column ? "" : "truncate"}`}>{TOWERS[tower.kind].name}</p>
         {/* Phones: the aim menu takes the type line's place, so the panel keeps its height. */}
         <p
-          className={`mt-1 text-[0.625rem] tracking-[0.16em] text-gold uppercase ${column ? "" : "truncate"} ${!column && aims ? "hidden sm:block" : ""}`}
+          className={`mt-1 text-[0.6875rem] tracking-[0.16em] text-gold uppercase ${column ? "" : "truncate"} ${!column && aims ? "hidden sm:block" : ""}`}
         >
           {TYPE_INFO[TOWER_TYPE[tower.kind]].name} · {TOWERS[tower.kind].role}
         </p>
@@ -761,7 +774,7 @@ function TowerInspector({
                   type="button"
                   aria-pressed={on}
                   title={mode === "auto" ? "Goes off on its own when fruit crowd in or near the door" : "Goes off only when you press Engage"}
-                  className={`h-9 cursor-pointer rounded-lg border px-2 text-xs ${on ? "border-[#c6a15a] bg-[#c6a15a]/25 text-parchment" : "border-line text-muted hover:border-[#c6a15a]"}`}
+                  className={`h-9 cursor-pointer rounded-lg border px-2 text-[0.8125rem] ${on ? "border-[#c6a15a] bg-[#c6a15a]/25 text-parchment" : "border-line text-muted hover:border-[#c6a15a]"}`}
                   onClick={() => {
                     onGesture();
                     api.setTrigger(mode);
@@ -775,7 +788,7 @@ function TowerInspector({
               type="button"
               title="Set it off now: every fruit in the ring is thrown back"
               disabled={api.world.hud.phase !== "combat"}
-              className="h-9 cursor-pointer rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] px-2 text-xs font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-9 cursor-pointer rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] px-2 text-[0.8125rem] font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => {
                 onGesture();
                 api.engage();
@@ -790,7 +803,7 @@ function TowerInspector({
             type="button"
             title="Watch the other straight beside this tile (between waves)"
             disabled={api.world.hud.phase !== "prep"}
-            className="h-9 rounded-lg border border-[#c6a15a] px-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-9 rounded-lg border border-[#c6a15a] px-2 text-[0.8125rem] disabled:cursor-not-allowed disabled:opacity-40"
             onClick={() => {
               onGesture();
               api.otherStraight();

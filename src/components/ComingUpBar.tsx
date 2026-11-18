@@ -33,7 +33,7 @@ function ChipPicture({ src, kind }: { src: string; kind: string }) {
   if (failed) {
     const s = STAND_IN[kind] ?? { fill: "#c4aa96", letter: "?" };
     return (
-      <span className="grid h-full w-full place-items-center rounded-full text-[0.625rem] font-bold text-[#1a1014]" style={{ backgroundColor: s.fill }}>
+      <span className="grid h-full w-full place-items-center rounded-full text-[0.6875rem] font-bold text-[#1a1014]" style={{ backgroundColor: s.fill }}>
         {s.letter}
       </span>
     );
@@ -115,9 +115,9 @@ export function ComingUpBar({ api }: { api: GameApi }) {
   const missing = between && !quiet && api.world.towers.length > 0 ? unanswered(needs, build) : [];
 
   return (
-    <div ref={box} data-board-controls className="relative z-10 shrink-0 border-b border-line/60 bg-ink/85 px-2 py-1 text-xs">
+    <div ref={box} data-board-controls className="relative z-10 shrink-0 border-b border-line/60 bg-ink/85 px-2 py-1 text-[0.8125rem]">
       <div className="flex items-center gap-2">
-        <p className="shrink-0 text-[0.625rem] leading-tight tracking-[0.14em] text-gold uppercase">
+        <p className="shrink-0 text-[0.6875rem] leading-tight tracking-[0.14em] text-gold uppercase">
           {between ? `Next · wave ${preview.index + 1}` : "Still to come"}
           <span className="hidden normal-case tracking-normal text-muted sm:inline"> · {preview.name}</span>
         </p>
@@ -148,7 +148,7 @@ export function ComingUpBar({ api }: { api: GameApi }) {
                   {marks.length ? (
                     <span className="flex gap-0.5">
                       {marks.map((m) => (
-                        <span key={m.text} title={m.title} className="hidden rounded px-0.5 text-[0.5625rem] leading-tight sm:inline" style={{ color: m.tone, border: `1px solid ${m.tone}55` }}>
+                        <span key={m.text} title={m.title} className="hidden rounded px-0.5 text-[0.8125rem] leading-tight sm:inline" style={{ color: m.tone, border: `1px solid ${m.tone}55` }}>
                           {m.text}
                         </span>
                       ))}
@@ -177,17 +177,17 @@ export function ComingUpBar({ api }: { api: GameApi }) {
       {preview.flags.length || preview.notes.length || missing.length ? (
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
           {preview.flags.map((f) => (
-            <span key={f} className="rounded bg-flesh/15 px-1 text-[0.625rem] font-semibold text-[#f2a0a8]">
+            <span key={f} className="rounded bg-flesh/15 px-1 text-[0.8125rem] font-semibold text-[#f2a0a8]">
               {f}
             </span>
           ))}
           {preview.notes.slice(0, 2).map((n) => (
-            <span key={n} className="hidden text-[0.625rem] text-muted sm:inline">
+            <span key={n} className="hidden text-[0.8125rem] text-muted sm:inline">
               {n}
             </span>
           ))}
           {missing.length ? (
-            <span className="flex items-center gap-1 text-[0.6875rem] text-[#f2c86a]" role="status">
+            <span className="flex items-center gap-1 text-[0.8125rem] text-[#f2c86a]" role="status">
               <TriangleAlert className="size-3 shrink-0" aria-hidden="true" />
               Your towers don't answer {missing.map((id) => COUNTERS[id].label).join(", ")}: bring {missing.map((id) => COUNTERS[id].beats).join("; ")}.
             </span>
@@ -197,7 +197,7 @@ export function ComingUpBar({ api }: { api: GameApi }) {
       {open != null && preview.groups[open] ? (
         <div role="tooltip" className="absolute top-full left-2 z-30 mt-1 w-[17rem] rounded-lg border border-[#c6a15a]/70 bg-ink/95 px-3 py-2 text-left shadow-xl">
           <EnemyCardBody info={describeEnemy(fruitFromGroup(preview.groups[open]), api.world)} preview />
-          <p className="mt-1.5 text-[0.625rem] text-muted">
+          <p className="mt-1.5 text-[0.8125rem] text-muted">
             ×{preview.groups[open].count} {between ? "next wave" : "still to come"}
             {BOARDS[hud.map].hp && BOARDS[hud.map].hp !== 1 ? " · this room's health included" : ""}
           </p>

@@ -25,15 +25,15 @@ function ShopNumbers({ api, kind, hovered }: { api: ScreenProps["api"]; kind: To
       ].filter(Boolean)
     : [];
   return (
-    <div className="mt-2 rounded-lg border border-line/60 bg-[#140e12]/70 px-2.5 py-2 text-xs">
+    <div className="mt-2 rounded-lg border border-line/60 bg-[#140e12]/70 px-2.5 py-2 text-[0.8125rem]">
       <p>
-        <span className="text-[0.625rem] tracking-[0.16em] text-gold uppercase">Now </span>
+        <span className="text-[0.6875rem] tracking-[0.16em] text-gold uppercase">Now </span>
         <span className="text-parchment">{describeStats(kind, now)}</span>
       </p>
       <p className="mt-0.5 text-muted">{owned.length ? `Owned: ${owned.map((id) => fittingName(kind, id)).join(", ")}` : "No upgrades yet."}</p>
       {hovered ? (
         <p className="mt-1 border-t border-line/50 pt-1">
-          <span className="text-[0.625rem] tracking-[0.16em] text-gold uppercase">With {fittingName(kind, hovered)} </span>
+          <span className="text-[0.6875rem] tracking-[0.16em] text-gold uppercase">With {fittingName(kind, hovered)} </span>
           <span className="font-semibold text-gold">{changes.length ? changes.join(" · ") : "no change to these numbers"}</span>
         </p>
       ) : null}
@@ -46,7 +46,7 @@ function ShopNumbers({ api, kind, hovered }: { api: ScreenProps["api"]; kind: To
  * gives it to every tower of that kind, now and for the rest of the night. Each kind has its own
  * price (40, then 30 more per upgrade it has), and you can buy them only between waves.
  */
-export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { docked?: boolean }) {
+export function BackRoomTab({ api, onGesture, docked = false, compact = false }: ScreenProps & { docked?: boolean; compact?: boolean }) {
   const hud = api.world.hud;
   const kind = hud.workshop;
   /** Which build tab's kinds are folded open (one at a time); null = follow the kind being shown. */
@@ -65,6 +65,27 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
     setHovered(null);
   }
 
+  if (compact) {
+    // Phones: a small button in the build bar's tab row, so nothing sits on the board. The panel opens over the board as usual.
+    if (kind != null) return null;
+    return (
+      <button
+        type="button"
+        data-board-controls
+        data-backroom-button
+        title="Back room: upgrade every tower of a kind"
+        className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-[#c6a15a] bg-[#2c1a20] px-3 text-sm leading-tight font-semibold text-gold"
+        onClick={() => {
+          onGesture();
+          tone(200, 0.06, "triangle", 0.03);
+          api.openShop();
+        }}
+      >
+        <Wrench className="size-4" aria-hidden="true" />
+        Back room
+      </button>
+    );
+  }
   if (kind == null && docked) {
     // Wide layout: the column waits with a plain button at its top.
     return (
@@ -82,9 +103,9 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
         <Wrench className="size-5 shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className="block text-base font-semibold">Back room</span>
-          <span className="block text-xs text-muted">Upgrade every tower of a kind</span>
+          <span className="block text-[0.8125rem] text-muted">Upgrade every tower of a kind</span>
         </span>
-        <kbd className="rounded border border-line px-1 font-sans text-[0.625rem] text-muted">B</kbd>
+        <kbd className="rounded border border-line px-1 font-sans text-[0.6875rem] text-muted">B</kbd>
       </button>
     );
   }
@@ -103,7 +124,7 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
       >
         <Wrench className="size-6" aria-hidden="true" />
         <span className="text-base font-semibold tracking-wide [writing-mode:vertical-rl]">Back room</span>
-        <kbd className="hidden rounded border border-line px-1 font-sans text-[0.625rem] text-muted sm:block">B</kbd>
+        <kbd className="hidden rounded border border-line px-1 font-sans text-[0.6875rem] text-muted sm:block">B</kbd>
       </button>
     );
   }
@@ -135,10 +156,10 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
     >
       <TowerIcon kind={k} className="h-full w-full" />
       {built(k) ? (
-        <span className="absolute -bottom-1 -left-1 rounded bg-ink px-0.5 text-[0.5625rem] leading-tight text-parchment">×{built(k)}</span>
+        <span className="absolute -bottom-1 -left-1 rounded bg-ink px-0.5 text-[0.8125rem] leading-tight text-parchment">×{built(k)}</span>
       ) : null}
       {(hud.fitted[k]?.length ?? 0) > 0 ? (
-        <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-gold text-[0.625rem] font-bold text-ink">
+        <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-gold text-[0.8125rem] font-bold text-ink">
           {hud.fitted[k]!.length}
         </span>
       ) : null}
@@ -160,7 +181,7 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
       <div className="flex items-start gap-2 border-b border-line/60 px-3 py-2.5">
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-lg leading-tight font-semibold text-gold">Back room</h2>
-          <p className="text-xs text-muted">Upgrades every tower of a kind, and any you build later.</p>
+          <p className="text-[0.8125rem] text-muted">Upgrades every tower of a kind, and any you build later.</p>
         </div>
         <button
           type="button"
@@ -193,7 +214,7 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
                   }}
                 >
                   <span className={`text-sm font-semibold ${isOpen || g.id === groupOf(kind).id ? "text-gold" : ""}`}>{g.name}</span>
-                  <span className="text-xs text-muted">{onFloor ? `${onFloor} on the floor` : ""}</span>
+                  <span className="text-[0.8125rem] text-muted">{onFloor ? `${onFloor} on the floor` : ""}</span>
                   <ChevronDown className={`ml-auto size-4 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                 </button>
                 {isOpen ? <div className="flex flex-wrap gap-1.5 px-2.5 pt-1 pb-2.5">{g.kinds.map(chip)}</div> : null}
@@ -206,7 +227,7 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
           <TowerIcon kind={kind} className="size-9 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="font-display text-base leading-tight font-semibold">{TOWERS[kind].name}</p>
-            <p className="text-xs text-muted">
+            <p className="text-[0.8125rem] text-muted">
               {count ? `${count} on the floor` : "None built yet"} · next upgrade{" "}
               <span className="text-parchment">{price ? `${price} seeds` : "free"}</span>
             </p>
@@ -237,21 +258,21 @@ export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { 
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">{mod.name}</span>
-                  <span className="block text-xs text-muted">{mod.blurb}</span>
+                  <span className="block text-[0.8125rem] text-muted">{mod.blurb}</span>
                 </span>
                 {got ? (
                   <Check className="size-4 shrink-0 text-rind" aria-label="Owned" />
                 ) : (
-                  <span className="shrink-0 text-right text-xs">
+                  <span className="shrink-0 text-right text-[0.8125rem]">
                     <span className="block font-semibold text-gold">{price || "Free"}</span>
-                    <kbd className="hidden font-sans text-[0.625rem] text-muted sm:block">{i + 1}</kbd>
+                    <kbd className="hidden font-sans text-[0.6875rem] text-muted sm:block">{i + 1}</kbd>
                   </span>
                 )}
               </button>
             );
           })}
         </div>
-        <p className="mt-2 text-xs text-muted">
+        <p className="mt-2 text-[0.8125rem] text-muted">
           {between
             ? "Each upgrade for this kind raises only this kind's next price."
             : "You can look now; buying opens when the wave is over."}

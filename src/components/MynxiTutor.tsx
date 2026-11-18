@@ -77,7 +77,7 @@ const LESSON: Record<GuideStep, { mood: Mood; title: string; text: string }> = {
   backroom: {
     mood: "point",
     title: "The back room",
-    text: "Before wave two, open the Back room tab on the right (B) and buy an upgrade. It goes on every cannon of that kind, even ones you build later. Each kind's next upgrade costs more. This first one is on the house.",
+    text: "Before wave two, open the Back room (B, or its button) and buy an upgrade. It goes on every cannon of that kind, even ones you build later. Each kind's next upgrade costs more. This first one is on the house.",
   },
   sell: {
     mood: "cheer",
@@ -157,7 +157,7 @@ export function MynxiTutor({ api, onGesture }: { api: GameApi; onGesture: () => 
   const at = step ? GUIDE_STEPS.indexOf(step) : -1;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-3">
+    <div className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-30 flex justify-center px-3">
       <div
         role="status"
         aria-live="polite"
@@ -169,11 +169,11 @@ export function MynxiTutor({ api, onGesture }: { api: GameApi; onGesture: () => 
           className="size-16 shrink-0 rounded-lg border border-[#c6a15a]/60 object-cover object-[center_18%] sm:size-20"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[0.625rem] tracking-[0.22em] text-gold uppercase">
+          <p className="text-[0.6875rem] tracking-[0.22em] text-gold uppercase">
             Mynxi{step ? ` · lesson ${at + 1} of ${GUIDE_STEPS.length}` : ""}
           </p>
           <p className="mt-0.5 font-display text-base leading-tight font-semibold text-[#f6e7b4]">{line.title}</p>
-          <p className="mt-1 text-xs leading-snug text-parchment sm:text-sm">{line.text}</p>
+          <p className="mt-1 text-[0.8125rem] leading-snug text-parchment sm:text-sm">{line.text}</p>
           <div className="mt-2 flex items-center gap-2">
             {step ? (
               <div className="flex flex-1 gap-0.5" aria-hidden="true">
@@ -199,13 +199,13 @@ export function MynxiTutor({ api, onGesture }: { api: GameApi; onGesture: () => 
                 {tip ? "Got it" : step === "sell" ? "Let's go" : "Next"}
               </button>
             ) : (
-              <span className="shrink-0 text-[0.6875rem] text-muted italic">Your move</span>
+              <span className="shrink-0 text-[0.8125rem] text-muted italic">Your move</span>
             )}
           </div>
         </div>
         <button
           type="button"
-          className="shrink-0 rounded px-1.5 py-0.5 text-[0.6875rem] text-muted underline"
+          className="shrink-0 rounded px-1.5 py-0.5 text-[0.8125rem] text-muted underline"
           onClick={() => {
             onGesture();
             api.skipGuide();

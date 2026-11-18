@@ -3,7 +3,7 @@ import { BOARDS, KEEPER_NAMES, createWorld, stepWorld } from "@/game/engine";
 import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
 import { useHotkeys } from "@/components/hotkeys";
-import { ChuteTip, ComboTip, NativesTip, SiegeTip, TutorialHint } from "@/components/TutorialHint";
+import { TipFit, Tips } from "@/components/TutorialHint";
 
 import { MynxiTutor } from "@/components/MynxiTutor";
 import { canInstall, isDesktopApp, onInstallChange, promptInstall } from "@/lib/install";
@@ -18,7 +18,7 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { SetupScreen } from "@/components/SetupScreen";
 import { TitleScreen } from "@/components/TitleScreen";
 import { setupSummary } from "@/components/ui";
-import { layoutFor } from "@/lib/layout";
+import { NARROW_PX, layoutFor } from "@/lib/layout";
 import { EnemyCard, type EnemyHover } from "@/components/EnemyCard";
 import { useCatalogueRequest } from "@/components/catalogueLink";
 import { ComingUpBar } from "@/components/ComingUpBar";
@@ -236,6 +236,16 @@ export function MelonGame() {
   // Wide screens: the build bar becomes a left column and the back room docks on the right.
   const layout = layoutFor(box.w, box.h, api.world.w, api.world.h, box.rem);
   const wide = layout.mode === "wide" && showPlace;
+  /** Phones: the back room button and the tips go in the bottom area, off the board. */
+  const narrow = !wide && box.w < NARROW_PX;
+  // The tips have one place, never over the board or the Coming up bar (see TipCard).
+  const tipDock = (where: string, fit: "full" | "line") => (
+    <TipFit.Provider value={fit}>
+      <div data-tip-dock={where} className={`flex shrink-0 flex-col gap-1.5 empty:hidden ${where === "side" ? "pb-2" : where === "bottom" ? "px-3 pt-1.5" : "pb-1.5"}`}>
+        <Tips api={api} tutorial={!hud.tutorial && !hud.guide} />
+      </div>
+    </TipFit.Provider>
+  );
 
   return (
     <main className="relative flex h-dvh flex-col bg-ink text-parchment">
@@ -259,6 +269,7 @@ export function MelonGame() {
       ) : null}
       <div data-board-controls className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${wide ? "py-3" : "sm:px-3"}`}>
         {showPlace ? <ComingUpBar api={api} /> : null}
+        {showPlace && !wide && !narrow ? tipDock("top", "line") : null}
         <canvas
           ref={canvasRef}
           className="min-h-0 w-full flex-1 touch-none bg-ink sm:rounded-xl sm:border sm:border-line"
@@ -290,12 +301,7 @@ export function MelonGame() {
             <p className="rounded-xl border border-line bg-ink/80 px-4 py-2 font-display text-xl">Paused</p>
           </div>
         ) : null}
-        {(phase === "prep" || phase === "combat") && !hud.tutorial && !hud.guide ? <TutorialHint api={api} /> : null}
-        {phase === "prep" || phase === "combat" ? <ChuteTip api={api} /> : null}
-        {phase === "prep" || phase === "combat" ? <SiegeTip api={api} /> : null}
-        {phase === "prep" || phase === "combat" ? <ComboTip api={api} /> : null}
-        {phase === "prep" || phase === "combat" ? <NativesTip api={api} /> : null}
-        {(phase === "prep" || phase === "combat") && !hud.menu && !wide ? <BackRoomTab api={api} onGesture={gesture} /> : null}
+        {(phase === "prep" || phase === "combat") && !hud.menu && !wide && (!narrow || hud.workshop != null) ? <BackRoomTab api={api} onGesture={gesture} /> : null}
         {phase === "select" ? <SetupScreen api={api} onGesture={gesture} /> : null}
         {phase !== "combat" && phase !== "prep" && phase !== "select" && phase !== "coldopen" && phase !== "poster" ? (
           <CardOverlay hudPhase={phase} api={api} onGesture={gesture} />
@@ -305,12 +311,20 @@ export function MelonGame() {
       </div>
       {wide ? (
         <aside aria-label="Back room column" className="relative flex min-h-0 shrink-0 flex-col py-3 pr-3" style={{ width: layout.right }}>
+          {tipDock("side", "full")}
           {!hud.menu ? <BackRoomTab api={api} onGesture={gesture} docked /> : null}
         </aside>
       ) : null}
       </div>
 
-      {showPlace && !wide ? <BuildFooter api={api} onGesture={gesture} /> : null}
+      {showPlace && narrow ? tipDock("bottom", "line") : null}
+      {showPlace && !wide ? (
+        <BuildFooter
+          api={api}
+          onGesture={gesture}
+          backRoom={narrow && !hud.menu && (phase === "prep" || phase === "combat") ? <BackRoomTab api={api} onGesture={gesture} compact /> : null}
+        />
+      ) : null}
       </div>
       {phase === "coldopen" ? (
         <TitleScreen

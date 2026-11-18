@@ -1,7 +1,72 @@
-import { useState } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { createWorld } from "@/game/engine";
 import { HOTKEY_HELP } from "@/components/hotkeys";
 import { load, save } from "@/lib/storage";
+
+/** Where the tips are docked: "full" shows the whole text (the wide layout's side column); "line" one line with a "more" toggle. */
+export const TipFit = createContext<"full" | "line">("line");
+
+/**
+ * One tip box. Tips never sit on the board: they live in the tip dock (MelonGame), under the Coming up
+ * bar, above the build bar on phones, or in the side column of the wide layout.
+ */
+export function TipCard({
+  border,
+  color,
+  title,
+  body,
+  action,
+  onAction,
+}: {
+  border: string;
+  color: string;
+  title: ReactNode;
+  body: ReactNode;
+  action: string;
+  onAction: () => void;
+}) {
+  const fit = useContext(TipFit);
+  const [more, setMore] = useState(false);
+  const line = fit === "line" && !more;
+  return (
+    <div
+      role="status"
+      data-tip
+      className="flex w-full items-start gap-2 rounded-lg border bg-ink/95 px-3 py-1.5 shadow-lg"
+      style={{ borderColor: `${border}b3` }}
+    >
+      <p className={`min-w-0 flex-1 text-sm leading-snug text-parchment ${line ? "truncate" : ""}`}>
+        <span className="font-display font-semibold" style={{ color }}>
+          {title}
+        </span>{" "}
+        {body}
+      </p>
+      {fit === "line" ? (
+        <button type="button" aria-expanded={more} className="shrink-0 rounded px-1.5 py-0.5 text-sm text-muted underline" onClick={() => setMore((m) => !m)}>
+          {more ? "less" : "more"}
+        </button>
+      ) : null}
+      <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-sm text-muted underline" onClick={onAction}>
+        {action}
+      </button>
+    </div>
+  );
+}
+
+/** Every tip that's showing, for the tip dock. Each one decides for itself whether it shows. */
+export function Tips({ api, tutorial }: { api: ReturnType<typeof createWorld>; tutorial: boolean }) {
+  const phase = api.world.hud.phase;
+  if (phase !== "prep" && phase !== "combat") return null;
+  return (
+    <>
+      {tutorial ? <TutorialHint api={api} /> : null}
+      <ChuteTip api={api} />
+      <SiegeTip api={api} />
+      <ComboTip api={api} />
+      <NativesTip api={api} />
+    </>
+  );
+}
 
 export const TUTORIAL_KEY = "melongeddon:tutorial";
 const KEY = TUTORIAL_KEY;
@@ -28,7 +93,7 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
     body = "Spend what you like, then press Start wave. You can keep building during the wave, too.";
   } else if (hud.phase === "combat" && hud.wave === 1) {
     title = "Kills pay seeds";
-    body = "Tap a cannon to see its stats or sell it. Between waves, the Back room tab on the right upgrades every cannon of a kind.";
+    body = "Tap a cannon to see its stats or sell it. Between waves, the Back room upgrades every cannon of a kind.";
   } else if (hud.phase === "prep" && hud.wave === 2) {
     title = "Mix your cannons";
     body = `Mortars splash crowds, freeze holds, fire burns, the still slows. Keys: ${HOTKEY_HELP}.`;
@@ -41,20 +106,14 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
-      <div
-        role="status"
-        className="pointer-events-auto flex max-w-md items-start gap-3 rounded-lg border border-[#c6a15a]/70 bg-ink/90 px-3 py-2 shadow-lg"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-base leading-tight font-semibold text-gold">{title}</p>
-          <p className="mt-0.5 text-xs leading-snug text-parchment">{body}</p>
-        </div>
-        <button type="button" className="shrink-0 rounded px-2 py-1 text-xs text-muted underline" onClick={finish}>
-          Hide tips
-        </button>
-      </div>
-    </div>
+    <TipCard
+      border="#c6a15a"
+      color="#c6a15a"
+      title={title}
+      body={body}
+      action="Hide tips"
+      onAction={finish}
+    />
   );
 }
 
@@ -84,24 +143,17 @@ export function ComboTip({ api }: { api: ReturnType<typeof createWorld> }) {
   if (!which) return null;
   const tip = COMBO_TIPS[which];
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
-      <div role="status" className="pointer-events-auto flex max-w-md items-start gap-3 rounded-lg border border-[#bfe3f5]/70 bg-ink/90 px-3 py-2 shadow-lg">
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-base leading-tight font-semibold text-[#d8eef8]">{tip.title}</p>
-          <p className="mt-0.5 text-xs leading-snug text-parchment">{tip.body}</p>
-        </div>
-        <button
-          type="button"
-          className="shrink-0 rounded px-2 py-1 text-xs text-muted underline"
-          onClick={() => {
+    <TipCard
+      border="#bfe3f5"
+      color="#d8eef8"
+      title={tip.title}
+      body={tip.body}
+      action="Got it"
+      onAction={() => {
             save(COMBO_TIP_KEYS[which], "done");
             setDone((d) => ({ ...d, [which]: true }));
           }}
-        >
-          Got it
-        </button>
-      </div>
-    </div>
+    />
   );
 }
 
@@ -130,27 +182,17 @@ export function SiegeTip({ api }: { api: ReturnType<typeof createWorld> }) {
   if (!which) return null;
   const tip = SIEGE_TIPS[which];
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
-      <div
-        role="status"
-        className="pointer-events-auto flex max-w-md items-start gap-3 rounded-lg border border-[#f3ce78]/70 bg-ink/90 px-3 py-2 shadow-lg"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-base leading-tight font-semibold text-[#f6e2ae]">{tip.title}</p>
-          <p className="mt-0.5 text-xs leading-snug text-parchment">{tip.body}</p>
-        </div>
-        <button
-          type="button"
-          className="shrink-0 rounded px-2 py-1 text-xs text-muted underline"
-          onClick={() => {
+    <TipCard
+      border="#f3ce78"
+      color="#f6e2ae"
+      title={tip.title}
+      body={tip.body}
+      action="Got it"
+      onAction={() => {
             save(SIEGE_TIP_KEYS[which], "done");
             setDone((d) => ({ ...d, [which]: true }));
           }}
-        >
-          Got it
-        </button>
-      </div>
-    </div>
+    />
   );
 }
 
@@ -186,27 +228,17 @@ export function NativesTip({ api }: { api: ReturnType<typeof createWorld> }) {
   if (done[room] || load(NATIVE_TIP_KEYS[room]) === "done") return null;
   const tip = NATIVE_TIPS[room];
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
-      <div
-        role="status"
-        className="pointer-events-auto flex max-w-md items-start gap-3 rounded-lg border border-[#8fdc6a]/70 bg-ink/90 px-3 py-2 shadow-lg"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-base leading-tight font-semibold text-[#cfeebf]">{tip.title}</p>
-          <p className="mt-0.5 text-xs leading-snug text-parchment">{tip.body}</p>
-        </div>
-        <button
-          type="button"
-          className="shrink-0 rounded px-2 py-1 text-xs text-muted underline"
-          onClick={() => {
+    <TipCard
+      border="#8fdc6a"
+      color="#cfeebf"
+      title={tip.title}
+      body={tip.body}
+      action="Got it"
+      onAction={() => {
             save(NATIVE_TIP_KEYS[room], "done");
             setDone((d) => ({ ...d, [room]: true }));
           }}
-        >
-          Got it
-        </button>
-      </div>
-    </div>
+    />
   );
 }
 
@@ -219,29 +251,16 @@ export function ChuteTip({ api }: { api: ReturnType<typeof createWorld> }) {
   const { hud } = api.world;
   if (done || hud.map !== "overflow" || !hud.chuteWave || (hud.phase !== "prep" && hud.phase !== "combat")) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
-      <div
-        role="status"
-        className="pointer-events-auto flex max-w-md items-start gap-3 rounded-lg border border-[#6fc6ef]/70 bg-ink/90 px-3 py-2 shadow-lg"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-base leading-tight font-semibold text-[#bfe6f7]">Returns come up the chute</p>
-          <p className="mt-0.5 text-xs leading-snug text-parchment">
-            Shelled melons climb in at the far end (marked CHUTE) and walk the carpet backwards. One that reaches the
-            entrance costs a stack. Cover both ends; a Peeler strips their shells.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="shrink-0 rounded px-2 py-1 text-xs text-muted underline"
-          onClick={() => {
+    <TipCard
+      border="#6fc6ef"
+      color="#bfe6f7"
+      title={"Returns come up the chute"}
+      body={"Shelled melons climb in at the far end (marked CHUTE) and walk the carpet backwards. One that reaches the entrance costs a stack. Cover both ends; a Peeler strips their shells."}
+      action="Got it"
+      onAction={() => {
             save(CHUTE_TIP_KEY, "done");
             setDone(true);
           }}
-        >
-          Got it
-        </button>
-      </div>
-    </div>
+    />
   );
 }

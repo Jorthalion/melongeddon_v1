@@ -223,7 +223,7 @@ Press **Next** when she's just talking. When she asks you to do something, the w
 
 Played before? Press **Skip** on her box, or **Skip the guide** on the title screen. If you already had progress from an older version, the tutorial is skipped for you. Play it again any time with **Tutorial** on the title screen.
 
-After the guide, the next waves show short tips. Bring them back any time with **Settings → Show tips again**.
+After the guide, the next waves show short tips. They never sit on the board: on a computer they go in a line under the **Coming up** bar (tap **more** for the whole tip), in the right-hand column on a wide screen, and above the build bar on a phone. Bring them back any time with **Settings → Show tips again**.
 
 ## The screen
 
@@ -251,7 +251,7 @@ After the guide, the next waves show short tips. Bring them back any time with *
 | Select a cannon | Tap it (tap again to deselect) | `Esc` deselects |
 | Sell | **Sell** in the inspector (refunds 70% of what you spent on it) | `S` |
 | Change what a cannon aims at | **‹ ›** beside "Aims:" in the inspector | `A` (with it selected) |
-| Upgrade a kind of cannon (between waves) | The **Back room** tab on the right, or **Upgrades** in the inspector | `B`, then `1`–`9` |
+| Upgrade a kind of cannon (between waves) | The **Back room** (a tab on the right; on a phone, the button beside Start wave), or **Upgrades** in the inspector | `B`, then `1`–`9` |
 | Start the next wave | **Start wave** | `Space` |
 | Pause | Pause button in the header | `P`, or `Space` during a wave |
 | Pause menu | ☰ button | `Esc` (when nothing is selected) |
@@ -538,7 +538,7 @@ Every tower also has a **type**. The type decides which shared upgrades affect i
 
 ### Back room (upgrades for a whole kind)
 
-The **Back room** is a tab on the right edge of the board (on a phone it opens as a sheet from the bottom, so the carpet above stays in view). Open it with the tab, with `B`, or with **Upgrades** in a cannon's inspector (that opens it on the cannon's kind). At the top are the same groups as the build bar (Damage, Control, Support, Trick, Heavy, and Keeper when a keeper tower takes upgrades). Tap one to fold it open and pick a tower kind; a small ×2 under a kind means two are on the floor, and a gold number shows how many upgrades it has. Below are **all** of that kind's upgrades, each with its price.
+The **Back room** is a tab on the right edge of the board; on a phone it's a button beside **Start wave**, so nothing sits on the carpet, and it opens as a sheet from the bottom so the carpet above stays in view. On a wide screen it has its own column on the right. Open it with the tab, with `B`, or with **Upgrades** in a cannon's inspector (that opens it on the cannon's kind). At the top are the same groups as the build bar (Damage, Control, Support, Trick, Heavy, and Keeper when a keeper tower takes upgrades). Tap one to fold it open and pick a tower kind; a small ×2 under a kind means two are on the floor, and a gold number shows how many upgrades it has. Below are **all** of that kind's upgrades, each with its price.
 
 - **Now and with it.** Under the kind's name, **Now** shows its numbers with the upgrades it already has, and lists them. Hover (or focus) an upgrade and **With …** shows what changes, for example "3.7 tiles → 4.3 tiles", while the board draws every tower of that kind's reach now (faint) and with the upgrade (gold, dashed).
 

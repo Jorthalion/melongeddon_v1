@@ -177,7 +177,7 @@ export function HowToPlay() {
         Kills pay seeds. Midnight is {MIDNIGHT_WAVES} waves. The Overflow and the Siege are {WAVE_COUNT}. There is an upgrade pick now and then.
       </p>
       <p className="mt-1">
-        Tap a cannon to see its stats or sell it. The Back room tab on the right upgrades every cannon of a kind (between waves). Esc or the ☰ button pauses.
+        Tap a cannon to see its stats or sell it. The Back room (B) upgrades every cannon of a kind (between waves). Esc or the ☰ button pauses.
       </p>
 
       <p className={h}>Tower types</p>
