@@ -12,6 +12,7 @@ import {
   type World,
 } from "@/game/engine";
 import { BookOpen, Droplet, Droplets, Flame, FlaskConical, FlaskRound, Lamp, Package, Sparkles, Weight, Zap, type LucideIcon } from "lucide-react";
+import { victoryAction } from "@/game/keys";
 import { tone } from "@/game/audio";
 import { Dialog } from "@/components/Dialog";
 import { NewUnlocks } from "@/components/Bookmarks";
@@ -60,6 +61,9 @@ export function CardOverlay({
                 ? "One more shelf. The fruit after this is not just thicker."
                 : hud.night === "overflow" && hud.upgrades.length >= 2
                 ? "One more shelf. Then the meter starts spending."
+                : hud.night === "siege" && hud.upgrades.length >= 2
+                ? "One more shelf. Then they come together."
+
                 : hud.upgrades.length >= 2
                   ? "One more shelf. Then the last waves."
                   : hud.branch
@@ -129,7 +133,7 @@ export function CardOverlay({
 
         {hudPhase === "victory" ? (
           <EndCard
-            title={hud.night === "overflow" ? "The chute holds." : "The stacks hold."}
+            title={hud.night === "overflow" ? "The chute holds." : hud.night === "siege" ? "The courtyard holds." : "The stacks hold."}
             body={`${hud.blurb} Absurdity ${hud.absurdity}. ${
               hud.hero === "michael"
                 ? "Sir Michael held the carpet. Barely."
@@ -145,14 +149,16 @@ export function CardOverlay({
                           ? "Asser counts what he lost and writes it down. It will make a good chapter."
                         : "Mynxi is filing this under accidents that worked."
             }`}
-            action={hud.night === "midnight" ? "Continue to the Overflow" : hud.night === "overflow" ? "Set up Endless" : "Play again"}
+            action={victoryAction(hud.night)}
+
             unlocks={hud.newUnlocks}
             maps={hud.newMaps}
             hud={hud}
             onAction={() => {
               onGesture();
               if (hud.night === "midnight") api.continueOverflow();
-              else if (hud.night === "overflow") api.tryEndless();
+              else if (hud.night === "overflow") api.continueSiege();
+              else if (hud.night === "siege") api.tryEndless();
               else api.restartNight();
             }}
             more={[

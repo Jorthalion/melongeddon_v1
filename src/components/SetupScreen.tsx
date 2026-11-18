@@ -227,6 +227,8 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
               <p className="mt-1.5 max-w-xl text-base text-muted">
                 {hud.night === "overflow"
                   ? "The first night is over. The returns came back."
+                  : hud.night === "siege"
+                    ? "Night three. No fruit: geese and cats, and they hate each other."
                   : hud.night === "endless"
                     ? `No last wave. Your best: ${hud.endlessBest} wave${hud.endlessBest === 1 ? "" : "s"}.`
                     : "Pick the room. The carpet does not care."}
@@ -255,40 +257,60 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
           {/* Night */}
           <div className="mt-4 sm:mt-5">
             <p className={label}>Night</p>
-            <div className="mt-1.5 grid grid-cols-3 overflow-hidden rounded-lg border border-line/70 sm:max-w-xl" role="radiogroup" aria-label="Night">
+            <div className="mt-1.5 grid grid-cols-4 overflow-hidden rounded-lg border border-line/70 sm:max-w-xl" role="radiogroup" aria-label="Night">
               {(
                 [
                   ["midnight", "Midnight"],
                   ["overflow", "The Overflow"],
+                  ["siege", "The Siege"],
                   ["endless", "Endless"],
                 ] as const
               ).map(([id, text]) => {
                 const on = hud.night === id;
+                const locked = id === "siege" && !hud.siegeOpen;
                 return (
                   <button
                     key={id}
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    className={`min-h-11 px-2 py-2 text-sm font-semibold ${on ? picked : idle}`}
+                    aria-disabled={locked}
+                    title={locked ? "Win the Overflow first." : undefined}
+                    className={`min-h-11 px-1.5 py-2 text-sm leading-tight font-semibold ${on ? picked : locked ? "cursor-not-allowed text-muted" : idle}`}
                     onClick={() => {
                       onGesture();
                       api.chooseNight(id);
                     }}
                   >
-                    {text}
+                    <span className="inline-flex items-center gap-1">
+                      {locked ? <Lock className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+                      {text}
+                    </span>
                   </button>
                 );
               })}
             </div>
+            {!hud.siegeOpen ? <p className="mt-1 text-xs text-muted">The Siege: win the Overflow first.</p> : null}
           </div>
 
-          {/* Room, or the Overflow's late slips */}
+          {/* Room, or the Overflow's late slips, or the Siege's own courtyard */}
           {hud.night === "overflow" ? (
             <div className="mt-5">
               <SlipPicker api={api} onGesture={onGesture} />
             </div>
+          ) : hud.night === "siege" ? (
+            <div className="mt-5">
+              <p className={label}>Room</p>
+              <div className="mt-1.5 flex max-w-xl gap-3 overflow-hidden rounded-lg border border-[#c6a15a] shadow-[0_0_18px_rgba(198,161,90,0.28)]">
+                <MapPreview map="courtyard" className="block aspect-[16/10] w-36 shrink-0 sm:w-48" />
+                <span className="min-w-0 py-2 pr-3">
+                  <span className="block font-display text-base font-semibold">{BOARDS.courtyard.name}</span>
+                  <span className="mt-0.5 block text-xs text-muted">{BOARDS.courtyard.blurb}</span>
+                </span>
+              </div>
+            </div>
           ) : (
+
             <div className="mt-5">
               <p className={label}>Room</p>
               {/* Phones: one row that scrolls sideways. Wider screens: a grid. */}

@@ -109,7 +109,7 @@ export function simulateRun(config: RunConfig): RunResult {
 function play(config: RunConfig, rng: () => number): RunResult {
   // Everything unlocked so any map can be chosen; bookmarks only apply when one is set.
   // Trick cannons normally open with keeper levels; the bots may build any of them.
-  const api = createWorld(() => {}, { meta: ALL_UNLOCKED, keepers: config.keepers, allTricks: true });
+  const api = createWorld(() => {}, { meta: ALL_UNLOCKED, keepers: config.keepers, allTricks: true, siegeOpen: true });
   const { world } = api;
 
   api.openSetup();

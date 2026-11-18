@@ -60,6 +60,12 @@ export interface RunLog {
   sisuCapped: boolean;
   /** Stacks Asser's Lion Blades put back. */
   mended: number;
+  /** The Siege: goose-and-cat fights, geese the Anti-Geese Protocol threw, boxes knocked off Box Cats, and Private
+   * Whiskers killed in one hit before Nine Lives could bring them back. */
+  feuds: number;
+  protocolGeese: number;
+  boxesOff: number;
+  oneLife: number;
 }
 
 export function emptyRunLog(): RunLog {
@@ -97,6 +103,10 @@ export function emptyRunLog(): RunLog {
     sisuPeak: 0,
     sisuCapped: false,
     mended: 0,
+    feuds: 0,
+    protocolGeese: 0,
+    boxesOff: 0,
+    oneLife: 0,
   };
 }
 
@@ -112,11 +122,28 @@ export interface Ledger {
   winsByKeeper: Partial<Record<HeroId, number>>;
   winsByMap: Partial<Record<MapId, number>>;
   winsByDifficulty: Partial<Record<Difficulty, number>>;
+  /** Story nights won, by night (an Overflow win opens the Siege). */
+  winsByNight: Partial<Record<StoryNight, number>>;
   oathsWon: OathId[];
 }
 
+/** The nights with a last wave. */
+export type StoryNight = Exclude<NightId, "endless">;
+export const STORY_NIGHTS: StoryNight[] = ["midnight", "overflow", "siege"];
+
 export function emptyLedger(): Ledger {
-  return { kills: 0, killsBy: { quackliber: 0 }, pitDirectKills: 0, expressBeltKills: 0, squashKills: 0, winsByKeeper: {}, winsByMap: {}, winsByDifficulty: {}, oathsWon: [] };
+  return {
+    kills: 0,
+    killsBy: { quackliber: 0 },
+    pitDirectKills: 0,
+    expressBeltKills: 0,
+    squashKills: 0,
+    winsByKeeper: {},
+    winsByMap: {},
+    winsByDifficulty: {},
+    winsByNight: {},
+    oathsWon: [],
+  };
 }
 
 export interface AchievementSave {
@@ -173,6 +200,8 @@ export interface Achievement {
   blurb: string;
   /** Its bookcase in the Grand Catalogue. */
   shelf: SectionId;
+  /** A named set within its bookcase (the Atlas Room's "Courtyard" books). */
+  set?: string;
   /** Fragments it will be worth (step 2): 1 common, 2 harder, 3 the hardest and the secrets. */
   tier: 1 | 2 | 3;
   secret?: boolean;
@@ -442,6 +471,34 @@ const LIST: Array<Omit<Achievement, "tier">> = [
     check: (c) => ROOM_IDS.every((r) => c.rooms.includes(r)),
     progress: (_l, _b, g) => [g.rooms.length, ROOM_IDS.length],
   },
+  // Atlas Room, the Courtyard set: the Siege.
+  { id: "siege", name: "The Siege Holds", blurb: "Win the Siege.", shelf: "atlas", set: "Courtyard", check: (c) => c.won && c.night === "siege" },
+  {
+    id: "siege-hard",
+    name: "Siege Breaker",
+    blurb: "Win the Siege on Melongeddon or harder.",
+    shelf: "atlas",
+    set: "Courtyard",
+    check: (c) => c.won && c.night === "siege" && hardish(c.difficulty),
+  },
+  { id: "feud", name: "Let Them Fight", blurb: "25 goose-and-cat fights in one night.", shelf: "atlas", set: "Courtyard", check: (c) => c.log.feuds >= 25 },
+  {
+    id: "protocol",
+    name: "Protocol Engaged",
+    blurb: "The Anti-Geese Protocol throws 10 geese in one night.",
+    shelf: "atlas",
+    set: "Courtyard",
+    check: (c) => c.log.protocolGeese >= 10,
+  },
+  { id: "out-of-box", name: "Out of the Box", blurb: "Knock 20 boxes off Box Cats in one night.", shelf: "atlas", set: "Courtyard", check: (c) => c.log.boxesOff >= 20 },
+  {
+    id: "nine-lives",
+    name: "Only One Life",
+    blurb: "Kill a Private Whiskers with a single hit before Nine Lives can trigger.",
+    shelf: "atlas",
+    set: "Courtyard",
+    check: (c) => c.log.oneLife > 0,
+  },
 
   // Restricted Section (secret)
   { id: "karl-first-wave", name: "Early Karl", blurb: "Lose a stack to Karl and still win the night.", shelf: "restricted", secret: true, check: (c) => c.won && c.log.karlStacksLost > 0 },
@@ -449,8 +506,8 @@ const LIST: Array<Omit<Achievement, "tier">> = [
   { id: "one-tower", name: "One Good Tower", blurb: "Win a story night with exactly one tower ever built.", shelf: "restricted", secret: true, check: (c) => storyWin(c) && builtCount(c.log) === 1 },
 ];
 
-const TIER_1 = ["fragments-10", "restorer", "first-night", "librarian", "overflow", "endless-20", "minimalist", "no-signature", "hoarder", "back-room-ban", "slow-cooker", "massacre"];
-const TIER_3 = ["gargoyle", "archivist", "overdue", "endless-30", "full-staff", "pet", "still-standing", "all-slips", "perfect", "well-read", "maps", "difficulties", "massacre-10k"];
+const TIER_1 = ["fragments-10", "restorer", "first-night", "librarian", "overflow", "endless-20", "minimalist", "no-signature", "hoarder", "back-room-ban", "slow-cooker", "massacre", "out-of-box", "nine-lives"];
+const TIER_3 = ["gargoyle", "archivist", "overdue", "endless-30", "full-staff", "pet", "still-standing", "all-slips", "perfect", "well-read", "maps", "difficulties", "massacre-10k", "siege-hard"];
 const tierOf = (a: Omit<Achievement, "tier">): 1 | 2 | 3 =>
   a.secret || TIER_3.includes(a.id) ? 3 : TIER_1.includes(a.id) || a.id.startsWith("win-") ? 1 : 2;
 
@@ -475,9 +532,11 @@ export function addNight(ledger: Ledger, c: Omit<NightContext, "ledger" | "endle
     winsByKeeper: { ...ledger.winsByKeeper },
     winsByMap: { ...ledger.winsByMap },
     winsByDifficulty: { ...ledger.winsByDifficulty },
+    winsByNight: { ...ledger.winsByNight },
     oathsWon: [...ledger.oathsWon],
   };
   if (c.won && c.night !== "endless") {
+    out.winsByNight[c.night] = (out.winsByNight[c.night] ?? 0) + 1;
     if (c.hero) out.winsByKeeper[c.hero] = (out.winsByKeeper[c.hero] ?? 0) + 1;
     out.winsByMap[c.map] = (out.winsByMap[c.map] ?? 0) + 1;
     out.winsByDifficulty[c.difficulty] = (out.winsByDifficulty[c.difficulty] ?? 0) + 1;
@@ -523,7 +582,15 @@ export function parseSave(raw: unknown): AchievementSave {
     out.ledger.winsByKeeper = counts(l.winsByKeeper, HEROES);
     out.ledger.winsByMap = counts(l.winsByMap, PICKABLE_MAPS);
     out.ledger.winsByDifficulty = counts(l.winsByDifficulty, DIFFICULTIES.map((d) => d.id));
+    out.ledger.winsByNight = counts(l.winsByNight, STORY_NIGHTS);
+
     out.ledger.oathsWon = Array.isArray(l.oathsWon) ? OATHS.filter((o) => (l.oathsWon as unknown[]).includes(o)) : [];
+  }
+  // Saves from before the ledger counted nights: an Overflow win shows as a win on its map, or as its achievements.
+  if (!out.ledger.winsByNight.overflow) {
+    const onMap = num((l?.winsByMap as Record<string, unknown> | undefined)?.overflow);
+    const earned = out.earned.overflow || out.earned["chute-master"] || out.earned["all-slips"] ? 1 : 0;
+    if (onMap || earned) out.ledger.winsByNight.overflow = Math.max(onMap, earned);
   }
   const c = raw as { fragments?: unknown; fragmentsEarned?: unknown; rooms?: unknown; migrated?: unknown; cosmetics?: Partial<Cosmetics> };
   out.fragments = Math.floor(num(c.fragments));

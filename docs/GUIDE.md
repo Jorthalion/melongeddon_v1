@@ -186,7 +186,7 @@ Optional: once you know your final address, change `og:image` in `index.html` to
 
 Fruit walk the **carpet** from the entrance on the left to the door at the far end. Each fruit that gets through costs you a **stack** (Karl, the boss, costs 3). Lose all your stacks and the night is over.
 
-Build cannons on the open **floor** beside the carpet: never on the carpet itself, and never on a **bookshelf** (the shelves are part of the room). Every fruit you pop pays **seeds**; spend them on more cannons, fittings and upgrades. Survive all **21 waves** of Midnight, or all **15** of the Overflow, to win.
+Build cannons on the open **floor** beside the carpet: never on the carpet itself, and never on a **bookshelf** (the shelves are part of the room). Every fruit you pop pays **seeds**; spend them on more cannons, fittings and upgrades. Survive all **21 waves** of Midnight, or all **15** of the Overflow or the Siege, to win.
 
 ## Getting started
 
@@ -199,8 +199,8 @@ Build cannons on the open **floor** beside the carpet: never on the carpet itsel
 2. **Setup (New night)** has two pages.
    - **Who holds the stacks?** Seven faces (keys `1`–`7`). Tap one to see that keeper's one line (the thing you'll feel on wave one) and every tower only they can build, with its cost (the signature first; locked ones show a padlock and the Grand Catalogue room that opens them). Keepers whose room isn't restored yet are dimmed with a padlock and "Restore <Room>"; tapping one only says which room opens them. Under the faces, **N fragments, Grand Catalogue** opens the Catalogue right there. The **Lv** badge is their level (see [Keepers](#keepers)). Press **Next: the night** (`Enter`).
    - **The night**, with your keeper's face in the corner (tap it, or press `Esc`, to change keeper):
-     - **Night**: Midnight (night one), The Overflow (night two) or Endless.
-     - **Room**: the map. More unlock as you play. On the Overflow, you choose **late slips** instead (see [Late slips](#late-slips)).
+     - **Night**: Midnight (night one), The Overflow (night two), The Siege (night three; open once you've won the Overflow) or Endless.
+     - **Room**: the map. More unlock as you play. On the Overflow, you choose **late slips** instead (see [Late slips](#late-slips)). The Siege is always in the Courtyard.
      - **Difficulty**: Story, Normal, Melongeddon or Overdue.
      - **Bookmark**: one small perk you've earned (see [Bookmarks](#bookmarks)).
      - **Perks**: only once the keeper has reached level 2: their perk choices, one per row (see [Keeper levels and perks](#keeper-levels-and-perks)).
@@ -635,6 +635,38 @@ Before the Overflow you can take up to **three late slips** on the setup screen.
 
 The end-of-night card shows the bonus with your XP.
 
+Winning the Overflow offers **Continue to the Siege** on the victory screen (`Enter` does the same).
+
+### The Siege (night three)
+
+Fifteen waves on its own map, **the Courtyard**, and **no fruit at all**: geese and military cats attack the library from the back courtyard. The Siege opens on the setup screen once you have **won the Overflow** at least once (until then it shows a padlock: "Win the Overflow first"). Every keeper can play it, and you start with **60 extra seeds**. Upgrade picks come after waves 1, 2 and 6, as on the Overflow, and a card warns you before the last wave: *"Both of them, at once. They still hate each other."* Winning pays fragments like the Overflow (the difficulty's win, +1). After it, the victory screen offers **Set up Endless**.
+
+**The Courtyard** is a big map (22 × 14): flagstones, a hedge maze along the walls, six statues and a dry fountain in the middle, with the library's carpet runner laid across it to the back door. The carpet is 46 tiles with rounded turns and **two 45° stretches** (nothing can be built on the tiles a diagonal half-covers). Hedges, statues and the fountain block building, like bookshelves. Two **chalk targets** on the carpet, one on the climb beside the fountain and one on the long drop on the right, are where **paratroopers** land; a target glows before a wave that uses it.
+
+**Act one (waves 1–5) is geese:**
+
+| Enemy | What it does | The answer |
+|---|---|---|
+| **Honker** (a white goose) | The first time it's hit it **HONKS**: every tower within a tile and a half **skips its next shot**. Once per goose | Spread your towers out; a long-reach tower further back isn't bothered |
+| **Gosling Line** (small, yellow, quick) | Comes in **lines of five** behind a **leader** (a little bigger, with a red flag). Kill the leader and the rest of its line **stand still for 2 seconds** | Aim for the front: a Long Reader, a Scales, or anything that picks the lead goose, then splash the stopped line |
+| **The Matriarch** (boss, wave 5) | A big goose with a gold crest. Every 6 seconds she **honks for a rally**: every goose on the board walks **50% faster for 3 seconds** (speed lines behind them). A leak costs 3 stacks. Pushes and stops work on her the way they do on Karl | Kill her escort first or the rally carries it past you; slow her with freeze, the Driver or the Gourd Gate |
+
+**Act two (waves 6–10) is cats:**
+
+| Enemy | What it does | The answer |
+|---|---|---|
+| **Private Whiskers** (a tabby in a helmet) | **Nine Lives**: the first time it would die it gets back up with **30% of its health** (an "8" pops up). Once only; damage past what killed it doesn't carry over. One hit from full health worth **130% of its health** (both lives at once) kills it outright | Plenty of shots, or one huge one: a Long Reader, the Telescope, the Bombard |
+| **Box Cat** (a cardboard box with ears) | **Can't be aimed at** while it's in its box. **Splash, fire, a puddle, or a Reading Lamp's light** knocks the box off, and then it's an ordinary cat (no Nine Lives). Towers that work on an area (Still, Pipe Organ, Shush Bell, Foot of the Law, Lion Blade, Honeyed Heel, Harvest Bombard, Anti-Geese Protocol) see it anyway | A Reading Lamp beside the carpet, a mortar, a fire cannon or a Still |
+| **Paratrooper** (a cat with a pack) | Doesn't come in at the entrance. A chalk target glows for **3 seconds**, then the cats **float down on parachutes** and walk on from there, halfway along | Keep a tower on each target. A one-time tip shows the first drop |
+| **Cardboard Tank** | Slow and tough. Its **front is armoured**: a hit from a tower it is walking **toward** does **half**; a hit from behind does the full amount. Splash is judged from where the shot lands. A leak costs **2 stacks** | Towers that see it after it has passed them: build some at the back of a stretch |
+| **General Mittens** (boss, wave 10) | A grey cat in a peaked cap. While she's alive **every cat has 25% more health** (a gold star shows it), the ones already on the carpet too. When she dies every cat **loses the bonus and scatters**: it walks back for 2 seconds. A leak costs 3 stacks | Kill her early, while the cats are bunched up behind her |
+
+The Matriarch and General Mittens each pay **+2 stacks** when they fall, like Karl.
+
+**Act three (waves 11–15) is both, and the feud matters.** Geese and cats hate each other. If a goose and a cat come within **half a tile** of each other they **stop and fight for 2 seconds**: both stand still and each loses **10% of its max health** (a dust cloud with feathers and fur). Each pair fights once. Bosses never stop to fight, but their minions do. The act's waves send geese and cats close together on purpose: geese walk faster, so a goose behind a cat catches it up. Let them meet before your towers do. Wave 14 is paratroopers and tanks; wave 15 is **both bosses** at once, with goslings and box cats.
+
+**Quackarot's payoff.** The **Anti-Geese Protocol** finally means it: against geese its throw goes **twice as far** (six tiles), and a goose it throws **panics** and walks back **two more tiles**. Cats are thrown the usual three tiles. Bosses still only take the knock.
+
 ### Endless
 
 No last wave. Waves keep coming and keep getting tougher, Karl arrives every fifth wave, and you get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Your best Endless wave is saved separately.
@@ -710,6 +742,7 @@ The library is in pieces. You put it back together with **Catalogue Fragments**,
 |---|---|
 | Win a story night | Story 1, Normal 2, Melongeddon 3, Overdue 4 |
 | Win the Overflow | +1 on top |
+| Win the Siege | +1 on top |
 | Pop Karl | +1 (once a night) |
 | Lose a story night after clearing wave 10 | 1 |
 | Endless | 1 for every 10 waves |
@@ -796,7 +829,7 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 - **Quiet Hours**: Win the Bell Tower with no strike coming early because of a Chimer.
 - **Caught Napping**: Kill a Gargoyle Gourd while the clock is silencing your towers.
 
-**Atlas Room** (7)
+**Atlas Room** (13)
 
 - **Map Explorer**: Win a night on every room you can pick.
 - **Difficulty Tour**: Win a night on every difficulty.
@@ -805,6 +838,16 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 - **Fragment Collector**: Earn 10 fragments in total.
 - **Restorer**: Restore your first room, other than The Stacks.
 - **Archivist**: Restore every room.
+
+The Atlas Room's **Courtyard** set, for the Siege:
+
+- **The Siege Holds**: Win the Siege.
+- **Siege Breaker**: Win the Siege on Melongeddon or harder.
+- **Let Them Fight**: 25 goose-and-cat fights in one night.
+- **Protocol Engaged**: The Anti-Geese Protocol throws 10 geese in one night.
+- **Out of the Box**: Knock 20 boxes off Box Cats in one night.
+- **Only One Life**: Kill a Private Whiskers with a single hit before Nine Lives can trigger.
+
 
 **Restricted Section** (3)
 

@@ -309,7 +309,10 @@ function ShelvesTab({ hud }: { hud: Hud }) {
                 : null;
             return (
               <>
-                <p className="font-display text-base leading-tight font-semibold">{shown.name}</p>
+                <p className="font-display text-base leading-tight font-semibold">
+                  {shown.name}
+                  {sel.set ? <span className="ml-1.5 text-[11px] font-normal text-[#7a5a3a]">{sel.set}</span> : null}
+                </p>
                 <p className="text-xs text-[#6b5040]">{shown.blurb}</p>
                 <p className="mt-0.5 text-[11px] font-semibold text-[#7a5a3a]">
                   {sel.secret && !has ? "" : `${plural(sel.tier, "fragment")} · `}
@@ -348,13 +351,15 @@ function ShelvesTab({ hud }: { hud: Hud }) {
                 {done} of {list.length} restored
               </span>
             </div>
-            {/* The bookcase: rows of spines, each standing on its own carved plank. */}
-            {Array.from({ length: Math.ceil(list.length / PER_SHELF) }, (_, row) => (
-              <div key={row} className={`relative mt-1 ${lit ? "drop-shadow-[0_0_10px_rgba(230,195,106,0.2)]" : ""}`}>
+            {/* The bookcase: rows of spines, each standing on its own carved plank. A named set (the Courtyard) starts its own row. */}
+            {shelfRows(list).map(({ set, books, start }, row) => (
+              <div key={row}>
+              {set ? <p className="mt-2 text-[10px] tracking-[0.22em] text-gold uppercase">{set}</p> : null}
+              <div className={`relative mt-1 ${lit ? "drop-shadow-[0_0_10px_rgba(230,195,106,0.2)]" : ""}`}>
                 <img src={ART.shelf} alt="" aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 w-full select-none" />
                 <div className="relative flex items-end gap-[3px] px-[4%] pb-[8%]">
-              {list.slice(row * PER_SHELF, row * PER_SHELF + PER_SHELF).map((a, j) => {
-                const i = row * PER_SHELF + j;
+              {books.map((a, j) => {
+                const i = start + j;
                 const has = Boolean(earned[a.id]);
                 const shown = shownAs(a, has);
                 const active = picked === a.id;
@@ -390,12 +395,27 @@ function ShelvesTab({ hud }: { hud: Hud }) {
               })}
                 </div>
               </div>
+              </div>
             ))}
           </section>
         );
       })}
     </div>
   );
+}
+
+/** A bookcase's rows: up to PER_SHELF books each, and a named set (the Atlas Room's Courtyard books) on rows of its own. */
+function shelfRows(list: typeof ACHIEVEMENTS) {
+  const rows: Array<{ set?: string; books: typeof ACHIEVEMENTS; start: number }> = [];
+  let start = 0;
+  for (const set of [...new Set(list.map((a) => a.set))]) {
+    const books = list.filter((a) => a.set === set);
+    for (let k = 0; k < books.length; k += PER_SHELF) {
+      rows.push({ set: k === 0 ? set : undefined, books: books.slice(k, k + PER_SHELF), start });
+      start += Math.min(PER_SHELF, books.length - k);
+    }
+  }
+  return rows;
 }
 
 /** End cards: fragments earned that night (with the breakdown), shelves restored, and a room now in reach. */

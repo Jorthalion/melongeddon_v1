@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CARD_FRAMES, CARPET_COLOURS, SPEEDS, openCosmetics, writeDev, type CardFrame, type CarpetColour } from "@/game/engine";
 import { HOTKEY_HELP } from "@/components/hotkeys";
-import { CHUTE_TIP_KEY, NATIVE_TIP_KEYS, TUTORIAL_KEY } from "@/components/TutorialHint";
+import { CHUTE_TIP_KEY, NATIVE_TIP_KEYS, SIEGE_TIP_KEYS, TUTORIAL_KEY } from "@/components/TutorialHint";
 import { save } from "@/lib/storage";
 import { MenuButton, type GameApi } from "@/components/ui";
 
@@ -64,6 +64,8 @@ export function SettingsPanel({
           save(TUTORIAL_KEY, "");
           save(CHUTE_TIP_KEY, "");
           for (const key of Object.values(NATIVE_TIP_KEYS)) save(key, "");
+          for (const key of Object.values(SIEGE_TIP_KEYS)) save(key, "");
+
           setTipsReset(true);
         }}
       >

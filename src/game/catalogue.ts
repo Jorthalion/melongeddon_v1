@@ -183,6 +183,7 @@ export const openCosmetics = (rooms: readonly RoomId[]) => unlockedBy("cosmetic"
 export const FRAGMENTS = {
   win: { easy: 1, normal: 2, hard: 3, overdue: 4 } as Record<Difficulty, number>,
   overflowBonus: 1,
+  siegeBonus: 1,
   karl: 1,
   /** A lost story night that cleared at least `lossFrom` waves pays `loss`. */
   loss: 1,
@@ -200,6 +201,8 @@ export function nightFragments(n: { night: NightId; difficulty: Difficulty; won:
   } else if (n.won) {
     parts.push({ label: "Night won", n: FRAGMENTS.win[n.difficulty] });
     if (n.night === "overflow") parts.push({ label: "The Overflow", n: FRAGMENTS.overflowBonus });
+    if (n.night === "siege") parts.push({ label: "The Siege", n: FRAGMENTS.siegeBonus });
+
   } else if (n.cleared >= FRAGMENTS.lossFrom) {
     parts.push({ label: `Held ${n.cleared} waves`, n: FRAGMENTS.loss });
   }

@@ -8,6 +8,7 @@ import {
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile,
   NATIVES, NATIVE_INFO, waveQueue, assignNatives, type NativeId, type QueueItem,
+  SIEGE, type SiegeVariant,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 
@@ -139,7 +140,33 @@ interface Enemy {
   vineCd?: number;
   /** A sprout that just grew into a melon (seconds left of its pop). */
   grew?: number;
+  /** The Siege, geese: a gosling (its line, and whether it leads), the Matriarch (seconds to her next rally), honked already, seconds left rallied. */
+  gosling?: boolean;
+  line?: number;
+  leader?: boolean;
+  matriarch?: boolean;
+  rallyCd?: number;
+  honked?: boolean;
+  rallied?: number;
+  /** The Siege, cats: Nine Lives still to use (Private Whiskers), in a box, a paratrooper (seconds left coming down), a tank,
+   * General Mittens, and carrying her extra health. */
+  lives9?: boolean;
+  boxed?: boolean;
+  para?: boolean;
+  descend?: number;
+  tank?: boolean;
+  general?: boolean;
+  mittened?: boolean;
+  /** Seconds left standing still: a gosling whose leader fell, or a goose and a cat in a fight. */
+  halt?: number;
+  /** Seconds left in a fight with a goose or a cat (it won't start another until this one is over). */
+  brawl?: number;
+  /** Anti-Geese Protocol: px left to walk back in a panic (geese only). */
+  panic?: number;
 }
+
+/** Towers that work on an area rather than aiming a shot: they can see a Box Cat (and their puddles, chords and stamps knock the box off). */
+const BOX_SEERS: TowerKind[] = ["still", "organ", "bell", "stomp", "lionblade", "honey", "bombard", "geese"];
 
 interface Tower {
   id: number;
@@ -194,6 +221,8 @@ interface Tower {
   mendReady?: boolean;
   /** Anti-Geese Protocol: fire on its own (auto, the default) or only when Engage is pressed (manual). */
   trigger?: "auto" | "manual";
+  /** A Honker honked close by: this tower skips its next shot. */
+  honked?: boolean;
 }
 
 /** A trick shot on a curved path that passes through fruit (Boomerang Bookend, Paper Plane, Serpent Quill, Rolling Globe). */
@@ -361,6 +390,8 @@ interface Floater {
   text: string;
   life: number;
   color: string;
+  /** Font size in px (default: the drawer's usual size). */
+  size?: number;
 }
 
 export interface Hud {
@@ -420,6 +451,13 @@ export interface Hud {
   chuteWave: boolean;
   /** Room fruit seen so far tonight (each logs a line the first time; the room's tip shows once any has come). */
   nativesSeen: NativeId[];
+  /** The Siege is open on Setup (the Overflow has been won at least once). */
+  siegeOpen: boolean;
+  /** The Siege: drop points the current or next wave lands paratroopers on (they glow). */
+  dropWave: number[];
+  /** The Siege: goose-and-cat fights tonight, and whether a paratrooper drop has started (for the one-time tips). */
+  feuds: number;
+  dropSeen: boolean;
   /** Quack-Liber speed-up reach in px for the run in play (perks can widen it), for drawing it. */
   quackAura: number;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
@@ -568,7 +606,7 @@ export interface SetupRecord {
 }
 
 const SETUP_KEY = "melongeddon-setup";
-const NIGHTS: NightId[] = ["midnight", "overflow", "endless"];
+const NIGHTS: NightId[] = ["midnight", "overflow", "siege", "endless"];
 
 export const DEFAULT_SETUP: SetupRecord = {
   night: "midnight",
@@ -602,11 +640,15 @@ function saveSetup(rec: SetupRecord) {
  */
 export function validateSetup(
   saved: Partial<SetupRecord> | null | undefined,
-  have: { maps: MapId[]; unlocked: BookmarkId[]; keepers?: HeroId[] },
+  have: { maps: MapId[]; unlocked: BookmarkId[]; keepers?: HeroId[]; siege?: boolean },
 ): { setup: SetupRecord; notes: string[]; needsDoor: boolean } {
   const s = saved ?? {};
   const notes: string[] = [];
-  const night = NIGHTS.includes(s.night as NightId) ? (s.night as NightId) : DEFAULT_SETUP.night;
+  let night = NIGHTS.includes(s.night as NightId) ? (s.night as NightId) : DEFAULT_SETUP.night;
+  if (night === "siege" && have.siege === false) {
+    notes.push("The Siege opens once you win the Overflow, so this starts on Midnight.");
+    night = "midnight";
+  }
   let hero = HEROES.includes(s.hero as HeroId) ? (s.hero as HeroId) : DEFAULT_SETUP.hero;
   if (have.keepers && !have.keepers.includes(hero)) {
     notes.push(`${KEEPER_NAMES[hero].name} is locked until ${roomFor("keeper", hero)?.name ?? "their room"} is restored, so ${KEEPER_NAMES.mynxi.name} holds the stacks.`);
@@ -615,7 +657,8 @@ export function validateSetup(
   const difficulty = DIFFICULTIES.some((d) => d.id === s.difficulty) ? (s.difficulty as Difficulty) : DEFAULT_SETUP.difficulty;
   let map: MapId = DEFAULT_SETUP.map;
   if (night === "overflow") map = "overflow";
-  else if (s.map && s.map !== "overflow" && s.map in BOARDS) {
+  else if (night === "siege") map = "courtyard";
+  else if (s.map && s.map !== "overflow" && s.map !== "courtyard" && s.map in BOARDS) {
     if (have.maps.includes(s.map)) map = s.map;
     else notes.push(`${BOARDS[s.map].name} is locked, so this starts in ${BOARDS.stacks.name}.`);
   }
@@ -710,6 +753,9 @@ export interface World {
   bell: { next: number; quiet: number } | null;
   /** Creeping Squash vines on the carpet ("c,r"): seconds left, and the squash that laid them. They heal like a bed. */
   vines: Map<string, { life: number; by: number; max: number }>;
+  /** The Siege: paratrooper landings on the way (drop point index, seconds until they land), and goose-and-cat fights to draw. */
+  landings: Array<{ drop: number; left: number }>;
+  brawls: Array<{ x: number; y: number; life: number; max: number }>;
   /** Bookshelf cells: part of the room, so nothing can be built there. */
   shelfCells: Set<string>;
   points: Waypoint[];
@@ -739,6 +785,10 @@ export interface WorldOptions {
   rooms?: RoomId[];
   /** Fragments in hand to start with (tests). */
   fragments?: number;
+  /** The lifetime ledger to start from when nothing is saved (tests). */
+  ledger?: Ledger;
+  /** The Siege is open whatever the ledger says (simulator, previews). */
+  siegeOpen?: boolean;
 }
 
 export function createWorld(
@@ -805,7 +855,9 @@ export function createWorld(
   toTitle: () => void;
   /** After a Midnight win: the Overflow, same keeper and difficulty. */
   continueOverflow: () => void;
-  /** After an Overflow win: Setup with Endless selected. */
+  /** After an Overflow win: Setup for the Siege, same keeper and difficulty. */
+  continueSiege: () => void;
+  /** After a Siege win: Setup with Endless selected. */
   tryEndless: () => void;
   openMenu: () => void;
   closeMenu: () => void;
@@ -883,6 +935,10 @@ export function createWorld(
       setupNote: "",
       chuteWave: false,
       nativesSeen: [],
+      siegeOpen: false,
+      dropWave: [],
+      feuds: 0,
+      dropSeen: false,
       quackAura: CANNON.quackAura,
       geeseSpent: false,
       sisu: 0,
@@ -935,6 +991,8 @@ export function createWorld(
     floors: new Map(),
     bell: null,
     vines: new Map(),
+    landings: [],
+    brawls: [],
     shelfCells: shelfCells("stacks", STACKS.cells),
     points: STACKS.points,
     turns: STACKS.turns,
@@ -954,6 +1012,9 @@ export function createWorld(
   let queue: QueueItem[] = [];
   /** The Bell Tower: a Chimer hurried the clock since the last strike. */
   let bellRushed = false;
+  /** The Siege: paratroopers waiting to land (their queue item, health scale and landing time), and goose-cat pairs that have fought ("goose:cat"). */
+  let drops: Array<{ q: QueueItem; scale: number; t: number }> = [];
+  const fought = new Set<string>();
   let absurdDrops = 0;
   /** Has a Still been built this night? (The Unstoppered's unlock.) */
   let stillBuilt = false;
@@ -1072,7 +1133,13 @@ export function createWorld(
     world.hud.catalogueNote = moved.note;
     saveAchievements(shelfSave);
   }
-  if (!persistStats) shelfSave = { ...shelfSave, rooms: options.rooms ? [...options.rooms] : [...ALL_ROOMS], fragments: options.fragments ?? 0 };
+  if (!persistStats)
+    shelfSave = {
+      ...shelfSave,
+      rooms: options.rooms ? [...options.rooms] : [...ALL_ROOMS],
+      fragments: options.fragments ?? 0,
+      ...(options.ledger ? { ledger: options.ledger } : {}),
+    };
   /** Everything the restored rooms open, onto the hud. */
   const applyRooms = () => {
     const rooms = shelfSave.rooms;
@@ -1087,6 +1154,8 @@ export function createWorld(
     const open = openKeepers(rooms);
     world.hud.lockedKeepers = HEROES.filter((h) => !open.includes(h));
     world.hud.cosmetics = allowedCosmetics(shelfSave.cosmetics, rooms);
+    // The Siege opens once the Overflow has been won (developer mode opens everything).
+    world.hud.siegeOpen = options.siegeOpen ?? (dev || (shelfSave.ledger.winsByNight.overflow ?? 0) > 0);
   };
   applyRooms();
   {
@@ -1097,6 +1166,7 @@ export function createWorld(
       maps: world.hud.maps,
       unlocked: world.hud.unlocked,
       keepers: HEROES.filter((h) => !world.hud.lockedKeepers.includes(h)),
+      siege: world.hud.siegeOpen,
     });
     world.hud.saved = Boolean(stored);
     world.hud.setupNote = stored ? notes.join(" ") : "";
@@ -1883,6 +1953,9 @@ export function createWorld(
       borrower?: boolean;
       native?: NativeId | null;
       at?: { x: number; y: number; wp: number };
+      siege?: SiegeVariant | null;
+      line?: number;
+      leader?: boolean;
     } = {},
   ) => {
     const st = STATS[kind];
@@ -1926,6 +1999,7 @@ export function createWorld(
       reverse: chute,
     });
     const host = world.enemies[world.enemies.length - 1];
+    if (kind === "goose" || kind === "cat") siegeSetup(host, flags.siege ?? null, bonusHp * tuned.hp * (BOARDS[world.hud.map].hp ?? 1), tuned.speed, flags);
     if (flags.pit) host.pit = true;
     if (flags.native) {
       const native = flags.native;
@@ -1976,6 +2050,140 @@ export function createWorld(
         gall: true,
         mends: host.id,
       });
+    }
+  };
+
+  /** General Mittens' extra health on a cat (on), or taken off again (off), keeping its share of health. */
+  const mitten = (e: Enemy, on: boolean) => {
+    if (on === Boolean(e.mittened)) return;
+    const k = on ? SIEGE.generalBonus : 1 / SIEGE.generalBonus;
+    e.maxHp *= k;
+    e.hp = Math.min(e.maxHp, e.hp * k);
+    e.mittened = on;
+  };
+  /**
+   * A goose or cat's variant: its own health, speed and size where it has them (`hpMul` is the wave, difficulty and
+   * board scale), and its flags. Plain geese are Honkers; plain cats are Private Whiskers, with Nine Lives.
+   */
+  const siegeSetup = (host: Enemy, siege: SiegeVariant | null, hpMul: number, speedMul: number, flags: { line?: number; leader?: boolean }) => {
+    const sized = (s: { hp: number; speed?: number; r: number; gold?: number }) => {
+      host.hp = host.maxHp = Math.max(1, Math.round(s.hp * hpMul));
+      if (s.speed) host.speed = s.speed * speedMul;
+      host.r = s.r;
+      if (s.gold) host.gold = killReward(s.gold);
+    };
+    if (host.kind === "goose") {
+      if (siege === "gosling") {
+        sized(flags.leader ? { ...SIEGE.gosling, ...SIEGE.leader } : SIEGE.gosling);
+        host.gosling = true;
+        host.line = flags.line ?? -1;
+        host.leader = Boolean(flags.leader);
+      } else if (siege === "matriarch") {
+        sized(SIEGE.matriarch);
+        host.matriarch = true;
+        host.boss = true;
+        host.rallyCd = SIEGE.rallyEvery;
+        world.hud.log = "The Matriarch. Every goose on the carpet listens to her.";
+      }
+      return;
+    }
+    if (siege === "tank") {
+      sized(SIEGE.tank);
+      host.tank = true;
+    } else if (siege === "general") {
+      sized(SIEGE.general);
+      host.general = true;
+      host.boss = true;
+      world.hud.log = "General Mittens takes the field. Every cat stands a little taller.";
+    } else if (siege === "boxed") host.boxed = true;
+    else if (siege === "para") {
+      host.para = true;
+      host.descend = SIEGE.dropFall;
+    } else host.lives9 = true;
+    // General Mittens: every cat has more health while she stands, the ones already on the board too.
+    if (host.general) {
+      for (const o of world.enemies) if (o !== host && o.kind === "cat" && o.hp > 0 && !o.general) mitten(o, true);
+    } else if (world.enemies.some((o) => o.general && o.hp > 0)) mitten(host, true);
+  };
+
+  /** Where a drop point is: its tile's centre on the carpet, and the waypoint a cat landing there walks to next. */
+  const dropSpot = (index: number) => {
+    const cells = BOARDS[world.hud.map].drops ?? [];
+    const cell = cells[index] ?? cells[0];
+    if (!cell) return { x: world.points[0].x, y: world.points[0].y, wp: 1 };
+    const leg = legsNow().findIndex((l) => l.tiles.some(([c, r]) => c === cell[0] && r === cell[1]));
+    return { ...cellCenter(cell[0], cell[1]), wp: leg >= 0 ? leg + 1 : 1 };
+  };
+  /** The drop points wave `index` (0-based) lands paratroopers on (the Siege only). */
+  const dropsFor = (index: number) =>
+    world.hud.night === "siege" ? [...new Set(waveAt(index, "siege").spawns.filter((s) => s.para).map((s) => s.drop ?? 0))] : [];
+  /** Clear the Siege's per-wave state (landings on the way, fights, which pairs have fought). */
+  const clearSiegeWave = () => {
+    drops = [];
+    fought.clear();
+    world.landings = [];
+    world.brawls = [];
+  };
+  /** Stacks a leak costs: 2 for a tank, 3 for a boss, 1 for anything else. */
+  const leakOf = (e: Enemy) =>
+    e.tank ? SIEGE.tank.leak : e.matriarch ? SIEGE.matriarch.leak : e.general ? SIEGE.general.leak : e.boss ? 3 : 1;
+  /** A Box Cat loses its box (splash, burn, a puddle, or a Reading Lamp's light): from now on it's an ordinary cat. */
+  const unbox = (e: Enemy) => {
+    if (!e.boxed) return;
+    e.boxed = false;
+    world.runLog.boxesOff += 1;
+    burst(e.x, e.y, "#b8895a", 8);
+    float(e.x, e.y - 22, "box off", "#d8b98a");
+  };
+  /** A Honker's first hit: HONK. Every tower within reach skips its next shot. */
+  const honk = (e: Enemy) => {
+    e.honked = true;
+    for (const t of [...world.towers, ...actingTowers()])
+      if ((t.x - e.x) ** 2 + (t.y - e.y) ** 2 <= SIEGE.honkReach ** 2) t.honked = true;
+    world.rings.push({ x: e.x, y: e.y, r: SIEGE.honkReach, life: 0.5, max: 0.5, color: "244,241,232" });
+    world.floaters.push({ x: e.x, y: e.y - 26, text: "HONK!", life: 0.9, color: "#fff4d0", size: 20 });
+  };
+  /** Is point `p` ahead of `e` along the carpet (the way it is walking)? A Cardboard Tank's armour faces that way. */
+  const ahead = (e: Enemy, p: { x: number; y: number }) => {
+    const pts = world.points;
+    const k = Math.max(0, Math.min(pts.length - 1, e.wp));
+    let dx = pts[k].x - e.x;
+    let dy = pts[k].y - e.y;
+    if (Math.hypot(dx, dy) < 1) {
+      const n = pts[e.reverse ? k - 1 : k + 1];
+      if (n) {
+        dx = n.x - e.x;
+        dy = n.y - e.y;
+      }
+    }
+    return (p.x - e.x) * dx + (p.y - e.y) * dy > 0;
+  };
+  /** The feud: a goose and a cat that meet stop and fight (each pair once). Bosses never stop for it. */
+  const tickFeud = () => {
+    const geese = world.enemies.filter((e) => e.kind === "goose" && e.hp > 0 && !e.boss);
+    if (!geese.length) return;
+    const cats = world.enemies.filter((e) => e.kind === "cat" && e.hp > 0 && !e.boss && (e.descend ?? 0) <= 0);
+    for (const g of geese) {
+      for (const c of cats) {
+        if (g.hp <= 0 || c.hp <= 0) continue;
+        // One fight at a time: a goose or cat already fighting lets the next one walk past.
+        if ((g.brawl ?? 0) > 0 || (c.brawl ?? 0) > 0) continue;
+        if ((g.x - c.x) ** 2 + (g.y - c.y) ** 2 > SIEGE.feudReach ** 2) continue;
+        const key = `${g.id}:${c.id}`;
+        if (fought.has(key)) continue;
+        fought.add(key);
+        g.halt = Math.max(g.halt ?? 0, SIEGE.feudTime);
+        c.halt = Math.max(c.halt ?? 0, SIEGE.feudTime);
+        g.brawl = SIEGE.feudTime;
+        c.brawl = SIEGE.feudTime;
+        world.brawls.push({ x: (g.x + c.x) / 2, y: (g.y + c.y) / 2, life: SIEGE.feudTime, max: SIEGE.feudTime });
+        if (world.brawls.length > 30) world.brawls.splice(0, world.brawls.length - 30);
+        world.runLog.feuds += 1;
+        world.hud.feuds += 1;
+        credit = null;
+        hurt(g, null, g.maxHp * SIEGE.feudHit, 0, "feud");
+        hurt(c, null, c.maxHp * SIEGE.feudHit, 0, "feud");
+      }
     }
   };
 
@@ -2080,6 +2288,8 @@ export function createWorld(
     world.floors = floorTiles(map);
     world.bell = BOARDS[map].bell ? { next: FLOOR.bellEvery, quiet: 0 } : null;
     world.vines = new Map();
+    world.landings = [];
+    world.brawls = [];
     Object.assign(world, boardSize(map));
     world.hud.map = map;
   };
@@ -2121,6 +2331,7 @@ export function createWorld(
     absurdDrops = 0;
     stillBuilt = false;
     tally.clear();
+    clearSiegeWave();
     applyBoard(world.hud.map);
     const opening = waveAt(0, world.hud.night);
     world.hud = {
@@ -2163,6 +2374,9 @@ export function createWorld(
       newMaps: [],
       chuteWave: false,
       nativesSeen: [],
+      dropWave: [],
+      feuds: 0,
+      dropSeen: false,
       quackAura: CANNON.quackAura,
       geeseSpent: false,
       sisu: 0,
@@ -2199,7 +2413,7 @@ export function createWorld(
     const log = world.runLog;
     log.stacksLost += lost;
     if (from?.reverse) log.chuteStacksLost += lost;
-    if (from?.boss) log.karlStacksLost += lost;
+    if (from?.kind === "karl") log.karlStacksLost += lost;
     log.minStacks = Math.min(log.minStacks, world.hud.lives);
     world.shake = world.reduced ? 0 : 8;
     if (world.hud.hero === "asser") {
@@ -2422,7 +2636,15 @@ export function createWorld(
     for (const e of inRange) {
       if (e.hp <= 0) continue;
       hurt(e, null, CANNON.geeseDamage);
-      if (!e.boss) pushBack(e, CANNON.geeseShove);
+      if (e.boss || e.hp <= 0) continue;
+      // It finally means it: a goose is thrown twice as far, and panics.
+      const goose = e.kind === "goose";
+      pushBack(e, CANNON.geeseShove * (goose ? SIEGE.protocolThrow : 1));
+      if (goose) {
+        e.panic = SIEGE.protocolPanic;
+        world.runLog.protocolGeese += 1;
+        float(e.x, e.y - 22, "panic!", "#f3ce78");
+      }
     }
     const range = statsFor(tower).range;
     world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.7, max: 0.7, color: "243,206,120" });
@@ -2446,7 +2668,7 @@ export function createWorld(
       const by = credit != null ? towerKinds.get(credit) : undefined;
       log.kills += 1;
       if (by) log.killsBy[by] = (log.killsBy[by] ?? 0) + 1;
-      if (e.boss) {
+      if (e.kind === "karl") {
         log.karlKills += 1;
         if (by) log.karlKilledBy.push(by);
       }
@@ -2460,7 +2682,16 @@ export function createWorld(
     if (!e.contents) world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
     if (e.native === "parcel") openParcel(e);
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
-    const juice = e.kind === "pumpkin" || e.kind === "karl" ? "#e8883a" : e.kind === "corn" ? "#e6c36a" : "#e23b4a";
+    const juice =
+      e.kind === "pumpkin" || e.kind === "karl"
+        ? "#e8883a"
+        : e.kind === "corn"
+          ? "#e6c36a"
+          : e.kind === "goose"
+            ? "#f4f1e8"
+            : e.kind === "cat"
+              ? "#c89a5a"
+              : "#e23b4a";
     burst(e.x, e.y, juice, e.boss ? 28 : 12);
     stain(e.x, e.y, e.boss ? e.r * 1.3 : e.r * 1.1, juice);
     cue(e.boss ? "bossPop" : "pop");
@@ -2473,7 +2704,25 @@ export function createWorld(
       }
       world.rings.push({ x: e.x, y: e.y, r: CANNON.blotRadius, life: 0.35, max: 0.35, color: "29,38,64" });
     }
-    if (e.boss) {
+    // A Gosling Line's leader down: the rest of its line stand there for a moment.
+    if (e.gosling && e.leader) {
+      for (const o of world.enemies) if (o !== e && o.gosling && o.line === e.line && o.hp > 0) o.halt = Math.max(o.halt ?? 0, SIEGE.goslingStun);
+    }
+    // General Mittens down: every cat loses her bonus and scatters back down the carpet.
+    if (e.general) {
+      for (const o of world.enemies) {
+        if (o === e || o.kind !== "cat" || o.hp <= 0) continue;
+        mitten(o, false);
+        if (!o.boss) o.driven = Math.max(o.driven ?? 0, SIEGE.scatter);
+      }
+    }
+    if (e.boss && e.kind !== "karl") {
+      // The Siege's bosses pay like Karl: +2 stacks.
+      world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + 2);
+      syncSisu();
+      world.shake = world.reduced ? 0 : 14;
+      world.hud.log = e.matriarch ? "The Matriarch is down. The geese have gone very quiet. +2 stacks." : "General Mittens has fallen. Her cats scatter. +2 stacks.";
+    } else if (e.boss) {
       const second = karlReward;
       karlReward = true;
       world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + 2);
@@ -2499,13 +2748,24 @@ export function createWorld(
     from: { id: number; x: number; y: number } | null,
     amount: number,
     radius = 0,
-    via: "shot" | "splash" | "burn" | "pulp" | "worm" | "pierce" = "shot",
+    via: "shot" | "splash" | "burn" | "pulp" | "worm" | "pierce" | "feud" = "shot",
   ) => {
     if (radius > 0 && from) {
       if (e.id === from.id || e.hp <= 0) return;
       if (Math.hypot(e.x - from.x, e.y - from.y) > radius) return;
     }
     if (e.hp <= 0) return;
+    // A Honker's first hit makes it honk (a fight with a cat doesn't count).
+    if (e.kind === "goose" && !e.gosling && !e.boss && !e.honked && amount > 0 && via !== "feud") honk(e);
+    // A fight is a fight: no armour, shell or ink changes it.
+    if (via !== "feud") {
+    // Splash, fire and puddles knock a Box Cat's box off.
+    if (e.boxed && amount > 0 && (via === "splash" || via === "burn" || via === "pulp")) unbox(e);
+    // A Cardboard Tank's front armour: a hit from ahead of it does half. Splash is judged from where the shot landed.
+    if (e.tank && (via === "shot" || via === "splash")) {
+      const src = radius > 0 && from ? from : credit != null ? world.towers.find((t) => t.id === credit) : undefined;
+      if (src && ahead(e, src)) amount *= SIEGE.tankArmour;
+    }
     if (slip("damp")) amount *= SLIP_VALUES.dampDamage;
     if (e.raw && via === "burn" && amount > 0) {
       e.raw = false;
@@ -2541,13 +2801,27 @@ export function createWorld(
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
     // Sir Michael's mouth oath: fruit on the first three tiles take more from everything.
     if (world.hud.oath === "mouth" && inOathZone(world.points, "mouth", e)) amount *= OATH_VALUES.mouthAmp;
+    }
     const before = e.hp;
     e.hp -= amount;
     if (amount >= 1) float(e.x, e.y - 10, String(Math.round(amount)), "#f3e2c4");
     if (credit != null) {
       const t = tallyFor(credit);
       t.dmg += Math.max(0, Math.min(amount, before));
-      if (e.hp <= 0) t.pops += 1;
+      if (e.hp <= 0 && !e.lives9) t.pops += 1;
+    }
+    // Private Whiskers' Nine Lives: the first time it would die it gets back up with a little health (what killed it
+    // doesn't carry over). One hit from full health worth both lives at once kills it for good.
+    if (e.hp <= 0 && e.lives9) {
+      e.lives9 = false;
+      if (before >= e.maxHp - 1e-6 && amount >= e.maxHp * SIEGE.oneLife) {
+        world.runLog.oneLife += 1;
+        if (credit != null) tallyFor(credit).pops += 1;
+      } else {
+        e.hp = e.maxHp * SIEGE.nineLives;
+        float(e.x, e.y - 24, "8", "#f3e2c4");
+        return;
+      }
     }
     if (e.hp <= 0) {
       deathVia = via;
@@ -2770,6 +3044,8 @@ export function createWorld(
     cleared += 1;
     world.hud.geeseSpent = false;
     world.hud.chuteWave = usesChute(cleared);
+    world.hud.dropWave = dropsFor(cleared);
+    clearSiegeWave();
     bumpBest();
     const endless = world.hud.night === "endless";
     world.hud.wave = endless ? cleared + 1 : Math.min(nightLength(world.hud.night), cleared + 1);
@@ -2818,7 +3094,14 @@ export function createWorld(
       for (const [kind, p] of reached) if (p >= bar && p > far) [best, far] = [kind, p];
       if (best) {
         lecture = { kind: best, waves: 1 + fx.carriedNote };
-        const name = { melon: ["The melons", "They"], corn: ["The corn", "They"], pumpkin: ["The pumpkins", "They"], karl: ["Karl", "He"] }[best];
+        const name = {
+          melon: ["The melons", "They"],
+          corn: ["The corn", "They"],
+          pumpkin: ["The pumpkins", "They"],
+          karl: ["Karl", "He"],
+          goose: ["The geese", "They"],
+          cat: ["The cats", "They"],
+        }[best];
         lectureLine = `${name[0]} got furthest. ${name[1]} will be slower.`;
       } else {
         lectureLine = "Nothing reached the stacks. I have nothing to add.";
@@ -2844,7 +3127,11 @@ export function createWorld(
       world.hud.seeds += paid;
       world.hud.phase = "victory";
       world.hud.blurb =
-        world.hud.night === "overflow" ? "Karl came up the chute anyway. The chute still closed." : "The library holds.";
+        world.hud.night === "overflow"
+          ? "Karl came up the chute anyway. The chute still closed."
+          : world.hud.night === "siege"
+            ? "The geese have gone home. The cats say it was their idea."
+            : "The library holds.";
       world.hud.log = paid ? `${world.hud.blurb} The Reserve Desk pays out ${paid}.` : world.hud.blurb;
       recordWave();
       finishNight(true);
@@ -2875,7 +3162,9 @@ export function createWorld(
           : step === 3
           ? world.hud.night === "overflow"
             ? "One more shelf. Then the meter starts spending."
-            : "One more shelf. Then the last waves."
+            : world.hud.night === "siege"
+              ? "One more shelf. Then they come together."
+              : "One more shelf. Then the last waves."
           : step === 1
             ? `${KEEPER_NAMES[world.hud.hero ?? "mynxi"].short}'s first shelf.`
             : "The last pick opened the next shelf.";
@@ -2883,7 +3172,12 @@ export function createWorld(
       world.hud.phase = "consequence";
       world.hud.waveName = upcoming.name;
       world.hud.blurb = upcoming.blurb;
-      world.hud.log = world.hud.night === "overflow" ? "Karl is not using the door." : "Everything left in the library is on the carpet.";
+      world.hud.log =
+        world.hud.night === "overflow"
+          ? "Karl is not using the door."
+          : world.hud.night === "siege"
+            ? "Both of them, at once. They still hate each other."
+            : "Everything left in the library is on the carpet.";
     } else {
       world.hud.phase = "prep";
       world.hud.blurb = upcoming.blurb;
@@ -2902,17 +3196,40 @@ export function createWorld(
     const scale = hpScaleFor(world.hud.night, cleared);
     spawnClock += dt;
     while (queueCursor < queue.length && spawnClock >= queue[queueCursor].t) {
-      spawnEnemy(queue[queueCursor].kind, scale * queue[queueCursor].tough, queue[queueCursor].guard, {
-        split: queue[queueCursor].split,
-        raw: queue[queueCursor].raw,
-        chute: queue[queueCursor].chute,
-        pit: queue[queueCursor].pit,
-        gall: queue[queueCursor].gall,
-        borrower: queue[queueCursor].borrower,
-        native: queue[queueCursor].native,
-      });
+      const q = queue[queueCursor];
       queueCursor += 1;
+      // Paratroopers don't walk in: their drop point glows, and they land on it a few seconds later.
+      if (q.siege === "para") {
+        drops.push({ q, scale, t: clock + SIEGE.dropGlow });
+        if (!world.hud.dropSeen) {
+          world.hud.dropSeen = true;
+          world.hud.log = "A chalk target is glowing on the carpet. Something is coming down.";
+        }
+        continue;
+      }
+      spawnEnemy(q.kind, scale * q.tough, q.guard, {
+        split: q.split,
+        raw: q.raw,
+        chute: q.chute,
+        pit: q.pit,
+        gall: q.gall,
+        borrower: q.borrower,
+        native: q.native,
+        siege: q.siege,
+        line: q.line,
+        leader: q.leader,
+      });
     }
+    if (drops.length) {
+      for (const d of drops) {
+        if (d.t > clock) continue;
+        const at = dropSpot(d.q.drop);
+        spawnEnemy("cat", d.scale * d.q.tough, d.q.guard, { siege: "para", at });
+        burst(at.x, at.y, "#d8c9a8", 6);
+      }
+      drops = drops.filter((d) => d.t > clock);
+    }
+    world.landings = drops.map((d) => ({ drop: d.q.drop, left: d.t - clock }));
     // The Overflow's last two waves ("The meter spends", "Up the chute") drop a rind per 25 absurdity.
     if (world.hud.night === "overflow" && cleared >= WAVE_COUNT - 2) {
       const due = Math.floor(world.hud.absurdity / 25);
@@ -2927,7 +3244,29 @@ export function createWorld(
     tickBell(dt);
     tickVines(dt);
 
+    // Reading Lamps' light knocks a Box Cat's box off.
+    const lamps = world.towers
+      .filter((t) => t.kind === "lantern")
+      .map((t) => ({ x: t.x, y: t.y, r: towerReadout(world.hud.hero, "lantern", t.mods, world.hud.upgrades).range }));
     for (const e of world.enemies) {
+      // A paratrooper still coming down: nothing touches it and it doesn't walk yet.
+      if ((e.descend ?? 0) > 0) {
+        e.descend = Math.max(0, (e.descend ?? 0) - dt);
+        continue;
+      }
+      if (e.boxed && lamps.some((l) => (l.x - e.x) ** 2 + (l.y - e.y) ** 2 <= l.r * l.r)) unbox(e);
+      // The Matriarch rallies every goose on the board.
+      if (e.matriarch && e.hp > 0) {
+        e.rallyCd = (e.rallyCd ?? SIEGE.rallyEvery) - dt;
+        if (e.rallyCd <= 0) {
+          e.rallyCd += SIEGE.rallyEvery;
+          for (const o of world.enemies) if (o.kind === "goose" && o.hp > 0) o.rallied = SIEGE.rallyTime;
+          world.rings.push({ x: e.x, y: e.y, r: CELL * 2.5, life: 0.6, max: 0.6, color: "255,214,120" });
+          world.floaters.push({ x: e.x, y: e.y - 34, text: "RALLY!", life: 0.9, color: "#ffd678", size: 18 });
+        }
+      }
+      if ((e.rallied ?? 0) > 0) e.rallied = Math.max(0, (e.rallied ?? 0) - dt);
+      if ((e.brawl ?? 0) > 0) e.brawl = Math.max(0, (e.brawl ?? 0) - dt);
       let slow = 1;
       let dot = 0;
       let burn = 0;
@@ -2976,6 +3315,11 @@ export function createWorld(
       // Pinned under the Foot of the Law: the one stop a husk can't shrug off.
       if ((e.stomped ?? 0) > 0) {
         e.stomped = (e.stomped ?? 0) - dt;
+        slow = 0;
+      }
+      // Standing still: a gosling whose leader fell, or a goose and a cat in a fight.
+      if ((e.halt ?? 0) > 0) {
+        e.halt = (e.halt ?? 0) - dt;
         slow = 0;
       }
       // Express Corn on a belt: no slow, stop, honey or walk-back takes hold.
@@ -3036,16 +3380,20 @@ export function createWorld(
         }
       }
       // Reverse Driver: walk back toward the corner behind it for a while (wait at the carpet's start or the chute's end).
-      if ((e.driven ?? 0) > 0) {
-        e.driven = Math.max(0, (e.driven ?? 0) - dt);
+      // A goose the Anti-Geese Protocol threw panics too: it walks back a little further.
+      if ((e.driven ?? 0) > 0 || (e.panic ?? 0) > 0) {
+        const driven = (e.driven ?? 0) > 0;
+        if (driven) e.driven = Math.max(0, (e.driven ?? 0) - dt);
         const backAt = e.reverse ? e.wp + 1 : e.wp - 1;
         const back = world.points[backAt];
+        if (!back) e.panic = 0;
         if (back) {
           const bx = back.x - e.x;
           const by = back.y - e.y;
           const bd = Math.hypot(bx, by);
           const studiedBack = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
           const stepBack = e.speed * e.slow * studiedBack * perimeterAt(e) * paceOf(e, !e.reverse) * awake(e) * dt;
+          if (!driven) e.panic = Math.max(0, (e.panic ?? 0) - stepBack);
           if (bd <= stepBack + 0.5) {
             e.x = back.x;
             e.y = back.y;
@@ -3064,7 +3412,8 @@ export function createWorld(
       const dist = Math.hypot(dx, dy);
       // The History Lectern's note: the kind that got furthest last wave walks slower.
       const studied = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
-      const step = e.speed * e.slow * studied * perimeterAt(e) * paceOf(e, Boolean(e.reverse)) * awake(e) * dt;
+      const rush = (e.rallied ?? 0) > 0 ? SIEGE.rallySpeed : 1;
+      const step = e.speed * e.slow * studied * rush * perimeterAt(e) * paceOf(e, Boolean(e.reverse)) * awake(e) * dt;
       if (dist <= step + 0.5) {
         e.x = wp.x;
         e.y = wp.y;
@@ -3073,7 +3422,7 @@ export function createWorld(
           if (e.wp < 0) {
             noteReach(e, 1);
             if (e.borrower) borrow(e);
-            else loseLife(e.boss ? 3 : 1, e.x, e.y, e);
+            else loseLife(leakOf(e), e.x, e.y, e);
             e.hp = 0;
           }
         } else {
@@ -3081,7 +3430,7 @@ export function createWorld(
           if (e.wp >= world.points.length) {
             noteReach(e, 1);
             if (e.borrower) borrow(e);
-            else loseLife(e.boss ? 3 : 1, e.x, e.y, e);
+            else loseLife(leakOf(e), e.x, e.y, e);
             e.hp = 0;
           }
         }
@@ -3091,6 +3440,8 @@ export function createWorld(
       }
       if (e.hp > 0) noteReach(e, progressOf(e));
     }
+
+    tickFeud();
 
     // Reserve Desk: a melon that comes past eats whatever is banked.
     for (const desk of world.towers) {
@@ -3133,8 +3484,10 @@ export function createWorld(
       const stats = statsFor(tower);
       const range = stats.range;
       const inRange: Enemy[] = [];
+      // A Box Cat can't be aimed at; area towers still see it. A paratrooper in the air can't be reached at all.
+      const seesBoxes = BOX_SEERS.includes(tower.kind);
       for (const e of world.enemies) {
-        if (e.hp <= 0) continue;
+        if (e.hp <= 0 || (e.descend ?? 0) > 0 || (e.boxed && !seesBoxes)) continue;
         const d2 = (e.x - tower.x) ** 2 + (e.y - tower.y) ** 2;
         if (d2 > range * range) continue;
         inRange.push(e);
@@ -3159,6 +3512,13 @@ export function createWorld(
       if (tower.kind === "hive") target = inRange[Math.floor(Math.random() * inRange.length)] ?? target;
       tower.aim = Math.atan2(target.y - tower.y, target.x - tower.x);
       if (tower.cd > 0) continue;
+      // A honk close by: this one misses its next shot.
+      if (tower.honked && tower.kind !== "geese") {
+        tower.honked = false;
+        tower.cd = stats.interval;
+        float(tower.x, tower.y - 24, "?!", "#f4f1e8");
+        continue;
+      }
       if (tower.kind === "geese") {
         if ((tower.trigger ?? "auto") === "auto" && geeseShouldFire(inRange)) fireGeese(tower, inRange);
         continue;
@@ -3513,9 +3873,9 @@ export function createWorld(
       for (const e of world.enemies) if (e.chill > 0 || e.freeze > 0 || e.slow < 1) slowed += 1;
       if (slowed > world.runLog.maxSlowedAtOnce) world.runLog.maxSlowedAtOnce = slowed;
     }
-    world.hud.left = world.enemies.length + Math.max(0, queue.length - queueCursor);
+    world.hud.left = world.enemies.length + Math.max(0, queue.length - queueCursor) + drops.length;
 
-    if (world.hud.phase === "combat" && queueCursor >= queue.length && world.enemies.length === 0) {
+    if (world.hud.phase === "combat" && queueCursor >= queue.length && world.enemies.length === 0 && drops.length === 0) {
       endWave();
     }
   };
@@ -3545,6 +3905,8 @@ export function createWorld(
       f.y -= 18 * dt;
     }
     world.floaters = world.floaters.filter((f) => f.life > 0);
+    for (const b of world.brawls) b.life -= dt;
+    world.brawls = world.brawls.filter((b) => b.life > 0);
   };
 
   const api = {
@@ -3719,7 +4081,9 @@ export function createWorld(
       if (world.bell) world.bell = { next: FLOOR.bellEvery, quiet: 0 };
       bellRushed = false;
       world.vines = new Map();
-      cue(queue.some((q) => q.kind === "karl") ? "boss" : "wave");
+      clearSiegeWave();
+      world.hud.dropWave = dropsFor(cleared);
+      cue(queue.some((q) => q.kind === "karl" || q.siege === "matriarch" || q.siege === "general") ? "boss" : "wave");
       world.hud.wave = cleared + 1;
       world.hud.waveName = spec.name;
       world.hud.blurb = spec.blurb;
@@ -3845,6 +4209,10 @@ export function createWorld(
       stillBuilt = false;
       world.hud.wave = 1;
       world.hud.chuteWave = usesChute(0);
+      world.hud.dropWave = dropsFor(0);
+      world.hud.feuds = 0;
+      world.hud.dropSeen = false;
+      clearSiegeWave();
       const opening = waveAt(0, world.hud.night);
       world.hud.waveName = opening.name;
       world.hud.blurb = opening.blurb;
@@ -3900,6 +4268,11 @@ export function createWorld(
         world.hud.seeds += BALANCE.overflowSeeds;
         world.hud.log = `${world.hud.log} The crates by the chute were never eaten: +${BALANCE.overflowSeeds} seeds.`.trim();
       }
+      if (world.hud.night === "siege") {
+        // Night three starts with a little extra too, after the keeper's opening line.
+        world.hud.seeds += BALANCE.siegeSeeds;
+        world.hud.log = `${world.hud.log} The stores by the back door: +${BALANCE.siegeSeeds} seeds.`.trim();
+      }
       world.hud.newUnlocks = [];
       world.hud.newMaps = [];
       world.hud.saved = true;
@@ -3933,8 +4306,8 @@ export function createWorld(
       notify();
     },
     chooseMap(map: MapId) {
-      if (world.hud.phase !== "select" || world.hud.night === "overflow") return;
-      if (map === "overflow" || !world.hud.maps.includes(map)) return;
+      if (world.hud.phase !== "select" || world.hud.night === "overflow" || world.hud.night === "siege") return;
+      if (map === "overflow" || map === "courtyard" || !world.hud.maps.includes(map)) return;
       applyBoard(map);
       world.hud.log = BOARDS[map].blurb;
       notify();
@@ -4043,14 +4416,22 @@ export function createWorld(
       notify();
     },
     chooseNight(night: NightId) {
-      if (world.hud.phase !== "select") return;
+      if (world.hud.phase !== "select" || !NIGHTS.includes(night)) return;
+      if (night === "siege" && !world.hud.siegeOpen) {
+        world.hud.log = "Win the Overflow first.";
+        notify();
+        return;
+      }
       world.hud.night = night;
       world.hud.waveCount = nightLength(night);
       if (night === "overflow") {
         applyBoard("overflow");
         world.hud.log = "The returns come up the chute. Take late slips for more XP, or none.";
+      } else if (night === "siege") {
+        applyBoard("courtyard");
+        world.hud.log = "The courtyard. No fruit tonight: geese, then cats, then both.";
       } else {
-        if (world.hud.map === "overflow") applyBoard("stacks");
+        if (world.hud.map === "overflow" || world.hud.map === "courtyard") applyBoard("stacks");
         world.hud.log =
           night === "endless"
             ? `No last wave. Best so far: ${world.hud.endlessBest} waves.`
@@ -4195,8 +4576,21 @@ export function createWorld(
       world.hud.log = "The returns come up the chute. Take late slips for more XP, or none.";
       notify();
     },
+    continueSiege() {
+      if (world.hud.phase !== "victory" || world.hud.night !== "overflow") return;
+      const hero = world.hud.hero ?? DEFAULT_SETUP.hero;
+      world.hud.night = "siege";
+      applyBoard("courtyard");
+      resetRunState();
+      world.hud.phase = "select";
+      world.hud.setupPage = world.hud.hero ? "night" : "who";
+      world.hud.hero = hero;
+      world.hud.log = "The courtyard. No fruit tonight: geese, then cats, then both.";
+      notify();
+    },
     tryEndless() {
       if (world.hud.phase !== "victory") return;
+
       api.reset();
       api.chooseNight("endless");
     },

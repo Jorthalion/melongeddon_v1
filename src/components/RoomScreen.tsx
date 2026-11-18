@@ -15,7 +15,12 @@ export const ROOM_JOKE: Partial<Record<MapId, string>> = {
   greenhouse: "The fruit are home. They feel much better here.",
   belltower: "The clock strikes on the hour. The hour is whenever it likes.",
   overflow: "The chute is open. The returns have opinions.",
+  courtyard: "The geese want the courtyard. The cats want the geese out of it.",
 };
+
+/** The Siege's intro line (night three has its own poster: "Night three", "The Siege"). */
+export const SIEGE_JOKE = "The fruit were a distraction. The geese have a plan. The cats have a bigger one.";
+
 
 /**
  * The intro: the real board, the room's name, and the button onto the carpet. With `oaths`

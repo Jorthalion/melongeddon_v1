@@ -1,6 +1,7 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, type OathId, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
+import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
 const SPRITE_SRC = {
   melon: asset("sprites/melon.webp"),
@@ -19,6 +20,15 @@ const SPRITE_SRC = {
   chimer: asset("sprites/enemy-chimer.webp"),
   gargoyle: asset("sprites/enemy-gargoyle.webp"),
   tileVine: asset("sprites/tile-vine.webp"),
+  // The Siege: geese and cats (flags on the two kinds). Drawn by code until the art exists (docs/art/ENEMY_PROMPTS.md).
+  honker: asset("sprites/enemy-honker.webp"),
+  gosling: asset("sprites/enemy-gosling.webp"),
+  matriarch: asset("sprites/enemy-matriarch.webp"),
+  whiskers: asset("sprites/enemy-whiskers.webp"),
+  boxcat: asset("sprites/enemy-boxcat.webp"),
+  para: asset("sprites/enemy-para.webp"),
+  tank: asset("sprites/enemy-tank.webp"),
+  general: asset("sprites/enemy-general.webp"),
   base: asset("sprites/cannon-base.webp"),
   barrel: asset("sprites/cannon-barrel.webp"),
   allyBarrel: asset("sprites/pumpkin-barrel.webp"),
@@ -47,6 +57,11 @@ const SPRITE_SRC = {
   floorSorting: asset("sprites/tile-floor-sorting.webp"),
   floorGreenhouse: asset("sprites/tile-floor-greenhouse.webp"),
   floorBelltower: asset("sprites/tile-floor-belltower.webp"),
+  // The Courtyard's flagstones and props (drawn by code until the art exists: docs/art/PROMPTS.md).
+  floorCourtyard: asset("sprites/tile-floor-courtyard.webp"),
+  hedge: asset("sprites/prop-hedge.webp"),
+  statue: asset("sprites/prop-statue.webp"),
+  fountain: asset("sprites/prop-fountain.webp"),
   // Floor marks on the carpet, painted pointing right (the way the carpet runs).
   tileBelt: asset("sprites/tile-belt.webp"),
   tileStairs: asset("sprites/tile-stairs.webp"),
@@ -204,9 +219,16 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     sorting: art.floorSorting,
     greenhouse: art.floorGreenhouse,
     belltower: art.floorBelltower,
+    courtyard: art.floorCourtyard,
   } as Partial<Record<string, HTMLImageElement>>)[world.hud.map];
   const floor = ready(ownFloor) ? ownFloor : art.floor;
-  if (ready(floor)) {
+  if (world.hud.map === "courtyard" && !ready(ownFloor)) {
+    // Flagstones by code until the painted tile exists.
+    ctx.fillStyle = flagstones(ctx);
+    ctx.fillRect(0, 0, world.w, world.h);
+    ctx.fillStyle = "rgba(16,12,14,0.3)";
+    ctx.fillRect(0, 0, world.w, world.h);
+  } else if (ready(floor)) {
     const pattern = ctx.createPattern(floor, "repeat");
     if (pattern) {
       ctx.fillStyle = pattern;
@@ -240,6 +262,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   drawWet(ctx, world);
   ctx.restore();
   drawBell(ctx, world);
+  drawFountainProp(ctx, world, art);
+  drawDrops(ctx, world);
   if (BOARDS[world.hud.map].dark) drawDark(ctx, world);
 
   const hover = world.hover;
@@ -395,8 +419,32 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.stroke();
     }
     const next = world.points[Math.min(e.wp, world.points.length - 1)];
-    // A Parcel out of its paper is a plain pumpkin.
-    const look: Look | null = e.pit ? "pit" : e.gall ? "gall" : e.borrower ? "borrower" : e.native === "parcel" && !e.wrapped ? null : (e.native ?? null);
+    // A goose or a cat wears its variant's face. A Parcel out of its paper is a plain pumpkin.
+    const siegeLook = siegeLookOf(e);
+    const look: Look | null =
+      siegeLook ?? (e.pit ? "pit" : e.gall ? "gall" : e.borrower ? "borrower" : e.native === "parcel" && !e.wrapped ? null : (e.native ?? null));
+    // A paratrooper coming down floats in from above, under its canopy.
+    const falling = (e.descend ?? 0) > 0 ? (e.descend ?? 0) / SIEGE.dropFall : 0;
+    if (falling > 0) {
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.beginPath();
+      ctx.ellipse(e.x, e.y + e.r * 0.8, e.r * (1.2 - falling * 0.6), e.r * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.translate(0, -falling * 46);
+      drawParachute(ctx, e.x, e.y, e.r, falling);
+    }
+    if ((e.rallied ?? 0) > 0 && !e.boss) {
+      // Rallied by the Matriarch: speed lines behind it.
+      ctx.strokeStyle = "rgba(255,214,120,0.7)";
+      ctx.lineWidth = 1.5;
+      const back = next && next.x < e.x - 4 ? 1 : -1;
+      for (const dy of [-5, 0, 5]) {
+        ctx.beginPath();
+        ctx.moveTo(e.x + back * (e.r + 3), e.y + dy);
+        ctx.lineTo(e.x + back * (e.r + 12), e.y + dy);
+        ctx.stroke();
+      }
+    }
     // Reverse Driver: a little green-white swirl over a fruit being walked back.
     if ((e.driven ?? 0) > 0) {
       ctx.save();
@@ -435,7 +483,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
     const painted = look != null && ready(art[look]);
     const quiet = (world.bell?.quiet ?? 0) > 0;
-    if (!painted && e.native === "sprout") drawSproutShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim);
+    if (!painted && siegeLook) drawSiegeShape(ctx, siegeLook, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, next ? next.x < e.x - 4 : false, Boolean(e.leader));
+    else if (!painted && e.native === "sprout") drawSproutShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim);
     else if (!painted && e.native === "gargoyle") drawGargoyleShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, quiet);
     else drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, next ? next.x < e.x - 4 : false, painted ? look : null);
     if (painted && e.native === "gargoyle" && quiet) {
@@ -446,6 +495,31 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.fill();
     }
     if (!painted && e.native) drawNativeMark(ctx, e, world.anim);
+    if (painted && e.leader) {
+      // A Gosling Line's leader: a little red flag.
+      ctx.fillStyle = "#e23b4a";
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y - e.r - 14);
+      ctx.lineTo(e.x + 8, e.y - e.r - 11);
+      ctx.lineTo(e.x, e.y - e.r - 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+    if (e.mittened) {
+      // Carrying General Mittens' bonus: a small gold star.
+      ctx.fillStyle = "#e6c36a";
+      ctx.beginPath();
+      const sx = e.x - e.r - 3;
+      const sy = e.y - e.r - 2;
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        const d = i % 2 ? 2.2 : 5;
+        if (i === 0) ctx.moveTo(sx + Math.cos(a) * d, sy + Math.sin(a) * d);
+        else ctx.lineTo(sx + Math.cos(a) * d, sy + Math.sin(a) * d);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
     if ((e.grew ?? 0) > 0) {
       // A sprout just grew: a green ring opens out.
       const k = 1 - (e.grew ?? 0) / 0.5;
@@ -914,6 +988,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.stroke();
   }
 
+  for (const b of world.brawls) drawBrawl(ctx, b, world.anim);
+
   for (const b of world.bits) {
     ctx.globalAlpha = Math.max(0, b.life / b.max);
     ctx.fillStyle = b.color;
@@ -928,7 +1004,16 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   for (const f of world.floaters) {
     ctx.globalAlpha = Math.max(0, f.life);
     ctx.fillStyle = f.color;
-    ctx.fillText(f.text, f.x, f.y);
+    if (f.size) {
+      // A big one (a HONK!): its own size, with a dark edge so it reads over anything.
+      ctx.save();
+      ctx.font = "800 " + f.size + "px 'Outfit Variable', Outfit, sans-serif";
+      ctx.strokeStyle = "rgba(20,14,18,0.85)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(f.text, f.x, f.y);
+      ctx.fillText(f.text, f.x, f.y);
+      ctx.restore();
+    } else ctx.fillText(f.text, f.x, f.y);
     ctx.globalAlpha = 1;
   }
 
@@ -1602,6 +1687,28 @@ function drawBell(ctx: CanvasRenderingContext2D, world: World) {
   ctx.restore();
 }
 
+/** The Courtyard's dry fountain on its 2×2 block (painted when the art exists). */
+function drawFountainProp(ctx: CanvasRenderingContext2D, world: World, art: Partial<Record<SpriteName, HTMLImageElement>>) {
+  const spot = BOARDS[world.hud.map].fountain;
+  if (!spot) return;
+  const x = (spot[0] + 1) * CELL;
+  const y = (spot[1] + 1) * CELL;
+  if (ready(art.fountain)) fit(ctx, art.fountain, x, y, CELL * 2 - 2, CELL * 2 - 2);
+  else drawFountain(ctx, x, y);
+}
+
+/** The Siege's drop points: faint chalk targets that glow before a wave that lands paratroopers on them. */
+function drawDrops(ctx: CanvasRenderingContext2D, world: World) {
+  const cells = BOARDS[world.hud.map].drops;
+  if (!cells) return;
+  const waiting = world.hud.phase === "prep" || world.hud.phase === "combat" || world.hud.phase === "consequence";
+  cells.forEach(([c, r], i) => {
+    const soon = world.landings.filter((l) => l.drop === i).reduce<number | null>((m, l) => (m == null ? l.left : Math.min(m, l.left)), null);
+    const p = roundedSpot(world.points, c * CELL + CELL / 2, r * CELL + CELL / 2);
+    drawDropMarker(ctx, p.x, p.y, waiting && world.hud.dropWave.includes(i), soon, world.anim);
+  });
+}
+
 function drawWet(ctx: CanvasRenderingContext2D, world: World) {
   if (!world.wet.size) return;
   ctx.save();
@@ -1780,6 +1887,8 @@ const ROOM_LOOK: Partial<
   sorting: { floor: ["#6a7078", 0.45], carpet: "#b88a1e", light: { x: 0.5, y: 0.0, r: 0.75, color: "220,235,255", a: 0.14 } },
   // The Greenhouse: green glass light from above, a terracotta path.
   greenhouse: { floor: ["#4f7a3a", 0.4], carpet: "#b0552e", light: { x: 0.6, y: 0.1, r: 0.8, color: "200,255,170", a: 0.18 } },
+  // The Courtyard: moonlight over the flagstones (the runner keeps the library's crimson).
+  courtyard: { light: { x: 0.75, y: 0.1, r: 0.8, color: "190,205,255", a: 0.16 } },
   // The Bell Tower: cold stone, a deep red runner, moonlight through the louvres.
   belltower: { floor: ["#6a6a78", 0.45], carpet: "#8a1f2a", light: { x: 0.5, y: 0.45, r: 0.5, color: "230,200,140", a: 0.14 } },
 };
@@ -1840,6 +1949,21 @@ function drawShelves(
   // The Bell Tower's bell stands on its own 2×2 block of shelf cells: drawn by drawBell, not here.
   const bellAt = BOARDS[world.hud.map].bell;
   const underBell = (c: number, r: number) => Boolean(bellAt && ready(art.bellFrame) && c - bellAt[0] >= 0 && c - bellAt[0] <= 1 && r - bellAt[1] >= 0 && r - bellAt[1] <= 1);
+  // The Courtyard: hedges and statues (painted when the art exists); the fountain's block is drawn by drawFountainProp.
+  const board = BOARDS[world.hud.map];
+  if (board.fountain) {
+    const [fc, fr] = board.fountain;
+    const statue = new Set((board.statues ?? []).map(([c, r]) => `${c},${r}`));
+    for (const [c, r] of spots) {
+      if (c - fc >= 0 && c - fc <= 1 && r - fr >= 0 && r - fr <= 1) continue;
+      const isStatue = statue.has(`${c},${r}`);
+      const img = isStatue ? art.statue : art.hedge;
+      if (ready(img)) fit(ctx, img, c * CELL + CELL / 2, r * CELL + CELL / 2, CELL - 2, CELL - 2);
+      else if (isStatue) drawStatue(ctx, c, r);
+      else drawHedge(ctx, c, r);
+    }
+    return;
+  }
   for (const [c, r] of spots) {
     if (underBell(c, r)) continue;
     const x = c * CELL + CELL / 2;
@@ -2022,9 +2146,15 @@ const NEW_SHOT = {
   worm: { sprite: "shotWorm", size: 14 },
 } as const satisfies Record<string, { sprite: SpriteName; size: number }>;
 
-const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108 } as const;
-/** Act three: the stone melon is a little squat and heavy, the gall small, the borrower a lanky runner. Then the rooms' own fruit. */
-const LOOK_H = { pit: 50, gall: 34, borrower: 46, express: 48, parcel: 58, sprout: 30, squash: 58, chimer: 48, gargoyle: 56 } as const;
+const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108, goose: 46, cat: 46 } as const;
+/**
+ * Act three: the stone melon is a little squat and heavy, the gall small, the borrower a lanky runner. Then the rooms'
+ * own fruit, then the Siege's geese and cats (the bosses as big as Karl's little brother).
+ */
+const LOOK_H = {
+  pit: 50, gall: 34, borrower: 46, express: 48, parcel: 58, sprout: 30, squash: 58, chimer: 48, gargoyle: 56,
+  honker: 46, gosling: 26, matriarch: 88, whiskers: 44, boxcat: 48, para: 46, tank: 66, general: 88,
+} as const;
 type Look = keyof typeof LOOK_H;
 
 function drawTower(
@@ -2276,7 +2406,8 @@ function drawNativeMark(ctx: CanvasRenderingContext2D, e: World["enemies"][numbe
 
 function drawEnemy(
   ctx: CanvasRenderingContext2D,
-  kind: "melon" | "corn" | "pumpkin" | "karl",
+  kind: keyof typeof UNIT_H,
+
   x: number,
   y: number,
   r: number,
@@ -2287,7 +2418,7 @@ function drawEnemy(
   faceLeft: boolean,
   look: Look | null = null,
 ) {
-  const img = art[look ?? kind];
+  const img = look ? art[look] : kind === "goose" || kind === "cat" ? undefined : art[kind];
   const height = look ? LOOK_H[look] : UNIT_H[kind];
   if (ready(img)) {
     const bob = Math.sin(anim * 3 + x * 0.05) * (boss ? 0 : 1.2);

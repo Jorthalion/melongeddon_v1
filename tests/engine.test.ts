@@ -118,7 +118,7 @@ test("big maps are bigger, and whole-board range still covers them", () => {
   for (const b of big) {
     const { w, h } = boardSize(b.id);
     assert.ok(Math.hypot(w, h) < GLOBAL_RANGE, `${b.id} is wider than whole-board range`);
-    const api = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night: "midnight", map: b.id } });
+    const api = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night: b.id === "courtyard" ? "siege" : "midnight", map: b.id }, siegeOpen: true });
     assert.equal(api.world.hud.map, b.id);
     assert.equal(api.world.w, w);
     assert.equal(api.world.cols, b.cols);
@@ -126,7 +126,7 @@ test("big maps are bigger, and whole-board range still covers them", () => {
 });
 
 test("every wave on every night is defined and uses known enemies", () => {
-  const nights: NightId[] = ["midnight", "overflow"];
+  const nights: NightId[] = ["midnight", "overflow", "siege"];
   for (const night of nights)
     for (let i = 0; i < nightLength(night); i++) {
       const wave = waveAt(i, night);

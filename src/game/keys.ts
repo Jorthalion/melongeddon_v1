@@ -8,6 +8,15 @@ import { HEROES, fittingsFor, groupOf, groupsFor, type Hud, type UpgradeId, type
 
 type Api = ReturnType<typeof createWorld>;
 
+/** The victory card's main button (Enter does the same): on to the next night, then Endless, then again. */
+export function victoryAction(night: Hud["night"]): string {
+  if (night === "midnight") return "Continue to the Overflow";
+  if (night === "overflow") return "Continue to the Siege";
+  if (night === "siege") return "Set up Endless";
+  return "Play again";
+}
+
+
 export type KeyAction =
   | { type: "mute" }
   | { type: "swallow" }
@@ -187,6 +196,7 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
     case "endPrimary":
       if (hud.phase === "defeat" || hud.night === "endless") api.restartNight();
       else if (hud.night === "midnight") api.continueOverflow();
+      else if (hud.night === "overflow") api.continueSiege();
       else api.tryEndless();
       return true;
     case "build":

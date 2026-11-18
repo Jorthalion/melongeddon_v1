@@ -7,8 +7,9 @@ const worlds = new Map<MapId, World>();
 function previewWorld(map: MapId): World {
   let w = worlds.get(map);
   if (!w) {
-    const night = map === "overflow" ? "overflow" : "midnight";
-    w = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night, map } }).world;
+    const night = map === "overflow" ? "overflow" : map === "courtyard" ? "siege" : "midnight";
+    w = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night, map }, siegeOpen: true }).world;
+
     w.reduced = true;
     worlds.set(map, w);
   }

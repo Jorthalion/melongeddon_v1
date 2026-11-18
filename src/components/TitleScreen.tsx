@@ -157,7 +157,7 @@ export function HowToPlay() {
       <p className={h}>The basics</p>
       <p>
         Produce walks the carpet. Build cannons on the floor beside it; anything that reaches the far end costs a stack.
-        Kills pay seeds. Midnight is {MIDNIGHT_WAVES} waves. The Overflow is {WAVE_COUNT}. There is an upgrade pick now and then.
+        Kills pay seeds. Midnight is {MIDNIGHT_WAVES} waves. The Overflow and the Siege are {WAVE_COUNT}. There is an upgrade pick now and then.
       </p>
       <p className="mt-1">
         Tap a cannon to see its stats or sell it. The Back room tab on the right upgrades every cannon of a kind (between waves). Esc or the ☰ button pauses.
@@ -221,6 +221,10 @@ export function HowToPlay() {
         <li>
           <span className="font-semibold text-parchment">The Overflow:</span> night two, under the returns chute. Fruit come up it and
           walk the carpet backwards. Take up to three late slips for a harder night and more keeper XP.
+        </li>
+        <li>
+          <span className="font-semibold text-parchment">The Siege:</span> night three, in the courtyard, once you've won the
+          Overflow. No fruit: geese, then cats, then both. Geese and cats hate each other, so let them meet.
         </li>
         <li>
           <span className="font-semibold text-parchment">Endless:</span> no last wave. Survive as long as you can.

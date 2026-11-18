@@ -79,3 +79,57 @@ Stone skin between strikes; it wakes up and runs three times as fast while the t
 A carpet tile, not a fruit: it lies **on top of the red carpet** for six seconds and heals fruit standing on it. Don't use the setup message's creature rules for this one.
 
 > One square tile seen **straight from above**, 512 × 512, **transparent background**: a **tangle of green squash vines and leaves** spread across the square edge to edge, a couple of curling tendrils, **one small yellow flower**, with a few faint **glowing green motes** over it. Leave plenty of gaps between the vines so the red carpet underneath shows through. Painterly, bold ink outlines, no text, no border.
+
+---
+
+## The Siege: geese and cats
+
+Eight sprites for night three, the Siege. There's no fruit in it: geese and military cats attack the library from the courtyard. They're in the game already with code-drawn stand-ins; each image below replaces one. Use the same **Setup message**, but say "living animals" instead of "living fruit", and attach **`corn.webp` and `pumpkin.webp`** so the ink, colour and three-quarter view match the fruit. **No text anywhere**: no letters on helmets, boxes, caps or flags. Save them with exactly these names (the game loads them as `.webp` from `public/sprites/`). Every one must read at about 40 pixels, so keep the silhouettes bold.
+
+### 11. `enemy-honker.png`: Honker
+
+A plain goose. The first time it's hit it honks, and nearby towers miss their next shot.
+
+> **The Honker**: a big, angry **white farmyard goose** mid-waddle, the same bold ink and cel-painting as the attached fruit. Long curved neck stretched forward, **bright orange beak wide open mid-honk** with a little pink tongue, orange webbed feet, one wing half raised. Small glowing yellow eyes with a furious brow. Grey-white feather shading, a bold clean silhouette. Transparent background, no text.
+
+### 12. `enemy-gosling.png`: Gosling
+
+Small and quick; they walk in lines of five behind a leader (the game marks the leader with a little red flag, so draw them all the same).
+
+> **The Gosling**: a **small fluffy yellow gosling**, about a third the size of the honker, round downy body, stubby orange beak, tiny orange feet mid-step, **leaning forward in a determined little march**. Big glowing yellow eyes trying very hard to look fierce. Bold ink outlines, cel-painted, transparent background, no text.
+
+### 13. `enemy-matriarch.png`: The Matriarch (boss)
+
+The geese's boss: every six seconds she honks for a rally and every goose runs.
+
+> **The Matriarch**: an **enormous, regal white goose**, twice the honker's bulk, chest puffed out, neck held high, **beak raised mid-honk** as if commanding an army. A **gold crown-like crest of stiff feathers** on her head, a **sash of royal blue** across her breast with a brass medal, wings slightly spread. Glowing yellow eyes, imperious and furious. Bold ink outlines, cel-painted, transparent background, no text.
+
+### 14. `enemy-whiskers.png`: Private Whiskers
+
+A plain cat soldier. Nine Lives: the first time it would die, it gets back up.
+
+> **Private Whiskers**: an **orange tabby cat** walking on all fours, tail up, in a **small olive-green army helmet** with a chin strap, one ear poking out under it. Bold tabby stripes, white paws, a scrappy, cocky grin, glowing yellow eyes. Tiny details only: no badges with writing. Bold ink outlines, cel-painted, transparent background, no text.
+
+### 15. `enemy-boxcat.png`: Box Cat
+
+Walks inside a cardboard box: it can't be aimed at until splash, fire or a lamp knocks the box off.
+
+> **The Box Cat**: a **brown cardboard box** walking on four small cat paws poking out of the bottom, the top flaps open, with **two orange tabby ears and a pair of glowing yellow eyes** peeking over the rim. A strip of packing tape across the front, a few dents and creases. **No writing, arrows or symbols on the box.** Bold ink outlines, cel-painted, transparent background, no text.
+
+### 16. `enemy-para.png`: Paratrooper
+
+Lands on a drop point halfway along the carpet. The game draws the parachute while it comes down, so draw the cat **landed**, pack on its back.
+
+> **The Paratrooper**: an **orange tabby cat** in a **round olive paratrooper helmet and goggles pushed up**, a **packed parachute rucksack** strapped to its back with harness straps across its chest, crouched as if it has just landed, tail flicking. Glowing yellow eyes, a focused, mission-ready glare. Bold ink outlines, cel-painted, transparent background, no text.
+
+### 17. `enemy-tank.png`: Cardboard Tank
+
+Slow and tough, with armour on the front: hits from ahead do half.
+
+> **The Cardboard Tank**: a **toy tank built from cardboard boxes**, chunky and low, facing **right**, with **treads made of bottle caps and a rubber band**, a box turret with a **paper-towel-tube barrel**, a thicker doubled-up cardboard plate on the **front** (its armour), packing tape at the seams. **Two orange tabby cat ears and glowing yellow eyes** peek out of the turret hatch. **No writing or symbols on the cardboard.** Bold ink outlines, cel-painted, transparent background, no text.
+
+### 18. `enemy-general.png`: General Mittens (boss)
+
+The cats' boss: while she's alive every cat is tougher; when she falls they scatter.
+
+> **General Mittens**: a **large, stately grey cat with a white chest and white mitten paws**, standing tall, in a **dark green general's peaked cap with a gold band and a gold star badge**, **gold epaulettes** on her shoulders and a row of small medal ribbons (plain colours, no writing). One paw raised as if ordering a charge. Glowing yellow eyes, a cold, superior stare, magnificent whiskers. Bold ink outlines, cel-painted, transparent background, no text.

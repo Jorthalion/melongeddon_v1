@@ -3,7 +3,8 @@ import { BOARDS, KEEPER_NAMES, createWorld, stepWorld } from "@/game/engine";
 import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
 import { useHotkeys } from "@/components/hotkeys";
-import { ChuteTip, NativesTip, TutorialHint } from "@/components/TutorialHint";
+import { ChuteTip, NativesTip, SiegeTip, TutorialHint } from "@/components/TutorialHint";
+
 import { MynxiTutor } from "@/components/MynxiTutor";
 import { canInstall, isDesktopApp, onInstallChange, promptInstall } from "@/lib/install";
 import { BuildFooter, GameHeader } from "@/components/GameHUD";
@@ -12,7 +13,7 @@ import { BackRoomTab } from "@/components/Shop";
 import { PauseMenu } from "@/components/PauseMenu";
 import { CheckoutPanel } from "@/components/CheckoutCard";
 import { GrandCatalogue } from "@/components/GrandCatalogue";
-import { ROOM_JOKE, RoomScreen } from "@/components/RoomScreen";
+import { ROOM_JOKE, RoomScreen, SIEGE_JOKE } from "@/components/RoomScreen";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { SetupScreen } from "@/components/SetupScreen";
 import { TitleScreen } from "@/components/TitleScreen";
@@ -229,6 +230,7 @@ export function MelonGame() {
         ) : null}
         {(phase === "prep" || phase === "combat") && !hud.tutorial && !hud.guide ? <TutorialHint api={api} /> : null}
         {phase === "prep" || phase === "combat" ? <ChuteTip api={api} /> : null}
+        {phase === "prep" || phase === "combat" ? <SiegeTip api={api} /> : null}
         {phase === "prep" || phase === "combat" ? <NativesTip api={api} /> : null}
         {(phase === "prep" || phase === "combat") && !hud.menu ? <BackRoomTab api={api} onGesture={gesture} /> : null}
         {phase === "select" ? <SetupScreen api={api} onGesture={gesture} /> : null}
@@ -291,10 +293,10 @@ export function MelonGame() {
         (
           <RoomScreen
             map={hud.map}
-            kicker={KEEPER_NAMES[hud.hero ?? "mynxi"].role}
-            title={BOARDS[hud.map].name}
-            joke={ROOM_JOKE[hud.map] ?? ROOM_JOKE.stacks!}
-            action={hud.night === "overflow" ? "Cover the chute" : "To the carpet"}
+            kicker={hud.night === "siege" ? "Night three" : KEEPER_NAMES[hud.hero ?? "mynxi"].role}
+            title={hud.night === "siege" ? "The Siege" : BOARDS[hud.map].name}
+            joke={hud.night === "siege" ? SIEGE_JOKE : (ROOM_JOKE[hud.map] ?? ROOM_JOKE.stacks!)}
+            action={hud.night === "overflow" ? "Cover the chute" : hud.night === "siege" ? "Hold the courtyard" : "To the carpet"}
             onAction={() => {
               gesture();
               tone(260, 0.08, "triangle", 0.04);

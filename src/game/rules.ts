@@ -63,7 +63,8 @@ export type UpgradeId =
   | "blot"
   | "interest";
 
-export type EnemyKind = "melon" | "corn" | "pumpkin" | "karl";
+/** The Siege brings two kinds that aren't fruit at all: geese and cats (every variant is a flag on one of them). */
+export type EnemyKind = "melon" | "corn" | "pumpkin" | "karl" | "goose" | "cat";
 
 export interface UpgradeDef {
   id: UpgradeId;
@@ -704,7 +705,8 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   geese: {
     name: "Anti-Geese Protocol",
-    blurb: "Quackarot's second. One use. It goes off on its own when fruit crowd into its ring or get near the door (or only when you press Engage, if you set it to Manual): every fruit within about two and a half tiles is thrown three tiles back down the carpet. Karl only takes the knock. Then it's gone, and it can be rebuilt after the wave.",
+    blurb: "Quackarot's second. One use. It goes off on its own when fruit crowd into its ring or get near the door (or only when you press Engage, if you set it to Manual): every fruit within about two and a half tiles is thrown three tiles back down the carpet. Karl only takes the knock. Then it's gone, and it can be rebuilt after the wave. Geese are thrown twice as far, and panic.",
+
     cost: 60,
     role: "One shot",
   },
@@ -1132,7 +1134,8 @@ export type MapId =
   | "sorting"
   | "greenhouse"
   | "belltower"
-  | "overflow";
+  | "overflow"
+  | "courtyard";
 
 /**
  * Floors that change the carpet: a belt carries fruit faster the way the carpet runs (and holds
@@ -1188,7 +1191,7 @@ export function floorPace(kind: FloorKind | undefined, back: boolean) {
   const fwd = kind === "belt" ? FLOOR.belt : kind === "up" ? FLOOR.up : kind === "down" ? FLOOR.down : 1;
   return back ? 1 / fwd : fwd;
 }
-export type NightId = "midnight" | "overflow" | "endless";
+export type NightId = "midnight" | "overflow" | "siege" | "endless";
 
 export interface Board {
   id: MapId;
@@ -1216,6 +1219,12 @@ export interface Board {
   natives?: { common: NativeId; elite: NativeId };
   /** How the carpet draws: "tiles" (square tiles and corner pieces, the default) or "path" (one band with rounded turns). */
   carpet?: "tiles" | "path";
+  /** The Siege: carpet tiles where paratrooper cats land (see SIEGE). Each glows before a wave that uses it. */
+  drops?: Array<[number, number]>;
+  /** The Courtyard's dry fountain: its top-left cell (it fills a 2×2 block of shelf cells, like the bell). */
+  fountain?: [number, number];
+  /** The Courtyard's statues (shelf cells drawn as statues; its other shelf cells are hedges). */
+  statues?: Array<[number, number]>;
 }
 
 /** The classic bookshelf layout, used by boards that don't list their own. */
@@ -1526,6 +1535,42 @@ export const BOARDS: Record<MapId, Board> = {
     ],
     michaelCannon: [1, 5],
   },
+  courtyard: {
+    id: "courtyard",
+    name: "The Courtyard",
+    blurb: "The library's back courtyard: flagstones, hedges and a dry fountain, with the carpet runner laid across it to the back door. Geese and cats, no fruit.",
+    cols: 22,
+    rows: 14,
+    carpet: "path",
+    // In past the hedges, down and back up beside the fountain, along the top and down to the back door. Two garden paths run at 45°.
+    corners: [
+      [0, 2],
+      [5, 2],
+      [5, 12],
+      [8, 12],
+      [8, 5],
+      [11, 2],
+      [15, 2],
+      [15, 9],
+      [18, 12],
+      [21, 12],
+    ],
+    // Paratroopers land on these, partway along: the climb beside the fountain, and the long drop on the right.
+    drops: [
+      [8, 8],
+      [15, 5],
+    ],
+    fountain: [10, 7],
+    statues: [[2, 4], [12, 4], [19, 6], [12, 10], [3, 10], [19, 2]],
+    michaelCannon: [3, 6],
+    // Hedges along the walls, six statues, and the fountain in the middle: about 15% of the floor.
+    shelves: [
+      [0, 0], [1, 0], [2, 0], [3, 0], [7, 0], [8, 0], [9, 0], [13, 0], [14, 0], [18, 0], [19, 0], [20, 0], [21, 0],
+      [0, 13], [1, 13], [2, 13], [10, 13], [11, 13], [12, 13], [13, 13], [14, 13], [0, 6], [0, 7], [0, 8], [0, 9],
+      [21, 4], [21, 5], [21, 6], [21, 8], [21, 9], [2, 4], [12, 4], [19, 6], [12, 10], [3, 10], [19, 2],
+      [10, 7], [11, 7], [10, 8], [11, 8],
+    ],
+  },
 };
 
 export function cornerRot(prev: [number, number], corner: [number, number], next: [number, number]) {
@@ -1613,7 +1658,61 @@ export interface SpawnSpec {
   gall?: boolean;
   /** Act three. Fast and frail; at the door it takes seeds instead of a stack. */
   borrower?: boolean;
+  /** The Siege (geese): a Gosling Line (spawned in lines of five, the first the leader), or the Matriarch. */
+  gosling?: boolean;
+  matriarch?: boolean;
+  /** The Siege (cats): a Box Cat, a Paratrooper (lands on drop point `drop`), a Cardboard Tank, or General Mittens. */
+  boxed?: boolean;
+  para?: boolean;
+  tank?: boolean;
+  general?: boolean;
+  /** Paratroopers: which of the board's drop points (default 0). */
+  drop?: number;
 }
+
+/** The Siege's flagged variants (a plain goose is a Honker; a plain cat is a Private Whiskers). */
+export type SiegeVariant = "gosling" | "matriarch" | "boxed" | "para" | "tank" | "general";
+export const SIEGE_VARIANTS: SiegeVariant[] = ["gosling", "matriarch", "boxed", "para", "tank", "general"];
+
+/**
+ * The Siege's numbers (tune with the simulator). Every goose and cat variant reads from here. Variants
+ * with their own health, speed and size have them here; plain ones use STATS.goose and STATS.cat.
+ */
+export const SIEGE = {
+  /** Honker: the first hit HONKS, and every tower within this reach (px, 1.5 tiles) skips its next shot. */
+  honkReach: 1.5 * CELL,
+  /** Gosling Line: five to a line, small and quick; the leader is a little bigger. Killing it stops the rest this long (s). */
+  goslingLine: 5,
+  gosling: { hp: 8, speed: 70, r: 8, gold: 3 },
+  leader: { hp: 12, r: 10 },
+  goslingStun: 2,
+  /** The Matriarch (boss): every `rallyEvery` s every goose walks `rallySpeed` times as fast for `rallyTime` s. */
+  matriarch: { hp: 340, speed: 30, r: 26, gold: 60, leak: 3 },
+  rallyEvery: 6,
+  rallyTime: 3,
+  rallySpeed: 1.5,
+  /** Private Whiskers: Nine Lives brings it back once with this share of its health. One hit from full health worth
+   * `oneLife` times its health (both lives at once) kills it outright. */
+  nineLives: 0.3,
+  oneLife: 1.3,
+  /** Paratrooper: the drop point glows this long (s) before they land, and the parachute takes this long (s) to come down. */
+  dropGlow: 3,
+  dropFall: 0.6,
+  /** Cardboard Tank: front armour (a hit from ahead does this share). */
+  tank: { hp: 140, speed: 26, r: 20, gold: 22, leak: 2 },
+  tankArmour: 0.5,
+  /** General Mittens (boss): while she's alive every cat has this much health (×); when she dies they walk back `scatter` s. */
+  general: { hp: 380, speed: 24, r: 26, gold: 70, leak: 3 },
+  generalBonus: 1.25,
+  scatter: 2,
+  /** The feud: a goose and a cat this close (px) stop and fight this long (s), and each loses this share of its max health. */
+  feudReach: CELL / 2,
+  feudTime: 2,
+  feudHit: 0.1,
+  /** Anti-Geese Protocol against geese: thrown this many times as far, then they panic and walk back this far (px). */
+  protocolThrow: 2,
+  protocolPanic: 2 * CELL,
+};
 
 /**
  * The three newest rooms' own fruit. Each is a flag on an ordinary kind (its `base`), swapped into the
@@ -1671,13 +1770,22 @@ export interface QueueItem {
   gall: boolean;
   borrower: boolean;
   native: NativeId | null;
+  /** The Siege: the variant flag, the drop point (paratroopers), the Gosling Line it walks in (-1: none), and whether it leads. */
+  siege: SiegeVariant | null;
+  drop: number;
+  line: number;
+  leader: boolean;
 }
 
 /** A wave's spawns as one queue, in spawn order. */
 export function waveQueue(spawns: SpawnSpec[]): QueueItem[] {
   const items: QueueItem[] = [];
   let t = 0.35;
+  let lines = 0;
   for (const group of spawns) {
+    const siege = SIEGE_VARIANTS.find((v) => group[v]) ?? null;
+    const first = lines;
+    if (siege === "gosling") lines += Math.ceil(group.count / SIEGE.goslingLine);
     for (let i = 0; i < group.count; i++) {
       items.push({
         kind: group.kind,
@@ -1691,6 +1799,10 @@ export function waveQueue(spawns: SpawnSpec[]): QueueItem[] {
         gall: Boolean(group.gall),
         borrower: Boolean(group.borrower),
         native: null,
+        siege,
+        drop: group.drop ?? 0,
+        line: siege === "gosling" ? first + Math.floor(i / SIEGE.goslingLine) : -1,
+        leader: siege === "gosling" && i % SIEGE.goslingLine === 0,
       });
       t += group.every;
     }
@@ -1700,7 +1812,7 @@ export function waveQueue(spawns: SpawnSpec[]): QueueItem[] {
 
 /** A plain fruit of this kind: no Karl, no flag or guard, not up the chute. Only those become room fruit. */
 const plainFruit = (q: QueueItem, kind: EnemyKind) =>
-  q.kind === kind && q.kind !== "karl" && q.guard === "none" && !q.split && !q.raw && !q.chute && !q.pit && !q.gall && !q.borrower && !q.native;
+  q.kind === kind && q.kind !== "karl" && q.guard === "none" && !q.split && !q.raw && !q.chute && !q.pit && !q.gall && !q.borrower && !q.native && !q.siege;
 
 /** Swap a room's own fruit into a wave's queue (in place): `wave` is 1-based. Story nights get no elites. */
 export function assignNatives(items: QueueItem[], natives: Board["natives"], wave: number, difficulty: Difficulty): QueueItem[] {
@@ -1905,7 +2017,147 @@ export const OVERFLOW: Array<{ name: string; blurb: string; spawns: SpawnSpec[] 
 ];
 
 /**
+ * Alternate geese and cats, one at a time, `pairs` of each: the feud's waves. The geese walk faster,
+ * so a goose that arrives behind a cat catches it up on the carpet.
+ */
+function feud(cat: SpawnSpec, goose: SpawnSpec, pairs: number): SpawnSpec[] {
+  const out: SpawnSpec[] = [];
+  for (let i = 0; i < pairs; i++) out.push({ ...cat, count: 1 }, { ...goose, count: 1 });
+  return out;
+}
+
+/** The Siege (night three, the Courtyard): geese, then cats, then both. No fruit at all. */
+export const SIEGE_WAVES: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> = [
+  // Act one: geese.
+  {
+    name: "Honkers",
+    blurb: "Geese. The first hit makes one honk, and every tower close by misses its next shot. Spread your towers out.",
+    spawns: [{ kind: "goose", count: 8, every: 0.85 }],
+  },
+  {
+    name: "Single file",
+    blurb: "Goslings walk in lines of five behind a leader. Pop the leader and the rest stand there for two seconds.",
+    spawns: [
+      { kind: "goose", count: 10, every: 0.32, gosling: true },
+      { kind: "goose", count: 3, every: 0.9 },
+    ],
+  },
+  {
+    name: "Gaggle",
+    blurb: "More honking. A tower that misses a shot to a honk still has the next one.",
+    spawns: [
+      { kind: "goose", count: 7, every: 0.7 },
+      { kind: "goose", count: 5, every: 0.32, gosling: true },
+    ],
+  },
+  {
+    name: "Flyover",
+    blurb: "Two lines of goslings, with the big ones in between.",
+    spawns: [
+      { kind: "goose", count: 5, every: 0.3, gosling: true },
+      { kind: "goose", count: 6, every: 0.6 },
+      { kind: "goose", count: 5, every: 0.3, gosling: true },
+    ],
+  },
+  {
+    name: "The Matriarch",
+    blurb: "Every six seconds she honks for a rally and every goose on the carpet runs. She doesn't stop for anyone.",
+    spawns: [
+      { kind: "goose", count: 5, every: 0.6 },
+      { kind: "goose", count: 1, every: 1.2, matriarch: true },
+      { kind: "goose", count: 5, every: 0.3, gosling: true },
+    ],
+  },
+  // Act two: cats.
+  {
+    name: "Private Whiskers",
+    blurb: "Cats. The first time one goes down it gets back up, with a little health. Hit it twice.",
+    spawns: [{ kind: "cat", count: 8, every: 0.8 }],
+  },
+  {
+    name: "Special delivery",
+    blurb: "Box cats. Nothing can aim at a box. Splash, fire, a puddle or a Reading Lamp's light knocks it off.",
+    spawns: [
+      { kind: "cat", count: 2, every: 0.9, boxed: true },
+      { kind: "cat", count: 7, every: 0.7 },
+    ],
+  },
+  {
+    name: "Air drop",
+    blurb: "Paratroopers. A chalk target on the carpet glows, and three seconds later the cats land on it, halfway in.",
+    spawns: [
+      { kind: "cat", count: 5, every: 0.7 },
+      { kind: "cat", count: 4, every: 0.5, para: true, drop: 0 },
+    ],
+  },
+  {
+    name: "Cardboard division",
+    blurb: "Tanks. The front is armoured: hit one from behind, after it has passed you.",
+    spawns: [
+      { kind: "cat", count: 4, every: 0.7 },
+      { kind: "cat", count: 2, every: 2.4, tank: true },
+      { kind: "cat", count: 2, every: 0.8, boxed: true },
+    ],
+  },
+  {
+    name: "General Mittens",
+    blurb: "While she stands, every cat on the carpet is a quarter tougher. When she falls, they scatter.",
+    spawns: [
+      { kind: "cat", count: 5, every: 0.6 },
+      { kind: "cat", count: 1, every: 1.2, general: true },
+      { kind: "cat", count: 2, every: 0.8, boxed: true },
+      { kind: "cat", count: 2, every: 0.5, para: true, drop: 1 },
+    ],
+  },
+  // Act three: both. They arrive close together on purpose.
+  {
+    name: "Old grudges",
+    blurb: "Geese and cats on the same carpet. When they meet they stop and fight, and both come off worse.",
+    spawns: feud({ kind: "cat", count: 1, every: 0.55 }, { kind: "goose", count: 1, every: 0.75 }, 7),
+  },
+  {
+    name: "Honk in a box",
+    blurb: "Box cats with honkers behind them. A goose that catches a box cat fights it, box and all.",
+    spawns: [
+      ...feud({ kind: "cat", count: 1, every: 0.6, boxed: true }, { kind: "goose", count: 1, every: 0.8 }, 4),
+      ...feud({ kind: "cat", count: 1, every: 0.6 }, { kind: "goose", count: 1, every: 0.8 }, 2),
+    ],
+  },
+  {
+    name: "Mixed company",
+    blurb: "Goslings at the door, paratroopers in the middle, and nobody is sharing the carpet nicely.",
+    spawns: [
+      { kind: "goose", count: 10, every: 0.3, gosling: true },
+      { kind: "cat", count: 3, every: 0.5, para: true, drop: 0 },
+      ...feud({ kind: "cat", count: 1, every: 0.55 }, { kind: "goose", count: 1, every: 0.7 }, 4),
+    ],
+  },
+  {
+    name: "Armoured drop",
+    blurb: "Tanks up the carpet and paratroopers on both targets.",
+    spawns: [
+      { kind: "cat", count: 2, every: 2, tank: true },
+      { kind: "cat", count: 3, every: 0.5, para: true, drop: 0 },
+      { kind: "cat", count: 3, every: 0.5, para: true, drop: 1 },
+      { kind: "cat", count: 4, every: 0.6 },
+    ],
+  },
+  {
+    name: "Both of them",
+    blurb: "Both of them, at once. They still hate each other.",
+    spawns: [
+      { kind: "goose", count: 5, every: 0.3, gosling: true },
+      { kind: "goose", count: 1, every: 1, matriarch: true },
+      { kind: "cat", count: 1, every: 1, general: true },
+      ...feud({ kind: "cat", count: 1, every: 0.6, boxed: true }, { kind: "goose", count: 1, every: 0.3, gosling: true }, 3),
+      ...feud({ kind: "cat", count: 1, every: 0.6 }, { kind: "goose", count: 1, every: 0.3, gosling: true }, 2),
+    ],
+  },
+];
+
+/**
  * The Overflow's length, the old Midnight finale index, and what the chute counts from.
+
  * How long a given night runs is `nightLength`.
  */
 export const WAVE_COUNT = 15;
@@ -2198,7 +2450,7 @@ export function reachShape(kind: TowerKind, range: number): { mode: "carpet" | "
 /** Midnight has a third act: six more waves after Unchaperoned. */
 export const MIDNIGHT_WAVES = 21;
 
-/** Waves in a night: Midnight 21, the Overflow 15, endless 0 (no last wave). */
+/** Waves in a night: Midnight 21, the Overflow and the Siege 15, endless 0 (no last wave). */
 export function nightLength(night: NightId): number {
   if (night === "endless") return 0;
   return night === "midnight" ? MIDNIGHT_WAVES : WAVE_COUNT;
@@ -2296,6 +2548,7 @@ export function waveAt(
   night: NightId = "midnight",
 ): { name: string; blurb: string; spawns: SpawnSpec[] } {
   if (night === "overflow") return OVERFLOW[Math.min(index, OVERFLOW.length - 1)];
+  if (night === "siege") return SIEGE_WAVES[Math.min(index, SIEGE_WAVES.length - 1)];
   if (night === "endless") return endlessWave(index);
   if (index < WAVES.length) return WAVES[index];
   const act = index - WAVES.length;
@@ -2463,6 +2716,8 @@ export const BALANCE = {
   borrowTake: 12,
   /** The Overflow: extra starting seeds for night two. */
   overflowSeeds: 45,
+  /** The Siege: extra starting seeds for night three (the stores by the back door). */
+  siegeSeeds: 60,
   michaelSeeds: 145,
   michaelLives: 11,
   /** The Archive: range multiplier for cannons no Reading Lamp reaches. */
@@ -2512,4 +2767,7 @@ export const STATS: Record<EnemyKind, { hp: number; speed: number; gold: number;
   corn: { hp: 18, speed: 78, gold: 10, r: 11 },
   pumpkin: { hp: 78, speed: 32, gold: 14, r: 17 },
   karl: { hp: 460, speed: 20, gold: 70, r: 28, boss: true },
+  // The Siege. Variants with their own health and size (goslings, tanks, the bosses) are in SIEGE.
+  goose: { hp: 36, speed: 60, gold: 9, r: 13 },
+  cat: { hp: 45, speed: 52, gold: 10, r: 13 },
 };

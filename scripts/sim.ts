@@ -18,6 +18,9 @@ import type { Difficulty, HeroId, MapId, NightId } from "../src/game/engine.ts";
 const args = process.argv.slice(2);
 const seedArg = args.indexOf("--seeds");
 const SEEDS = seedArg >= 0 ? Math.max(1, Number(args[seedArg + 1]) || 3) : 3;
+// --only overflow,siege: just those scenarios (a map name, or "overflow" / "siege"), for quick tuning runs.
+const onlyArg = args.indexOf("--only");
+const ONLY = onlyArg >= 0 ? String(args[onlyArg + 1] ?? "").split(",").filter(Boolean) : [];
 
 const HEROES: HeroId[] = ["mynxi", "michael", "vael", "elf", "ooze", "scholar", "quack", "asser"];
 const DIFFS: Difficulty[] = ["easy", "normal", "hard", "overdue"];
@@ -32,13 +35,14 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "greenhouse" },
   { night: "midnight", map: "belltower" },
   { night: "overflow", map: "overflow" },
+  { night: "siege", map: "courtyard" },
 ];
 
 const configs: RunConfig[] = [];
 for (const hero of HEROES)
   for (const difficulty of DIFFS)
     for (const strategy of STRATEGIES)
-      for (const sc of SCENARIOS)
+      for (const sc of SCENARIOS.filter((x) => !ONLY.length || ONLY.includes(x.night === "midnight" ? x.map : x.night)))
         for (let seed = 1; seed <= SEEDS; seed++)
           configs.push({ hero, difficulty, strategy, night: sc.night, map: sc.map, seed });
 
@@ -53,18 +57,18 @@ const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : "�
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const winRate = (rs: RunResult[]) => pct(rs.filter((r) => r.won).length, rs.length);
 
-function table(title: string, rowsKey: (r: RunResult) => string, colsKey: (r: RunResult) => string, rows: string[], cols: string[]) {
+function table(title: string, rowsKey: (r: RunResult) => string, colsKey: (r: RunResult) => string, rows: string[], cols: string[], pool = results) {
   const out = [`### ${title}`, "", `| | ${cols.join(" | ")} | all |`, `|---|${cols.map(() => "---").join("|")}|---|`];
   for (const row of rows) {
-    const inRow = results.filter((r) => rowsKey(r) === row);
+    const inRow = pool.filter((r) => rowsKey(r) === row);
     const cells = cols.map((col) => winRate(inRow.filter((r) => colsKey(r) === col)));
     out.push(`| **${row}** | ${cells.join(" | ")} | ${winRate(inRow)} |`);
   }
   return out.join("\n");
 }
 
-const scenarioOf = (r: RunResult) => (r.config.night === "overflow" ? "overflow" : r.config.map);
-const scenarioNames = SCENARIOS.map((s) => (s.night === "overflow" ? "overflow" : s.map));
+const scenarioOf = (r: RunResult) => (r.config.night === "midnight" ? r.config.map : r.config.night);
+const scenarioNames = SCENARIOS.filter((x) => !ONLY.length || ONLY.includes(x.night === "midnight" ? x.map : x.night)).map((s) => (s.night === "midnight" ? s.map : s.night));
 
 const lines: string[] = [];
 lines.push("# Melongeddon balance report", "");
@@ -84,6 +88,11 @@ lines.push("## Win rates", "");
 lines.push(table("Hero × difficulty", (r) => r.config.hero, (r) => r.config.difficulty, HEROES, DIFFS), "");
 lines.push(table("Strategy × difficulty", (r) => r.config.strategy, (r) => r.config.difficulty, STRATEGIES, DIFFS), "");
 lines.push(table("Map × difficulty", scenarioOf, (r) => r.config.difficulty, scenarioNames, DIFFS), "");
+// Night two and three each get their own keeper table (they are tuned against each other).
+for (const night of ["overflow", "siege"] as const) {
+  const pool = results.filter((r) => r.config.night === night);
+  if (pool.length) lines.push(table(`Hero × difficulty: ${night === "siege" ? "the Siege" : "the Overflow"}`, (r) => r.config.hero, (r) => r.config.difficulty, HEROES, DIFFS, pool), "");
+}
 
 lines.push("### Towers on the board at the end (average)", "");
 lines.push(`| strategy | ${DIFFS.join(" | ")} |`, `|---|${DIFFS.map(() => "---").join("|")}|`);

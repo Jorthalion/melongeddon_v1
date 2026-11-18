@@ -59,6 +59,55 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
 }
 
 export const CHUTE_TIP_KEY = "melongeddon:chute-tip";
+/** The Siege's one-time tips: the first goose-and-cat fight, and the first paratrooper drop. "Show tips again" clears them. */
+export const SIEGE_TIP_KEYS = { feud: "melongeddon:siege-tip:feud", drop: "melongeddon:siege-tip:drop" } as const;
+
+const SIEGE_TIPS: Record<keyof typeof SIEGE_TIP_KEYS, { title: string; body: string }> = {
+  feud: {
+    title: "Geese and cats hate each other. Let them meet.",
+    body: "When a goose and a cat get close they stop and fight for two seconds, and both lose a tenth of their health. Bosses don't stop for it.",
+  },
+  drop: {
+    title: "Paratroopers",
+    body: "Cats in parachutes land on the chalk targets halfway along the carpet. The target glows for three seconds first: keep a tower on each one.",
+  },
+};
+
+/** One-time tips on the Siege: the first fight between a goose and a cat, and the first paratrooper drop. */
+export function SiegeTip({ api }: { api: ReturnType<typeof createWorld> }) {
+  const { hud } = api.world;
+  const [done, setDone] = useState<Record<string, boolean>>({});
+  if (hud.night !== "siege" || (hud.phase !== "prep" && hud.phase !== "combat")) return null;
+  const which = (["feud", "drop"] as const).find(
+    (k) => (k === "feud" ? hud.feuds > 0 : hud.dropSeen) && !done[k] && load(SIEGE_TIP_KEYS[k]) !== "done",
+  );
+  if (!which) return null;
+  const tip = SIEGE_TIPS[which];
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
+      <div
+        role="status"
+        className="pointer-events-auto flex max-w-md items-start gap-3 rounded-lg border border-[#f3ce78]/70 bg-ink/90 px-3 py-2 shadow-lg"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-base leading-tight font-semibold text-[#f6e2ae]">{tip.title}</p>
+          <p className="mt-0.5 text-xs leading-snug text-parchment">{tip.body}</p>
+        </div>
+        <button
+          type="button"
+          className="shrink-0 rounded px-2 py-1 text-xs text-muted underline"
+          onClick={() => {
+            save(SIEGE_TIP_KEYS[which], "done");
+            setDone((d) => ({ ...d, [which]: true }));
+          }}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
 /** One-time tips for each room's own fruit, by map. "Show tips again" clears them. */
 export const NATIVE_TIP_KEYS = {

@@ -173,6 +173,17 @@ Rare Books, the Archive and the Overflow (`tile-floor-overflow.webp`, in the gam
 | `tile-floor-greathall.png` | A grand hall floor of **large dark marble flagstones** in deep red-brown and black, worn smooth, thin brass inlay lines between the stones, a faint warm sheen from distant chandeliers. |
 | `tile-floor-readingroom.png` | **Dark herringbone parquet** of polished walnut, a few worn patches near where chairs would stand, faint scattered dust and one or two loose pages. Hushed and cosy. |
 
+### 2a. The Courtyard (the Siege's map; not yet drawn)
+
+The Siege's map is the library's back courtyard at night: flagstones, a hedge maze edge, statues and a dry fountain, with the library's carpet runner laid across it. All four are drawn by code until these exist. The floor follows the rules above (seamless, top-down, dark, 1024 × 1024, no transparency); the three props are PNGs with transparent backgrounds, seen from slightly above like the other room furniture, and must fit their cells (one tile each; the fountain covers a 2 × 2 block). Moonlight, not candlelight, for these four: swap "warm candlelight" in the style line for "cold blue moonlight".
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `tile-floor-courtyard.png` | **Old grey courtyard flagstones** of uneven size in a loose running bond, worn smooth, dark mortar lines with **a little moss and a few weeds** between the stones, one or two fallen leaves, **cold blue moonlight**, damp sheen. Seamless, tileable, no single object in the middle. |
+| `prop-hedge.png` | A **square block of clipped box hedge**, dense dark green leaves with lighter tips, trimmed flat on top, seen from slightly above, a soft shadow at its base, a few leaves catching moonlight. It must tile beside copies of itself along a wall, so keep the sides straight. Transparent background, 512 × 512. |
+| `prop-statue.png` | A **small weathered stone statue on a square plinth**: a robed scholar reading an open book, lichen on the shoulders, a chipped nose, seen from slightly above. Grey stone, moonlit. Transparent background, 512 × 512. |
+| `prop-fountain.png` | A **round dry stone fountain** seen from above at a slight angle: a wide basin with a carved rim, **dry inside with dead leaves and a few coins**, a central pedestal with a smaller upper bowl, cracks and moss, no water. It covers a 2 × 2 block of tiles, so fill a square frame. Transparent background, 1024 × 1024. |
+
 ### 2b. The Overflow's returns chute (not yet drawn)
 
 **Done:** the Overflow now shows a painted returns chute (`prop-returns-chute.webp`) beside the door, glowing blue on chute waves; the code-drawn "CHUTE" plate is only a fallback. The game adds the glow when the chute is active, so draw it unlit.

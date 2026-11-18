@@ -3,13 +3,13 @@
  * bookmark, the keeper's own rules, late slips, fittings), as plain data for the panel and tests.
  * A view only: every total comes from the numbers the engine reads, never from blurb text.
  */
-import { ASSER_VALUES, KEEPER_NAMES, OATH_TEXT, SIGNATURE, TOWERS, UPGRADES } from "./rules.ts";
+import { ASSER_VALUES, BALANCE, KEEPER_NAMES, OATH_TEXT, SIGNATURE, TOWERS, UPGRADES } from "./rules.ts";
 import { activePerks, levelFor, perkFx } from "./levels.ts";
 import { BOOKMARK, BOOKMARK_VALUES } from "./meta.ts";
 import { SLIP, SLIP_VALUES } from "./slips.ts";
 import type { Hud } from "./engine.ts";
 
-export type CheckoutGroupId = "cards" | "perks" | "bookmark" | "keeper" | "slips" | "fittings";
+export type CheckoutGroupId = "cards" | "perks" | "bookmark" | "keeper" | "night" | "slips" | "fittings";
 
 export interface CheckoutEntry {
   name: string;
@@ -85,7 +85,17 @@ export function checkoutCard(hud: Hud, keeperLine?: string): CheckoutCard {
   }
   if (keeper.length) groups.push({ id: "keeper", title: "Keeper", entries: keeper });
 
+  // What the night itself starts you with: the Overflow's crates, the Siege's stores.
+  const tonight: CheckoutEntry[] =
+    hud.night === "overflow"
+      ? [{ name: "Crates by the chute", blurb: `+${BALANCE.overflowSeeds} seeds at the start of night two.`, tone: "buff" }]
+      : hud.night === "siege"
+        ? [{ name: "Stores by the back door", blurb: `+${BALANCE.siegeSeeds} seeds at the start of the Siege.`, tone: "buff" }]
+        : [];
+  if (tonight.length) groups.push({ id: "night", title: "Tonight", entries: tonight });
+
   const slips = hud.night === "overflow" ? hud.slips.map((id): CheckoutEntry => ({ name: SLIP[id].name, blurb: SLIP[id].blurb, tone: "drawback" })) : [];
+
   if (slips.length) groups.push({ id: "slips", title: "Late slips", entries: slips });
 
   const fitted = Object.values(hud.fitted).filter((mods) => mods && mods.length);
