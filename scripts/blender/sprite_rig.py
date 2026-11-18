@@ -1,15 +1,14 @@
 """
-Runs inside Blender (see scripts/animate-towers.py, which calls it):
+Runs inside Blender (scripts/animate-sprites.py calls it):
 
-    blender --background --factory-startup --python scripts/blender/tower_rig.py -- job.json
+    blender --background --factory-startup --python scripts/blender/sprite_rig.py -- job.json
 
-Each tower's painting goes on a finely divided plane, pinned at the base. Per frame the plane is bent and
-squashed (the top sways, the body breathes; on a shot it ducks, punches up and settles), then rendered
-straight down with an orthographic camera onto a transparent frame. The job file lists the paintings
-(PNG) and where to put the frames; the frame layout (FRAME) is shared with the game through the packer.
+Each painting goes on a finely divided plane, pinned at its base. For every frame the job lists, the plane
+is bent and squashed (height ×sy, width ×sx more toward the top, the top leaning by `bend`, the whole thing
+lifted by `lift`; all in painting heights) and rendered straight down with an orthographic camera onto a
+transparent frame. The frame layout (`frame`) is shared with the game through the generated data file.
 """
 import json
-import math
 import os
 import sys
 
@@ -19,11 +18,10 @@ argv = sys.argv[sys.argv.index("--") + 1 :]
 job = json.load(open(argv[0], encoding="utf-8"))
 FRAME = job["frame"]
 PX = FRAME["px"]  # pixels per painting height
-PAD_X = FRAME["padX"]  # frame width = painting width × padX + 2 × sideUnits
-SIDE = FRAME["side"]  # extra width each side, in painting heights (room for the sway)
-TOP = FRAME["top"]  # frame height = painting height × top (room for the stretch)
+PAD_X = FRAME["padX"]  # frame width = painting width × padX + 2 × side
+SIDE = FRAME["side"]  # extra width each side, in painting heights (room for a lean)
+TOP = FRAME["top"]  # frame height in painting heights (room for a stretch or a hop)
 FOOT = FRAME["foot"]  # space under the painting's base, in painting heights
-ANIM = job["anim"]
 GRID = 28
 
 
@@ -50,6 +48,7 @@ def reset():
 
 
 def material(image_path):
+    """The painting as an unlit surface: its own colours, see-through where it is."""
     mat = bpy.data.materials.new("painting")
     mat.use_nodes = True
     nt = mat.node_tree
@@ -75,7 +74,7 @@ def material(image_path):
 
 def plane(aspect, mat):
     """A GRID × GRID plane, aspect wide and 1 tall, its base centred on the origin, UVs over the painting."""
-    verts, faces, uvs = [], [], []
+    verts, faces = [], []
     for j in range(GRID + 1):
         for i in range(GRID + 1):
             verts.append(((i / GRID - 0.5) * aspect, j / GRID, 0.0))
@@ -96,11 +95,11 @@ def plane(aspect, mat):
     return obj, verts
 
 
-def deform(obj, rest, aspect, sy, sx, bend):
-    """Base pinned: the height scales by sy, the width by sx more toward the top, and the top leans by bend."""
+def deform(obj, rest, sy, sx, bend, lift):
+    """Base pinned (unless lifted): height ×sy, width ×sx more toward the top, the top leaning by bend."""
     for k, (x, y, _) in enumerate(rest):
         w = y**0.8
-        obj.data.vertices[k].co = (x * (1 + (sx - 1) * w) + bend * y * y, y * sy, 0.0)
+        obj.data.vertices[k].co = (x * (1 + (sx - 1) * w) + bend * y * y, y * sy + lift, 0.0)
     obj.data.update()
 
 
@@ -123,32 +122,19 @@ def camera(aspect):
     return res_x, res_y
 
 
-def frames():
-    """(name, sy, sx, bend) for the idle loop, then the shot."""
-    idle = ANIM["idle"]
-    out = []
-    for f in range(idle["frames"]):
-        p = 2 * math.pi * f / idle["frames"]
-        breathe = math.sin(p)
-        out.append((f"idle_{f:02d}", 1 + idle["breathe"] * breathe, 1 - idle["breathe"] * 0.6 * breathe, idle["sway"] * math.sin(p + 0.9)))
-    for f, (sy, sx) in enumerate(ANIM["fire"]["keys"]):
-        out.append((f"fire_{f:02d}", sy, sx, 0.0))
-    return out
-
-
 report = {}
-for tower in job["towers"]:
+for sprite in job["sprites"]:
     scene = reset()
-    mat, w, h = material(tower["png"])
+    mat, w, h = material(sprite["png"])
     aspect = w / h
     obj, rest = plane(aspect, mat)
     res_x, res_y = camera(aspect)
-    os.makedirs(tower["dir"], exist_ok=True)
-    for name, sy, sx, bend in frames():
-        deform(obj, rest, aspect, sy, sx, bend)
-        scene.render.filepath = os.path.join(tower["dir"], name + ".png")
+    os.makedirs(sprite["dir"], exist_ok=True)
+    for name, sy, sx, bend, lift in job["frames"]:
+        deform(obj, rest, sy, sx, bend, lift)
+        scene.render.filepath = os.path.join(sprite["dir"], name + ".png")
         bpy.ops.render.render(write_still=True)
-    report[tower["name"]] = {"w": res_x, "h": res_y, "aspect": aspect}
-    print(f"TOWER {tower['name']} {res_x}x{res_y}", flush=True)
+    report[sprite["name"]] = {"w": res_x, "h": res_y}
+    print(f"SPRITE {sprite['name']} {res_x}x{res_y}", flush=True)
 
 json.dump(report, open(os.path.join(job["out"], "rig-report.json"), "w"), indent=1)

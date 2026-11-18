@@ -18,7 +18,7 @@
     "app": "npm run build && electron .",
     "installer": "npm run build && electron-builder --win --publish never",
     "icons": "python scripts/make-icons.py",
-    "animate": "python scripts/animate-towers.py"
+    "animate": "python scripts/animate-sprites.py"
   },
   "devDependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",

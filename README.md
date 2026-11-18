@@ -14,7 +14,7 @@ npm run dev      # http://localhost:5173
 npm run build    # typecheck + production build into dist/
 npm test         # engine tests
 npm run sim      # balance simulator -> sim-results/report.md (add -- --seeds 10 for more runs)
-npm run animate  # tower animations via Blender (add -- trebuchet still for just those)
+npm run animate  # tower and enemy animations via Blender (add -- towers, -- enemies, or -- trebuchet melon)
 ```
 
 ## Publishing
@@ -233,7 +233,7 @@ All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `worl
 - `src/lib/saves.ts` – save version and migrations (runs at startup)
 - `public/sprites/` – art
 - `scripts/sim.ts`, `scripts/sim-core.ts` – headless bot runs for balance testing
-- `scripts/animate-towers.py`, `scripts/blender/tower_rig.py` – tower animations. Blender bends each still tower painting on a plane pinned at its base and renders a 16-frame idle loop (sway and breath) and a 6-frame shot (duck, punch up, settle); the driver packs them into `public/sprites/anim/<kind>.webp` and writes `src/game/towerAnims.ts`. `draw.ts` plays them (a shot is a tower's cooldown jumping back up; each tower starts its loop at its own point) and falls back to the still painting while they load. Turning cannons recoil in code instead. Needs Python with Pillow and Blender 4+ (found on PATH, as the Microsoft Store's `blender-launcher`, or set `BLENDER` to `blender.exe`).
+- `scripts/animate-sprites.py`, `scripts/blender/sprite_rig.py` – tower and enemy animations. Blender bends each painting on a plane pinned at its base and renders the frames the driver lists: for the 30 still tower paintings a 16-frame idle loop (sway and breath) and a 6-frame shot (duck, punch up, settle); for the 7 painted fruit (melon, corn, pumpkin, Karl, pit, gall, borrower) a 12-frame hopping walk (squash on landing, stretch in the air, leaning forward) and a 5-frame flinch. The driver packs them into `public/sprites/anim/<kind>.webp` and `enemy-<look>.webp` and writes `src/game/towerAnims.ts` and `enemyAnims.ts`. `draw.ts` plays them: a tower's shot is its cooldown jumping back up, an enemy's flinch its health dropping; each has its own place in its loop; an enemy's walk slows and stops with its status (frozen holds still) and Karl walks slower; status tints are laid over the strip's frame. The still paintings show while the strips load. Fruit still drawn by code (the rooms' own fruit, the Siege's geese and cats) have no painting to animate yet. Turning cannons recoil in code instead. Needs Python with Pillow and Blender 4+ (found on PATH, as the Microsoft Store's `blender-launcher`, or set `BLENDER` to `blender.exe`).
 - `tests/` – engine tests (`node --test`)
 - `docs/balance-baseline.md` – simulator report before any rebalancing
 - `docs/balance-current.md` – simulator report for the current numbers

@@ -16,6 +16,7 @@ import {
   tintedSprite,
   type Body,
 } from "./drawStatus.ts";
+import { ENEMY_ANIM, ENEMY_FRAME, ENEMY_SHEETS } from "./enemyAnims.ts";
 import { TOWER_ANIM, TOWER_FRAME, TOWER_SHEETS } from "./towerAnims.ts";
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
@@ -187,18 +188,39 @@ function getSprites() {
 
 let strips: Record<string, HTMLImageElement> | null = null;
 
-/** The towers' animation strips (made in Blender by scripts/animate-towers.py), loaded on first use. */
+/** The towers' and enemies' animation strips (made in Blender by scripts/animate-sprites.py), loaded on first use. */
 function getStrips() {
   if (strips) return strips;
   if (typeof window === "undefined") return {};
   strips = {};
-  for (const kind of Object.keys(TOWER_SHEETS)) {
+  const load = (key: string, file: string) => {
     const img = new Image();
     img.decoding = "async";
-    img.src = asset(`sprites/anim/${kind}.webp`);
-    strips[kind] = img;
-  }
+    img.src = asset(`sprites/anim/${file}.webp`);
+    strips![key] = img;
+  };
+  for (const kind of Object.keys(TOWER_SHEETS)) load(kind, kind);
+  for (const look of Object.keys(ENEMY_SHEETS)) load(`enemy-${look}`, `enemy-${look}`);
   return strips;
+}
+
+/** An enemy's walk and flinch, drawing only: its own walk clock (slowed or stopped with it) and when it was last hurt. */
+type EnemyMotion = { walk: number; since: number };
+const enemySeen = new WeakMap<object, { hp: number; hitAt: number; walk: number; last: number }>();
+
+function enemyMotion(e: { id: number; hp: number }, now: number, pace: number): EnemyMotion {
+  let seen = enemySeen.get(e);
+  if (!seen) {
+    seen = { hp: e.hp, hitAt: -Infinity, walk: (e.id * 0.37) % 1, last: now };
+    enemySeen.set(e, seen);
+  }
+  const dt = Math.max(0, Math.min(0.25, now - seen.last));
+  seen.walk += dt * pace;
+  seen.last = now;
+  // A hit: health dropped. Under rapid fire it restarts only once the last flinch is mostly over.
+  if (e.hp < seen.hp - 1e-6 && now - seen.hitAt > (ENEMY_ANIM.hit / ENEMY_ANIM.hitFps) * 0.6) seen.hitAt = now;
+  seen.hp = e.hp;
+  return { walk: seen.walk, since: now - seen.hitAt };
 }
 
 /** How a tower is moving right now: seconds since its last shot, and where it is in its idle loop. Drawing only. */
@@ -634,6 +656,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, faceLeft, painted ? look : null, {
         bob: sl ? sl.motion.bob : 1,
         tint: sl?.body ? { body: sl.body, alpha: bodyTintAlpha(sl, world.anim) } : null,
+        motion: enemyMotion(e, world.anim, (sl ? sl.motion.bob : 1) * (e.boss ? 0.6 : 1)),
       });
     if (sl) drawStatusBody(ctx, se, sl, world.anim, sprite);
     ctx.restore();
@@ -2686,12 +2709,17 @@ function drawEnemy(
   art: Partial<Record<SpriteName, HTMLImageElement>>,
   faceLeft: boolean,
   look: Look | null = null,
-  status: { bob?: number; tint?: { body: Body; alpha: number } | null } = {},
+  status: { bob?: number; tint?: { body: Body; alpha: number } | null; motion?: EnemyMotion } = {},
 ) {
   const img = look ? art[look] : kind === "goose" || kind === "cat" ? undefined : art[kind];
   const height = look ? LOOK_H[look] : UNIT_H[kind];
+  // Its Blender strip (a walk and a flinch), once loaded; it hops in the strip, so no code bob then.
+  const stripKey = (look ?? kind) as string;
+  const sheet = ENEMY_SHEETS[stripKey];
+  const strip = sheet && status.motion ? getStrips()[`enemy-${stripKey}`] : undefined;
+  const animated = ready(strip) && ready(img);
   if (ready(img)) {
-    const bob = Math.sin(anim * 3 + x * 0.05) * (boss ? 0 : 1.2) * (status.bob ?? 1);
+    const bob = animated ? 0 : Math.sin(anim * 3 + x * 0.05) * (boss ? 0 : 1.2) * (status.bob ?? 1);
     ctx.fillStyle = "rgba(0,0,0,0.38)";
     ctx.beginPath();
     ctx.ellipse(x, y + height * 0.36, height * 0.28, height * 0.1, 0, 0, Math.PI * 2);
@@ -2703,15 +2731,42 @@ function drawEnemy(
     ctx.shadowColor = look === "gall" ? "rgba(160,240,90,0.95)" : "rgba(243,226,196,0.55)";
     ctx.shadowBlur = look === "gall" ? 12 : 7;
     const w = height * (img.naturalWidth / img.naturalHeight);
-    ctx.drawImage(img, -w / 2, -height / 2, w, height);
+    // Where the picture goes: the whole painting, or one frame of its strip (scaled so the painting in it is
+    // `height` tall, its base where the painting's would be).
+    let src: CanvasImageSource = img;
+    let sx = 0;
+    let sw = img.naturalWidth;
+    let sh = img.naturalHeight;
+    let dx = -w / 2;
+    let dy = -height / 2;
+    let dw = w;
+    let dh = height;
+    if (animated && sheet && status.motion) {
+      const m = status.motion;
+      const frame =
+        m.since < ENEMY_ANIM.hit / ENEMY_ANIM.hitFps
+          ? ENEMY_ANIM.walk + Math.min(ENEMY_ANIM.hit - 1, Math.floor(m.since * ENEMY_ANIM.hitFps))
+          : Math.floor(m.walk * ENEMY_ANIM.walkFps) % ENEMY_ANIM.walk;
+      const s = height / ENEMY_FRAME.px;
+      src = strip!;
+      sx = frame * sheet.w;
+      sw = sheet.w;
+      sh = sheet.h;
+      dw = sheet.w * s;
+      dh = sheet.h * s;
+      dx = -dw / 2;
+      dy = height / 2 + ENEMY_FRAME.foot * ENEMY_FRAME.px * s - dh;
+    }
+    ctx.drawImage(src, sx, 0, sw, sh, dx, dy, dw, dh);
     const tint = status.tint;
     if (tint && tint.alpha > 0) {
-      // The body look: a copy of the sprite tinted once and reused, laid over it.
-      const tinted = tintedSprite(img, tint.body);
+      // The body look: a copy of the picture tinted once and reused, laid over it (the strip is tinted whole).
+      const tinted = tintedSprite(src as HTMLImageElement, tint.body);
       if (tinted) {
+        const k = tinted.width / (src as HTMLImageElement).naturalWidth;
         ctx.shadowColor = "transparent";
         ctx.globalAlpha = tint.alpha;
-        ctx.drawImage(tinted, -w / 2, -height / 2, w, height);
+        ctx.drawImage(tinted, sx * k, 0, sw * k, sh * k, dx, dy, dw, dh);
         ctx.globalAlpha = 1;
       }
     }
