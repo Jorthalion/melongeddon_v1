@@ -32,6 +32,7 @@ const JSON_KEYS = ["melongeddon-meta", "melongeddon-keepers", "melongeddon-setup
 export const PREF_KEYS = [
   "melongeddon-speed",
   "melongeddon-reduced",
+  "melongeddon-ui-size",
   "melongeddon-dev",
   "melongeddon:muted",
   "melongeddon:music",

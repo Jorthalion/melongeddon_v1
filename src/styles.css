@@ -42,6 +42,13 @@
     height: 100%;
   }
 
+  /* The interface grows with big screens: Tailwind sizes are rem, so everything follows the root size.
+     16 px up to about 1440 x 900, about 21 px at 2560 x 1440, at most 22 px. Settings -> Interface size
+     sets --ui-root to a fixed size instead (src/lib/layout.ts). */
+  html {
+    font-size: var(--ui-root, clamp(16px, calc(min(1vw, 1.6vh) * 0.9), 22px));
+  }
+
   body {
     margin: 0;
     background: var(--color-ink);

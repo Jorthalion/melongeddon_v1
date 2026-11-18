@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import { createWorld } from "@/game/engine";
-import { keyAction, runKeyAction } from "@/game/keys";
+import { keyAction, keyGoesToButton, runKeyAction } from "@/game/keys";
 
 /**
  * Keyboard shortcuts (the rules live in `game/keys.ts`):
  *   1–5      pick a cannon in the open tab, or choice 1–3 on a pick card / Setup's keepers
  *            (on Sir Michael's intro, 1–3 pick an oath card and Enter swears it)
  *   Q W E R T Y  Damage / Control / Support / Keeper / Trick / Heavy tab
- *   Space    start the next wave; pause / resume during a wave
+ *   Space    start the next wave from anywhere on the board (whatever is selected, open or focused);
+ *            pause / resume during a wave
  *   P        pause / resume
  *   S        sell the selected cannon
  *   B        open or close the back-room side tab (1–9 buy its upgrades while it's open)
@@ -18,7 +19,7 @@ import { keyAction, runKeyAction } from "@/game/keys";
  *   M        sound on / off
  */
 export const HOTKEY_HELP =
-  "Q/W/E/R/T tab · 1–5 build or choose · Space wave/pause · P pause · S sell · B back room · C checkout card · Enter main button · Esc back/menu · +/− speed · M sound";
+  "Q/W/E/R/T tab · 1–5 build or choose · Space start wave (any time between waves) / pause · P pause · S sell · A aim · B back room · C checkout card · Enter main button · Esc back/menu · +/− speed · M sound";
 
 export function useHotkeys(
   api: ReturnType<typeof createWorld>,
@@ -35,9 +36,10 @@ export function useHotkeys(
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
 
-      // A button reached by keyboard keeps its own Enter and Space. A button that only has focus
-      // because it was clicked does not (Space still starts the wave, Enter still begins).
-      if (target?.tagName === "BUTTON" && (key === "Enter" || key === " ") && target.matches(":focus-visible")) return;
+      // A button reached by keyboard keeps its own Enter and Space, except Space on the board: that
+      // always starts the wave or pauses (preventDefault below stops the button clicking too).
+      const focusedButton = target?.tagName === "BUTTON" && target.matches(":focus-visible");
+      if (keyGoesToButton(api.world.hud, key, Boolean(focusedButton))) return;
 
       const action = keyAction(api.world.hud, key);
       if (!action) return;

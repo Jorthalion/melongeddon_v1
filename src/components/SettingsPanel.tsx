@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { CARD_FRAMES, CARPET_COLOURS, SPEEDS, openCosmetics, writeDev, type CardFrame, type CarpetColour } from "@/game/engine";
 import { HOTKEY_HELP } from "@/components/hotkeys";
-import { CHUTE_TIP_KEY, NATIVE_TIP_KEYS, SIEGE_TIP_KEYS, TUTORIAL_KEY } from "@/components/TutorialHint";
+import { CHUTE_TIP_KEY, COMBO_TIP_KEYS, NATIVE_TIP_KEYS, SIEGE_TIP_KEYS, TUTORIAL_KEY } from "@/components/TutorialHint";
 import { save } from "@/lib/storage";
+import { UI_SIZES, applyUiSize, readUiSize, writeUiSize, type UiSize } from "@/lib/layout";
+import { UnlockLink } from "@/components/catalogueLink";
 import { MenuButton, type GameApi } from "@/components/ui";
 
 /** One Settings panel for the Title and the pause menu. */
@@ -22,9 +24,10 @@ export function SettingsPanel({
   onGesture: () => void;
 }) {
   const [tipsReset, setTipsReset] = useState(false);
+  const [uiSize, setUiSize] = useState<UiSize>(() => readUiSize(typeof localStorage === "undefined" ? null : localStorage));
   const speed = api.world.hud.speed;
   const reduced = api.world.reduced;
-  const label = "mb-1 text-[10px] tracking-[0.22em] text-gold uppercase";
+  const label = "mb-1 text-[0.625rem] tracking-[0.22em] text-gold uppercase";
   return (
     <div className="flex flex-col gap-2.5 text-center">
       <MenuButton onClick={onMute}>{muted ? "Sound: off" : "Sound: on"}</MenuButton>
@@ -49,6 +52,29 @@ export function SettingsPanel({
           ))}
         </div>
       </div>
+      <div>
+        <p className={label}>Interface size</p>
+        <div className="grid grid-cols-4 overflow-hidden rounded-[5px] border border-[#e2c78a]/85" role="radiogroup" aria-label="Interface size">
+          {UI_SIZES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="radio"
+              aria-checked={uiSize === s.id}
+              title={s.id === "auto" ? "Grows with big screens" : undefined}
+              className={`min-h-10 text-sm font-semibold ${uiSize === s.id ? "bg-[linear-gradient(180deg,#f8ecc4_0%,#e6c87a_46%,#b89249_100%)] text-[#24160e]" : "bg-[#100c10]/80 text-[#f6efe2]"}`}
+              onClick={() => {
+                onGesture();
+                setUiSize(s.id);
+                writeUiSize(typeof localStorage === "undefined" ? null : localStorage, s.id);
+                applyUiSize(s.id);
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <MenuButton
         onClick={() => {
           onGesture();
@@ -64,6 +90,7 @@ export function SettingsPanel({
           save(TUTORIAL_KEY, "");
           save(CHUTE_TIP_KEY, "");
           for (const key of Object.values(NATIVE_TIP_KEYS)) save(key, "");
+          for (const key of Object.values(COMBO_TIP_KEYS)) save(key, "");
           for (const key of Object.values(SIEGE_TIP_KEYS)) save(key, "");
 
           setTipsReset(true);
@@ -100,13 +127,20 @@ const FRAME_NAME: Record<CardFrame, string> = { plain: "Plain", gold: "Gold", in
 function Appearance({ api, onGesture, label }: { api: GameApi; onGesture: () => void; label: string }) {
   const hud = api.world.hud;
   const open = openCosmetics(hud.rooms);
-  if (!open.length) return null;
+  if (!open.length)
+    return (
+      <div className="border-y border-[#e2c78a]/30 py-2.5">
+        <p className="text-[0.625rem] tracking-[0.22em] text-gold uppercase">Appearance</p>
+        <p className="mt-1 text-xs text-muted">Carpet colours and keeper-card frames.</p>
+        <UnlockLink hud={hud} reward={{ kind: "cosmetic", id: "carpets" }} className="mt-1 justify-center" onGesture={onGesture} />
+      </div>
+    );
   const frames = CARD_FRAMES.filter((f) => (f === "archivist" ? open.includes("archivist") : f === "plain" || open.includes("frames")));
   const seg = (on: boolean) =>
     `min-h-10 px-1 text-sm font-semibold ${on ? "bg-[linear-gradient(180deg,#f8ecc4_0%,#e6c87a_46%,#b89249_100%)] text-[#24160e]" : "bg-[#100c10]/80 text-[#f6efe2]"}`;
   return (
     <div className="flex flex-col gap-2.5 border-y border-[#e2c78a]/30 py-2.5">
-      <p className="text-[10px] tracking-[0.22em] text-gold uppercase">Appearance</p>
+      <p className="text-[0.625rem] tracking-[0.22em] text-gold uppercase">Appearance</p>
       {open.includes("carpets") ? (
         <div>
           <p className={label}>Carpet</p>

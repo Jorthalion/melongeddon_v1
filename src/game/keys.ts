@@ -17,6 +17,21 @@ export function victoryAction(night: Hud["night"]): string {
 }
 
 
+/** The board's phases, where Space is always the game's key (start the wave, or pause). */
+const BOARD_PHASES: Array<Hud["phase"]> = ["prep", "combat", "consequence"];
+
+/**
+ * Should a key go to the focused button instead of the game? A button reached by keyboard
+ * (`:focus-visible`) keeps its own Enter and Space, so keyboard players can press it, except Space on
+ * the board (outside the pause menu): that is always the wave key. `focusVisibleButton` says whether
+ * the key's target is a button with `:focus-visible` on.
+ */
+export function keyGoesToButton(hud: Pick<Hud, "phase" | "menu">, key: string, focusVisibleButton: boolean): boolean {
+  if (!focusVisibleButton || (key !== "Enter" && key !== " ")) return false;
+  if (key === " " && BOARD_PHASES.includes(hud.phase) && !hud.menu) return false;
+  return true;
+}
+
 export type KeyAction =
   | { type: "mute" }
   | { type: "swallow" }
@@ -40,6 +55,7 @@ export type KeyAction =
   | { type: "tab"; index: number }
   | { type: "togglePause" }
   | { type: "sell" }
+  | { type: "aim" }
   | { type: "openShop" }
   | { type: "deselect" }
   | { type: "speed"; dir: -1 | 1 };
@@ -64,6 +80,12 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       return { type: "swallow" };
     }
     return null;
+  }
+
+  // Space is the wave key on the board, whatever is selected, open or focused: it starts the wave
+  // between waves (closing the back room or the checkout card first) and pauses during one.
+  if (key === " " && (phase === "prep" || (phase === "combat" && !hud.checkout))) {
+    return phase === "prep" ? { type: "startWave" } : { type: "togglePause" };
   }
 
   // The checkout card: Esc or C closes it; game keys are swallowed while it's open.
@@ -97,6 +119,8 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       // Sir Michael's oath cards handle 1–3 (pick) and Enter (swear) themselves (components/OathIntro).
       if (hud.hero === "michael") return null;
       if (key === "Enter") return { type: "beginNight" };
+      // The Overflow's and the Siege's intros lead straight onto the board: Space does what Enter does.
+      if (key === " " && (hud.night === "overflow" || hud.night === "siege")) return { type: "beginNight" };
       return null;
 
     case "upgrade":
@@ -106,7 +130,7 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
 
     case "consequence":
       if (key === "Escape") return { type: "openMenu" };
-      if (key === "Enter") return { type: "startWave" };
+      if (key === "Enter" || key === " ") return { type: "startWave" };
       return null;
 
     case "victory":
@@ -128,6 +152,8 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       if (key === " ") return phase === "prep" ? { type: "startWave" } : { type: "togglePause" };
       if (key === "p") return { type: "togglePause" };
       if (key === "s" && hud.selected != null) return { type: "sell" };
+      // A: the selected tower's next targeting mode (nothing on towers that don't aim).
+      if (key === "a" && hud.selected != null) return { type: "aim" };
       if (key === "b") return { type: "openShop" };
       // Esc order: close the back room (above), then the inspector, then open the pause menu.
       if (key === "Escape") return hud.selected != null ? { type: "deselect" } : { type: "openMenu" };
@@ -191,7 +217,13 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       api.closeShop();
       return false;
     case "startWave":
+      // Whatever is open between waves gets out of the way.
+      if (hud.checkout) api.closeCheckout();
+      if (hud.workshop != null) api.closeShop();
       api.startWave();
+      return true;
+    case "aim":
+      api.cycleTarget(1);
       return true;
     case "endPrimary":
       if (hud.phase === "defeat" || hud.night === "endless") api.restartNight();

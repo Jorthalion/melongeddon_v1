@@ -3,7 +3,7 @@ import { BOARDS, KEEPER_NAMES, createWorld, stepWorld } from "@/game/engine";
 import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
 import { useHotkeys } from "@/components/hotkeys";
-import { ChuteTip, NativesTip, SiegeTip, TutorialHint } from "@/components/TutorialHint";
+import { ChuteTip, ComboTip, NativesTip, SiegeTip, TutorialHint } from "@/components/TutorialHint";
 
 import { MynxiTutor } from "@/components/MynxiTutor";
 import { canInstall, isDesktopApp, onInstallChange, promptInstall } from "@/lib/install";
@@ -18,6 +18,10 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { SetupScreen } from "@/components/SetupScreen";
 import { TitleScreen } from "@/components/TitleScreen";
 import { setupSummary } from "@/components/ui";
+import { layoutFor } from "@/lib/layout";
+import { EnemyCard, type EnemyHover } from "@/components/EnemyCard";
+import { useCatalogueRequest } from "@/components/catalogueLink";
+import { MenuCard } from "@/components/ui";
 
 /** Largest uniform scale that fits the board in a w×h box, plus the offset that centers it (CSS px). */
 function fitBoard(w: number, h: number, bw: number, bh: number) {
@@ -35,6 +39,25 @@ export function MelonGame() {
   const [installable, setInstallable] = useState(canInstall);
   useEffect(() => onInstallChange(() => setInstallable(canInstall())), []);
   const leftSeen = useRef(-1);
+  /** The fruit under the mouse (hover card). */
+  const [foe, setFoe] = useState<EnemyHover | null>(null);
+  /** Everything under the top bar: measured to pick the normal or the wide layout. */
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 0, h: 0, rem: 16 });
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setBox((b) => (b.w === rect.width && b.h === rect.height && b.rem === rem ? b : { w: rect.width, h: rect.height, rem }));
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    watch.observe(document.documentElement);
+    return () => watch.disconnect();
+  }, []);
 
   if (!worldRef.current) {
     worldRef.current = createWorld(() => notifyRef.current());
@@ -71,8 +94,10 @@ export function MelonGame() {
         sfx.length = 0;
       }
       setMusicMode(api.world.hud.phase === "combat" ? "combat" : "calm");
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
       const rect = canvas.getBoundingClientRect();
+      // The backing store follows the board's real on-screen size, so sprites stay sharp on 4K screens
+      // (capped at about 4096 px wide for performance).
+      const dpr = Math.max(0.5, Math.min(window.devicePixelRatio || 1, 4096 / Math.max(1, rect.width)));
       const bw = Math.max(1, Math.round(rect.width * dpr));
       const bh = Math.max(1, Math.round(rect.height * dpr));
       if (canvas.width !== bw || canvas.height !== bh) {
@@ -195,6 +220,21 @@ export function MelonGame() {
   const inRun = hud.hero != null && phase !== "coldopen" && phase !== "select";
   const menuable = inRun && phase !== "poster" && phase !== "victory" && phase !== "defeat";
   const runLive = menuable;
+  // The Grand Catalogue, opened from anything locked (any screen). During a wave it holds the board still.
+  const [catalogueAt, closeCatalogue] = useCatalogueRequest();
+  const heldForCatalogue = useRef(false);
+  useEffect(() => {
+    if (catalogueAt && api.world.hud.phase === "combat" && !api.world.hud.paused) {
+      api.togglePause();
+      heldForCatalogue.current = true;
+    } else if (!catalogueAt && heldForCatalogue.current) {
+      heldForCatalogue.current = false;
+      if (api.world.hud.paused) api.togglePause();
+    }
+  }, [catalogueAt, api]);
+  // Wide screens: the build bar becomes a left column and the back room docks on the right.
+  const layout = layoutFor(box.w, box.h, api.world.w, api.world.h, box.rem);
+  const wide = layout.mode === "wide" && showPlace;
 
   return (
     <main className="relative flex h-dvh flex-col bg-ink text-parchment">
@@ -206,16 +246,35 @@ export function MelonGame() {
         muted={muted}
         onMute={toggleMute}
         onGesture={gesture}
+        wide={wide}
       />
 
-      <div className="relative min-h-0 flex-1 sm:px-3">
+      <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1">
+      {wide ? (
+        <aside aria-label="Build" className="flex min-h-0 shrink-0 flex-col" style={{ width: layout.left }}>
+          <BuildFooter api={api} onGesture={gesture} column />
+        </aside>
+      ) : null}
+      <div data-board-controls className={`relative min-h-0 min-w-0 flex-1 ${wide ? "py-3" : "sm:px-3"}`}>
         <canvas
           ref={canvasRef}
           className="h-full w-full touch-none bg-ink sm:rounded-xl sm:border sm:border-line"
           onPointerMove={(e) => {
             const p = toWorld(e.clientX, e.clientY);
             api.pointer(p.x, p.y, "move");
+            // Mouse over a fruit: show what it is and what's on it.
+            if (e.pointerType !== "mouse") return;
+            let near: { id: number; d: number } | null = null;
+            for (const f of api.world.enemies) {
+              if (f.hp <= 0) continue;
+              const d = Math.hypot(f.x - p.x, f.y - p.y);
+              if (d <= f.r + 8 && (!near || d < near.d)) near = { id: f.id, d };
+            }
+            const box = e.currentTarget.parentElement!.getBoundingClientRect();
+            setFoe(near ? { id: near.id, x: e.clientX - box.left, y: e.clientY - box.top } : null);
           }}
+          onPointerLeave={() => setFoe(null)}
           onPointerDown={(e) => {
             gesture();
             const p = toWorld(e.clientX, e.clientY);
@@ -223,6 +282,7 @@ export function MelonGame() {
             tone(240, 0.06, "square", 0.03);
           }}
         />
+        {foe && showPlace && !hud.menu ? <EnemyCard api={api} hover={foe} boxW={box.w - layout.left - layout.right} /> : null}
         {hud.paused && !hud.menu && !hud.checkout && showPlace ? (
           <div className="pointer-events-none absolute inset-3 grid place-items-center">
             <p className="rounded-xl border border-line bg-ink/80 px-4 py-2 font-display text-xl">Paused</p>
@@ -231,8 +291,9 @@ export function MelonGame() {
         {(phase === "prep" || phase === "combat") && !hud.tutorial && !hud.guide ? <TutorialHint api={api} /> : null}
         {phase === "prep" || phase === "combat" ? <ChuteTip api={api} /> : null}
         {phase === "prep" || phase === "combat" ? <SiegeTip api={api} /> : null}
+        {phase === "prep" || phase === "combat" ? <ComboTip api={api} /> : null}
         {phase === "prep" || phase === "combat" ? <NativesTip api={api} /> : null}
-        {(phase === "prep" || phase === "combat") && !hud.menu ? <BackRoomTab api={api} onGesture={gesture} /> : null}
+        {(phase === "prep" || phase === "combat") && !hud.menu && !wide ? <BackRoomTab api={api} onGesture={gesture} /> : null}
         {phase === "select" ? <SetupScreen api={api} onGesture={gesture} /> : null}
         {phase !== "combat" && phase !== "prep" && phase !== "select" && phase !== "coldopen" && phase !== "poster" ? (
           <CardOverlay hudPhase={phase} api={api} onGesture={gesture} />
@@ -240,8 +301,15 @@ export function MelonGame() {
         {/* Mynxi's tutorial sits above the board and any card, but under the pause menu. */}
         {phase !== "coldopen" && phase !== "select" && phase !== "poster" && !hud.menu ? <MynxiTutor api={api} onGesture={gesture} /> : null}
       </div>
+      {wide ? (
+        <aside aria-label="Back room column" className="relative flex min-h-0 shrink-0 flex-col py-3 pr-3" style={{ width: layout.right }}>
+          {!hud.menu ? <BackRoomTab api={api} onGesture={gesture} docked /> : null}
+        </aside>
+      ) : null}
+      </div>
 
-      {showPlace ? <BuildFooter api={api} onGesture={gesture} /> : null}
+      {showPlace && !wide ? <BuildFooter api={api} onGesture={gesture} /> : null}
+      </div>
       {phase === "coldopen" ? (
         <TitleScreen
           catalogue={<GrandCatalogue api={api} onGesture={gesture} />}
@@ -319,6 +387,13 @@ export function MelonGame() {
         )
       ) : null}
       {hud.checkout && runLive && !hud.menu ? <CheckoutPanel api={api} onGesture={gesture} /> : null}
+      {catalogueAt ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <MenuCard title="Grand Catalogue" onBack={closeCatalogue} wide>
+            <GrandCatalogue key={`${catalogueAt.room}:${catalogueAt.reward?.id ?? ""}`} api={api} onGesture={gesture} focus={catalogueAt.room} reward={catalogueAt.reward} inRun={runLive} />
+          </MenuCard>
+        </div>
+      ) : null}
       {hud.menu && runLive ? (
         <PauseMenu api={api} muted={muted} music={music} onMute={toggleMute} onMusic={toggleMusic} onGesture={gesture} />
       ) : null}

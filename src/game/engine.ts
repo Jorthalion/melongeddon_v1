@@ -6,8 +6,8 @@ import {
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
   nearestOnCarpet, gateStrip,
-  carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
-  FLOOR, floorTiles, floorPace, type FloorTile,
+  carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
+  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, fittingName,
   NATIVES, NATIVE_INFO, waveQueue, assignNatives, type NativeId, type QueueItem,
   SIEGE, type SiegeVariant,
 } from "./rules.ts";
@@ -164,6 +164,94 @@ interface Enemy {
   brawl?: number;
   /** Anti-Geese Protocol: px left to walk back in a panic (geese only). */
   panic?: number;
+  /** A boss before its night's last wave: a mini-boss with much less health (BALANCE.miniBossHp). */
+  mini?: boolean;
+  /** Status combos (COMBO). Frost: 0–3 stacks, and seconds until the next one drains. Iced: seconds left held by a Freeze cannon's hit. */
+  frost?: number;
+  frostT?: number;
+  iced?: number;
+  /** Fire, then ice: seconds its fire stays out. Poison is flammable: seconds burning hotter. */
+  doused?: number;
+  blaze?: number;
+  /** Afflictions: stings (Fly Hive), poison (Cauldron puddles) and a fire of its own (wildfire); stacks, seconds left, and who did it. */
+  sting?: number;
+  stingT?: number;
+  stingBy?: number;
+  poison?: number;
+  poisonT?: number;
+  poisonCd?: number;
+  poisonBy?: number;
+  poisonDps?: number;
+  burnT?: number;
+  burnDps?: number;
+  burnBy?: number;
+  /** It burned while poisoned: the poison is spent when the fire goes out. */
+  flamed?: boolean;
+  /** Wildfire: progress toward setting the next neighbour alight (1 = now). */
+  wildAcc?: number;
+}
+
+/** A not-yet-built tower's numbers (api.previewStats). */
+export interface PreviewStats {
+  dmg: number;
+  range: number;
+  interval: number;
+  lit?: boolean;
+  quick?: boolean;
+  base: { dmg: number; range: number; interval: number };
+  why: { dmg: string[]; range: string[]; interval: string[] };
+}
+
+/** Shelled (until cracked), husked or damp. */
+const armoured = (e: Enemy) => (e.guard === "rind" && e.shell > 0) || e.guard === "husk" || e.guard === "damp";
+const standingIn = (e: Enemy, pools: Pool[], is: (p: Pool) => boolean) => pools.some((p) => is(p) && Math.hypot(e.x - p.x, e.y - p.y) < p.r);
+
+/**
+ * "First, not affected" (`fresh`): whether a fruit hasn't got this tower's effect yet. A new status tower
+ * adds one line here. Kinds not listed treat every fruit as fresh, so `fresh` is the same as First for them.
+ */
+export const FRESH_TEST: Partial<Record<TowerKind, (e: Enemy, pools: Pool[], tower: Tower) => boolean>> = {
+  fire: (e, pools) => !standingIn(e, pools, (p) => p.hot),
+  freeze: (e) => e.freeze <= 0 && (e.stomped ?? 0) <= 0 && (e.halt ?? 0) <= 0,
+  still: (e, pools) => !standingIn(e, pools, (p) => !p.hot && !p.toxic && !p.honey),
+  ink: (e) => (e.ink ?? 0) <= 0.5,
+  // Pumpkins and Karl, and (status combos) anything with three stingers in it.
+  bookworm: (e) => (e.kind === "pumpkin" || e.kind === "karl" || (COMBO.on && (e.sting ?? 0) >= AFFLICT.wormStings)) && (e.worm ?? 0) < 1,
+  peeler: (e) => armoured(e),
+  honey: (e) => (e.honeyed ?? 0) <= 0,
+  cauldron: (e, pools) => !standingIn(e, pools, (p) => Boolean(p.toxic)),
+  // The Cold rind fitting: one not chilled yet.
+  melon: (e, _p, t) => !t.mods.includes("chill") || e.chill <= 0,
+  spitter: (e, _p, t) => !t.mods.includes("chill") || e.chill <= 0,
+};
+
+/**
+ * How much `tower` wants `e` under `mode` (higher wins; a tie goes to the one furthest along).
+ * `prog` is how far along the carpet it is, `d` its distance from the tower.
+ */
+export function targetScore(mode: TargetMode, tower: Tower, e: Enemy, prog: number, d: number, pools: Pool[]) {
+  switch (mode) {
+    case "first":
+      return prog;
+    case "last":
+      return -prog;
+    case "strong":
+      return e.hp;
+    case "weak":
+      return -e.hp;
+    case "close":
+      return -d;
+    case "armour":
+      return (armoured(e) ? 1e9 : 0) + prog;
+    case "boss":
+      // The Brass Telescope's own order: a boss, then armour, then the toughest.
+      if (tower.kind === "scope") return (e.boss ? 2e6 : 0) + (armoured(e) ? 1e6 : 0) + e.hp;
+      return (e.boss ? 1e9 : 0) + e.hp;
+    case "fresh": {
+      const test = FRESH_TEST[tower.kind];
+      return (!test || test(e, pools, tower) ? 1e9 : 0) + prog;
+    }
+  }
 }
 
 /** Towers that work on an area rather than aiming a shot: they can see a Box Cat (and their puddles, chords and stamps knock the box off). */
@@ -202,8 +290,10 @@ interface Tower {
   orbit?: number;
   /** Orrery: per planet and fruit, the time it may hit again. */
   orbitHits?: Map<string, number>;
-  /** Quack-Liber: what it aims at once retargeted (unset = the fruit furthest along; it can be changed only once). */
-  aimMode?: "strong" | "rear";
+  /** What it aims at among the fruit in reach (unset = its kind's recommended mode, DEFAULT_TARGET). */
+  target?: TargetMode;
+  /** The fruit it aimed at last tick (drawn with a ring while the tower is selected). */
+  aimAt?: number;
   /** Quack-Liber: rockets fired (Lane Lockdown counts them), and seconds left of Quiet Confidence. */
   volley?: number;
   rally?: number;
@@ -320,6 +410,10 @@ interface Pool {
   honey?: boolean;
   rot?: number;
   owner?: number;
+  /** An explosion spread this puddle once already. */
+  grown?: boolean;
+  /** An explosion on this fire patch: seconds left burning harder. */
+  flare?: number;
 }
 
 /** Instant-hit trails (ballista spear, reader shot). */
@@ -458,6 +552,8 @@ export interface Hud {
   dropWave: number[];
   /** The Siege: goose-and-cat fights tonight, and whether a paratrooper drop has started (for the one-time tips). */
   feuds: number;
+  /** Status combos seen tonight (for their one-time tips): "shatter", "thermal", "mixed", "contagion". */
+  comboTips: string[];
   dropSeen: boolean;
   /** Quack-Liber speed-up reach in px for the run in play (perks can widen it), for drawing it. */
   quackAura: number;
@@ -813,8 +909,12 @@ export function createWorld(
   /** What the next back-room upgrade for `kind` costs. */
   shopPriceFor: (kind: TowerKind) => number;
   sellSelected: () => void;
-  /** Quack-Liber: change what the selected one aims at. Once per turret. */
-  retarget: (mode: "strong" | "rear") => void;
+  /** The selected tower's next (dir 1) or previous targeting mode, from the ones its kind offers (A). Free, any time. */
+  cycleTarget: (dir?: 1 | -1) => void;
+  /** Set the selected tower's targeting mode (one its kind offers). Free, any time. */
+  setTarget: (mode: TargetMode) => void;
+  /** A tower's targeting mode, the modes it can take and its recommended one; null if it doesn't aim. */
+  targetOf: (towerId: number) => { mode: TargetMode; modes: TargetMode[]; recommended: TargetMode } | null;
   /** The Pamphlet: bind the selected one to the other straight its tile touches (between waves). */
   otherStraight: () => void;
   /** Anti-Geese Protocol (selected): fire on its own, or only on Engage. */
@@ -883,6 +983,12 @@ export function createWorld(
   setPerk: (tier: number, pick: 0 | 1) => void;
   /** Live stats for a placed tower (includes a Reading Lamp's boost). */
   statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean } | null;
+  /**
+   * The numbers a `kind` will have once built (on tile `at`, or anywhere): through the same `statsFor` a placed
+   * tower uses, so fittings, perks, the dark, Close Reading and (on a tile) a lamp or the Quack-Liber all count.
+   * `base` is the plain numbers (no fittings or perks); `why` says what moved each number.
+   */
+  previewStats: (kind: TowerKind, at?: { c: number; r: number }) => PreviewStats;
   /** What a placed tower reaches: carpet tiles it can hit (null if it doesn't hit fruit), or "all" for the whole board; and how many towers it helps. */
   reachOf: (towerId: number) => { tiles: number | "all" | null; towers: number } | null;
   /** What a placed tower has done this night: damage dealt, fruit popped, and its share of all the damage. */
@@ -939,6 +1045,7 @@ export function createWorld(
       siegeOpen: false,
       dropWave: [],
       feuds: 0,
+      comboTips: [],
       dropSeen: false,
       quackAura: CANNON.quackAura,
       geeseSpent: false,
@@ -1519,6 +1626,15 @@ export function createWorld(
   };
   /** The towers that act this frame: a Copycat acts through its copy (and not at all while blank). */
   const actingTowers = () => world.towers.flatMap((t) => (t.kind === "copycat" ? (t.copy ? [t.copy] : []) : [t]));
+  /** The mode each kind was last set to tonight: a new tower of that kind starts on it. */
+  let lastMode: Partial<Record<TowerKind, TargetMode>> = {};
+  /** A tower's targeting mode: its own, else its kind's recommended one. A Copycat's copy uses the Copycat's choice. */
+  const modeOf = (tower: Tower): TargetMode => {
+    const owner = tower.copied ? world.towers.find((t) => t.copy === tower) : undefined;
+    const allowed = DEFAULT_TARGET[tower.kind];
+    const chosen = owner ? owner.target : tower.target;
+    return chosen && allowed?.modes.includes(chosen) ? chosen : (allowed?.default ?? "first");
+  };
 
   /** Orrery: spin the planets and hit any fruit they sweep through. */
   const spinOrrery = (tower: Tower, dt: number) => {
@@ -1902,10 +2018,37 @@ export function createWorld(
   /** The Archive is dark: see statsFor. */
   const dark = () => Boolean(BOARDS[world.hud.map].dark);
   /** A kind's reach with no tile in mind: its back-room fittings (every new one gets them), the room's dark, no lamp. */
-  const rangeFor = (kind: TowerKind) => {
-    const range = withPerks(kind, towerReadout(world.hud.hero, kind, world.hud.fitted[kind] ?? [], world.hud.upgrades)).range;
-    if (!dark() || PASSIVE.includes(kind) || range >= GLOBAL_RANGE) return range;
-    return Math.round(range * BALANCE.archiveDark);
+  const rangeFor = (kind: TowerKind) => previewStats(kind).range;
+  /**
+   * A not-yet-built `kind`'s numbers: a throwaway tower with this kind's back-room fittings, on tile `at` (its
+   * neighbours count) or off the board (no neighbours), through the same statsFor a placed tower uses.
+   */
+  const previewStats = (kind: TowerKind, at?: { c: number; r: number }): PreviewStats => {
+    const mods = [...(world.hud.fitted[kind] ?? [])];
+    const p = at ? cellCenter(at.c, at.r) : { x: -1e6, y: -1e6 };
+    const ghost: Tower = { id: -1, c: at?.c ?? -1, r: at?.r ?? -1, x: p.x, y: p.y, cd: 0, aim: 0, orange: false, kind, mods, paid: 0 };
+    const now: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean } = statsFor(ghost);
+    const base = towerReadout(world.hud.hero, kind, [], world.hud.upgrades);
+    const fitted = towerReadout(world.hud.hero, kind, mods, world.hud.upgrades);
+    const perked = withPerks(kind, fitted);
+    const why: PreviewStats["why"] = { dmg: [], range: [], interval: [] };
+    const fittingNames = mods.map((id) => fittingName(kind, id)).join(", ");
+    const tiles = (d: number) => `${d > 0 ? "+" : ""}${(d / CELL).toFixed(1)} tiles`;
+    const pct = (a: number, b: number) => `${b > a ? "+" : ""}${Math.round((b / a - 1) * 100)}%`;
+    const pace = (a: number, b: number) => `${b < a ? "+" : "−"}${Math.round(Math.abs(a / b - 1) * 100)}% pace`;
+    // Stage by stage: fittings, then perks, then the room and the tile.
+    if (fitted.dmg !== base.dmg) why.dmg.push(`${fittingNames} ${pct(base.dmg, fitted.dmg)}`);
+    if (fitted.range !== base.range) why.range.push(`${fittingNames} ${tiles(fitted.range - base.range)}`);
+    if (fitted.interval !== base.interval) why.interval.push(`${fittingNames} ${pace(base.interval, fitted.interval)}`);
+    if (perked.dmg !== fitted.dmg) why.dmg.push(`keeper perks ${pct(fitted.dmg, perked.dmg)}`);
+    if (perked.range !== fitted.range) why.range.push(`keeper perks ${tiles(perked.range - fitted.range)}`);
+    if (perked.interval !== fitted.interval) why.interval.push(`keeper perks ${pace(fitted.interval, perked.interval)}`);
+    if (now.range !== perked.range) why.range.push(`${now.lit ? "Reading Lamp nearby" : "the dark"} ${pct(perked.range, now.range)}`);
+    if (now.interval !== perked.interval) {
+      const from = [now.lit ? "Reading Lamp nearby" : "", now.quick ? "Quack-Liber nearby" : "", fx.closeReading && world.runLog.doctorTaken ? "Close Reading" : ""].filter(Boolean).join(", ");
+      why.interval.push(`${from || "nearby towers"} ${pace(perked.interval, now.interval)}`);
+    }
+    return { ...now, base, why };
   };
   const priceNext = () =>
     Math.max(
@@ -2018,6 +2161,14 @@ export function createWorld(
     });
     const host = world.enemies[world.enemies.length - 1];
     if (kind === "goose" || kind === "cat") siegeSetup(host, flags.siege ?? null, bonusHp * tuned.hp * (BOARDS[world.hud.map].hp ?? 1), tuned.speed, flags);
+    // A boss before its night's last wave comes as a mini-boss: 150% more health than an ordinary one of its kind,
+    // and a little smaller. The finale's boss is the full one.
+    if (host.boss && world.hud.night !== "endless" && cleared + 1 < nightLength(world.hud.night)) {
+      const base = host.matriarch ? STATS.goose.hp : host.general ? STATS.cat.hp : STATS.pumpkin.hp;
+      host.hp = host.maxHp = Math.max(1, Math.round(base * BALANCE.miniBossHp * bonusHp * tuned.hp * (BOARDS[world.hud.map].hp ?? 1)));
+      host.mini = true;
+      host.r = Math.round(host.r * 0.8);
+    }
     if (flags.pit) host.pit = true;
     if (flags.native) {
       const native = flags.native;
@@ -2320,6 +2471,7 @@ export function createWorld(
    */
   const resetRunState = () => {
     resetRunLog();
+    lastMode = {};
     world.wet = new Set();
     lecture = null;
     lectureNow = null;
@@ -2394,6 +2546,7 @@ export function createWorld(
       nativesSeen: [],
       dropWave: [],
       feuds: 0,
+      comboTips: [],
       dropSeen: false,
       quackAura: CANNON.quackAura,
       geeseSpent: false,
@@ -2683,6 +2836,7 @@ export function createWorld(
       if (e.native === "squash") log.squashKills += 1;
       if (e.native === "gargoyle" && (world.bell?.quiet ?? 0) > 0) log.gargoyleQuietKills += 1;
     }
+    contagion(e);
     // What fell out of a Parcel pays nothing.
     if (!e.contents) world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
     if (e.native === "parcel") openParcel(e);
@@ -2748,18 +2902,243 @@ export function createWorld(
     notify();
   };
 
+  // ── Status combos (COMBO) and afflictions (AFFLICT) ───────────────────────
+  /** Frozen solid: a full frost meter, or held by a Freeze cannon's hit. */
+  const frozen = (e: Enemy) => (e.iced ?? 0) > 0 || (e.frost ?? 0) >= COMBO.frostMax;
+  const frostCap = (e: Enemy) => (e.boss ? COMBO.bossFrostMax : COMBO.frostMax);
+  const drainTime = (e: Enemy) => COMBO.frostDrain * (e.guard === "damp" ? COMBO.dampDrain : 1);
+  const inFirePatch = (e: Enemy) => world.pools.some((p) => p.hot && Math.hypot(e.x - p.x, e.y - p.y) <= p.r);
+  const burningNow = (e: Enemy) => (e.burnT ?? 0) > 0 || inFirePatch(e);
+  const fitted = (kind: TowerKind, id: ModId) => (world.hud.fitted[kind] ?? []).includes(id);
+  /** Once per night: a combo's first time, for its one-time tip. */
+  const comboSeen = (id: string) => {
+    if (!world.hud.comboTips.includes(id)) world.hud.comboTips = [...world.hud.comboTips, id];
+  };
+  /** Fire, then ice: a freeze on a burning fruit puts the fire out. */
+  const douse = (e: Enemy) => {
+    if (!burningNow(e)) return;
+    e.doused = COMBO.douseTime;
+    e.burnT = 0;
+    world.rings.push({ x: e.x, y: e.y, r: e.r + 10, life: 0.5, max: 0.5, color: "235,240,245", fill: true });
+    float(e.x, e.y - 22, "doused", "#d5e4ee");
+  };
+  /** Add frost (husks and Express Corn on a belt shrug it off; bosses stop at two). A full meter freezes it solid. */
+  const addFrost = (e: Enemy, n: number) => {
+    if (!COMBO.on || e.hp <= 0 || e.guard === "husk" || expressOnBelt(e)) return;
+    const was = e.frost ?? 0;
+    e.frost = Math.min(frostCap(e), was + n);
+    e.frostT = drainTime(e);
+    if (e.frost >= COMBO.frostMax && was < COMBO.frostMax) {
+      // Frozen solid for today's freeze time, then back to two (see the tick).
+      const hold = (e.boss ? 0.6 : 1.45) * (e.guard === "damp" ? 1.4 : 1);
+      e.freeze = Math.max(e.freeze, hold);
+      douse(e);
+    }
+  };
+  /** Ice, then fire: thaw it now. */
+  const thaw = (e: Enemy) => {
+    e.frost = 0;
+    e.iced = 0;
+    e.freeze = 0;
+    e.chill = 0;
+    world.runLog.thermals += 1;
+    comboSeen("thermal");
+    world.rings.push({ x: e.x, y: e.y - 6, r: e.r + 14, life: 0.6, max: 0.6, color: "235,235,240", fill: true });
+    world.floaters.push({ x: e.x, y: e.y - 28, text: "HISS", life: 0.7, color: "#eef0f2", size: 14 });
+  };
+  const frosted = (e: Enemy) => frozen(e) || (e.frost ?? 0) >= 1;
+  /** Stung: `n` stacks (up to AFFLICT.stingMax), refreshed. */
+  const addSting = (e: Enemy, n: number) => {
+    if (!COMBO.on || e.hp <= 0) return;
+    e.sting = Math.min(AFFLICT.stingMax, (e.sting ?? 0) + n);
+    e.stingT = fitted("hive", "barbs") ? AFFLICT.barbsTime : AFFLICT.stingTime;
+    if (credit != null) e.stingBy = credit;
+  };
+  /** What's left of a fruit's stings, poison and fire, as damage (a shatter spends it all at once). */
+  const afflictionLeft = (e: Enemy) =>
+    (e.sting ?? 0) * AFFLICT.stingDps * Math.max(0, e.stingT ?? 0) +
+    (e.poison ?? 0) * (e.poisonDps ?? 0) * Math.max(0, e.poisonT ?? 0) +
+    (e.burnDps ?? 0) * Math.max(0, e.burnT ?? 0);
+  const clearAfflictions = (e: Enemy) => {
+    e.sting = 0;
+    e.stingT = 0;
+    e.poison = 0;
+    e.poisonT = 0;
+    e.burnT = 0;
+    e.flamed = false;
+  };
+  /** How many different afflictions it carries (stung, poisoned, burning, burrowed, frost), for the achievements and the tip. */
+  const noteAfflictions = (e: Enemy, burning: boolean) => {
+    const kinds = [(e.sting ?? 0) > 0, (e.poison ?? 0) > 0, burning, (e.worm ?? 0) > 0, (e.frost ?? 0) >= 1].filter(Boolean).length;
+    world.runLog.maxAfflictions = Math.max(world.runLog.maxAfflictions, kinds);
+    world.runLog.maxStung = Math.max(world.runLog.maxStung, e.sting ?? 0);
+    if (kinds >= 2) comboSeen("mixed");
+  };
+  /**
+   * Afflictions tick: stings, poison and a fire of its own, added together (capped at AFFLICT.cap before Ink and
+   * Honey), each credited to whoever applied the newest stack. `toxic` is the strongest Cauldron puddle it stands in.
+   */
+  const tickAfflictions = (e: Enemy, dt: number, toxic: { dps: number; by?: number } | null, fire: { dps: number; by?: number } | null) => {
+    if (toxic) {
+      // A stack straight away, then one a second while it stands in it.
+      e.poisonCd = (e.poisonCd ?? 0) - dt;
+      if (e.poisonCd <= 0) {
+        e.poisonCd = AFFLICT.poisonEvery;
+        e.poison = Math.min(fitted("cauldron", "virulent") ? AFFLICT.virulentMax : AFFLICT.poisonMax, (e.poison ?? 0) + 1);
+        e.poisonBy = toxic.by;
+      }
+      e.poisonT = AFFLICT.poisonTime;
+      e.poisonDps = Math.max(e.poisonDps ?? 0, toxic.dps * AFFLICT.poisonShare);
+    } else e.poisonCd = 0;
+    const left = (t: number | undefined) => Math.max(0, (t ?? 0) - dt);
+    e.stingT = left(e.stingT);
+    if (!e.stingT) e.sting = 0;
+    e.poisonT = left(e.poisonT);
+    if (!e.poisonT) {
+      e.poison = 0;
+      e.poisonDps = 0;
+    }
+    e.burnT = left(e.burnT);
+    const sting = (e.sting ?? 0) * AFFLICT.stingDps;
+    const poison = (e.poison ?? 0) * (e.poisonDps ?? 0);
+    // Its own fire only counts away from a fire patch (the strongest fire wins, as ever); poison makes it hotter.
+    const own = (e.burnT ?? 0) > 0 && !fire ? (e.burnDps ?? 0) * ((e.poison ?? 0) > 0 ? AFFLICT.flammable : 1) : 0;
+    const total = sting + poison + own;
+    if (total > 0) {
+      const cap = Math.min(1, AFFLICT.cap / total);
+      if (sting) {
+        credit = e.stingBy ?? null;
+        hurt(e, null, sting * cap * dt, 0, "sting");
+      }
+      if (poison && e.hp > 0) {
+        credit = e.poisonBy ?? null;
+        hurt(e, null, poison * cap * dt, 0, "poison");
+      }
+      if (own && e.hp > 0) {
+        credit = e.burnBy ?? null;
+        hurt(e, null, own * cap * dt, 0, "burn");
+      }
+      credit = null;
+    }
+    // Wildfire: burning and slowed (not frozen), it passes the fire to one neighbour a second.
+    const burning = Boolean(fire) || (e.burnT ?? 0) > 0;
+    if (burning && e.hp > 0 && e.slow > 0 && e.slow < COMBO.wildfireSpeed) {
+      const damp = e.guard === "damp" || world.hud.map === "overflow" || BOARDS[world.hud.map].damp || wetAt(e.x, e.y);
+      const rate = (fitted("fire", "wildfire") ? 2 : 1) * (damp ? COMBO.dampSpread : 1);
+      e.wildAcc = (e.wildAcc ?? 0) + (dt / COMBO.spreadEvery) * rate;
+      if (e.wildAcc >= 1) {
+        // A husk catches it more easily: it counts as twice as close.
+        let best: Enemy | null = null;
+        let bestD = Infinity;
+        for (const o of world.enemies) {
+          if (o === e || o.hp <= 0 || (o.burnT ?? 0) > 0 || (o.doused ?? 0) > 0 || frozen(o)) continue;
+          const d = Math.hypot(o.x - e.x, o.y - e.y);
+          if (d > COMBO.spreadRadius) continue;
+          const weight = o.guard === "husk" ? d / 2 : d;
+          if (weight < bestD) {
+            bestD = weight;
+            best = o;
+          }
+        }
+        if (best) {
+          e.wildAcc -= 1;
+          best.burnT = COMBO.spreadTime;
+          best.burnDps = Math.max(best.burnDps ?? 0, fire?.dps ?? e.burnDps ?? 22);
+          best.burnBy = fire?.by ?? e.burnBy;
+          world.runLog.wildfires += 1;
+          world.lines.push({ x: e.x, y: e.y - 6, x2: best.x, y2: best.y - 6, life: 0.35, max: 0.35, color: "255,150,60", width: 2.5 });
+        } else e.wildAcc = Math.min(e.wildAcc, 1);
+      }
+    } else e.wildAcc = 0;
+  };
+  /** Contagion: a fruit dying with 3+ stacks of one affliction passes one stack of each to every fruit within a tile. */
+  const contagion = (e: Enemy) => {
+    if (!COMBO.on) return;
+    const most = Math.max(e.sting ?? 0, e.poison ?? 0, Math.floor(e.frost ?? 0));
+    if (most < AFFLICT.contagionStacks) return;
+    const burning = burningNow(e);
+    let spread = 0;
+    for (const o of world.enemies) {
+      if (o === e || o.hp <= 0 || Math.hypot(o.x - e.x, o.y - e.y) > AFFLICT.contagionRadius) continue;
+      if ((e.sting ?? 0) > 0) {
+        o.sting = Math.min(AFFLICT.stingMax, (o.sting ?? 0) + 1);
+        o.stingT = Math.max(o.stingT ?? 0, AFFLICT.stingTime);
+        o.stingBy = e.stingBy;
+        spread += 1;
+      }
+      if ((e.poison ?? 0) > 0) {
+        o.poison = Math.min(AFFLICT.virulentMax, (o.poison ?? 0) + 1);
+        o.poisonT = Math.max(o.poisonT ?? 0, AFFLICT.poisonTime);
+        o.poisonDps = Math.max(o.poisonDps ?? 0, e.poisonDps ?? 0);
+        o.poisonBy = e.poisonBy;
+        spread += 1;
+      }
+      if ((e.frost ?? 0) >= 1 && o.guard !== "husk") {
+        addFrost(o, 1);
+        spread += 1;
+      }
+      if (burning && (o.doused ?? 0) <= 0) {
+        o.burnT = Math.max(o.burnT ?? 0, AFFLICT.contagionBurn);
+        o.burnDps = Math.max(o.burnDps ?? 0, e.burnDps ?? 22);
+        o.burnBy = e.burnBy;
+        spread += 1;
+      }
+    }
+    if (!spread) return;
+    world.runLog.contagion += spread;
+    comboSeen("contagion");
+    world.rings.push({ x: e.x, y: e.y, r: AFFLICT.contagionRadius, life: 0.4, max: 0.4, color: "190,220,120" });
+  };
+  /** An explosion at (x, y): puddles in it spread out once, fire patches in it flare up. */
+  const explode = (x: number, y: number, r: number) => {
+    if (!COMBO.on) return;
+    for (const pool of world.pools) {
+      if (Math.hypot(pool.x - x, pool.y - y) > r + pool.r) continue;
+      if (pool.hot) pool.flare = COMBO.flareTime;
+      else if (!pool.honey && !pool.grown) {
+        pool.r *= COMBO.puddleGrow;
+        pool.grown = true;
+      }
+    }
+  };
+  /** Shards flying from a shatter: they're splash, but they don't shatter anything themselves. */
+  let shardsFlying = false;
+
   const hurt = (
     e: Enemy,
     from: { id: number; x: number; y: number } | null,
     amount: number,
     radius = 0,
-    via: "shot" | "splash" | "burn" | "pulp" | "worm" | "pierce" | "feud" = "shot",
+    via: "shot" | "splash" | "burn" | "pulp" | "worm" | "pierce" | "feud" | "sting" | "poison" | "shock" = "shot",
   ) => {
     if (radius > 0 && from) {
       if (e.id === from.id || e.hp <= 0) return;
       if (Math.hypot(e.x - from.x, e.y - from.y) > radius) return;
     }
     if (e.hp <= 0) return;
+    // Shatter: the first splash on a fruit with 2+ frost does half again, throws ice shards at its neighbours,
+    // ends the frost, and spends every affliction on it at once.
+    let shards = 0;
+    let shardFrom: { id: number; x: number; y: number } | null = null;
+    if (COMBO.on && via === "splash" && !shardsFlying && amount > 0 && e.guard !== "husk" && (frozen(e) || (e.frost ?? 0) >= 2)) {
+      const stacks = Math.min(COMBO.frostMax, Math.max(frozen(e) ? 2 : 0, Math.floor(e.frost ?? 0)));
+      amount *= 1 + COMBO.shatterBonus;
+      shards = amount * COMBO.shardShare[stacks];
+      amount += afflictionLeft(e);
+      clearAfflictions(e);
+      e.frost = 0;
+      e.iced = 0;
+      e.freeze = 0;
+      shardFrom = { id: e.id, x: e.x, y: e.y };
+      world.runLog.shatters += 1;
+      comboSeen("shatter");
+      world.floaters.push({ x: e.x, y: e.y - 30, text: "SHATTER", life: 0.8, color: "#cfe9f5", size: 16 });
+      const reach = COMBO.shardRadius * (fitted("freeze", "shrapnel") ? COMBO.shrapnelWide : 1);
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        world.lines.push({ x: e.x, y: e.y, x2: e.x + Math.cos(a) * reach, y2: e.y + Math.sin(a) * reach, life: 0.25, max: 0.25, color: "200,232,246", width: 1.5 });
+      }
+    }
     // A Honker's first hit makes it honk (a fight with a cat doesn't count).
     if (e.kind === "goose" && !e.gosling && !e.boss && !e.honked && amount > 0 && via !== "feud") honk(e);
     // A fight is a fight: no armour, shell or ink changes it.
@@ -2804,12 +3183,21 @@ export function createWorld(
     if (e.native === "gargoyle" && (world.bell?.quiet ?? 0) <= 0) amount *= NATIVES.gargoyleSkin;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
+    // Black Ice (a Freeze cannon fitting): frozen fruit take more from everything.
+    if (COMBO.on && (e.frost ?? 0) >= COMBO.frostMax && fitted("freeze", "blackice")) amount *= COMBO.blackIce;
     // Sir Michael's mouth oath: fruit on the first three tiles take more from everything.
     if (world.hud.oath === "mouth" && inOathZone(world.points, "mouth", e)) amount *= OATH_VALUES.mouthAmp;
     }
     const before = e.hp;
     e.hp -= amount;
     if (amount >= 1) float(e.x, e.y - 10, String(Math.round(amount)), "#f3e2c4");
+    // The shatter's shards: splash (so pits shrug them off), but they never shatter anything themselves.
+    if (shardFrom && shards > 0) {
+      const reach = COMBO.shardRadius * (fitted("freeze", "shrapnel") ? COMBO.shrapnelWide : 1);
+      shardsFlying = true;
+      for (const other of world.enemies) if (other !== e) hurt(other, shardFrom, shards, reach, "splash");
+      shardsFlying = false;
+    }
     if (credit != null) {
       const t = tallyFor(credit);
       t.dmg += Math.max(0, Math.min(amount, before));
@@ -2843,9 +3231,10 @@ export function createWorld(
       // The giant pumpkin: the full hit on its target, half to everything near it, a one-tile shove
       // for everything hit but Karl, and a burning patch where it landed.
       const hit = world.enemies.filter((o) => o.hp > 0 && (o === e || Math.hypot(o.x - e.x, o.y - e.y) <= shot.splash));
-      hurt(e, null, shot.dmg);
+      hurt(e, null, shot.dmg, 0, COMBO.on && e.guard !== "husk" && (frozen(e) || (e.frost ?? 0) >= 1) ? "splash" : "shot");
       for (const o of hit) if (o !== e) hurt(o, null, shot.dmg * shot.splashRatio, 0, "splash");
       for (const o of hit) if (!o.boss) pushBack(o, CELL);
+      explode(e.x, e.y, shot.splash);
       addFire(e.x, e.y, CANNON.bombardFireLife, CANNON.bombardFireBurn);
       splashFx(e.x, e.y, shot.splash, "232,136,58");
       burst(e.x, e.y, "#e8883a", 16);
@@ -2872,21 +3261,50 @@ export function createWorld(
         other.inkMul = Math.max(other.inkMul ?? 1, shot.inkMul ?? CANNON.inkBonus);
       }
     }
-    if (shot.element === "worm" && (e.kind === "pumpkin" || e.kind === "karl")) {
+    if (shot.element === "worm" && (e.kind === "pumpkin" || e.kind === "karl" || (COMBO.on && (e.sting ?? 0) >= AFFLICT.wormStings))) {
       if ((e.worm ?? 0) <= 0) float(e.x, e.y - 18, "burrow", "#e79ab0");
       e.worm = CANNON.wormTime;
       e.wormDps = Math.max(e.wormDps ?? 0, shot.wormDps ?? CANNON.wormDps);
       e.wormBy = shot.owner;
     }
-    hurt(e, null, shot.dmg, 0, shot.pierce ? "pierce" : "shot");
+    const shelled = e.guard === "rind" && e.shell > 0;
+    // Ice, then fire: a fire shot on a frosted fruit thaws it and bursts (not "burn": it doesn't bake a raw pumpkin).
+    if (COMBO.on && shot.element === "fire" && e.guard !== "husk" && frosted(e) && (e.doused ?? 0) <= 0) {
+      thaw(e);
+      hurt(e, null, shot.dmg * COMBO.thermalBonus, 0, "shock");
+    }
+    // An explosive shot's own hit on a fruit with 2+ frost counts as the explosion, so it shatters it.
+    const shatters = COMBO.on && shot.splash > 0 && e.guard !== "husk" && (frozen(e) || (e.frost ?? 0) >= 2);
+    hurt(e, null, shot.dmg, 0, shatters ? "splash" : shot.pierce ? "pierce" : "shot");
     burst(e.x, e.y, "#3f9a5c", 6);
-    if (world.hud.hero === "vael" && e.guard !== "husk") e.chill = Math.max(e.chill, 1.15 * fx.chill);
-    if (shot.chill > 0 && e.guard !== "husk") e.chill = Math.max(e.chill, shot.chill);
+    // Stingers: a fly leaves one (Stinging Flies: two in a fruit already stung; a sticky fruit takes two).
+    // A seed drives the ones already in deeper (Grit: two). A shell keeps them out until it cracks.
+    if (COMBO.on && e.hp > 0 && !shelled) {
+      if (shot.element === "fly") addSting(e, (e.honeyed ?? 0) > 0 || (has("stinging") && (e.sting ?? 0) > 0) ? 2 : 1);
+      else if (shot.element === "seed" && (e.sting ?? 0) > 0) {
+        const spitter = world.towers.find((t) => t.id === shot.owner);
+        addSting(e, spitter?.mods.includes("grit") ? AFFLICT.gritStacks : AFFLICT.seedStacks);
+      }
+    }
+    if (world.hud.hero === "vael" && e.guard !== "husk") {
+      e.chill = Math.max(e.chill, 1.15 * fx.chill);
+      addFrost(e, COMBO.chillHit);
+    }
+    if (shot.chill > 0 && e.guard !== "husk") {
+      e.chill = Math.max(e.chill, shot.chill);
+      addFrost(e, COMBO.chillHit);
+    }
     if (shot.element === "fire") addFire(e.x, e.y, shot.fireLife, shot.fireBurn);
     if (shot.element === "ice" && e.guard !== "husk") {
       const hold = (e.boss ? 0.6 : 1.45) + shot.freezeExtra;
       e.freeze = Math.max(e.freeze, e.guard === "damp" ? hold * 1.4 : hold);
       float(e.x, e.y - 18, "frozen", "#d5e4ee");
+      if (COMBO.on) {
+        // Fire, then ice: it puts a fire out. Then it gains its frost as usual.
+        douse(e);
+        e.iced = Math.max(e.iced ?? 0, e.freeze);
+        addFrost(e, fitted("freeze", "deepfreeze") ? COMBO.deepFreezeHit : COMBO.freezeHit);
+      }
     }
     if (shot.pulp) {
       addPool(e.x, e.y);
@@ -2910,13 +3328,16 @@ export function createWorld(
     if (shot.procs && has("juicy")) {
       for (const other of world.enemies) hurt(other, e, 8, 46, "splash");
       splashFx(e.x, e.y, 46, "226,59,74");
+      explode(e.x, e.y, 46);
     }
     if (has("splatter") && shot.procs) {
       for (const other of world.enemies) hurt(other, e, 9, 40, "splash");
       splashFx(e.x, e.y, 40, "226,59,74");
+      explode(e.x, e.y, 40);
     }
     if (shot.splash > 0) {
       if (!shot.knock) splashFx(e.x, e.y, shot.splash, "232,136,58");
+      explode(e.x, e.y, shot.splash);
       for (const other of world.enemies)
         hurt(other, e, Math.max(6, Math.round(shot.dmg * shot.splashRatio)), shot.splash, "splash");
     }
@@ -2926,6 +3347,7 @@ export function createWorld(
         if (other.hp <= 0 || other.guard === "husk") continue;
         if (Math.hypot(other.x - e.x, other.y - e.y) > shot.splash + other.r) continue;
         other.chill = Math.max(other.chill, shot.splashChill);
+        addFrost(other, COMBO.chillHit);
       }
     }
     if (shot.cover && e.hp > 0) {
@@ -2952,11 +3374,13 @@ export function createWorld(
     }
     if (has("electric") && shot.procs) {
       let best: Enemy | null = null;
-      let bestD = 92;
+      let bestD = Infinity;
       for (const other of world.enemies) {
         if (other.id === e.id || other.hp <= 0) continue;
         const d = Math.hypot(other.x - e.x, other.y - e.y);
-        if (d < bestD) {
+        // Ice conducts: the spark jumps farther to a fruit with frost.
+        const reach = COMBO.on && (other.frost ?? 0) >= 1 ? 92 * COMBO.sparkFrost : 92;
+        if (d < bestD && d < reach) {
           bestD = d;
           best = other;
         }
@@ -3275,6 +3699,7 @@ export function createWorld(
       let slow = 1;
       let dot = 0;
       let burn = 0;
+      let toxic: { dps: number; by?: number } | null = null;
       let dotBy: number | undefined;
       let burnBy: number | undefined;
       for (const pool of world.pools) {
@@ -3286,12 +3711,18 @@ export function createWorld(
           continue;
         }
         if (pool.hot) {
-          if ((pool.burn || 22) > burn) burnBy = pool.owner;
-          burn = Math.max(burn, pool.burn || 22);
+          // An explosion on the patch: it flares up for a moment.
+          const hot = (pool.burn || 22) * (COMBO.on && (pool.flare ?? 0) > 0 ? COMBO.flare : 1);
+          if (hot > burn) burnBy = pool.owner;
+          burn = Math.max(burn, hot);
           continue;
         }
         if (pool.toxic) {
           slow = Math.min(slow, softenSlow(CANNON.cauldronSlow));
+          if (COMBO.on) {
+            if (!toxic || pool.toxic > toxic.dps) toxic = { dps: pool.toxic, by: pool.owner };
+            continue;
+          }
           if (pool.toxic > dot) dotBy = pool.owner;
           dot = Math.max(dot, pool.toxic);
           continue;
@@ -3312,9 +3743,26 @@ export function createWorld(
         e.freeze -= dt;
         slow = 0;
       }
+      if ((e.iced ?? 0) > 0) e.iced = Math.max(0, (e.iced ?? 0) - dt);
+      // Frost: 1 stack slows a little, 2 slow hard, 3 is frozen solid (back to 2 when the freeze runs out).
+      if (COMBO.on && (e.frost ?? 0) > 0) {
+        if ((e.frost ?? 0) >= COMBO.frostMax && e.freeze <= 0) {
+          e.frost = COMBO.frostMax - 1;
+          e.frostT = drainTime(e);
+        }
+        slow = Math.min(slow, softenSlow(COMBO.frostSlow[Math.min(2, Math.floor(e.frost ?? 0))] ?? 1));
+        // The drain waits while it's held frozen.
+        if (e.freeze <= 0) e.frostT = (e.frostT ?? drainTime(e)) - dt;
+        if ((e.frostT ?? 0) <= 0 && e.freeze <= 0) {
+          e.frost = Math.max(0, (e.frost ?? 0) - 1);
+          e.frostT = drainTime(e);
+        }
+      }
       if (e.guard === "husk") {
         e.chill = 0;
         e.freeze = 0;
+        e.frost = 0;
+        e.iced = 0;
         slow = 1;
       }
       // Pinned under the Foot of the Law: the one stop a husk can't shrug off.
@@ -3331,6 +3779,8 @@ export function createWorld(
       if (expressOnBelt(e)) {
         e.chill = 0;
         e.freeze = 0;
+        e.frost = 0;
+        e.iced = 0;
         e.stomped = 0;
         e.honeyed = 0;
         e.driven = 0;
@@ -3345,6 +3795,31 @@ export function createWorld(
         e.worm = (e.worm ?? 0) - dt;
         credit = e.wormBy ?? null;
         hurt(e, null, (e.wormDps ?? 0) * dt, 0, "worm");
+      }
+      if (COMBO.on && e.hp > 0) {
+        if ((e.doused ?? 0) > 0) {
+          // Fire, then ice: its fire is out for a moment, even standing in a patch.
+          e.doused = Math.max(0, (e.doused ?? 0) - dt);
+          burn = 0;
+        } else if (burn > 0 && e.guard !== "husk" && frosted(e)) {
+          // Ice, then fire: walking into fire with frost thaws it with a burst.
+          thaw(e);
+          credit = burnBy ?? null;
+          hurt(e, null, burn * COMBO.thermalBonus, 0, "shock");
+        }
+        // Flammable: fire on a poisoned fruit burns hotter while the poison lasts; the poison is spent when the fire goes out.
+        const onFire = burn > 0 || (e.burnT ?? 0) > 0;
+        if (onFire && (e.poison ?? 0) > 0) {
+          if (burn > 0) burn *= AFFLICT.flammable;
+          if (!e.flamed) float(e.x, e.y - 22, "flare-up", "#ffb35a");
+          e.flamed = true;
+        } else if (!onFire && e.flamed) {
+          e.flamed = false;
+          e.poison = 0;
+          e.poisonT = 0;
+        }
+        tickAfflictions(e, dt, toxic, burn > 0 ? { dps: burn, by: burnBy } : null);
+        noteAfflictions(e, burn > 0 || (e.burnT ?? 0) > 0);
       }
       credit = burnBy ?? null;
       if (burn) hurt(e, null, burn * dt, 0, "burn");
@@ -3485,7 +3960,9 @@ export function createWorld(
         continue;
       }
       let target: Enemy | null = null;
+      let bestScore = -Infinity;
       let bestProg = -Infinity;
+      const mode = modeOf(tower);
       const stats = statsFor(tower);
       const range = stats.range;
       const inRange: Enemy[] = [];
@@ -3496,25 +3973,22 @@ export function createWorld(
         const d2 = (e.x - tower.x) ** 2 + (e.y - tower.y) ** 2;
         if (d2 > range * range) continue;
         inRange.push(e);
-        let prog = e.wp * 1000 - Math.hypot(e.x - (world.points[e.wp]?.x ?? e.x), e.y - (world.points[e.wp]?.y ?? e.y));
-        // Specialists look for their favourite target first.
-        if (tower.kind === "reader" || tower.kind === "scales") prog = e.hp;
-        else if (tower.kind === "scope")
-          prog = (e.boss ? 2e6 : 0) + ((e.guard === "rind" && e.shell > 0) || e.guard === "husk" || e.guard === "damp" ? 1e6 : 0) + e.hp;
-        else if (tower.kind === "mimic" && !e.boss) prog += 1e6;
-        else if (tower.kind === "peeler" && ((e.guard === "rind" && e.shell > 0) || e.guard === "husk" || e.guard === "damp"))
-          prog += 1e6;
-        else if (tower.kind === "bookworm" && (e.kind === "pumpkin" || e.kind === "karl") && (e.worm ?? 0) < 1) prog += 1e6;
-        else if (tower.kind === "ink" && (e.ink ?? 0) <= 0.5) prog += 1e6;
-        else if (tower.kind === "quackliber" && tower.aimMode === "strong") prog = e.hp;
-        else if (tower.kind === "quackliber" && tower.aimMode === "rear") prog = -prog;
-        if (prog > bestProg) {
+        const prog = e.wp * 1000 - Math.hypot(e.x - (world.points[e.wp]?.x ?? e.x), e.y - (world.points[e.wp]?.y ?? e.y));
+        // The tower's targeting mode (Settings in the inspector, A); the Mimic Chest keeps its own rule:
+        // the first fruit that isn't a boss.
+        const score = tower.kind === "mimic" ? prog + (e.boss ? 0 : 1e6) : targetScore(mode, tower, e, prog, Math.sqrt(d2), world.pools);
+        if (score > bestScore || (score === bestScore && prog > bestProg)) {
+          bestScore = score;
           bestProg = prog;
           target = e;
         }
       }
-      if (!target) continue;
+      if (!target) {
+        tower.aimAt = undefined;
+        continue;
+      }
       if (tower.kind === "hive") target = inRange[Math.floor(Math.random() * inRange.length)] ?? target;
+      tower.aimAt = target.id;
       tower.aim = Math.atan2(target.y - tower.y, target.x - tower.x);
       if (tower.cd > 0) continue;
       // A honk close by: this one misses its next shot.
@@ -3630,6 +4104,7 @@ export function createWorld(
           hurt(e, null, stats.dmg, 0, "splash");
           if (e.guard === "husk") continue;
           e.chill = Math.max(e.chill, CANNON.organChill);
+          addFrost(e, COMBO.chillHit);
           if (swell) e.freeze = Math.max(e.freeze, e.boss ? CANNON.organStunBoss : CANNON.organStun);
         }
         world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.5, max: 0.5, color: swell ? "230,195,106" : "170,130,210" });
@@ -3739,7 +4214,10 @@ export function createWorld(
             const along = rx * ux + ry * uy;
             if (along < 0 || along > range) continue;
             if (Math.abs(rx * uy - ry * ux) > e.r + 8) continue;
-            if (has("barbed") && e.guard !== "husk") e.chill = Math.max(e.chill, CANNON.barbedSlow);
+            if (has("barbed") && e.guard !== "husk") {
+              e.chill = Math.max(e.chill, CANNON.barbedSlow);
+              addFrost(e, COMBO.chillHit);
+            }
             hurt(e, null, stats.dmg);
           }
           world.lines.push({
@@ -4032,6 +4510,8 @@ export function createWorld(
         mods: [...(world.hud.fitted[buildKind] ?? [])],
         paid: world.hud.towerCost,
         born: cleared,
+        // The mode last set on this kind tonight, if any.
+        target: lastMode[buildKind],
       };
       if (buildKind === "pamphlet") {
         tower.leg = bindLeg(legsNow(), c, r);
@@ -4137,14 +4617,42 @@ export function createWorld(
       world.hud.log = "The Pamphlet watches the other straight now.";
       notify();
     },
-    retarget(mode: "strong" | "rear") {
+    /** The selected tower's next (or previous) targeting mode, from the ones its kind offers. Free, any time. */
+    cycleTarget(dir: 1 | -1 = 1) {
       const tower = world.towers.find((t) => t.id === world.hud.selected);
-      if (!tower || tower.kind !== "quackliber" || tower.aimMode) return;
-      if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
-      tower.aimMode = mode;
+      if (!tower) return;
+      // A Copycat aims as what it copies.
+      const kind = tower.kind === "copycat" ? tower.copy?.kind : tower.kind;
+      const allowed = kind ? DEFAULT_TARGET[kind] : null;
+      if (!kind || !allowed) return;
+      const now = tower.target && allowed.modes.includes(tower.target) ? tower.target : allowed.default;
+      const next = allowed.modes[(allowed.modes.indexOf(now) + dir + allowed.modes.length) % allowed.modes.length];
+      tower.target = next;
+      if (tower.kind !== "copycat") lastMode[tower.kind] = next;
       cue("build");
-      world.hud.log = mode === "strong" ? "Quack-Liber locked onto the toughest fruit in reach." : "Quack-Liber covers the back of the line now.";
+      world.hud.log = `${TOWERS[tower.kind].name} aims: ${TARGET_LABEL[next]}${next === allowed.default ? " (recommended)" : ""}.`;
       notify();
+    },
+    setTarget(mode: TargetMode) {
+      const tower = world.towers.find((t) => t.id === world.hud.selected);
+      if (!tower) return;
+      const kind = tower.kind === "copycat" ? tower.copy?.kind : tower.kind;
+      const allowed = kind ? DEFAULT_TARGET[kind] : null;
+      if (!allowed || !allowed.modes.includes(mode)) return;
+      tower.target = mode;
+      if (tower.kind !== "copycat") lastMode[tower.kind] = mode;
+      cue("build");
+      world.hud.log = `${TOWERS[tower.kind].name} aims: ${TARGET_LABEL[mode]}${mode === allowed.default ? " (recommended)" : ""}.`;
+      notify();
+    },
+    /** The selected tower's targeting mode, the modes it can take and its recommended one (null: it doesn't aim). */
+    targetOf(towerId: number) {
+      const tower = world.towers.find((t) => t.id === towerId);
+      const kind = tower ? (tower.kind === "copycat" ? tower.copy?.kind : tower.kind) : undefined;
+      const allowed = kind ? DEFAULT_TARGET[kind] : null;
+      if (!tower || !allowed) return null;
+      const mode = tower.target && allowed.modes.includes(tower.target) ? tower.target : allowed.default;
+      return { mode, modes: allowed.modes, recommended: allowed.default };
     },
     setTrigger(mode: "auto" | "manual") {
       const tower = world.towers.find((t) => t.id === world.hud.selected);
@@ -4217,6 +4725,7 @@ export function createWorld(
       world.hud.chuteWave = usesChute(0);
       world.hud.dropWave = dropsFor(0);
       world.hud.feuds = 0;
+      world.hud.comboTips = [];
       world.hud.dropSeen = false;
       clearSiegeWave();
       const opening = waveAt(0, world.hud.night);
@@ -4697,8 +5206,10 @@ export function createWorld(
       if (shape.mode === "gate") return { tiles: Math.round((gateStrip(world.points, tower.x, tower.y, world.hud.map === "overflow").length / CELL) * 2) / 2, towers: 0 };
       if (range >= GLOBAL_RANGE) return { tiles: "all" as const, towers: 0 };
       const { length } = carpetInReach(world.points, tower.x, tower.y, shape.outer, shape.inner);
-
       return { tiles: Math.round((length / CELL) * 2) / 2, towers: shape.aura ? near(world.hud.quackAura) : 0 };
+    },
+    previewStats(kind: TowerKind, at?: { c: number; r: number }) {
+      return previewStats(kind, at);
     },
     statsOf(towerId: number) {
       const tower = world.towers.find((t) => t.id === towerId);

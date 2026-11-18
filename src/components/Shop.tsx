@@ -10,7 +10,7 @@ import type { ScreenProps } from "@/components/ui";
  * gives it to every tower of that kind, now and for the rest of the night. Each kind has its own
  * price (40, then 30 more per upgrade it has), and you can buy them only between waves.
  */
-export function BackRoomTab({ api, onGesture }: ScreenProps) {
+export function BackRoomTab({ api, onGesture, docked = false }: ScreenProps & { docked?: boolean }) {
   const hud = api.world.hud;
   const kind = hud.workshop;
   /** Which build tab's kinds are folded open (one at a time); null = follow the kind being shown. */
@@ -22,10 +22,34 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
     setOpenTab(null);
   }
 
+  if (kind == null && docked) {
+    // Wide layout: the column waits with a plain button at its top.
+    return (
+      <button
+        type="button"
+        data-board-controls
+        title="Back room (B): upgrade every tower of a kind"
+        className="flex w-full items-center gap-2 rounded-xl border border-[#c6a15a]/70 bg-[#241418]/95 px-3 py-2.5 text-left text-gold"
+        onClick={() => {
+          onGesture();
+          tone(200, 0.06, "triangle", 0.03);
+          api.openShop();
+        }}
+      >
+        <Wrench className="size-4 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">Back room</span>
+          <span className="block text-xs text-muted">Upgrade every tower of a kind</span>
+        </span>
+        <kbd className="rounded border border-line px-1 font-sans text-[0.625rem] text-muted">B</kbd>
+      </button>
+    );
+  }
   if (kind == null) {
     return (
       <button
         type="button"
+        data-board-controls
         title="Back room (B): upgrade every tower of a kind"
         className="absolute top-1/2 right-0 z-10 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-l-lg border border-r-0 border-[#c6a15a]/70 bg-[#241418]/95 px-1.5 py-3 text-gold shadow-lg sm:right-3"
         onClick={() => {
@@ -36,7 +60,7 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
       >
         <Wrench className="size-4" aria-hidden="true" />
         <span className="text-xs font-semibold tracking-wide [writing-mode:vertical-rl]">Back room</span>
-        <kbd className="hidden rounded border border-line px-1 font-sans text-[10px] text-muted sm:block">B</kbd>
+        <kbd className="hidden rounded border border-line px-1 font-sans text-[0.625rem] text-muted sm:block">B</kbd>
       </button>
     );
   }
@@ -68,10 +92,10 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
     >
       <TowerIcon kind={k} className="h-full w-full" />
       {built(k) ? (
-        <span className="absolute -bottom-1 -left-1 rounded bg-ink px-0.5 text-[9px] leading-tight text-parchment">×{built(k)}</span>
+        <span className="absolute -bottom-1 -left-1 rounded bg-ink px-0.5 text-[0.5625rem] leading-tight text-parchment">×{built(k)}</span>
       ) : null}
       {(hud.fitted[k]?.length ?? 0) > 0 ? (
-        <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-gold text-[10px] font-bold text-ink">
+        <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-gold text-[0.625rem] font-bold text-ink">
           {hud.fitted[k]!.length}
         </span>
       ) : null}
@@ -80,9 +104,15 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
 
   return (
     <aside
+      data-board-controls
       aria-label="Back room"
-      // Phones: a sheet up from the bottom, so the carpet above stays in view. Wider: a panel down the right side.
-      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[58%] flex-col rounded-t-xl border-t border-[#c6a15a]/60 bg-[#1c1216]/97 shadow-2xl sm:inset-x-auto sm:inset-y-0 sm:right-3 sm:max-h-none sm:w-80 sm:rounded-t-none sm:rounded-r-xl sm:border-t-0 sm:border-l"
+      // Phones: a sheet up from the bottom, so the carpet above stays in view. Wider: a 20rem panel down the
+      // right side. Wide layout: it fills its own column beside the board.
+      className={
+        docked
+          ? "flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-[#c6a15a]/60 bg-[#1c1216]"
+          : "absolute inset-x-0 bottom-0 z-10 flex max-h-[58%] flex-col overflow-hidden rounded-t-xl border-t border-[#c6a15a]/60 bg-[#1c1216]/97 shadow-2xl sm:inset-x-auto sm:inset-y-0 sm:right-3 sm:max-h-none sm:w-[20rem] sm:max-w-[calc(100%-1.5rem)] sm:rounded-t-none sm:rounded-r-xl sm:border-t-0 sm:border-l"
+      }
     >
       <div className="flex items-start gap-2 border-b border-line/60 px-3 py-2.5">
         <div className="min-w-0 flex-1">
@@ -102,7 +132,7 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2.5">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 break-words">
         <div className="flex flex-col gap-1">
           {tabs.map((g) => {
             const isOpen = open === g.id;
@@ -130,8 +160,8 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
 
         <div className="mt-3 flex items-center gap-2 border-t border-line/60 pt-2.5">
           <TowerIcon kind={kind} className="size-9 shrink-0" />
-          <div className="min-w-0">
-            <p className="truncate font-display text-base leading-tight font-semibold">{TOWERS[kind].name}</p>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-base leading-tight font-semibold">{TOWERS[kind].name}</p>
             <p className="text-xs text-muted">
               {count ? `${count} on the floor` : "None built yet"} · next upgrade{" "}
               <span className="text-parchment">{price ? `${price} seeds` : "free"}</span>
@@ -165,7 +195,7 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
                 ) : (
                   <span className="shrink-0 text-right text-xs">
                     <span className="block font-semibold text-gold">{price || "Free"}</span>
-                    <kbd className="hidden font-sans text-[10px] text-muted sm:block">{i + 1}</kbd>
+                    <kbd className="hidden font-sans text-[0.625rem] text-muted sm:block">{i + 1}</kbd>
                   </span>
                 )}
               </button>

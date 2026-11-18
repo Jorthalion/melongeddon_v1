@@ -45,7 +45,7 @@ export function CheckoutPanel({ api, onGesture }: { api: GameApi; onGesture: () 
         {/* The Dialog has no click handler of its own, so stop clicks here from closing it. */}
         <div className="flex min-h-0 flex-1 flex-col" style={{ ...RULED, color: INK }} onClick={(e) => e.stopPropagation()}>
           <div className="relative shrink-0 border-b border-[#c6a15a]/60 px-4 pt-3 pb-2 pl-9">
-            <p className="text-[11px] font-semibold tracking-[0.2em] text-[#7a5a3a] uppercase">Checkout card</p>
+            <p className="text-[0.6875rem] font-semibold tracking-[0.2em] text-[#7a5a3a] uppercase">Checkout card</p>
             <h2 id="checkout-title" className="font-display text-xl leading-tight font-semibold">
               {KEEPER_NAMES[hud.hero ?? "mynxi"].name}
             </h2>
@@ -54,7 +54,7 @@ export function CheckoutPanel({ api, onGesture }: { api: GameApi; onGesture: () 
             </p>
             {/* The due-date stamp, a little crooked. */}
             <span
-              className="pointer-events-none absolute top-3 right-14 rotate-[-8deg] rounded-[3px] border-2 border-[#b8323a]/75 px-1.5 py-0.5 font-display text-[11px] font-bold tracking-[0.15em] text-[#b8323a]/80"
+              className="pointer-events-none absolute top-3 right-14 rotate-[-8deg] rounded-[3px] border-2 border-[#b8323a]/75 px-1.5 py-0.5 font-display text-[0.6875rem] font-bold tracking-[0.15em] text-[#b8323a]/80"
               aria-hidden="true"
             >
               DUE: DAWN
@@ -85,22 +85,22 @@ export function CheckoutPanel({ api, onGesture }: { api: GameApi; onGesture: () 
 
             {card.groups.map((g) => (
               <section key={g.id} className="mb-3" aria-labelledby={`checkout-${g.id}`}>
-                <h3 id={`checkout-${g.id}`} className="text-[11px] font-semibold tracking-[0.18em] text-[#7a5a3a] uppercase">
+                <h3 id={`checkout-${g.id}`} className="text-[0.6875rem] font-semibold tracking-[0.18em] text-[#7a5a3a] uppercase">
                   {g.title}
                 </h3>
                 <ul>
                   {g.entries.map((e, i) => (
                     <li key={`${e.name}-${i}`} className="relative border-b border-[#466ea0]/15 py-1.5 pr-10">
-                      <p className={`font-display text-[15px] leading-snug font-semibold ${e.tone === "drawback" ? "text-[#e23b4a]" : ""}`}>{e.name}</p>
+                      <p className={`font-display text-[0.9375rem] leading-snug font-semibold ${e.tone === "drawback" ? "text-[#e23b4a]" : ""}`}>{e.name}</p>
                       <p className={`text-xs leading-snug ${e.tone === "drawback" ? "text-[#b8323a]/90" : "text-[#6b5040]"}`}>{e.blurb}</p>
                       {e.tone === "drawback" ? (
-                        <span className="absolute top-2 right-0 rotate-[-6deg] rounded-[2px] border border-[#e23b4a]/70 px-1 text-[10px] font-bold tracking-widest text-[#e23b4a] uppercase" aria-hidden="true">
+                        <span className="absolute top-2 right-0 rotate-[-6deg] rounded-[2px] border border-[#e23b4a]/70 px-1 text-[0.625rem] font-bold tracking-widest text-[#e23b4a] uppercase" aria-hidden="true">
                           late
                         </span>
                       ) : null}
                       {/* The Doctor's pick, marked as on the shelf. */}
                       {e.note ? (
-                        <span className="pointer-events-none absolute right-1 bottom-1 font-display text-[10px] text-[#7a5a3a] italic">
+                        <span className="pointer-events-none absolute right-1 bottom-1 font-display text-[0.625rem] text-[#7a5a3a] italic">
                           {e.note}
                         </span>
                       ) : null}

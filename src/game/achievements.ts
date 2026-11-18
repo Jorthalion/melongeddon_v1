@@ -11,6 +11,14 @@ import { DEFAULT_COSMETICS, ROOM_IDS, START_ROOMS, legacyRooms, type Cosmetics, 
 
 /** What happened in the night being played. Reset at the start of every run; never saved. */
 export interface RunLog {
+  /** Status combos tonight: shatters, thermal shocks, fires spread by wildfire, stacks spread by contagion,
+   * the most stings on one fruit, and the most different afflictions on one fruit at once. */
+  shatters: number;
+  thermals: number;
+  wildfires: number;
+  contagion: number;
+  maxStung: number;
+  maxAfflictions: number;
   /** Every tower placed (sold ones too), by kind, and the most standing at once. */
   built: Partial<Record<TowerKind, number>>;
   peakTowers: number;
@@ -93,6 +101,12 @@ export function emptyRunLog(): RunLog {
     pitDirectKills: 0,
     borrowersAtDoor: 0,
     borrowersOnLastWave: 0,
+    shatters: 0,
+    thermals: 0,
+    wildfires: 0,
+    contagion: 0,
+    maxStung: 0,
+    maxAfflictions: 0,
     expressBeltKills: 0,
     parcelWrappedKills: 0,
     sproutsGrown: 0,
@@ -370,6 +384,12 @@ const LIST: Array<Omit<Achievement, "tier">> = [
     check: (c) => c.ledger.killsBy.quackliber >= 100,
     progress: (l) => [l.killsBy.quackliber, 100],
   },
+  { id: "shatter", name: "Cold Snap", blurb: "Shatter 25 frozen fruit in one night.", shelf: "workshop", check: (c) => c.log.shatters >= 25 },
+  { id: "thermal", name: "Steam Engine", blurb: "Thaw 15 frozen fruit with fire in one night.", shelf: "workshop", check: (c) => c.log.thermals >= 15 },
+  { id: "wildfire", name: "Brush Fire", blurb: "Fire spreads between fruit 30 times in one night.", shelf: "workshop", check: (c) => c.log.wildfires >= 30 },
+  { id: "stung", name: "Hornet's Nest", blurb: "One fruit carries five stingers at once.", shelf: "workshop", check: (c) => c.log.maxStung >= 5 },
+  { id: "cocktail", name: "House Special", blurb: "One fruit carries four different afflictions at once.", shelf: "workshop", check: (c) => c.log.maxAfflictions >= 4 },
+  { id: "contagion", name: "Outbreak", blurb: "Contagion spreads 50 stacks in one night.", shelf: "workshop", check: (c) => c.log.contagion >= 50 },
   { id: "chain", name: "Chain Reaction", blurb: "One Card Catalogue shot kills 3 fruit.", shelf: "workshop", check: (c) => c.log.chainBest >= 3 },
   { id: "knockback", name: "Knockback King", blurb: "The Pumpkin Trebuchet moves 30 fruit in one night.", shelf: "workshop", check: (c) => c.log.knocks >= 30 },
   { id: "slow-cooker", name: "Slow Cooker", blurb: "Have 10 fruit slowed at the same moment.", shelf: "workshop", check: (c) => c.log.maxSlowedAtOnce >= 10 },
@@ -506,7 +526,7 @@ const LIST: Array<Omit<Achievement, "tier">> = [
   { id: "one-tower", name: "One Good Tower", blurb: "Win a story night with exactly one tower ever built.", shelf: "restricted", secret: true, check: (c) => storyWin(c) && builtCount(c.log) === 1 },
 ];
 
-const TIER_1 = ["fragments-10", "restorer", "first-night", "librarian", "overflow", "endless-20", "minimalist", "no-signature", "hoarder", "back-room-ban", "slow-cooker", "massacre", "out-of-box", "nine-lives"];
+const TIER_1 = ["fragments-10", "restorer", "first-night", "librarian", "overflow", "endless-20", "minimalist", "no-signature", "hoarder", "back-room-ban", "slow-cooker", "massacre", "out-of-box", "nine-lives", "shatter", "stung"];
 const TIER_3 = ["gargoyle", "archivist", "overdue", "endless-30", "full-staff", "pet", "still-standing", "all-slips", "perfect", "well-read", "maps", "difficulties", "massacre-10k", "siege-hard"];
 const tierOf = (a: Omit<Achievement, "tier">): 1 | 2 | 3 =>
   a.secret || TIER_3.includes(a.id) ? 3 : TIER_1.includes(a.id) || a.id.startsWith("win-") ? 1 : 2;

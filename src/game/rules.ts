@@ -477,6 +477,90 @@ export const HEAVY_SEEDS = 200;
 
 /** Cannons that never shoot. */
 export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern", "desk"];
+
+/**
+ * What an aiming tower picks among the fruit in reach. Ties go to First, so a mode that can't tell
+ * fruit apart behaves like today.
+ */
+export type TargetMode = "first" | "last" | "strong" | "weak" | "close" | "armour" | "boss" | "fresh";
+export const TARGET_LABEL: Record<TargetMode, string> = {
+  first: "First",
+  last: "Last",
+  strong: "Strongest",
+  weak: "Weakest",
+  close: "Closest",
+  armour: "Armoured",
+  boss: "Boss",
+  fresh: "First, not affected",
+};
+/** One line on what each mode picks, for the aim menu. */
+export const TARGET_HINT: Record<TargetMode, string> = {
+  first: "The fruit furthest along the carpet.",
+  last: "The fruit furthest back.",
+  strong: "The most health right now.",
+  weak: "The least health: finish them off.",
+  close: "The nearest one to this tower.",
+  armour: "Shelled, husked or damp fruit first.",
+  boss: "Karl and the other bosses first, then the toughest.",
+  fresh: "The front fruit that hasn't got its effect yet.",
+};
+/** Status towers: they put something on a fruit, so "fresh" (one that hasn't got it yet) comes first. */
+const STATUS_MODES: TargetMode[] = ["fresh", "first", "last", "strong", "close"];
+/** Snipers: one big hit, so the strong, the bosses and the armoured come first. */
+const SNIPER_MODES: TargetMode[] = ["strong", "boss", "armour", "first", "weak"];
+const PLAIN_MODES: TargetMode[] = ["first", "last", "strong", "weak", "close", "armour", "boss"];
+const aims = (def: TargetMode, modes: TargetMode[]) => ({ default: def, modes });
+
+/**
+ * Each aiming tower's recommended mode (the best choice for typical play) and the modes the inspector
+ * offers it. null: it doesn't aim, or it picks by its own rule (the Fly Hive at random, the Mimic Chest
+ * the first fruit that isn't a boss, the Harvest Bombard the thickest crowd, the Reverse Driver the
+ * fruit furthest along that isn't already walking back), so there's nothing to choose.
+ */
+export const DEFAULT_TARGET: Record<TowerKind, { default: TargetMode; modes: TargetMode[] } | null> = {
+  melon: aims("first", PLAIN_MODES),
+  mortar: aims("first", PLAIN_MODES),
+  still: aims("fresh", STATUS_MODES),
+  fire: aims("fresh", STATUS_MODES),
+  freeze: aims("fresh", STATUS_MODES),
+  spitter: aims("first", PLAIN_MODES),
+  ballista: aims("first", SNIPER_MODES),
+  reader: aims("strong", SNIPER_MODES),
+  bell: null,
+  hive: null,
+  lantern: null,
+  ink: aims("fresh", STATUS_MODES),
+  compost: null,
+  peeler: aims("fresh", STATUS_MODES),
+  bookworm: aims("fresh", STATUS_MODES),
+  boomerang: aims("first", PLAIN_MODES),
+  orrery: null,
+  plane: aims("first", PLAIN_MODES),
+  quill: aims("first", PLAIN_MODES),
+  globe: aims("first", PLAIN_MODES),
+  press: aims("first", PLAIN_MODES),
+  organ: null,
+  scope: aims("boss", SNIPER_MODES),
+  catalogue: aims("first", PLAIN_MODES),
+  desk: null,
+  cauldron: aims("fresh", STATUS_MODES),
+  flask: null,
+  trebuchet: aims("first", PLAIN_MODES),
+  scales: aims("strong", PLAIN_MODES),
+  stomp: aims("first", PLAIN_MODES),
+  honey: aims("fresh", STATUS_MODES),
+  mimic: null,
+  copycat: null,
+  lectern: null,
+  quackliber: aims("first", PLAIN_MODES),
+  geese: null,
+  lionblade: null,
+  gourdgate: null,
+  bombard: null,
+  pamphlet: null,
+  driver: null,
+};
+
 /** Whole-board range: more than the diagonal of the largest board (22 x 14 cells is about 1250 px). */
 export const GLOBAL_RANGE = 1400;
 
@@ -489,7 +573,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   mortar: {
     name: "Pumpkin mortar",
-    blurb: "Slow lob. The splash covers whoever is standing close.",
+    blurb: "Slow lob. The splash covers whoever is standing close. Its blast shatters a fruit with two frost.",
     cost: 75,
     role: "Splash",
   },
@@ -501,19 +585,19 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   fire: {
     name: "Fire cannon",
-    blurb: "The hit leaves fire on the carpet. Standing in it burns.",
+    blurb: "The hit leaves fire on the carpet. Standing in it burns. Burns a frosted fruit for a burst. Slowed fruit pass the fire on.",
     cost: 70,
     role: "Burn",
   },
   freeze: {
     name: "Freeze cannon",
-    blurb: "The hit stops them cold, melon or otherwise. Then they thaw.",
+    blurb: "The hit stops them cold, melon or otherwise. Then they thaw. Frost builds up: shatter it with an explosion, or burn it for a burst.",
     cost: 65,
     role: "Slow",
   },
   spitter: {
     name: "Seed Spitter",
-    blurb: "Rapid fire, tiny seeds, short reach. Shreds corn. Shelled melons shrug it off.",
+    blurb: "Rapid fire, tiny seeds, short reach. Shreds corn. Shelled melons shrug it off. Its seeds drive stingers in deeper.",
     cost: 50,
     role: "Rapid",
   },
@@ -537,7 +621,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   hive: {
     name: "Fly Hive",
-    blurb: "Fruit flies that find anything, anywhere on the board. Small bites, never miss.",
+    blurb: "Fruit flies that find anything, anywhere on the board. Small bites, never miss. Each fly leaves a stinger that keeps biting.",
     cost: 65,
     role: "Homing",
   },
@@ -591,7 +675,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   bookworm: {
     name: "Bookworm",
-    blurb: "Burrows into pumpkins and Karl for heavy damage over time. Bored by the rest.",
+    blurb: "Burrows into pumpkins and Karl for heavy damage over time. Bored by the rest. Also burrows into anything with three stingers in it.",
     cost: 75,
     role: "Pumpkins",
   },
@@ -639,7 +723,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   cauldron: {
     name: "Bubbling Cauldron",
-    blurb: "Vael's own. Lobs a potion that leaves a green puddle: it slows and it eats.",
+    blurb: "Vael's own. Lobs a potion that leaves a green puddle: it slows and it eats. Its poison stacks, and it catches fire.",
     cost: 85,
     role: "Poison",
   },
@@ -687,7 +771,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   quackliber: {
     name: "Quack-Liber",
-    blurb: "Quackarot's own. A two-barrel backpack turret that fires orange rockets: they burst over a small area and slow what they hit. Every other tower within three tiles fires 15% faster while it stands. Once, after placing it, you can change what it aims at.",
+    blurb: "Quackarot's own. A two-barrel backpack turret that fires orange rockets: they burst over a small area and slow what they hit. Every other tower within three tiles fires 15% faster while it stands.",
     cost: 95,
     role: "Rockets",
   },
@@ -1044,7 +1128,14 @@ export type ModId =
   | "venom"
   | "whetstone"
   | "dressing"
-  | "scar";
+  | "scar"
+  | "deepfreeze"
+  | "blackice"
+  | "shrapnel"
+  | "wildfire"
+  | "barbs"
+  | "virulent"
+  | "grit";
 
 export interface ModDef {
   id: ModId;
@@ -1088,6 +1179,13 @@ export const MODS: ModDef[] = [
   { id: "hold", name: "Deeper frost", blurb: "The freeze holds for another beat.", kinds: ["freeze"] },
   { id: "brittle", name: "Brittle ice", blurb: "The frozen shot hits harder.", kinds: ["freeze"] },
   { id: "coldreach", name: "Long chill", blurb: "Freezes farther down the carpet.", kinds: ["freeze"] },
+  { id: "deepfreeze", name: "Deep Freeze", blurb: "Its hits add three frost instead of two.", kinds: ["freeze"] },
+  { id: "blackice", name: "Black Ice", blurb: "A fruit with three frost takes 15% more from everything.", kinds: ["freeze"] },
+  { id: "shrapnel", name: "Shrapnel", blurb: "A shattered fruit's ice shards fly half as far again.", kinds: ["freeze"] },
+  { id: "wildfire", name: "Wildfire", blurb: "Fire spreads between slowed fruit twice as often.", kinds: ["fire"] },
+  { id: "barbs", name: "Barbed stingers", blurb: "Its stingers stay in for 5 seconds instead of 3.", kinds: ["hive"] },
+  { id: "virulent", name: "Virulent", blurb: "Its poison stacks up to five times instead of three.", kinds: ["cauldron"] },
+  { id: "grit", name: "Grit", blurb: "A seed drives two stingers deeper instead of one.", kinds: ["spitter"] },
 ];
 
 /**
@@ -1106,8 +1204,41 @@ export function shopPrice(hero: HeroId | null, owned: number, visits: number, ex
 }
 
 /** The back-room upgrades a tower kind can have (the Copycat's hidden step is never one). */
-export function fittingsFor(kind: TowerKind) {
-  return MODS.filter((m) => m.kinds.includes(kind));
+/**
+ * The shared reach and pace fittings ("reach", "haste") are named for what each tower is: an Orrery has no
+ * barrel and a bell no wick. Same numbers everywhere; only the name and the line change.
+ */
+export const FITTING_NAMES: Partial<Record<TowerKind, Partial<Record<ModId, { name: string; blurb: string }>>>> = {
+  melon: { haste: { name: "Oiled breech", blurb: "Loads a little faster." } },
+  spitter: { reach: { name: "Long straw", blurb: "Spits farther down the carpet." }, haste: { name: "Deep breath", blurb: "Spits a little faster." } },
+  ballista: { reach: { name: "Taut string", blurb: "Throws farther down the carpet." }, haste: { name: "Ratchet winch", blurb: "Winds back a little faster." } },
+  reader: { haste: { name: "Speed reading", blurb: "Reads a little faster." } },
+  bell: { haste: { name: "Lighter clapper", blurb: "Rings a little more often." } },
+  hive: { haste: { name: "Queen bee", blurb: "Flies leave a little more often." } },
+  ink: { reach: { name: "Long nib", blurb: "Marks farther down the carpet." }, haste: { name: "Fresh pot", blurb: "Marks a little more often." } },
+  peeler: { reach: { name: "Long handle", blurb: "Peels farther down the carpet." }, haste: { name: "Sharp blade", blurb: "Peels a little faster." } },
+  bookworm: { reach: { name: "Deep tunnels", blurb: "Burrows farther down the carpet." }, haste: { name: "Brood", blurb: "Sends worms a little more often." } },
+  boomerang: { reach: { name: "Wider throw", blurb: "The bookend flies farther out." }, haste: { name: "Quick catch", blurb: "Throws again a little sooner." } },
+  orrery: { reach: { name: "Wider orbit", blurb: "The planets circle farther out." }, haste: { name: "Spin faster", blurb: "The planets go round a little faster." } },
+  plane: { reach: { name: "Longer wings", blurb: "Glides farther down the carpet." }, haste: { name: "Fold faster", blurb: "Launches a little more often." } },
+  quill: { reach: { name: "Long stroke", blurb: "The line runs farther." }, haste: { name: "Quick hand", blurb: "Writes a little faster." } },
+  globe: { reach: { name: "Heavier globe", blurb: "Lands farther down the carpet." }, haste: { name: "Quick spin", blurb: "Rolls one out a little sooner." } },
+  press: { reach: { name: "Wide bed", blurb: "Prints farther down the carpet." }, haste: { name: "Steam press", blurb: "Prints a little faster." } },
+  organ: { haste: { name: "Bellows", blurb: "Plays a little more often." } },
+  scope: { reach: { name: "Long lens", blurb: "Sees farther down the carpet." }, haste: { name: "Steady hand", blurb: "Fires a little faster." } },
+};
+
+/** A fitting as `kind` calls it (its own name for the shared reach and pace fittings). */
+export function fittingName(kind: TowerKind, id: ModId): string {
+  return FITTING_NAMES[kind]?.[id]?.name ?? MODS.find((m) => m.id === id)?.name ?? id;
+}
+
+/** The back-room fittings a kind takes, named as that kind calls them. */
+export function fittingsFor(kind: TowerKind): ModDef[] {
+  return MODS.filter((m) => m.kinds.includes(kind)).map((m) => {
+    const own = FITTING_NAMES[kind]?.[m.id];
+    return own ? { ...m, ...own } : m;
+  });
 }
 
 /** Share of spent seeds returned when a tower is sold. */
@@ -2763,6 +2894,9 @@ export const BALANCE = {
   killGold: 1,
   pulpEvery: 2.5,
   slowPower: 1,
+  /** A boss before its night's last wave is a mini-boss: this many times the health of an ordinary one of its kind
+   * (a pumpkin for Karl, a goose for the Matriarch, a cat for General Mittens), so 2.5 = 150% more. */
+  miniBossHp: 2.5,
   /** Story nights: health steps per wave after wave 6 (0.375 = the 15th wave is as tough as the old 10th). */
   storyHpPace: 0.375,
   /** Endless only: enemy health growth per wave after wave 10 (1.15 = +15% a wave). */
@@ -2827,4 +2961,90 @@ export const STATS: Record<EnemyKind, { hp: number; speed: number; gold: number;
   // The Siege. Variants with their own health and size (goslings, tanks, the bosses) are in SIEGE.
   goose: { hp: 36, speed: 60, gold: 9, r: 13 },
   cat: { hp: 45, speed: 52, gold: 10, r: 13 },
+};
+
+/**
+ * Status combos, part one: ice, fire and explosions. `on: false` turns combos and afflictions off (the simulator
+ * compares with and without). Bots don't plan combos, so the sim undersells them: tune by playing too.
+ */
+export const COMBO = {
+  on: true,
+  // ── Frost: a meter of 0–3 stacks beside the old freeze and chill timers (they still say "held" and "slowed").
+  frostMax: 3,
+  /** Bosses never go above this. */
+  bossFrostMax: 2,
+  /** Seconds after the last stack before one drains (damp fruit: ×`dampDrain`). */
+  frostDrain: 1.2,
+  dampDrain: 2,
+  /** Stacks a Freeze cannon hit adds (Deep Freeze: `deepFreezeHit`), and any chill (Cold rind, Vaelithra, a chord, Barbed Spears, a rocket). */
+  freezeHit: 2,
+  deepFreezeHit: 3,
+  chillHit: 1,
+  /** Pace at 0, 1 and 2 stacks (3 is frozen solid). */
+  frostSlow: [1, 0.8, 0.55] as number[],
+  // ── Shatter: the first splash on a fruit with 2+ frost.
+  shatterBonus: 0.5,
+  /** Ice shards: this share of the shattering hit to every other fruit within `shardRadius`, by stacks (they're splash). */
+  shardShare: [0, 0, 0.25, 0.4] as number[],
+  shardRadius: 48,
+  /** Shrapnel: shard reach ×. Black Ice: a fruit with 3 frost takes × from everything. */
+  shrapnelWide: 1.5,
+  blackIce: 1.15,
+  // ── Thermal shock.
+  /** Ice, then fire: fire on a frosted fruit thaws it and bursts for this share of the fire hit (a patch: of a second's burn). */
+  thermalBonus: 0.6,
+  /** Fire, then ice: a Freeze hit on a burning fruit puts the fire out for this long. */
+  douseTime: 1.5,
+  // ── Wildfire: a burning fruit slowed (not frozen) passes its fire on.
+  /** "Slowed": moving under this share of its pace (one frost, a chill, any slowing puddle; frozen doesn't count). */
+  wildfireSpeed: 0.95,
+  /** One neighbour within `spreadRadius` catches fire every `spreadEvery` s (Wildfire fitting: twice as often), for `spreadTime` s. */
+  spreadEvery: 1,
+  spreadRadius: 40,
+  spreadTime: 2,
+  /** Damp guards, damp rooms and wet carpet: spread rate ×. Husks catch it more easily: preferred, and twice as likely. */
+  dampSpread: 0.5,
+  // ── Explosions.
+  /** A splash in a puddle grows it ×, once. */
+  puddleGrow: 1.5,
+  /** A splash in a fire patch: burn × `flare` for `flareTime` s. */
+  flareTime: 1,
+  flare: 2,
+  /** Electrified Melons: the spark reaches × as far to a fruit with frost. */
+  sparkFrost: 2,
+};
+
+/**
+ * Status combos, part two: afflictions, damage over time that stacks. Different afflictions add together;
+ * the same one adds a stack (up to its max) and refreshes. Ticks go through `hurt`, so Ink, Honey and guards apply.
+ */
+export const AFFLICT = {
+  /** Stung (Fly Hive hits): damage a second per stack, most stacks, seconds (Barbed stingers: `barbsTime`). */
+  stingDps: 3,
+  stingMax: 5,
+  stingTime: 3,
+  barbsTime: 5,
+  /** A Spitter seed on a stung fruit drives in this many more (Grit: `gritStacks`). */
+  seedStacks: 1,
+  gritStacks: 2,
+  /**
+   * Poisoned (each second in a Cauldron puddle): stacks up to `poisonMax` (Virulent: `virulentMax`), each a third of
+   * the puddle's damage, so three stacks are today's puddle. Lasts `poisonTime` s after the last.
+   */
+  poisonMax: 3,
+  virulentMax: 5,
+  poisonShare: 1 / 3,
+  poisonTime: 3,
+  poisonEvery: 1,
+  /** Flammable: fire on a poisoned fruit burns × while the poison lasts; the poison is spent when the fire goes out. */
+  flammable: 1.5,
+  /** The Bookworm also burrows into a fruit with this many stings. */
+  wormStings: 3,
+  /** Contagion: a fruit dying with 3+ stacks of one affliction passes one stack of each to every fruit within this. */
+  contagionStacks: 3,
+  contagionRadius: 48,
+  /** Burning passed on by contagion lasts this long. */
+  contagionBurn: 2,
+  /** Most affliction damage a second on one fruit, before Ink and Honey. */
+  cap: 60,
 };

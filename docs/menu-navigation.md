@@ -122,7 +122,7 @@ Key rules live in one pure function, `keyAction(hud, key)` in `src/game/keys.ts`
 | Title | ↑/↓ move through the buttons (focus starts on Continue), Enter presses the focused one, Esc closes a sub-card |
 | Setup | 1–6 keeper, Enter Begin (when ready), Esc Back |
 | Intro | Enter goes to the carpet, Esc back to Setup |
-| Board | Q/W/E/R tab (R = the keeper's own tower) · 1–5 cannon · Space starts the wave between waves and pauses during one · P quick pause · S sell · B opens the back-room tab · C checkout card · Esc closes the tab, then the inspector, then opens the pause menu · +/− speed · M sound |
+| Board | Q/W/E/R tab (R = the keeper's own tower) · 1–5 cannon · Space starts the wave between waves whatever is selected, open or focused (it closes the back room or the checkout card first) and pauses during one · P quick pause · S sell · B opens the back-room tab · C checkout card · Esc closes the tab, then the inspector, then opens the pause menu · +/− speed · M sound |
 | Upgrade pick | 1–3 pick, C checkout card, Esc pause menu |
 | Checkout card | C or Esc closes it. Other game keys are ignored. M still works |
 | Back room tab | 1–9 buy an upgrade (between waves), B or Esc close |
@@ -131,7 +131,8 @@ Key rules live in one pure function, `keyAction(hud, key)` in `src/game/keys.ts`
 | Pause menu | Esc closes it (from its Settings, Esc goes back to the menu first). Space, P, digits and +/− are ignored. M still works |
 
 **Rules that apply everywhere:**
-- **Focused buttons:** a button reached by keyboard (`:focus-visible`) keeps its own Enter and Space. A button that only has focus because it was clicked doesn't, so Space still starts the wave after you click a cannon.
+- **Focused buttons:** a button reached by keyboard (`:focus-visible`) keeps its own Enter, and its own Space everywhere except the board (`keyGoesToButton` in `keys.ts`): on the board, Space is always the wave key (start between waves, pause during one), outside the pause menu. A mouse or touch click on a board control (`[data-board-controls]`) doesn't leave focus on the button (`src/lib/inputMode.ts`). A dialog closed by a click drops focus to the board; closed by Esc it gives focus back to its opener.
+- **The finale card and the Overflow and Siege intros:** Space does what Enter does.
 - **Pausing:** quick pause works only on the board, never under the menu. Starting a wave always unpauses.
 - **Hints:** desktop shows number hints on choice cards and "Enter" / "Esc" hints on single-button cards and Not now.
 

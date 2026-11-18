@@ -1,11 +1,11 @@
-import { BookOpen, Coins, Heart, IdCard, Lock, Menu, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
+import { Check, ChevronDown, Crosshair, BookOpen, Coins, Heart, IdCard, Lock, Menu, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
 import {
   BOARDS,
   CANNON,
   CELL,
   GUIDE_HOLDS,
   KEEPER_NAMES,
-  MODS,
+  fittingName,
   PASSIVE,
   HEAVY_SEEDS,
   HEAVY_WAVE,
@@ -15,21 +15,27 @@ import {
   TOWERS,
   TOWER_TYPE,
   TYPE_INFO,
+  TARGET_LABEL,
+  TARGET_HINT,
   buildCost,
   carpetLegs,
   groupOf,
   legsTouching,
   groupsFor,
   refundFor,
+  roomFor,
   towerReadout,
+  type PreviewStats,
   type TowerKind,
   type World,
   COPY_STEP_KINDS,
   COPY_HEAVY_KINDS,
 } from "@/game/engine";
+import { useEffect, useRef, useState } from "react";
 import { tone } from "@/game/audio";
 import { TowerIcon } from "@/components/TowerIcon";
 import { checkoutCount } from "@/components/CheckoutCard";
+import { openCatalogue } from "@/components/catalogueLink";
 import type { GameApi } from "@/components/ui";
 
 /** Top bar: name (or keeper and room), seeds, stacks, absurdity, speed, pause, menu and sound. */
@@ -41,6 +47,7 @@ export function GameHeader({
   muted,
   onMute,
   onGesture,
+  wide = false,
 }: {
   api: GameApi;
   inRun: boolean;
@@ -49,13 +56,15 @@ export function GameHeader({
   muted: boolean;
   onMute: () => void;
   onGesture: () => void;
+  /** The wide layout: a roomier bar with a larger seeds and stacks readout. */
+  wide?: boolean;
 }) {
   const hud = api.world.hud;
   const phase = hud.phase;
   const gesture = onGesture;
   const toggleMute = onMute;
   return (
-    <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+    <header data-board-controls className={`flex items-center justify-between gap-2 border-b border-line px-2 py-2 sm:gap-3 sm:px-4 sm:py-3 ${wide ? "sm:px-6" : ""}`}>
       <div className="flex items-center gap-2">
         <BookOpen className={`size-5 text-gold ${inRun ? "hidden sm:block" : ""}`} aria-hidden="true" />
         <div className={inRun ? "hidden sm:block" : ""}>
@@ -73,23 +82,23 @@ export function GameHeader({
         </div>
         {hud.dev ? (
           <span
-            className="rounded border border-[#6fc6ef]/70 px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-[#6fc6ef]"
+            className={`rounded border border-[#6fc6ef]/70 px-1.5 py-0.5 text-[0.625rem] font-semibold tracking-[0.18em] text-[#6fc6ef] ${inRun ? "hidden sm:inline" : ""}`}
             title="Developer mode: everything unlocked, nothing saved to your progress"
           >
             DEV
           </span>
         ) : null}
       </div>
-      <div className="flex items-center justify-end gap-1.5 text-sm sm:gap-2">
+      <div className={`flex items-center justify-end gap-1 text-sm sm:gap-2 ${wide ? "sm:gap-4" : ""}`}>
         {inRun ? (
           <>
             <span className="flex items-center gap-1.5">
-              <Coins className="size-5 text-gold" aria-hidden="true" />
-              <span className="font-display text-lg leading-none font-semibold">{hud.seeds}</span>
+              <Coins className={`text-gold ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
+              <span className={`font-display leading-none font-semibold ${wide ? "text-2xl" : "text-lg"}`}>{hud.seeds}</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <Heart className="size-5 text-flesh" aria-hidden="true" />
-              <span className="font-display text-lg leading-none font-semibold">
+              <Heart className={`text-flesh ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
+              <span className={`font-display leading-none font-semibold ${wide ? "text-2xl" : "text-lg"}`}>
                 {hud.lives}/{hud.maxLives}
               </span>
               {hud.sisu > 0 ? (
@@ -107,7 +116,7 @@ export function GameHeader({
                 type="button"
                 aria-label="Slow down"
                 disabled={hud.speed <= 0.5}
-                className="grid size-9 sm:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
+                className="grid size-8 sm:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
                 onClick={() => {
                   gesture();
                   api.nudgeSpeed(-1);
@@ -118,7 +127,7 @@ export function GameHeader({
               <button
                 type="button"
                 aria-label={hud.paused ? "Resume" : "Pause"}
-                className="grid size-9 sm:size-11 place-items-center rounded-lg border border-line/70"
+                className="grid size-8 sm:size-11 place-items-center rounded-lg border border-line/70"
                 onClick={() => {
                   gesture();
                   api.togglePause();
@@ -130,7 +139,7 @@ export function GameHeader({
                 type="button"
                 aria-label="Speed up"
                 disabled={hud.speed >= 3}
-                className="grid size-9 sm:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
+                className="grid size-8 sm:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
                 onClick={() => {
                   gesture();
                   api.nudgeSpeed(1);
@@ -147,7 +156,7 @@ export function GameHeader({
                   aria-label="Menu"
                   aria-haspopup="dialog"
                   title="Menu (Esc)"
-                  className="grid size-9 sm:size-11 place-items-center rounded-lg border border-line/70"
+                  className="grid size-8 sm:size-11 place-items-center rounded-lg border border-line/70"
                   onClick={() => {
                     gesture();
                     api.openMenu();
@@ -163,7 +172,7 @@ export function GameHeader({
         ) : null}
         <button
           type="button"
-          className="grid size-9 sm:size-11 place-items-center rounded-xl border border-line bg-panel"
+          className="grid size-8 sm:size-11 place-items-center rounded-xl border border-line bg-panel"
           aria-label={muted ? "Unmute" : "Mute"}
           onClick={toggleMute}
           title="Sound (M)"
@@ -184,7 +193,7 @@ function CheckoutButton({ api, onGesture }: { api: GameApi; onGesture: () => voi
       aria-label={`Checkout card, ${n} item${n === 1 ? "" : "s"}`}
       aria-haspopup="dialog"
       title="Checkout card (C)"
-      className="relative grid size-9 place-items-center rounded-lg border border-line/70 hover:border-[#c6a15a] sm:size-11"
+      className="relative grid size-8 place-items-center rounded-lg border border-line/70 hover:border-[#c6a15a] sm:size-11"
       onClick={() => {
         onGesture();
         api.openCheckout();
@@ -192,7 +201,7 @@ function CheckoutButton({ api, onGesture }: { api: GameApi; onGesture: () => voi
     >
       <IdCard className="size-4 text-[#f3e2c4]" aria-hidden="true" />
       {n ? (
-        <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[10px] leading-none font-bold text-ink" aria-hidden="true">
+        <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[0.625rem] leading-none font-bold text-ink" aria-hidden="true">
           {n}
         </span>
       ) : null}
@@ -201,7 +210,7 @@ function CheckoutButton({ api, onGesture }: { api: GameApi; onGesture: () => voi
 }
 
 /** Bottom bar while building or fighting: start button or wave progress, build tabs, build bar or inspector, log. */
-export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+export function BuildFooter({ api, onGesture, column = false }: { api: GameApi; onGesture: () => void; column?: boolean }) {
   const hud = api.world.hud;
   const phase = hud.phase;
   const gesture = onGesture;
@@ -209,10 +218,17 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
   /** The guide holds the wave until its current step is done (pressing it says why). */
   const held = hud.guide != null && GUIDE_HOLDS.includes(hud.guide);
   return (
-    <footer className="flex shrink-0 flex-col gap-2 border-t border-line px-3 py-2.5 sm:px-4 sm:py-3">
+    <footer
+      data-board-controls
+      className={
+        column
+          ? "flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto border-r border-line px-3 py-3"
+          : "flex shrink-0 flex-col gap-2 border-t border-line px-3 py-2.5 sm:px-4 sm:py-3"
+      }
+    >
       {phase === "combat" ? (
-        <div className="flex h-12 flex-col justify-center">
-          <div className="flex items-baseline justify-between gap-3">
+        <div className="flex min-h-12 shrink-0 flex-col justify-center">
+          <div className={`flex items-baseline justify-between gap-3 ${column ? "flex-wrap gap-y-0.5" : ""}`}>
             <p className="font-display text-lg leading-none font-semibold">
               {hud.waveCount ? `Wave ${Math.min(hud.wave, hud.waveCount)}/${hud.waveCount}` : `Wave ${hud.wave}`}
             </p>
@@ -230,7 +246,8 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
         <button
           type="button"
           aria-disabled={held}
-          className={`min-h-12 w-full rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink ${held ? "opacity-45" : ""}`}
+          title="Space: start the wave (works any time between waves)"
+          className={`min-h-12 w-full shrink-0 rounded-lg bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-lg font-semibold text-ink ${held ? "opacity-45" : ""}`}
           onClick={() => {
             gesture();
             if (!held) tone(320, 0.08, "triangle", 0.04);
@@ -241,8 +258,8 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
           <span className="ml-2 hidden text-xs font-normal opacity-70 sm:inline">Space</span>
         </button>
       )}
-      <div className="flex h-7 items-center gap-2">
-        <div className="flex shrink-0 gap-1" role="tablist" aria-label="Cannon type">
+      <div className={`flex items-center gap-2 ${column ? "shrink-0" : "h-7"}`}>
+        <div className={`flex gap-1 ${column ? "flex-wrap" : "shrink-0"}`} role="tablist" aria-label="Cannon type">
           {groupsFor(hud.hero).map((g) => {
             const on = groupOf(hud.build).id === g.id;
             return (
@@ -272,9 +289,10 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
           api={api}
           onGesture={gesture}
           phase={phase}
+          column={column}
         />
       ) : (
-        <div className="grid h-[5.5rem] grid-cols-5 gap-2">
+        <div className={column ? "flex shrink-0 flex-col gap-1.5" : "grid h-[5.5rem] grid-cols-5 gap-2"}>
           {groupOf(hud.build).kinds.map((id, slot) => {
             const placed = api.world.towers.length;
             const cost = Math.max(0, buildCost(hud.hero, placed, id, hud.builtKinds) - (hud.bookmark === "discount" ? 5 : 0));
@@ -289,8 +307,8 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
             // Heavy cannons wait for wave 6, or 200 seeds in hand tonight.
             const heavyWait = groupOf(id).id === "heavy" && !hud.heavyOpen;
             const locked = needs > hud.runLevel || goal != null || heavyWait;
-            // Its numbers before you build it (with the upgrades you hold that reach it).
-            const read = towerReadout(hud.hero, id, [], hud.upgrades);
+            // The numbers it will really have once built: fittings, perks, the room (api.previewStats).
+            const read = api.previewStats(id);
             return (
               <button
                 key={id}
@@ -302,34 +320,42 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
                     ? `${TOWERS[id].name}: opens at wave ${HEAVY_WAVE}, or once you have ${HEAVY_SEEDS} seeds in hand. ${TOWERS[id].blurb}`
                     : locked
                     ? `${TOWERS[id].name}: opens at keeper level ${needs}. ${TOWERS[id].blurb}`
-                    : `${TOWERS[id].name} (${slot + 1}) · ${TYPE_INFO[TOWER_TYPE[id]].name}: ${TOWERS[id].blurb}\n${describeStats(id, read)}`
+                    : `${TOWERS[id].name} (${slot + 1}) · ${TYPE_INFO[TOWER_TYPE[id]].name}: ${TOWERS[id].blurb}\n${describeStats(id, read)}${whyText(read)}`
                 }
-                className={`relative h-full min-w-0 rounded-lg border px-1 py-1.5 text-center ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built || spent || locked ? "opacity-55" : ""}`}
+                className={`relative min-w-0 rounded-lg border ${column ? "flex items-center gap-2.5 px-2 py-1.5 text-left" : "h-full px-1 py-1.5 text-center"} ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built || spent || locked ? "opacity-55" : ""}`}
                 onClick={() => {
                   gesture();
+                  // Locked by a Grand Catalogue room: open the Catalogue there instead.
+                  const room = goal ? roomFor("tower", id) : null;
+                  if (room && !hud.rooms.includes(room.id)) {
+                    openCatalogue({ room: room.id, reward: { kind: "tower", id } });
+                    return;
+                  }
                   api.chooseBuild(id);
                 }}
               >
-                <span className="absolute top-1 left-1.5 hidden text-[10px] text-muted sm:block">{slot + 1}</span>
-                <span className="relative block">
-                  <TowerIcon kind={id} className={`mx-auto block h-7 w-full ${locked ? "grayscale" : ""}`} />
+                <span className={`absolute text-[0.625rem] text-muted ${column ? "top-0.5 right-1.5" : "top-1 left-1.5 hidden sm:block"}`}>{slot + 1}</span>
+                <span className={`relative block ${column ? "size-10 shrink-0" : ""}`}>
+                  <TowerIcon kind={id} className={`mx-auto block ${column ? "h-10 w-10" : "h-7 w-full"} ${locked ? "grayscale" : ""}`} />
                   {locked ? <Lock className="absolute top-1/2 left-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-gold" aria-hidden="true" /> : null}
                 </span>
-                <span className="mt-0.5 block truncate text-xs leading-tight font-semibold">{SHORT_NAME[id]}</span>
-                <span className="block truncate text-[11px] leading-tight text-parchment"><CardStat kind={id} read={read} /></span>
-                <span className="block truncate text-[11px] leading-tight text-muted">
+                <span className={column ? "block min-w-0 flex-1" : "contents"}>
+                <span className={`block truncate leading-tight font-semibold ${column ? "text-sm" : "mt-0.5 text-xs"}`}>{column ? TOWERS[id].name : SHORT_NAME[id]}</span>
+                <span className={`block truncate leading-tight text-parchment ${column ? "text-xs" : "text-[0.6875rem]"}`}><CardStat kind={id} read={read} /></span>
+                <span className={`block truncate leading-tight text-muted ${column ? "text-xs" : "text-[0.6875rem]"}`}>
                   {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : cost === 0 ? "Free" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
+                </span>
                 </span>
               </button>
             );
           })}
           {groupOf(hud.build).id === "keeper" ? (
             <div
-              className={`${["col-span-4", "col-span-4", "col-span-3", "col-span-2"][Math.min(3, groupOf(hud.build).kinds.length)]} flex min-w-0 flex-col justify-center rounded-lg border border-line/50 px-3 py-1.5`}
+              className={`${column ? "" : ["col-span-4", "col-span-4", "col-span-3", "col-span-2"][Math.min(3, groupOf(hud.build).kinds.length)]} flex min-w-0 flex-col justify-center rounded-lg border border-line/50 px-3 py-1.5`}
             >
               <p className="truncate font-display text-sm font-semibold text-gold">{TOWERS[hud.build].name}</p>
-              <p className="truncate text-xs text-parchment">{describeStats(hud.build, towerReadout(hud.hero, hud.build, [], hud.upgrades))}</p>
+              <BuildLine api={api} kind={hud.build} />
               <p className="line-clamp-2 text-xs text-muted">
                 {hud.lockedTowers.includes(hud.build)
                   ? `Locked: ${TOWER_GOALS[hud.build]?.goal}`
@@ -341,7 +367,7 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
           ) : null}
         </div>
       )}
-      <p className="line-clamp-2 h-8 text-xs text-muted">{hud.log}</p>
+      <p className={column ? "mt-auto shrink-0 text-xs text-muted" : "line-clamp-2 h-8 text-xs text-muted"}>{hud.log}</p>
     </footer>
   );
 }
@@ -396,19 +422,83 @@ const TOWER_LINE: Partial<Record<TowerKind, string>> = {
   driver: "One fruit is walked back. The others are not his problem.",
 };
 
-/** The build card's one-line number: damage (and pace, on wider screens) for anything that hits. */
-function CardStat({ kind, read }: { kind: TowerKind; read: { dmg: number; interval: number } }) {
+/** A number that's better than plain (fittings, perks, a lamp) in gold with ▲; worse (the dark) muted with ▼. */
+function Marked({ text, now, base, lowerIsBetter = false }: { text: string; now: number; base: number; lowerIsBetter?: boolean }) {
+  const better = lowerIsBetter ? now < base - 1e-6 : now > base + 1e-6;
+  const worse = lowerIsBetter ? now > base + 1e-6 : now < base - 1e-6;
+  if (better) return <span className="font-semibold text-gold">{text}▲</span>;
+  if (worse) return <span className="text-muted">{text}▼</span>;
+  return <>{text}</>;
+}
+
+/** "Reach 4.3 tiles (Longer barrel +0.6 tiles, Reading Lamp nearby +25%)": what moved each number, for a tooltip. */
+function whyText(read: PreviewStats) {
+  const lines = [
+    read.why.dmg.length ? `Damage ${read.dmg} (${read.why.dmg.join(", ")})` : "",
+    read.why.range.length ? `Reach ${(read.range / CELL).toFixed(1)} tiles (${read.why.range.join(", ")})` : "",
+    read.why.interval.length ? `Every ${read.interval.toFixed(1)}s (${read.why.interval.join(", ")})` : "",
+  ].filter(Boolean);
+  return lines.length ? `\n${lines.join("\n")}` : "";
+}
+
+/** The build card's one-line number: damage (and pace and reach, on wider screens), marked where upgrades moved it. */
+function CardStat({ kind, read }: { kind: TowerKind; read: PreviewStats }) {
   if (kind === "geese") return <>Throws back {CANNON.geeseShove / CELL} tiles</>;
   if (kind === "gourdgate") return <>Holds {CANNON.gateHold}s</>;
   if (kind === "pamphlet") return <>Hits a straight</>;
   if (kind === "driver") return <>Walks one back</>;
   if (read.dmg <= 0 || PASSIVE.includes(kind) || kind === "flask" || kind === "copycat") return <>No damage</>;
   const dmg = Number.isInteger(read.dmg) ? String(read.dmg) : read.dmg.toFixed(1);
-  if (kind === "scales") return <>{dmg} + {Math.round(CANNON.scalesShare * 100)}% hp</>;
+  const reachMoved = Math.abs(read.range - read.base.range) > 1e-6 && read.range < 900;
+  if (kind === "scales")
+    return (
+      <>
+        <Marked text={dmg} now={read.dmg} base={read.base.dmg} /> + {Math.round(CANNON.scalesShare * 100)}% hp
+      </>
+    );
   return (
     <>
-      {dmg} dmg<span className="hidden sm:inline"> · {read.interval.toFixed(1)}s</span>
+      <Marked text={`${dmg} dmg`} now={read.dmg} base={read.base.dmg} />
+      <span className="hidden sm:inline">
+        {" "}
+        · <Marked text={`${read.interval.toFixed(1)}s`} now={read.interval} base={read.base.interval} lowerIsBetter />
+        {reachMoved ? (
+          <>
+            {" "}
+            · <Marked text={`${(read.range / CELL).toFixed(1)}t`} now={read.range} base={read.base.range} />
+          </>
+        ) : null}
+      </span>
     </>
+  );
+}
+
+/**
+ * The keeper tab's build line: what the picked tower will really have, on the floor tile under the pointer
+ * if there is one (a lamp or the Quack-Liber nearby counts), marked where it's better or worse than plain.
+ */
+function BuildLine({ api, kind }: { api: GameApi; kind: TowerKind }) {
+  const [, setTick] = useState(0);
+  // The pointer moves without a re-render: look again a few times a second.
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 200);
+    return () => window.clearInterval(t);
+  }, []);
+  const w = api.world;
+  const h = w.hover;
+  const onFloor = h && !w.pathCells.has(`${h.c},${h.r}`) && !w.shelfCells.has(`${h.c},${h.r}`) && !w.vergeCells.has(`${h.c},${h.r}`);
+  const read = api.previewStats(kind, onFloor ? h : undefined);
+  const moved = read.why.dmg.length + read.why.range.length + read.why.interval.length > 0;
+  return (
+    <p className="truncate text-xs text-parchment" title={`${describeStats(kind, read)}${whyText(read)}`}>
+      {describeStats(kind, read)}
+      {moved ? (
+        <span className={read.range < read.base.range && !read.why.dmg.length ? "text-muted" : "text-gold"}>
+          {" "}
+          {read.range < read.base.range && !read.why.dmg.length && !read.why.interval.length ? "▼" : "▲"}
+        </span>
+      ) : null}
+    </p>
   );
 }
 
@@ -470,45 +560,196 @@ function describeStats(kind: TowerKind, read: { dmg: number; range: number; inte
   return `DMG ${read.dmg} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
 }
 
+/**
+ * "Aims at: Strongest ▾": the selected tower's targeting mode as a menu. Each mode with one line on what it
+ * picks, the recommended one marked, the current one ticked. A cycles it from the keyboard. Nothing for
+ * towers that don't aim.
+ */
+function AimMenu({ api, towerId, onGesture, compact = false }: { api: GameApi; towerId: number; onGesture: () => void; compact?: boolean }) {
+  const aim = api.targetOf(towerId);
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  // Close on a click elsewhere, or Esc (before Esc deselects the tower).
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      setOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
+  if (!aim) return null;
+  return (
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title={`What it aims at among the fruit in reach. ${TARGET_HINT[aim.mode]} (A cycles it.)`}
+        className={`flex w-full items-center gap-1.5 rounded-md border border-[#c6a15a]/70 bg-[#1a1014] text-left hover:border-[#c6a15a] ${compact ? "h-7 px-2 text-xs" : "h-8 px-2.5 text-sm"}`}
+        onClick={() => {
+          onGesture();
+          setOpen((o) => !o);
+        }}
+      >
+        <Crosshair className="size-3.5 shrink-0 text-gold" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate font-semibold text-parchment">{TARGET_LABEL[aim.mode]}</span>
+        {aim.mode === aim.recommended && !compact ? <span className="shrink-0 rounded bg-gold/15 px-1 text-[0.625rem] text-gold">best</span> : null}
+        <ChevronDown className={`size-3.5 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      {open ? (
+        <ul
+          role="listbox"
+          aria-label="What it aims at"
+          className="absolute bottom-full left-0 z-30 mb-1.5 w-[17rem] overflow-hidden rounded-lg border border-[#c6a15a]/70 bg-[#1a1014] py-1 shadow-2xl"
+        >
+          <li className="px-3 pt-1 pb-1.5 text-[0.625rem] tracking-[0.16em] text-gold uppercase">Aims at · A cycles</li>
+          {aim.modes.map((mode) => {
+            const on = mode === aim.mode;
+            return (
+              <li key={mode} role="option" aria-selected={on}>
+                <button
+                  type="button"
+                  className={`flex w-full items-start gap-2 px-3 py-1.5 text-left hover:bg-[#3a242c] ${on ? "bg-[#2c1b21]" : ""}`}
+                  onClick={() => {
+                    onGesture();
+                    api.setTarget(mode);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={`mt-0.5 size-3.5 shrink-0 ${on ? "text-gold" : "text-transparent"}`} aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline gap-1.5">
+                      <span className={`text-sm font-semibold ${on ? "text-gold" : "text-parchment"}`}>{TARGET_LABEL[mode]}</span>
+                      {mode === aim.recommended ? <span className="rounded bg-gold/15 px-1 text-[0.625rem] text-gold">recommended</span> : null}
+                    </span>
+                    <span className="block text-xs leading-snug text-muted">{TARGET_HINT[mode]}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/** A small uppercase label over a section of the inspector. */
+const Label = ({ children }: { children: string }) => <p className="text-[0.625rem] leading-none tracking-[0.16em] text-gold/80 uppercase">{children}</p>;
+
+/** The selected tower's numbers: what it does (and its line), then its reach and tonight's tally. */
+function InspectorNumbers({
+  api,
+  tower,
+  read,
+  column,
+}: {
+  api: GameApi;
+  tower: World["towers"][number];
+  read: ReturnType<typeof towerReadout>;
+  column: boolean;
+}) {
+  const clip = column ? "" : "truncate";
+  const what =
+    tower.kind === "copycat"
+      ? tower.copy
+        ? `Copying ${TOWERS[tower.copy.kind].name}${COPY_STEP_KINDS.includes(tower.copy.kind) ? ", one step harder" : COPY_HEAVY_KINDS.includes(tower.copy.kind) ? ", 75% damage" : ""} · ${describeStats(tower.copy.kind, read)}`
+        : "Blank: put a shared tower right beside it (not on a corner)"
+      : tower.kind === "pamphlet"
+        ? `Hit: ${read.dmg} per fruit on the straight · ${tower.armed === false ? "spent" : "armed"}`
+        : describeStats(tower.kind, read);
+  const reach = api.reachOf(tower.id);
+  const tally = api.tallyOf(tower.id);
+  return (
+    <div className="min-w-0 sm:flex-1">
+      <span className="hidden sm:block">
+        <Label>Does</Label>
+      </span>
+      <p className={`mt-0.5 text-xs text-parchment sm:mt-1 sm:text-sm ${clip}`} title={what}>
+        {what}
+      </p>
+      {TOWER_LINE[tower.kind] && column ? <p className="text-[0.6875rem] text-muted italic">{TOWER_LINE[tower.kind]}</p> : null}
+      <p className={`mt-0.5 text-xs text-muted ${clip}`}>
+        <ReachNote reach={reach} />
+        <NightTally tally={tally} />
+        {tower.mods.length ? <span className="text-gold"> · {tower.mods.map((id) => fittingName(tower.kind === "copycat" && tower.copy ? tower.copy.kind : tower.kind, id)).join(", ")}</span> : null}
+      </p>
+    </div>
+  );
+}
+
 function TowerInspector({
   api,
   onGesture,
   phase,
+  column = false,
 }: {
   api: GameApi;
   onGesture: () => void;
   phase: World["hud"]["phase"];
+  /** The wide layout's left column: stacked, as tall as it needs. */
+  column?: boolean;
 }) {
   const hud = api.world.hud;
   const tower = api.world.towers.find((t) => t.id === hud.selected);
   if (!tower) return null;
   const read = api.statsOf(tower.id) ?? towerReadout(hud.hero, tower.kind, tower.mods, hud.upgrades);
   const canFit = fittingsFor(tower.kind).length > 0;
+  const aims = api.targetOf(tower.id) != null;
   return (
-    <div className="relative flex h-[5.5rem] items-center gap-3 rounded-lg border border-[#c6a15a]/60 bg-[#241418] py-1.5 pr-9 pl-3">
+    <div
+      className={`relative rounded-lg border border-[#c6a15a]/60 bg-[#241418] ${column ? "flex shrink-0 flex-col gap-2 py-2.5 pr-9 pl-3" : "flex h-[5.5rem] items-center gap-3 py-1.5 pr-9 pl-3"}`}
+    >
+      <div className={column ? "flex items-center gap-3" : "contents"}>
       <TowerIcon kind={tower.kind} className="h-12 w-12 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-lg leading-none font-semibold">{TOWERS[tower.kind].name}</p>
-        <p className="mt-1 truncate text-[10px] tracking-[0.16em] text-gold uppercase">
+      {/* Name and type, then the numbers: side by side on wider screens, one under the other on phones. */}
+      <div className={`min-w-0 flex-1 ${column ? "" : "sm:flex sm:items-center sm:gap-4"}`}>
+        <div className={`min-w-0 ${column ? "" : "sm:w-48 sm:shrink-0"}`}>
+        <p className={`font-display text-lg leading-none font-semibold ${column ? "" : "truncate"}`}>{TOWERS[tower.kind].name}</p>
+        {/* Phones: the aim menu takes the type line's place, so the panel keeps its height. */}
+        <p
+          className={`mt-1 text-[0.625rem] tracking-[0.16em] text-gold uppercase ${column ? "" : "truncate"} ${!column && aims ? "hidden sm:block" : ""}`}
+        >
           {TYPE_INFO[TOWER_TYPE[tower.kind]].name} · {TOWERS[tower.kind].role}
         </p>
-        <p className="mt-1 truncate text-xs text-muted sm:text-sm">
-          {tower.kind === "copycat"
-            ? tower.copy
-              ? `Copying: ${TOWERS[tower.copy.kind].name}${COPY_STEP_KINDS.includes(tower.copy.kind) ? ", one step harder" : COPY_HEAVY_KINDS.includes(tower.copy.kind) ? ", 75% damage" : ""} · ${describeStats(tower.copy.kind, read)}`
-              : "Blank: put a shared tower right beside it (not on a corner)"
-            : tower.kind === "pamphlet"
-              ? `Hit: ${read.dmg} per fruit on the straight · ${tower.armed === false ? "spent" : "armed"}`
-              : describeStats(tower.kind, read)}
-        </p>
-        {TOWER_LINE[tower.kind] ? <p className="truncate text-[11px] text-muted italic">{TOWER_LINE[tower.kind]}</p> : null}
-        <p className="mt-0.5 h-4 truncate text-xs">
-          <ReachNote reach={api.reachOf(tower.id)} />
-          <NightTally tally={api.tallyOf(tower.id)} />
-          {tower.mods.length ? <span className="text-gold"> · {tower.mods.map((id) => MODS.find((m) => m.id === id)?.name).join(" · ")}</span> : null}
-        </p>
+        {!column && aims ? (
+          <div className="mt-1 w-full max-w-[7.5rem] sm:hidden">
+            <AimMenu api={api} towerId={tower.id} onGesture={onGesture} compact />
+          </div>
+        ) : null}
+        </div>
+        {column ? null : <InspectorNumbers api={api} tower={tower} read={read} column={false} />}
+        {!column && aims ? (
+          <div className="hidden w-44 shrink-0 sm:block">
+            <Label>Aims at</Label>
+            <div className="mt-1">
+              <AimMenu api={api} towerId={tower.id} onGesture={onGesture} />
+            </div>
+          </div>
+        ) : null}
       </div>
-      <div className="flex shrink-0 flex-col gap-1.5">
+      </div>
+      {column ? <InspectorNumbers api={api} tower={tower} read={read} column /> : null}
+      {column && aims ? (
+        <div>
+          <Label>Aims at</Label>
+          <div className="mt-1">
+            <AimMenu api={api} towerId={tower.id} onGesture={onGesture} />
+          </div>
+        </div>
+      ) : null}
+      <div className={`flex shrink-0 gap-1.5 ${column ? "flex-wrap" : "flex-col"}`}>
         {tower.kind === "geese" ? (
           <span className="flex gap-1" role="group" aria-label="Anti-Geese Protocol trigger">
             {(["auto", "manual"] as const).map((mode) => {
@@ -556,38 +797,6 @@ function TowerInspector({
           >
             Other straight
           </button>
-        ) : null}
-        {tower.kind === "quackliber" ? (
-          tower.aimMode ? (
-            <span className="grid h-9 place-items-center rounded-lg border border-line px-3 text-xs text-muted" title="A Quack-Liber can be retargeted once">
-              {tower.aimMode === "strong" ? "Aims: toughest" : "Aims: rearmost"}
-            </span>
-          ) : (
-            <span className="flex gap-1" role="group" aria-label="Retarget once">
-              <button
-                type="button"
-                title="Retarget once: the toughest fruit in reach"
-                className="h-9 rounded-lg border border-[#c6a15a] px-2 text-xs"
-                onClick={() => {
-                  onGesture();
-                  api.retarget("strong");
-                }}
-              >
-                Toughest
-              </button>
-              <button
-                type="button"
-                title="Retarget once: the fruit furthest back in reach"
-                className="h-9 rounded-lg border border-[#c6a15a] px-2 text-xs"
-                onClick={() => {
-                  onGesture();
-                  api.retarget("rear");
-                }}
-              >
-                Rearmost
-              </button>
-            </span>
-          )
         ) : null}
         {canFit ? (
           <button

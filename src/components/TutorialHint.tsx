@@ -59,6 +59,52 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
 }
 
 export const CHUTE_TIP_KEY = "melongeddon:chute-tip";
+/** One-time combo tips: the first shatter, thermal shock, fruit with two afflictions, and contagion. */
+export const COMBO_TIP_KEYS = {
+  shatter: "melongeddon:combo-tip:shatter",
+  thermal: "melongeddon:combo-tip:thermal",
+  mixed: "melongeddon:combo-tip:mixed",
+  contagion: "melongeddon:combo-tip:contagion",
+} as const;
+const COMBO_TIPS: Record<keyof typeof COMBO_TIP_KEYS, { title: string; body: string }> = {
+  shatter: { title: "Frozen fruit shatter.", body: "Hit them with something that explodes: a fruit with two frost takes half again, and its ice flies into its neighbours." },
+  thermal: { title: "Ice first, then fire.", body: "Fire on a frosted fruit thaws it with a burst. Freezing a burning fruit puts the fire out instead." },
+  mixed: { title: "Damage over time adds up.", body: "Stings, poison and fire all stack on the same fruit. The dots under it show what it's carrying." },
+  contagion: { title: "A fruit that dies loaded spreads it.", body: "With three of anything on it, it passes one of each to the fruit around it." },
+};
+
+/** One-time tips the first time each combo happens. "Got it" hides it for good. */
+export function ComboTip({ api }: { api: ReturnType<typeof createWorld> }) {
+  const { hud } = api.world;
+  const [done, setDone] = useState<Record<string, boolean>>({});
+  if (hud.phase !== "prep" && hud.phase !== "combat") return null;
+  const which = (Object.keys(COMBO_TIP_KEYS) as Array<keyof typeof COMBO_TIP_KEYS>).find(
+    (k) => hud.comboTips.includes(k) && !done[k] && load(COMBO_TIP_KEYS[k]) !== "done",
+  );
+  if (!which) return null;
+  const tip = COMBO_TIPS[which];
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
+      <div role="status" className="pointer-events-auto flex max-w-md items-start gap-3 rounded-lg border border-[#bfe3f5]/70 bg-ink/90 px-3 py-2 shadow-lg">
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-base leading-tight font-semibold text-[#d8eef8]">{tip.title}</p>
+          <p className="mt-0.5 text-xs leading-snug text-parchment">{tip.body}</p>
+        </div>
+        <button
+          type="button"
+          className="shrink-0 rounded px-2 py-1 text-xs text-muted underline"
+          onClick={() => {
+            save(COMBO_TIP_KEYS[which], "done");
+            setDone((d) => ({ ...d, [which]: true }));
+          }}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The Siege's one-time tips: the first goose-and-cat fight, and the first paratrooper drop. "Show tips again" clears them. */
 export const SIEGE_TIP_KEYS = { feud: "melongeddon:siege-tip:feud", drop: "melongeddon:siege-tip:drop" } as const;
 

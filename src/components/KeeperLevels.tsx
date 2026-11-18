@@ -18,7 +18,7 @@ export function LevelBadge({ hud, hero }: { hud: Hud; hero: HeroId }) {
   const level = levelFor(hud.keepers[hero].xp);
   return (
     <span
-      className="absolute top-1.5 right-1.5 rounded-md md:top-4 md:right-4 border border-[#c6a15a]/80 bg-ink/85 px-1.5 py-0.5 text-[11px] font-semibold text-gold"
+      className="absolute top-1.5 right-1.5 rounded-md md:top-4 md:right-4 border border-[#c6a15a]/80 bg-ink/85 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-gold"
       aria-hidden="true"
     >
       Lv {level}
@@ -56,7 +56,7 @@ export function XpBar({ xp, label = true }: { xp: number; label?: boolean }) {
 export function PerkPicker({ api, onGesture }: { api: ReturnType<typeof createWorld>; onGesture: () => void }) {
   const hud = api.world.hud;
   const hero = hud.hero;
-  const label = "text-[10px] tracking-[0.22em] text-gold uppercase";
+  const label = "text-[0.625rem] tracking-[0.22em] text-gold uppercase";
   if (!hero) {
     return (
       <div>
@@ -115,7 +115,7 @@ export function PerkPicker({ api, onGesture }: { api: ReturnType<typeof createWo
                     }}
                   >
                     <span className="block text-xs font-semibold">{perk.name}</span>
-                    <span className={`mt-0.5 block text-[11px] leading-tight ${on ? "text-ink/80" : "text-muted"}`}>{perk.blurb}</span>
+                    <span className={`mt-0.5 block text-[0.6875rem] leading-tight ${on ? "text-ink/80" : "text-muted"}`}>{perk.blurb}</span>
                   </button>
                 );
               })}

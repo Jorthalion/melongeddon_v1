@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import {
   BOARDS,
@@ -12,12 +11,13 @@ import {
   activePerks,
   levelFor,
   roomFor,
+  unlockNote,
   type HeroId,
   type Hud,
   type CardFrame,
   type Difficulty,
 } from "@/game/engine";
-import { FragmentIcon, GrandCatalogue } from "@/components/GrandCatalogue";
+import { FragmentIcon } from "@/components/GrandCatalogue";
 import { tone } from "@/game/audio";
 import { BookmarkPicker } from "@/components/Bookmarks";
 import { LevelBadge, PerkPicker } from "@/components/KeeperLevels";
@@ -26,7 +26,8 @@ import { MapPreview } from "@/components/MapPreview";
 import { TowerIcon } from "@/components/TowerIcon";
 import { KEEPERS } from "@/components/keeperCards";
 import { KEEPER_SHEETS } from "@/game/keeperSheets";
-import { MenuCard, type GameApi } from "@/components/ui";
+import { type GameApi } from "@/components/ui";
+import { UnlockLink, openCatalogue } from "@/components/catalogueLink";
 
 /** Keeper-card frames (Bindery and Restricted Section cosmetics): the card's border when it isn't picked. */
 const FRAME: Record<CardFrame, string> = {
@@ -58,7 +59,7 @@ export function SetupScreen({
   );
 }
 
-const label = "text-[10px] tracking-[0.22em] text-gold uppercase";
+const label = "text-[0.625rem] tracking-[0.22em] text-gold uppercase";
 const picked = "bg-[linear-gradient(180deg,#d4b06a_0%,#9a7438_100%)] text-ink";
 const idle = "bg-transparent text-parchment";
 
@@ -68,19 +69,6 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
   const keeper = hud.hero;
   const chosen = KEEPERS.find((k) => k.id === keeper) ?? null;
   const towers = chosen ? KEEPER_TOWERS[chosen.id] : [];
-  const [catalogue, setCatalogue] = useState(false);
-  // Esc closes the Catalogue over Setup (before the page's own Esc, which would go back to the title).
-  useEffect(() => {
-    if (!catalogue) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopImmediatePropagation();
-      e.preventDefault();
-      setCatalogue(false);
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [catalogue]);
   // A locked keeper was tapped (or its number pressed): the engine says which room opens them.
   const lockNote = hud.log.includes("is locked. Restore") ? hud.log : "";
   return (
@@ -113,9 +101,10 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
                   } bg-[#1c1216]`}
                   onClick={() => {
                     onGesture();
-                    // A soft, low "locked" tone; the note under the grid says which room opens them.
+                    // A soft, low "locked" tone, and the Grand Catalogue opens at the room that unlocks them.
                     tone(locked ? 140 : hero.toneHz, 0.08, locked ? "sine" : "triangle", locked ? 0.03 : 0.04);
                     api.pickKeeper(hero.id);
+                    if (locked && room) openCatalogue({ room: room.id, reward: { kind: "keeper", id: hero.id } });
                   }}
                 >
                   <span className="relative block aspect-[4/5] overflow-hidden">
@@ -124,12 +113,16 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
                     {locked ? <Lock className="absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 text-gold" aria-hidden="true" /> : null}
                     <span className="absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(to_top,rgba(20,12,16,0.85),transparent)]" />
                     <LevelBadge hud={hud} hero={hero.id} />
-                    <kbd className="absolute top-1.5 left-1.5 hidden rounded-[4px] border border-b-2 border-line bg-ink/70 px-1 font-sans text-[10px] leading-4 text-muted sm:block">
+                    <kbd className="absolute top-1.5 left-1.5 hidden rounded-[4px] border border-b-2 border-line bg-ink/70 px-1 font-sans text-[0.625rem] leading-4 text-muted sm:block">
                       {i + 1}
                     </kbd>
                   </span>
-                  <span className={`line-clamp-2 px-1 py-1.5 text-center font-display text-sm leading-tight font-semibold tracking-tight sm:text-xs lg:text-[13px] ${on ? "text-gold" : locked ? "text-muted" : ""}`}>{hero.name}</span>
-                  {room ? <span className="-mt-1 line-clamp-2 px-1 pb-1.5 text-center text-[10px] leading-tight text-muted">Restore {room.name}</span> : null}
+                  <span className={`line-clamp-2 px-1 py-1.5 text-center font-display text-sm leading-tight font-semibold tracking-tight sm:text-xs lg:text-[0.8125rem] ${on ? "text-gold" : locked ? "text-muted" : ""}`}>{hero.name}</span>
+                  {room ? (
+                    <span className="-mt-1 line-clamp-2 px-1 pb-1.5 text-center text-[0.625rem] leading-tight text-gold/90 underline decoration-gold/40 underline-offset-2">
+                      Unlock: {room.name}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -139,18 +132,11 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
               {lockNote}
             </p>
             {/* Locked keepers point somewhere: the Grand Catalogue, over Setup. */}
-            <button type="button" className="text-sm text-gold underline decoration-gold/50 underline-offset-2 hover:decoration-gold" onClick={() => setCatalogue(true)}>
+            <button type="button" className="text-sm text-gold underline decoration-gold/50 underline-offset-2 hover:decoration-gold" onClick={() => openCatalogue()}>
               <FragmentIcon className="mr-1 h-4" />
               {hud.fragments} fragment{hud.fragments === 1 ? "" : "s"}, Grand Catalogue
             </button>
           </div>
-          {catalogue ? (
-            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
-              <MenuCard title="Grand Catalogue" onBack={() => setCatalogue(false)} wide>
-                <GrandCatalogue api={api} onGesture={onGesture} />
-              </MenuCard>
-            </div>
-          ) : null}
 
           {/* The chosen keeper: who they are, the one thing you'll feel on wave one, and their own tower. */}
           <div className="mt-3 min-h-[8.5rem] rounded-lg border border-line/60 bg-panel/60 px-4 py-3" aria-live="polite">
@@ -164,7 +150,7 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
                 <p className="mt-1 text-sm text-muted italic">{chosen.flavor}</p>
                 <KeeperSheet hud={hud} hero={chosen.id} />
                 {/* Every tower only this keeper can build: the signature first, then the rest of the Keeper tab. */}
-                <p className="mt-2.5 border-t border-line/50 pt-2.5 text-[10px] tracking-[0.22em] text-gold uppercase">
+                <p className="mt-2.5 border-t border-line/50 pt-2.5 text-[0.625rem] tracking-[0.22em] text-gold uppercase">
                   {towers.length > 1 ? `${chosen.name}'s towers` : `${chosen.name}'s tower`}
                 </p>
                 <ul className="mt-1.5 flex flex-col gap-2">
@@ -182,7 +168,9 @@ function WhoPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
                             {" "}
                             · {TOWERS[kind].cost ? `${TOWERS[kind].cost} seeds` : "Free"}{i === 0 ? " · signature" : ""}. {TOWERS[kind].blurb}
                           </span>
-                          {goal ? <span className="mt-0.5 block text-xs text-flesh">Locked: {goal}</span> : null}
+                          {goal ? (
+                            <UnlockLink hud={hud} reward={{ kind: "tower", id: kind }} className="mt-0.5" onGesture={onGesture} />
+                          ) : null}
                         </p>
                       </li>
                     );
@@ -250,7 +238,7 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
                 className="size-14 rounded-lg border border-[#c6a15a]/70 object-cover object-[center_18%] sm:size-16"
               />
               <span className="text-xs font-semibold text-gold">{chosen.name}</span>
-              <span className="text-[10px] text-muted underline">Change</span>
+              <span className="text-[0.625rem] text-muted underline">Change</span>
             </button>
           </div>
 
@@ -330,11 +318,16 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
                         on
                           ? "border-[#c6a15a] shadow-[0_0_18px_rgba(198,161,90,0.28)]"
                           : locked
-                            ? "cursor-not-allowed border-line/50"
+                            ? "border-line/50 hover:border-[#c6a15a]/70"
                             : "border-line/70"
                       }`}
                       onClick={() => {
-                        if (locked) return;
+                        if (locked) {
+                          // Locked: the Catalogue opens at the room that unlocks it.
+                          const room = roomFor("map", id);
+                          if (room) openCatalogue({ room: room.id, reward: { kind: "map", id } });
+                          return;
+                        }
                         onGesture();
                         tone(210, 0.05, "triangle", 0.03);
                         api.chooseMap(id);
@@ -347,8 +340,15 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
                         ) : null}
                       </span>
                       <span className={`block px-3 pt-2 font-display text-base font-semibold ${locked ? "text-muted" : ""}`}>{board.name}</span>
-                      <span className="line-clamp-2 block px-3 pb-3 text-xs text-muted sm:line-clamp-none">
-                        {locked ? `Locked: ${MAP_GOALS[id]?.goal ?? ""}` : board.blurb}
+                      <span className="line-clamp-3 block px-3 pb-3 text-xs text-muted sm:line-clamp-none">
+                        {locked ? (
+                          <>
+                            <span className="text-flesh">Locked. {unlockNote("map", id, hud.rooms, hud.fragments)?.text ?? MAP_GOALS[id]?.goal ?? ""}</span>{" "}
+                            <span className="font-semibold text-gold underline decoration-gold/50 underline-offset-2">Tap to open the Catalogue.</span>
+                          </>
+                        ) : (
+                          board.blurb
+                        )}
                       </span>
                     </button>
                   );
@@ -492,7 +492,7 @@ function KeeperSheet({ hud, hero }: { hud: Hud; hero: HeroId }) {
           <span className="text-muted">Level</span> <span className="font-semibold text-parchment">{level}</span>
         </span>
       </div>
-      <p className="mt-2.5 text-[10px] tracking-[0.22em] text-gold uppercase">How they play</p>
+      <p className="mt-2.5 text-[0.625rem] tracking-[0.22em] text-gold uppercase">How they play</p>
       <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-5 text-sm leading-snug marker:text-gold/70">
         {sheet.rules.map((r) => (
           <li key={r}>{r}</li>

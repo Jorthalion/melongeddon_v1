@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { BookMarked, Brush, Map as MapIcon, UserRound, Wrench } from "lucide-react";
 import { asset } from "@/lib/asset";
 import { ACHIEVEMENT, ACHIEVEMENTS, SECTIONS, shownAs } from "@/game/achievements";
@@ -89,9 +89,23 @@ const KIND_LABEL = { map: "Map", keeper: "Keeper", bookmark: "Bookmark", tower: 
 
 /**
  * The Grand Catalogue: fragments, rooms to restore (Rooms, first) and achievements on bookcases (Shelves).
- * Shown from the Title and from Setup.
+ * Shown from the Title, from Setup, and from anything locked anywhere (`openCatalogue`): then `focus` is the
+ * room that unlocks it (scrolled to and lit) and `reward` the locked thing (its chip explained).
  */
-export function GrandCatalogue({ api, onGesture }: { api: GameApi; onGesture?: () => void }) {
+export function GrandCatalogue({
+  api,
+  onGesture,
+  focus = null,
+  reward,
+  inRun = false,
+}: {
+  api: GameApi;
+  onGesture?: () => void;
+  focus?: RoomId | null;
+  reward?: Reward;
+  /** Opened during a night: what you restore opens from the next one. */
+  inRun?: boolean;
+}) {
   const hud = api.world.hud;
   const [tab, setTab] = useState<"rooms" | "shelves">("rooms");
   const shelves = ACHIEVEMENTS.filter((a) => hud.shelves[a.id]).length;
@@ -125,17 +139,35 @@ export function GrandCatalogue({ api, onGesture }: { api: GameApi; onGesture?: (
           </button>
         ))}
       </div>
-      {tab === "rooms" ? <RoomsTab api={api} onGesture={onGesture} /> : <ShelvesTab hud={hud} />}
+      {tab === "rooms" ? <RoomsTab api={api} onGesture={onGesture} focus={focus} reward={reward} inRun={inRun} /> : <ShelvesTab hud={hud} />}
     </div>
   );
 }
 
-function RoomsTab({ api, onGesture }: { api: GameApi; onGesture?: () => void }) {
+function RoomsTab({
+  api,
+  onGesture,
+  focus,
+  reward,
+  inRun,
+}: {
+  api: GameApi;
+  onGesture?: () => void;
+  focus: RoomId | null;
+  reward?: Reward;
+  inRun: boolean;
+}) {
   const hud = api.world.hud;
   const [confirm, setConfirm] = useState<RoomId | null>(null);
   const [opened, setOpened] = useState<RoomId | null>(null);
-  /** The reward chip tapped for its explanation, as "room:kind:id". */
-  const [info, setInfo] = useState<string | null>(null);
+  /** The reward chip tapped for its explanation, as "room:kind:id" (at first, the locked thing you came for). */
+  const [info, setInfo] = useState<string | null>(focus && reward ? `${focus}:${reward.kind}:${reward.id}` : null);
+  // Sent here from something locked: scroll to its room.
+  const focusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    focusRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focus]);
+  const target = focus ? ROOM[focus] : null;
   // Up / Down move between the room cards' buttons, like the title menu.
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -161,8 +193,9 @@ function RoomsTab({ api, onGesture }: { api: GameApi; onGesture?: () => void }) 
         return (
           <article
             key={room.id}
+            ref={room.id === focus ? focusRef : undefined}
             style={{ overflow: "hidden" }}
-            className={`rounded-[5px] border px-3 py-2.5 ${
+            className={`rounded-[5px] border px-3 py-2.5 ${room.id === focus && !restored ? "ring-2 ring-gold ring-offset-2 ring-offset-[#100c0e]" : ""} ${
               restored
                 ? "border-gold/70 bg-[radial-gradient(ellipse_at_top,rgba(230,195,106,0.22),transparent_75%)] shadow-[inset_0_0_0_1px_rgba(230,195,106,0.25),0_0_14px_rgba(230,195,106,0.18)]"
                 : "border-line/80 bg-[#140e12]/80"
@@ -259,7 +292,7 @@ function RoomsTab({ api, onGesture }: { api: GameApi; onGesture?: () => void }) 
                       aria-expanded={on}
                       title={`${KIND_LABEL[w.kind]}: ${rewardBlurb(w)}`}
                       onClick={() => setInfo(on ? null : key)}
-                      className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] hover:border-gold ${
+                      className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.6875rem] hover:border-gold ${
                         on ? "border-gold bg-gold/15 text-[#f6e7b4]" : restored ? "border-gold/50 text-[#f4ead8]" : "border-line/70 text-muted"
                       }`}
                     >
@@ -271,6 +304,23 @@ function RoomsTab({ api, onGesture }: { api: GameApi; onGesture?: () => void }) 
                 );
               })}
             </ul>
+            {room.id === focus && target && !restored && opened !== target.id ? (
+        <div className="mt-2 rounded-[4px] border border-gold/70 bg-[#241418] px-3 py-2 text-left" role="status">
+          <p className="font-display text-base font-semibold text-gold">
+            {!reward
+              ? `Restore ${target.name}.`
+              : rewardName(reward) === target.name
+                ? `Restore ${target.name} to play it.`
+                : `To unlock ${rewardName(reward)}, restore ${target.name}.`}
+          </p>
+          <p className="text-xs text-[#f4ead8]">
+            {hud.fragments >= target.cost
+              ? `It takes ${target.cost} fragments and you have ${hud.fragments}: press Restore on it below.`
+              : `It takes ${target.cost} fragments; you have ${hud.fragments}. Win nights to earn more (harder difficulties pay more).`}
+            {inRun ? " What you restore now opens from your next night." : ""}
+          </p>
+        </div>
+      ) : null}
             {info?.startsWith(`${room.id}:`) ? (
               (() => {
                 const w = room.rewards.find((r) => `${room.id}:${r.kind}:${r.id}` === info)!;
@@ -311,10 +361,10 @@ function ShelvesTab({ hud }: { hud: Hud }) {
               <>
                 <p className="font-display text-base leading-tight font-semibold">
                   {shown.name}
-                  {sel.set ? <span className="ml-1.5 text-[11px] font-normal text-[#7a5a3a]">{sel.set}</span> : null}
+                  {sel.set ? <span className="ml-1.5 text-[0.6875rem] font-normal text-[#7a5a3a]">{sel.set}</span> : null}
                 </p>
                 <p className="text-xs text-[#6b5040]">{shown.blurb}</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-[#7a5a3a]">
+                <p className="mt-0.5 text-[0.6875rem] font-semibold text-[#7a5a3a]">
                   {sel.secret && !has ? "" : `${plural(sel.tier, "fragment")} · `}
                   {has
                     ? `Restored ${new Date(earned[sel.id]).toLocaleDateString()}`
@@ -347,17 +397,17 @@ function ShelvesTab({ hud }: { hud: Hud }) {
                   {section.name}
                 </h3>
               </span>
-              <span className="text-[11px] text-muted">
+              <span className="text-[0.6875rem] text-muted">
                 {done} of {list.length} restored
               </span>
             </div>
             {/* The bookcase: rows of spines, each standing on its own carved plank. A named set (the Courtyard) starts its own row. */}
             {shelfRows(list).map(({ set, books, start }, row) => (
               <div key={row}>
-              {set ? <p className="mt-2 text-[10px] tracking-[0.22em] text-gold uppercase">{set}</p> : null}
+              {set ? <p className="mt-2 text-[0.625rem] tracking-[0.22em] text-gold uppercase">{set}</p> : null}
               <div className={`relative mt-1 ${lit ? "drop-shadow-[0_0_10px_rgba(230,195,106,0.2)]" : ""}`}>
                 <img src={ART.shelf} alt="" aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 w-full select-none" />
-                <div className="relative flex items-end gap-[3px] px-[4%] pb-[8%]">
+                <div className="relative flex items-end gap-[0.1875rem] px-[4%] pb-[8%]">
               {books.map((a, j) => {
                 const i = start + j;
                 const has = Boolean(earned[a.id]);
@@ -371,7 +421,7 @@ function ShelvesTab({ hud }: { hud: Hud }) {
                     aria-pressed={active}
                     title={shown.name}
                     onClick={() => setPicked(a.id)}
-                    className={`relative h-16 w-[26px] shrink-0 outline-offset-1 transition-transform hover:-translate-y-0.5 motion-reduce:transition-none sm:w-7 ${
+                    className={`relative h-16 w-[1.625rem] shrink-0 outline-offset-1 transition-transform hover:-translate-y-0.5 motion-reduce:transition-none sm:w-7 ${
                       active ? "-translate-y-1 drop-shadow-[0_0_6px_rgba(230,195,106,0.9)]" : ""
                     }`}
                   >
@@ -384,7 +434,7 @@ function ShelvesTab({ hud }: { hud: Hud }) {
                     />
                     {has ? (
                       <span
-                        className="absolute inset-x-0 top-[22%] bottom-[22%] flex items-center justify-center overflow-hidden font-display text-[8px] leading-none font-semibold whitespace-nowrap text-[#f6e7b4] [text-shadow:0_1px_1px_rgba(0,0,0,0.9)] [writing-mode:vertical-rl]"
+                        className="absolute inset-x-0 top-[22%] bottom-[22%] flex items-center justify-center overflow-hidden font-display text-[0.5rem] leading-none font-semibold whitespace-nowrap text-[#f6e7b4] [text-shadow:0_1px_1px_rgba(0,0,0,0.9)] [writing-mode:vertical-rl]"
                         aria-hidden="true"
                       >
                         {shown.name}

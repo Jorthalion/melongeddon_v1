@@ -108,12 +108,12 @@ function ctx(over: Partial<Omit<NightContext, "log">> & { log?: Partial<RunLog> 
 }
 const passes = (id: string, c: NightContext) => ACHIEVEMENT[id].check(c);
 
-test("63 achievements in six sections, unique ids", () => {
-  assert.equal(ACHIEVEMENTS.length, 63);
-  assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, 63);
+test("69 achievements in six sections, unique ids", () => {
+  assert.equal(ACHIEVEMENTS.length, 69);
+  assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, 69);
   assert.deepEqual(
     SECTIONS.map((s) => ACHIEVEMENTS.filter((a) => a.shelf === s.id).length),
-    [8, 15, 10, 14, 13, 3],
+    [8, 15, 10, 20, 13, 3],
   );
 });
 

@@ -169,7 +169,7 @@ export function MynxiTutor({ api, onGesture }: { api: GameApi; onGesture: () => 
           className="size-16 shrink-0 rounded-lg border border-[#c6a15a]/60 object-cover object-[center_18%] sm:size-20"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] tracking-[0.22em] text-gold uppercase">
+          <p className="text-[0.625rem] tracking-[0.22em] text-gold uppercase">
             Mynxi{step ? ` · lesson ${at + 1} of ${GUIDE_STEPS.length}` : ""}
           </p>
           <p className="mt-0.5 font-display text-base leading-tight font-semibold text-[#f6e7b4]">{line.title}</p>
@@ -199,13 +199,13 @@ export function MynxiTutor({ api, onGesture }: { api: GameApi; onGesture: () => 
                 {tip ? "Got it" : step === "sell" ? "Let's go" : "Next"}
               </button>
             ) : (
-              <span className="shrink-0 text-[11px] text-muted italic">Your move</span>
+              <span className="shrink-0 text-[0.6875rem] text-muted italic">Your move</span>
             )}
           </div>
         </div>
         <button
           type="button"
-          className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-muted underline"
+          className="shrink-0 rounded px-1.5 py-0.5 text-[0.6875rem] text-muted underline"
           onClick={() => {
             onGesture();
             api.skipGuide();

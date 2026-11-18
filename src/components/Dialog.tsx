@@ -1,11 +1,13 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { lastInput, restoreFocusOnClose } from "@/lib/inputMode";
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
  * Modal frame for story cards, pick cards, the back room, end cards and the pause menu.
  * On open it moves focus to the element marked `data-autofocus` (else the first button),
- * keeps Tab inside, and gives focus back to whatever had it when it closes.
+ * keeps Tab inside, and when it closes by keyboard (Esc) gives focus back to whatever had it. Closed by a
+ * click or tap, focus drops to the board instead, so the next key (Space) goes to the game.
  * Remount it (change `key`) to treat a new card as a new dialog.
  */
 export function Dialog({
@@ -27,7 +29,11 @@ export function Dialog({
       (first ?? el).focus({ preventScroll: true });
     }
     return () => {
-      if (before && before.isConnected && before !== document.body) before.focus({ preventScroll: true });
+      if (restoreFocusOnClose(lastInput())) {
+        if (before && before.isConnected && before !== document.body) before.focus({ preventScroll: true });
+      } else if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+      }
     };
   }, []);
 

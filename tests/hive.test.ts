@@ -48,7 +48,8 @@ for (const map of ["stacks", "greathall"] as const) {
           lastLife.delete(id);
         }
     }
-    assert.ok(fired > 20, `the hive fired (${fired})`);
+    // Stingers (COMBO) kill wave 1 sooner, so fewer flies go out than before; enough to show none time out.
+    assert.ok(fired > 12, `the hive fired (${fired})`);
     assert.equal(timedOut, 0, `${timedOut} of ${fired} flies ran out of time`);
   });
 }

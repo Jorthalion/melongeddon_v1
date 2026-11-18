@@ -139,3 +139,117 @@ test("the Title leaves keys to its own buttons", () => {
   const api = createWorld(() => {});
   for (const key of ["Enter", "Escape", " ", "1", "ArrowDown"]) assert.equal(keyAction(api.world.hud, key), null, key);
 });
+
+// ── Space is the wave key on the board ──────────────────────────────────────
+
+import { ALL_UNLOCKED, emptyProgress } from "../src/game/engine.ts";
+import { keyGoesToButton } from "../src/game/keys.ts";
+import { blurAfterPointer, restoreFocusOnClose } from "../src/lib/inputMode.ts";
+
+/** Between waves on the Stacks with seeds to spend (no guided first night). */
+function between() {
+  const api = createWorld(() => {}, { meta: ALL_UNLOCKED, keepers: emptyProgress(), setup: { night: "midnight", map: "stacks", hero: "mynxi" } });
+  api.openSetup();
+  api.chooseHero("mynxi");
+  api.beginNight();
+  api.world.hud.seeds = 9999;
+  api.world.hud.guide = null;
+  return api;
+}
+function buildOne(api: ReturnType<typeof createWorld>) {
+  for (let c = 0; c < 16 && api.world.towers.length === 0; c++)
+    for (let r = 0; r < 10 && api.world.towers.length === 0; r++) api.pointer(center(c), center(r), "down");
+  return api.world.towers[0];
+}
+
+test("Space between waves starts the wave with a tower selected", () => {
+  const api = between();
+  const t = buildOne(api);
+  api.pointer(t.x, t.y, "down");
+  assert.notEqual(api.world.hud.selected, null);
+  press(api, " ");
+  assert.equal(api.world.hud.phase, "combat");
+});
+
+test("Space between waves starts the wave with a build card chosen", () => {
+  const api = between();
+  api.chooseBuild("mortar");
+  press(api, " ");
+  assert.equal(api.world.hud.phase, "combat");
+});
+
+test("Space between waves closes the back room, then starts the wave", () => {
+  const api = between();
+  api.openShop("melon");
+  assert.notEqual(api.world.hud.workshop, null);
+  press(api, " ");
+  assert.equal(api.world.hud.workshop, null);
+  assert.equal(api.world.hud.phase, "combat");
+});
+
+test("Space between waves closes the checkout card, then starts the wave", () => {
+  const api = between();
+  api.openCheckout();
+  assert.equal(api.world.hud.checkout, true);
+  press(api, " ");
+  assert.equal(api.world.hud.checkout, false);
+  assert.equal(api.world.hud.phase, "combat");
+});
+
+test("Space between waves starts the wave while a tip shows (tips don't take keys)", () => {
+  const api = between();
+  api.world.hud.log = "A tip is on screen.";
+  assert.deepEqual(keyAction(api.world.hud, " "), { type: "startWave" });
+});
+
+test("Space during a wave pauses, and again resumes, with a tower selected", () => {
+  const api = between();
+  const t = buildOne(api);
+  press(api, " ");
+  assert.equal(api.world.hud.phase, "combat");
+  api.pointer(t.x, t.y, "down");
+  assert.notEqual(api.world.hud.selected, null);
+  press(api, " ");
+  assert.equal(api.world.hud.paused, true);
+  press(api, " ");
+  assert.equal(api.world.hud.paused, false);
+});
+
+test("the pause menu swallows Space: the wave doesn't start", () => {
+  const api = between();
+  api.openMenu();
+  assert.deepEqual(press(api, " "), { type: "swallow" });
+  assert.equal(api.world.hud.phase, "prep");
+});
+
+test("the finale card: Space starts the last wave, as Enter does", () => {
+  const api = between();
+  api.world.hud.phase = "consequence";
+  assert.deepEqual(keyAction(api.world.hud, " "), { type: "startWave" });
+  assert.deepEqual(keyAction(api.world.hud, "Enter"), { type: "startWave" });
+});
+
+test("keyGoesToButton: Space on the board is the game's; elsewhere, and Enter anywhere, the focused button's", () => {
+  for (const phase of ["prep", "combat", "consequence"] as const) {
+    assert.equal(keyGoesToButton({ phase, menu: null }, " ", true), false, `Space in ${phase}`);
+    assert.equal(keyGoesToButton({ phase, menu: null }, "Enter", true), true, `Enter in ${phase}`);
+  }
+  for (const phase of ["coldopen", "select", "upgrade", "victory"] as const) {
+    assert.equal(keyGoesToButton({ phase, menu: null }, " ", true), true, `Space on ${phase}`);
+    assert.equal(keyGoesToButton({ phase, menu: null }, "Enter", true), true, `Enter on ${phase}`);
+  }
+  // The pause menu: its buttons keep Space.
+  assert.equal(keyGoesToButton({ phase: "prep", menu: "pause" }, " ", true), true);
+  // A button that only has focus because it was clicked never keeps a key.
+  assert.equal(keyGoesToButton({ phase: "select", menu: null }, "Enter", false), false);
+  assert.equal(keyGoesToButton({ phase: "prep", menu: null }, "s", true), false);
+});
+
+test("dialogs give focus back only when closed by keyboard; clicks on board controls drop focus", () => {
+  assert.equal(restoreFocusOnClose("key"), true, "closed by Esc: back to the opener");
+  assert.equal(restoreFocusOnClose("pointer"), false, "closed by a click: to the board");
+  assert.equal(blurAfterPointer("mouse", true), true);
+  assert.equal(blurAfterPointer("touch", true), true);
+  assert.equal(blurAfterPointer("", true), false, "keyboard activation keeps focus");
+  assert.equal(blurAfterPointer("mouse", false), false, "only board controls");
+});

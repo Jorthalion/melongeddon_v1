@@ -197,7 +197,7 @@ Build cannons on the open **floor** beside the carpet: never on the carpet itsel
    - **Settings** has sound, music, game speed, reduce motion, "Show tips again" and **Developer mode** (see below).
    - **Install app** appears when your browser can install the game; **Quit** appears in the desktop app.
 2. **Setup (New night)** has two pages.
-   - **Who holds the stacks?** Seven faces (keys `1`–`7`). Tap one to see that keeper's one line (the thing you'll feel on wave one) and every tower only they can build, with its cost (the signature first; locked ones show a padlock and the Grand Catalogue room that opens them). Keepers whose room isn't restored yet are dimmed with a padlock and "Restore <Room>"; tapping one only says which room opens them. Under the faces, **N fragments, Grand Catalogue** opens the Catalogue right there. The **Lv** badge is their level (see [Keepers](#keepers)). Press **Next: the night** (`Enter`).
+   - **Who holds the stacks?** Seven faces (keys `1`–`7`). Tap one to see that keeper's one line (the thing you'll feel on wave one) and every tower only they can build, with its cost (the signature first; locked ones show a padlock and the Grand Catalogue room that opens them). Keepers whose room isn't restored yet are dimmed with a padlock and "Unlock: <Room>"; tapping one opens the Grand Catalogue at that room. Under the faces, **N fragments, Grand Catalogue** opens the Catalogue right there. The **Lv** badge is their level (see [Keepers](#keepers)). Press **Next: the night** (`Enter`).
    - **The night**, with your keeper's face in the corner (tap it, or press `Esc`, to change keeper):
      - **Night**: Midnight (night one), The Overflow (night two), The Siege (night three; open once you've won the Overflow) or Endless.
      - **Room**: the map. More unlock as you play. On the Overflow, you choose **late slips** instead (see [Late slips](#late-slips)). The Siege is always in the Courtyard.
@@ -244,6 +244,7 @@ After the guide, the next waves show short tips. Bring them back any time with *
 | Switch build tab | Tap the tab | `Q` Damage · `W` Control · `E` Support · `R` Keeper · `T` Trick |
 | Select a cannon | Tap it (tap again to deselect) | `Esc` deselects |
 | Sell | **Sell** in the inspector (refunds 70% of what you spent on it) | `S` |
+| Change what a cannon aims at | **‹ ›** beside "Aims:" in the inspector | `A` (with it selected) |
 | Upgrade a kind of cannon (between waves) | The **Back room** tab on the right, or **Upgrades** in the inspector | `B`, then `1`–`9` |
 | Start the next wave | **Start wave** | `Space` |
 | Pause | Pause button in the header | `P`, or `Space` during a wave |
@@ -284,7 +285,7 @@ Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't 
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Copycat** (free): see below |
 | **Dr. Samodovol**, The Scholar | 8 stacks, 100 seeds: fewer than anyone | **The Doctor's pick.** Each shelf shows four cards: the usual three, plus one more marked "Doctor's pick", a real upgrade from further along the shelves (one you'd normally see later) | **History Lectern** (65): no shot, and it helps no cannon. After each wave it looks at how far the fruit got: if any got three-quarters of the way along the carpet (or leaked), the kind that got furthest walks 15% slower next wave, and the Doctor says so ("The corn got furthest. They will be slower."). If none did: "Nothing reached the stacks. I have nothing to add." One kind, one wave, one Lectern |
-| **Quackarot**, Field strategist | 11 stacks, 150 seeds | **Small duck, big plan.** While his turret stands, every other tower within three tiles of it fires 15% faster (the panel says "quick") | **Quack-Liber** (95): a two-barrel backpack turret. Its orange rockets burst over a small area and slow everything they hit for a moment. Once, after placing it, tap it and choose **Toughest** (the fruit with the most health in reach) or **Rearmost** (the back of the line); after that its aim is locked. Also **Anti-Geese Protocol** (60): one use. Every fruit within about two and a half tiles is thrown three tiles back down the carpet (Karl only takes a knock). Tap it to choose **Auto** (goes off by itself when four fruit crowd in, or one gets near the door) or **Manual** (only when you press **Engage**). Then it's gone; you can rebuild it after the wave. Also **the Pamphlet** (70) and **the Reverse Driver** (50): see below |
+| **Quackarot**, Field strategist | 11 stacks, 150 seeds | **Small duck, big plan.** While his turret stands, every other tower within three tiles of it fires 15% faster (the panel says "quick") | **Quack-Liber** (95): a two-barrel backpack turret. Its orange rockets burst over a small area and slow everything they hit for a moment. Like other cannons it aims at the fruit furthest along unless you change it (see **Targeting**). Also **Anti-Geese Protocol** (60): one use. Every fruit within about two and a half tiles is thrown three tiles back down the carpet (Karl only takes a knock). Tap it to choose **Auto** (goes off by itself when four fruit crowd in, or one gets near the door) or **Manual** (only when you press **Engage**). Then it's gone; you can rebuild it after the wave. Also **the Pamphlet** (70) and **the Reverse Driver** (50): see below |
 | **Asser Mälkki**, Author-Knight | 25 stacks, 100 seeds | **Built to take hits.** Every stack he loses pays 4 seeds (**Material**), and every stack he is missing makes all his towers hit 2% harder, up to +30% (**Sisu**, shown next to his stacks) | **Lion Blade** (90): a sword in a stone that sweeps every fruit right beside it at once. When he loses a stack it swings at once and harder. After each wave it stood through, it puts 2 stacks back |
 
 ## Developer mode
@@ -429,8 +430,8 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | Shelf Ballista | 80 | A spear that goes through everything in a straight line |
 | Long Reader | 95 | Sees the whole board; one huge, slow shot at the toughest fruit |
 | Still | 45 | No shot; leaves a slowing puddle on a timer |
-| Fire cannon | 70 | Leaves fire on the carpet that burns whoever stands in it |
-| Freeze cannon | 65 | Stops fruit cold for a moment |
+| Fire cannon | 70 | Leaves fire on the carpet that burns whoever stands in it. Prefers the front fruit that isn't burning yet |
+| Freeze cannon | 65 | Stops fruit cold for a moment. Prefers the front fruit that isn't frozen yet |
 | Shush Bell | 70 | Every few seconds, stuns everything nearby (husked corn can't hear it) |
 | Fly Hive | 65 | Fruit flies that find targets anywhere on the board |
 | Reading Lamp | 60 | No shot; cannons next to it reach farther and fire faster |
@@ -444,6 +445,53 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | Serpent Quill | 75 | Flicks a quill that snakes out in a wavy line, well past its target, hitting every fruit it crosses |
 | Rolling Globe | 100 | Lobs a globe onto the carpet just ahead of the lead fruit. It lands with a thud and rolls back toward the entrance, hitting everything in its way |
 
+### Targeting
+
+Every cannon that aims picks one fruit from the ones in reach. Select it and the inspector shows **Aims:** with **‹ ›** to change it (or press `A`). It's free, and you can change it any time, during waves too.
+
+| Mode | Aims at |
+|---|---|
+| **First** | The fruit furthest along the carpet |
+| **Last** | The one furthest back |
+| **Strongest** / **Weakest** | The most / least health right now |
+| **Closest** | The nearest to the cannon |
+| **Armoured** | Shelled, husked or damp fruit first, then First |
+| **Boss** | Karl, the Matriarch or General Mittens first, then Strongest (the Brass Telescope: a boss, then armour, then the toughest) |
+| **First, not affected** | The front fruit that hasn't already got this cannon's effect (not burning for Fire, not frozen for Freeze, not slowed for the Still, not inked, no worm, still armoured for the Peeler, not honeyed, not in poison), then First |
+
+Each cannon starts on the **recommended** mode, the best choice for most nights: **First, not affected** for Fire, Freeze, the Still, the Ink Well, the Bookworm, the Peeler, Honeyed Heel and the Bubbling Cauldron; **Strongest** for the Long Reader and the Scales of Justice; **Boss** for the Brass Telescope; **First** for the rest. A new cannon of a kind starts on whatever you last set that kind to tonight. Towers that don't aim (the Bell, the Organ, the Lamp, the Orrery, the Lion Blade and so on), the Fly Hive (random) and the Mimic Chest (its own rule) have no option. While a cannon is selected, a dashed gold ring marks the fruit it's aiming at.
+
+### Combos: ice, fire, explosions and stings
+
+Status effects build on each other. Small coloured dots under a fruit show what it carries, with a number for stacks (hover over it for the details): amber stings, green poison, orange fire, pink worm, pale blue frost.
+
+**Ice and fire**
+
+- **Frost (0–3).** A Freeze cannon hit adds two and holds the fruit as before; any chill (Cold rind, Vaelithra's shots, the Pipe Organ's chord, Barbed Spears, a Quack-Liber rocket) adds one. One frost slows to 80%, two to 55%, three freezes it solid (then it drops back to two). The meter drops one 1.2 seconds after the last was added (damp fruit: twice as long). Bosses stop at two; husks never take frost. Three frost also tints the fruit pale blue.
+- **Shatter.** The first **splash** on a fruit with two or more frost (a Mortar, Juicy Explosions, Splatter, the Trebuchet, a Quack-Liber rocket, the Bombard) shatters it: that hit does **half again**, its frost goes to zero, and **ice shards** hit every other fruit within a tile for 25% of the hit (40% at three frost). Shards are splash, so pits shrug them off. Any stings, poison or fire on it go off at once. Aimed shots (Melon, Spitter, Ballista, Long Reader, Telescope) never shatter.
+- **Thermal shock.** **Ice, then fire:** a Fire cannon shot, or walking into a fire patch, on a frosted fruit thaws it at once and bursts for 60% more ("HISS"). It doesn't bake a raw pumpkin. **Fire, then ice:** a Freeze hit on a burning fruit puts the fire out for 1.5 seconds, even standing in the patch. So put the Freeze cannon earlier on the carpet than the Fire cannon.
+- **Wildfire.** A burning fruit that's slowed but not frozen (frost, a chill or a slowing puddle) sets a neighbour within about a tile alight every second, for two seconds. Damp fruit, damp rooms and wet carpet halve it; husks catch it first.
+- **Explosions** spread a puddle by half (once), make a fire patch burn twice as hard for a second, and Electrified Melons' spark reaches twice as far to a fruit with frost.
+
+**Afflictions** (damage over time that stacks)
+
+| Affliction | From | Per stack | Most | Lasts |
+|---|---|---|---|---|
+| Stung | Fly Hive hits | 3 a second | 5 | 3 s |
+| Poisoned | each second in a Cauldron puddle | a third of the puddle's damage | 3 | 3 s |
+| Burning | fire patches, the Bombard, wildfire | as before | 1 | as before |
+| Burrowed | Bookworm | as before | 1 | as before |
+
+Different afflictions add together; the same one adds a stack and refreshes. All of them together do at most 60 a second to one fruit (Ink and Honey still multiply that). Husks and pits take stings in full; damp takes poison in full; a shell keeps stingers out until it cracks.
+
+- **Driven in:** a Seed Spitter seed on a stung fruit adds a stinger (one that pings off a shell doesn't).
+- **Stinging Flies** (the Hive's upgrade card) adds two stingers to a fruit that's already stung; a sticky (honeyed) fruit takes two per fly.
+- **Flammable:** fire on a poisoned fruit burns 50% hotter while the poison lasts; the poison is spent when the fire goes out.
+- **Worms follow stingers:** the Bookworm also burrows into any fruit with three stingers.
+- **Contagion:** a fruit that dies with three of one affliction passes one of each it carries to every fruit within a tile (fire as a two-second burn; worms don't spread).
+
+**Fittings** in the back room: **Deep Freeze** (Freeze: three frost a hit), **Black Ice** (Freeze: three frost takes 15% more from everything), **Shrapnel** (Freeze: shards fly half as far again), **Wildfire** (Fire: spreads twice as often), **Barbed stingers** (Hive: stingers last 5 s), **Virulent** (Cauldron: poison stacks to five), **Grit** (Spitter: a seed drives in two).
+
 ### Heavy cannons
 
 The **Heavy** tab (`Y`) holds three expensive cannons, open to every keeper. They're locked at the start of a night: they open at **wave 6**, or as soon as you have **200 seeds in hand**, whichever comes first, and stay open for the rest of the night. Each one does two jobs at once:
@@ -454,7 +502,7 @@ The **Heavy** tab (`Y`) holds three expensive cannons, open to every keeper. The
 | **Pipe Organ** | 220 | Plays a chord that hits **every fruit** in a wide circle and slows them. **Every third chord is a crescendo** that also stops them for a moment (Karl only briefly). Husks take the damage but ignore the slow and the stop. |
 | **Brass Telescope** | 250 | Very long reach and a fast, instant shot that **ignores armour**: shells, husks and damp count for nothing. It aims for Karl first, then armoured fruit, then the toughest. |
 
-Their back-room upgrades: **Broadsheet** (the sheet slides half again as far) and **Wet ink** (ink lasts twice as long) for the Press; **Bigger pipes** (wider circle) and **Crescendo stop** (every second chord is a crescendo) for the Organ; **Longer barrel** and **Quick wick** for the Telescope. Shared upgrade picks follow their type: the Press is a Cannon, the Telescope is Precision, the Organ is Utility (no picks).
+Their back-room upgrades: **Broadsheet** (the sheet slides half again as far) and **Wet ink** (ink lasts twice as long) for the Press; **Bigger pipes** (wider circle) and **Crescendo stop** (every second chord is a crescendo) for the Organ; **Long lens** (reach) and **Steady hand** (pace) for the Telescope. Shared upgrade picks follow their type: the Press is a Cannon, the Telescope is Precision, the Organ is Utility (no picks).
 
 ### Trick cannons open with keeper levels
 
@@ -486,6 +534,7 @@ Every tower also has a **type**. The type decides which shared upgrades affect i
 
 The **Back room** is a tab on the right edge of the board (on a phone it opens as a sheet from the bottom, so the carpet above stays in view). Open it with the tab, with `B`, or with **Upgrades** in a cannon's inspector (that opens it on the cannon's kind). At the top are the same groups as the build bar (Damage, Control, Support, Trick, Heavy, and Keeper when a keeper tower takes upgrades). Tap one to fold it open and pick a tower kind; a small ×2 under a kind means two are on the floor, and a gold number shows how many upgrades it has. Below are **all** of that kind's upgrades, each with its price.
 
+- **Each tower names its own reach and pace upgrades.** They do the same thing everywhere (reach farther, cycle faster), but each tower calls them what they are: the Melon's **Longer barrel** and **Oiled breech**, the Spitter's **Long straw** and **Deep breath**, the Ballista's **Taut string** and **Ratchet winch**, the Orrery's **Wider orbit** and **Spin faster**, the Fly Hive's **Queen bee**, the Shush Bell's **Lighter clapper**, the Organ's **Bellows**, and so on.
 - **An upgrade belongs to the kind, not to one tower.** Buy Longer barrel for the Melon cannon and every Melon cannon on the floor reaches farther, and so does every one you build later tonight. A Mimic copying a Melon cannon gets it too.
 - **Each kind has its own price.** A kind's first upgrade costs 40 seeds, then 30 more for each upgrade it already has (40, 70, 100…). Upgrading Melon cannons never makes Mortar upgrades dearer.
 - **No cap.** Buy every upgrade a kind has, if you can pay for it. Each one can be bought once.
@@ -523,7 +572,7 @@ Everything shaping your run is on one library checkout card, stamped **DUE: DAWN
 | **Melon** | The basic fruit |
 | **Corn** | Small and fast; comes in swarms |
 | **Pumpkin** | Slow and tough |
-| **Karl** | The boss. Leaking him costs 3 stacks; popping him gives back 2 stacks and splashes everything around him |
+| **Karl** | The boss. Leaking him costs 3 stacks; popping him gives back 2 stacks and splashes everything around him. Before a night's last wave he comes as a **mini-boss**: a little smaller, with only 150% more health than a pumpkin. The Matriarch and General Mittens do the same on the Siege |
 | **Express Corn** | The Sorting Room only. A corn with a red stamp: on a belt nothing slows or stops it, and the belt carries it at double speed |
 | **Parcel** | The Sorting Room only. A pumpkin in brown paper: direct shots do half until splash, fire or a puddle tears the paper; three corn walk out when it pops |
 | **Sprout** | The Greenhouse only. A small melon shoot: two seconds in the beds and it grows into a full melon |
@@ -532,6 +581,8 @@ Everything shaping your run is on one library checkout card, stamped **DUE: DAWN
 | **Gargoyle Gourd** | The Bell Tower only. A stone squash: tougher between strikes, three times as fast while the towers are silent |
 
 ### Armour and guards
+
+**Hover over any fruit** (with a mouse) to see its name, its health, what it is (armour, marks like Split's X, its own rules) and what's on it right now (frozen, inked, burning and so on).
 
 Some fruit wear armour. Each kind only shows up on one kind of fruit, and each has its own look on the carpet:
 
@@ -733,6 +784,8 @@ Bookmarks are permanent unlocks you earn across runs. Equip one at a time on the
 | Late Fees | +1 seed per kill | Restore The Reading Room |
 
 ## Grand Catalogue
+
+**Anything locked opens it.** A locked keeper, room, bookmark, keeper tower or appearance option says which room unlocks it and how many fragments you have against its cost ("Restore The Archive in the Grand Catalogue (7 of 10 fragments)"). Tap it (or **Open the Catalogue** under it) and the Catalogue opens over whatever screen you're on, scrolled to that room, with the locked thing highlighted. During a night it holds the board still while it's open; what you restore then opens from your next night. `Esc` or **Back** closes it.
 
 The library is in pieces. You put it back together with **Catalogue Fragments**, and every room you restore opens something for good: a map, a keeper, a bookmark, a keeper tower, or a cosmetic. Open **Grand Catalogue** from the title menu (or the **fragments** link under the keepers on Setup). The header shows your fragments, rooms restored and shelves restored.
 

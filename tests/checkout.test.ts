@@ -152,12 +152,16 @@ test("C opens it in prep; Esc closes it; in combat it pauses and puts the pause 
   const api = start();
   assert.deepEqual(press(api, "c"), { type: "checkout" });
   assert.equal(api.world.hud.checkout, true);
-  assert.deepEqual(press(api, " "), { type: "swallow" }, "game keys are swallowed");
+  assert.deepEqual(press(api, "s"), { type: "swallow" }, "game keys are swallowed");
   assert.equal(api.world.hud.phase, "prep");
   press(api, "Escape");
   assert.equal(api.world.hud.checkout, false);
+  // Space is the exception between waves: it closes the card and starts the wave.
+  press(api, "c");
+  press(api, " ");
+  assert.equal(api.world.hud.checkout, false);
+  assert.equal(api.world.hud.phase, "combat");
 
-  api.startWave();
   assert.equal(api.world.hud.paused, false);
   press(api, "c");
   assert.equal(api.world.hud.paused, true, "opening it pauses");

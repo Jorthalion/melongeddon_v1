@@ -168,6 +168,20 @@ export function restoreText(kind: Reward["kind"], id: string): string {
   const room = roomFor(kind, id);
   return room ? `Restore ${room.name} in the Grand Catalogue.` : "";
 }
+/**
+ * How to unlock a reward that's still locked: the room that opens it and one clear line, with how
+ * close the player is ("12 of 30 fragments", or "you have enough"). null if it's open already
+ * (or no room opens it).
+ */
+export function unlockNote(kind: Reward["kind"], id: string, rooms: readonly RoomId[], fragments: number): { room: Room; ready: boolean; text: string } | null {
+  const room = roomFor(kind, id);
+  if (!room || rooms.includes(room.id)) return null;
+  const ready = fragments >= room.cost;
+  const text = ready
+    ? `Restore ${room.name} in the Grand Catalogue. You have the ${room.cost} fragments it takes.`
+    : `Restore ${room.name} in the Grand Catalogue (${fragments} of ${room.cost} fragments).`;
+  return { room, ready, text };
+}
 const unlockedBy = (kind: Reward["kind"], rooms: readonly RoomId[]) =>
   ROOMS.filter((r) => rooms.includes(r.id)).flatMap((r) => r.rewards.filter((w) => w.kind === kind).map((w) => w.id));
 

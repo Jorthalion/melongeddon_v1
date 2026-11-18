@@ -406,11 +406,25 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   // Galls last, so a rider is never hidden under the pumpkin walking behind its host.
   const band = isBand(world);
+  // The selected tower's current target (a Copycat aims through its copy): a thin gold ring.
+  const picked = world.towers.find((t) => t.id === world.hud.selected);
+  const aimedAt = picked ? (picked.kind === "copycat" ? picked.copy?.aimAt : picked.aimAt) : undefined;
   for (const e of [...world.enemies.filter((f) => !f.gall), ...world.enemies.filter((f) => f.gall)]) {
     // On a rounded carpet, a fruit at a turn is drawn on the curve (its rules position stays on the corner).
     const drawn = band ? roundedSpot(world.points, e.x, e.y) : null;
     ctx.save();
     if (drawn) ctx.translate(drawn.x - e.x, drawn.y - e.y);
+    if (aimedAt === e.id) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(230,195,106,0.95)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 3]);
+      ctx.lineDashOffset = -world.anim * 20;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 9, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     if (e.chill > 0) {
       ctx.strokeStyle = "rgba(106,74,138,0.85)";
       ctx.lineWidth = 2;
@@ -630,6 +644,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         ctx.fill();
       }
     }
+    drawPips(ctx, e);
     ctx.restore();
   }
 
@@ -653,25 +668,61 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
   for (const t of world.towers) {
     if (t.kind === "copycat" && t.copy) {
-      // The Copycat draws as what it copies, with a thin gold line to the original and Memec's eye on top.
+      // The Copycat draws as what it copies, but plainly a clone: a ghostly blue copy on a turning dashed ring,
+      // a flowing blue link from the original, and Memec's eye with a "COPY" tag.
       const src = world.towers.find((o) => o.id === t.copyFrom);
+      const pulse = 0.55 + Math.sin(world.anim * 3 + t.id) * 0.2;
+      ctx.save();
       if (src) {
-        ctx.strokeStyle = "rgba(230,195,106,0.7)";
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = `rgba(111,198,239,${0.45 + pulse * 0.3})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.lineDashOffset = -world.anim * 24;
         ctx.beginPath();
-        ctx.moveTo(t.x, t.y);
-        ctx.lineTo(src.x, src.y);
+        ctx.moveTo(src.x, src.y);
+        ctx.lineTo(t.x, t.y);
         ctx.stroke();
       }
-      drawTower(ctx, t.x, t.y, t.copy.aim, t.copy.kind, t.copy.orange, t.id === world.hud.selected, art, world.anim);
-      ctx.fillStyle = "rgba(20,12,16,0.85)";
+      ctx.strokeStyle = `rgba(111,198,239,${pulse + 0.2})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.lineDashOffset = world.anim * 12;
       ctx.beginPath();
-      ctx.arc(t.x + 14, t.y - 16, 6, 0, Math.PI * 2);
+      ctx.ellipse(t.x, t.y + 14, 20, 7, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = 0.78;
+      ctx.shadowColor = "rgba(111,198,239,0.95)";
+      ctx.shadowBlur = 12;
+      drawTower(ctx, t.x, t.y, t.copy.aim, t.copy.kind, t.copy.orange, t.id === world.hud.selected, art, world.anim);
+      ctx.restore();
+      // Memec's eye, and the tag.
+      ctx.fillStyle = "rgba(20,12,16,0.9)";
+      ctx.beginPath();
+      ctx.arc(t.x + 15, t.y - 17, 8, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = "#6fc6ef";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
       ctx.fillStyle = "#6fc6ef";
       ctx.beginPath();
-      ctx.ellipse(t.x + 14, t.y - 16, 3.5, 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(t.x + 15, t.y - 17, 4.5, 2.6, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "#140e12";
+      ctx.beginPath();
+      ctx.arc(t.x + 15, t.y - 17, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.save();
+      ctx.font = "bold 8px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(20,12,16,0.85)";
+      ctx.fillRect(t.x - 13, t.y + 18, 26, 10);
+      ctx.fillStyle = "#6fc6ef";
+      ctx.fillText("COPY", t.x, t.y + 23.5);
+      ctx.restore();
       continue;
     }
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim);
@@ -1060,6 +1111,54 @@ function drawDark(ctx: CanvasRenderingContext2D, world: World) {
   const end = world.points[world.points.length - 1];
   hole(end.x, end.y, 66, 0.7);
   ctx.drawImage(layer, 0, 0);
+}
+
+/**
+ * Status pips under a fruit: one chip per affliction, its colour and stack count (amber stings, green poison,
+ * orange fire, pink worm, pale blue frost), most stacks first, four at most. Three frost also tints it pale blue.
+ */
+function drawPips(ctx: CanvasRenderingContext2D, e: World["enemies"][number]) {
+  const frost = Math.floor(e.frost ?? 0);
+  if (frost >= 3) {
+    ctx.save();
+    ctx.fillStyle = "rgba(190,226,245,0.28)";
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r + 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  const chips: Array<{ color: string; n: number }> = [];
+  if ((e.sting ?? 0) > 0) chips.push({ color: "#f2b632", n: e.sting ?? 0 });
+  if ((e.poison ?? 0) > 0) chips.push({ color: "#7fd14a", n: e.poison ?? 0 });
+  if ((e.burnT ?? 0) > 0 || e.flamed) chips.push({ color: "#ff8a3a", n: 1 });
+  if ((e.worm ?? 0) > 0) chips.push({ color: "#e79ab0", n: 1 });
+  if (frost > 0) chips.push({ color: "#bfe3f5", n: frost });
+  if (!chips.length) return;
+  chips.sort((p, q) => q.n - p.n);
+  const shown = chips.slice(0, 4);
+  const w = 11;
+  const x0 = e.x - (shown.length * w) / 2;
+  const y = e.y + e.r + 6;
+  ctx.save();
+  ctx.font = "bold 7px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  shown.forEach((c, i) => {
+    const x = x0 + i * w + w / 2;
+    ctx.fillStyle = "rgba(20,14,18,0.8)";
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = c.color;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    if (c.n > 1) {
+      ctx.fillStyle = "#1a1014";
+      ctx.fillText(String(c.n), x, y + 0.5);
+    }
+  });
+  ctx.restore();
 }
 
 /** Whether this board's carpet draws as one rounded band ("path") rather than square tiles. */

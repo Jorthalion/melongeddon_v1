@@ -160,7 +160,7 @@ const GUIDE_URL =
 
 /** Title › How to play: controls, cannon tabs, keepers, nights and rooms. */
 export function HowToPlay() {
-  const h = "mt-4 mb-1 text-[10px] tracking-[0.22em] text-gold uppercase first:mt-0";
+  const h = "mt-4 mb-1 text-[0.625rem] tracking-[0.22em] text-gold uppercase first:mt-0";
   return (
     <div className="text-left">
       <a

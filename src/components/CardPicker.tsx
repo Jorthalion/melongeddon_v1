@@ -92,17 +92,17 @@ export function CardOverlay({
                         {own ? (
                           <span className="text-xs font-semibold text-gold">{KEEPER_NAMES[hud.hero ?? "mynxi"].short}'s</span>
                         ) : null}
-                        <span className="rounded-full border border-line/70 px-1.5 text-[11px] leading-4 text-muted">{UPGRADE_SCOPE[id]}</span>
+                        <span className="rounded-full border border-line/70 px-1.5 text-[0.6875rem] leading-4 text-muted">{UPGRADE_SCOPE[id]}</span>
                       </span>
                       <span className="mt-1 block text-sm text-muted">{u.blurb}</span>
                     </span>
                     {/* The hotkey: a keycap in the corner, so it doesn't read as a step number. */}
-                    <kbd className="absolute top-2 right-2 hidden min-w-[1.25rem] rounded-[4px] border border-b-2 border-line bg-ink/40 px-1 text-center font-sans text-[10px] leading-4 text-muted sm:block">
+                    <kbd className="absolute top-2 right-2 hidden min-w-[1.25rem] rounded-[4px] border border-b-2 border-line bg-ink/40 px-1 text-center font-sans text-[0.625rem] leading-4 text-muted sm:block">
                       {i + 1}
                     </kbd>
                     {/* Dr. Samodovol's extra book: a real upgrade from further along the shelves, marked as his. */}
                     {hud.pickCards.includes(id) ? (
-                      <span className="pointer-events-none absolute bottom-1.5 right-2.5 rounded-sm border border-gold/60 bg-ink/50 px-1 font-display text-[10px] text-gold italic">
+                      <span className="pointer-events-none absolute bottom-1.5 right-2.5 rounded-sm border border-gold/60 bg-ink/50 px-1 font-display text-[0.625rem] text-gold italic">
                         Doctor's pick
                       </span>
                     ) : null}

@@ -104,24 +104,26 @@ test("rockets burst and slow what they hit", () => {
   assert.ok(api.tallyOf(q.id)!.dmg > 0, "the rockets did damage");
 });
 
-test("it can be retargeted once, and only once", () => {
+test("it takes the normal targeting modes, and can change them as often as you like", () => {
   const api = start();
   const q = build(api, "quackliber");
   api.dismissSelection();
   api.pointer(q.x, q.y, "down");
   assert.equal(api.world.hud.selected, q.id);
-  api.retarget("strong");
-  assert.equal(q.aimMode, "strong");
-  api.retarget("rear");
-  assert.equal(q.aimMode, "strong", "the second change is refused");
+  assert.equal(api.targetOf(q.id)!.mode, "first", "First by default");
+  api.cycleTarget();
+  assert.equal(q.target, "last");
+  api.cycleTarget();
+  assert.equal(q.target, "strong", "a second change works too");
+  assert.ok(!("aimMode" in q), "the old one-time aim is gone");
 });
 
-test("retargeted to the toughest, it shoots the fruit with the most health in reach", () => {
+test("set to Strongest, it shoots the fruit with the most health in reach", () => {
   const api = start();
   const q = build(api, "quackliber");
   api.dismissSelection();
   api.pointer(q.x, q.y, "down");
-  api.retarget("strong");
+  q.target = "strong";
   let checked = false;
   playWave(api, () => {
     if (checked || q.cd > 1 / 60) return;

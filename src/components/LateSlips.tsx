@@ -8,7 +8,7 @@ export function SlipPicker({ api, onGesture }: { api: ReturnType<typeof createWo
   const taken = hud.slips;
   const full = taken.length >= MAX_SLIPS;
   const bonus = Math.round(slipXp(taken) * 100);
-  const label = "text-[10px] tracking-[0.22em] text-gold uppercase";
+  const label = "text-[0.625rem] tracking-[0.22em] text-gold uppercase";
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
@@ -51,9 +51,9 @@ export function SlipPicker({ api, onGesture }: { api: ReturnType<typeof createWo
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="text-xs font-semibold">{s.name}</span>
-                  <span className={`text-[11px] font-semibold ${on ? "text-ink" : "text-gold"}`}>+{Math.round(s.xp * 100)}% XP</span>
+                  <span className={`text-[0.6875rem] font-semibold ${on ? "text-ink" : "text-gold"}`}>+{Math.round(s.xp * 100)}% XP</span>
                 </span>
-                <span className={`mt-0.5 block text-[11px] leading-tight ${on ? "text-ink/80" : "text-muted"}`}>{s.blurb}</span>
+                <span className={`mt-0.5 block text-[0.6875rem] leading-tight ${on ? "text-ink/80" : "text-muted"}`}>{s.blurb}</span>
               </span>
             </button>
           );

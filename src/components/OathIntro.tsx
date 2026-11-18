@@ -133,7 +133,7 @@ export function OathIntro({
                   sworn != null ? "cursor-default" : "",
                 ].join(" ")}
               >
-                <kbd className="absolute top-1.5 right-1.5 rounded border border-gold/40 px-1.5 text-[10px] leading-4 text-gold/80">{i + 1}</kbd>
+                <kbd className="absolute top-1.5 right-1.5 rounded border border-gold/40 px-1.5 text-[0.625rem] leading-4 text-gold/80">{i + 1}</kbd>
                 <span className="shrink-0 transition group-hover:scale-110">
                   <OathMark oath={oath} />
                 </span>
@@ -141,8 +141,8 @@ export function OathIntro({
                   <span className="block font-display text-lg leading-tight font-semibold text-parchment">{text.title}</span>
                   <span className="block text-xs text-parchment/60 italic [@media(max-height:520px)]:hidden">“{text.said}”</span>
                   <span className="mt-1 flex flex-wrap gap-1 sm:justify-center">
-                    <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold">{text.gain}</span>
-                    <span className="rounded-full bg-[#e23b4a]/15 px-2 py-0.5 text-[11px] font-semibold text-[#ff8a8a]">{text.cost}</span>
+                    <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[0.6875rem] font-semibold text-gold">{text.gain}</span>
+                    <span className="rounded-full bg-[#e23b4a]/15 px-2 py-0.5 text-[0.6875rem] font-semibold text-[#ff8a8a]">{text.cost}</span>
                   </span>
                 </span>
                 {refused ? (
