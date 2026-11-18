@@ -49,7 +49,8 @@ function createWindow() {
         buttons: [...document.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
         fonts: [...new Set([...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family))],
       })`);
-      const ok = seen.title === "Melongeddon" && seen.buttons.includes("New night") && seen.buttons.includes("Quit");
+      // "New night" carries a note until the first night is played ("New night (after your first night)").
+      const ok = seen.title === "Melongeddon" && seen.buttons.some((b) => b.startsWith("New night")) && seen.buttons.includes("Quit");
       process.stdout.write(`MELONGEDDON_SMOKE ${JSON.stringify({ ok, ...seen })}\n`);
       app.exit(ok ? 0 : 1);
     });
