@@ -84,7 +84,9 @@ const SPRITE_SRC = {
   floorSorting: asset("sprites/tile-floor-sorting.webp"),
   floorGreenhouse: asset("sprites/tile-floor-greenhouse.webp"),
   floorBelltower: asset("sprites/tile-floor-belltower.webp"),
-  // The Courtyard's flagstones and props (drawn by code until the art exists: docs/art/PROMPTS.md).
+  floorGreathall: asset("sprites/tile-floor-greathall.webp"),
+  floorReadingroom: asset("sprites/tile-floor-readingroom.webp"),
+  // The Courtyard's flagstones and props (code-drawn fallbacks while they load).
   floorCourtyard: asset("sprites/tile-floor-courtyard.webp"),
   hedge: asset("sprites/prop-hedge.webp"),
   statue: asset("sprites/prop-statue.webp"),
@@ -246,11 +248,13 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     sorting: art.floorSorting,
     greenhouse: art.floorGreenhouse,
     belltower: art.floorBelltower,
+    greathall: art.floorGreathall,
+    readingroom: art.floorReadingroom,
     courtyard: art.floorCourtyard,
   } as Partial<Record<string, HTMLImageElement>>)[world.hud.map];
   const floor = ready(ownFloor) ? ownFloor : art.floor;
   if (world.hud.map === "courtyard" && !ready(ownFloor)) {
-    // Flagstones by code until the painted tile exists.
+    // Flagstones by code while the painted tile loads.
     ctx.fillStyle = flagstones(ctx);
     ctx.fillRect(0, 0, world.w, world.h);
     ctx.fillStyle = "rgba(16,12,14,0.3)";

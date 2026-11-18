@@ -163,9 +163,9 @@ The three expensive cannons on the Heavy tab (`Y`), all in the game. The code-dr
 
 Moved to [TRICK_PROMPTS.md](TRICK_PROMPTS.md): ready-to-paste ChatGPT prompts for all five trick cannons (Boomerang Bookend, Orrery, Paper Plane, Serpent Quill, Rolling Globe) and the things they throw.
 
-## 2. Floor tiles (not yet drawn)
+## 2. Floor tiles (done: in the game as `public/sprites/tile-floor-*.webp`)
 
-Rare Books, the Archive and the Overflow (`tile-floor-overflow.webp`, in the game) have floors of their own. The two big maps still use the plain library floor. Each of these is a **seamless tileable texture** the game repeats under the whole board, so: straight top-down view, even lighting, no vignette, no single object in the middle, and **edges that tile**. 1024 × 1024, no transparency. Keep them fairly dark and low-contrast, so cannons and fruit stay readable on top.
+Rare Books, the Archive and the Overflow (`tile-floor-overflow.webp`, in the game) have floors of their own. The two big maps have theirs too (`tile-floor-greathall.webp`, `tile-floor-readingroom.webp`). Each of these is a **seamless tileable texture** the game repeats under the whole board, so: straight top-down view, even lighting, no vignette, no single object in the middle, and **edges that tile**. 1024 × 1024, no transparency. Keep them fairly dark and low-contrast, so cannons and fruit stay readable on top.
 
 | File name | Prompt (after the style line) |
 |---|---|
@@ -173,9 +173,9 @@ Rare Books, the Archive and the Overflow (`tile-floor-overflow.webp`, in the gam
 | `tile-floor-greathall.png` | A grand hall floor of **large dark marble flagstones** in deep red-brown and black, worn smooth, thin brass inlay lines between the stones, a faint warm sheen from distant chandeliers. |
 | `tile-floor-readingroom.png` | **Dark herringbone parquet** of polished walnut, a few worn patches near where chairs would stand, faint scattered dust and one or two loose pages. Hushed and cosy. |
 
-### 2a. The Courtyard (the Siege's map; not yet drawn)
+### 2a. The Courtyard (the Siege's map; done: `tile-floor-courtyard.webp`, `prop-hedge.webp`, `prop-statue.webp`, `prop-fountain.webp`)
 
-The Siege's map is the library's back courtyard at night: flagstones, a hedge maze edge, statues and a dry fountain, with the library's carpet runner laid across it. All four are drawn by code until these exist. The floor follows the rules above (seamless, top-down, dark, 1024 × 1024, no transparency); the three props are PNGs with transparent backgrounds, seen from slightly above like the other room furniture, and must fit their cells (one tile each; the fountain covers a 2 × 2 block). Moonlight, not candlelight, for these four: swap "warm candlelight" in the style line for "cold blue moonlight".
+The Siege's map is the library's back courtyard at night: flagstones, a hedge maze edge, statues and a dry fountain, with the library's carpet runner laid across it. All four are in the game; the code-drawn versions in `drawSiege.ts` stay as fallbacks while they load. The floor follows the rules above (seamless, top-down, dark, 1024 × 1024, no transparency); the three props are PNGs with transparent backgrounds, seen from slightly above like the other room furniture, and must fit their cells (one tile each; the fountain covers a 2 × 2 block). Moonlight, not candlelight, for these four: swap "warm candlelight" in the style line for "cold blue moonlight".
 
 | File name | Prompt (after the style line) |
 |---|---|
