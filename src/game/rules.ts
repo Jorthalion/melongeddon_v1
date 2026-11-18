@@ -2980,6 +2980,8 @@ export const COMBO = {
   freezeHit: 2,
   deepFreezeHit: 3,
   chillHit: 1,
+  /** Chills alone can build frost only this high (a Freeze cannon hit fills the rest). */
+  chillCap: 3,
   /** Pace at 0, 1 and 2 stacks (3 is frozen solid). */
   frostSlow: [1, 0.8, 0.55] as number[],
   // ── Shatter: the first splash on a fruit with 2+ frost.

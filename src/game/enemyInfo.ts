@@ -1,4 +1,5 @@
-import { AFFLICT, BALANCE, NATIVES, NATIVE_INFO, type World } from "./engine.ts";
+import { AFFLICT, BALANCE, NATIVES, NATIVE_INFO, STATS, type WaveGroup, type World } from "./engine.ts";
+import { COUNTERS, countersFor } from "./counters.ts";
 
 type Fruit = World["enemies"][number];
 
@@ -11,6 +12,50 @@ export interface EnemyInfo {
   traits: string[];
   /** What's happening to it right now ("Frozen", "Inked: takes 30% more damage"). */
   effects: string[];
+  /** What beats it, from the shared counters table (counters.ts). */
+  beats: string[];
+}
+
+/**
+ * A not-yet-spawned enemy from a Coming up group, shaped like a fruit on the board so `describeEnemy` can
+ * describe it (no effects on it yet).
+ */
+export function fruitFromGroup(g: WaveGroup): Fruit {
+  return {
+    id: -1,
+    kind: g.kind,
+    x: -1e6,
+    y: -1e6,
+    hp: g.hp,
+    maxHp: g.hp,
+    speed: g.speed,
+    slow: 1,
+    gold: 0,
+    r: STATS[g.kind].r,
+    wp: 0,
+    boss: g.boss,
+    mini: g.mini,
+    chill: 0,
+    freeze: 0,
+    guard: g.guard,
+    shell: g.guard === "rind" ? 1 : 0,
+    split: g.split,
+    raw: g.raw,
+    bread: false,
+    reverse: g.chute,
+    pit: g.pit,
+    borrower: g.borrower,
+    native: g.native ?? undefined,
+    wrapped: g.native === "parcel",
+    matriarch: g.siege === "matriarch",
+    general: g.siege === "general",
+    gosling: g.siege === "gosling",
+    leader: g.leader,
+    tank: g.siege === "tank",
+    boxed: g.siege === "boxed",
+    para: g.siege === "para",
+    lives9: g.kind === "cat" && !g.siege,
+  } as Fruit;
 }
 
 const KIND_NAME: Record<string, string> = { melon: "Melon", corn: "Corn", pumpkin: "Pumpkin", karl: "Karl", goose: "Honker", cat: "Private Whiskers" };
@@ -90,5 +135,6 @@ export function describeEnemy(e: Fruit, world: Pick<World, "pools" | "floors" | 
   const key = `${Math.floor(e.x / 48)},${Math.floor(e.y / 48)}`;
   if (world.floors.get(key)?.kind === "bed" || world.vines.has(key)) effects.push("Healing on a bed");
 
-  return { name: nameOf(e) + (e.mini ? " (mini)" : ""), hp: Math.max(0, Math.ceil(e.hp)), maxHp: e.maxHp, traits, effects };
+  const beats = countersFor(e).map((id) => COUNTERS[id].beats);
+  return { name: nameOf(e) + (e.mini ? " (mini)" : ""), hp: Math.max(0, Math.ceil(e.hp)), maxHp: e.maxHp, traits, effects, beats };
 }

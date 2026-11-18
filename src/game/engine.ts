@@ -191,6 +191,44 @@ interface Enemy {
   wildAcc?: number;
 }
 
+/** One group of identical enemies in a wave preview, in spawn order: what one of them will really have. */
+export interface WaveGroup {
+  kind: EnemyKind;
+  guard: Guard;
+  split: boolean;
+  raw: boolean;
+  chute: boolean;
+  pit: boolean;
+  gall: boolean;
+  borrower: boolean;
+  native: NativeId | null;
+  siege: SiegeVariant | null;
+  leader: boolean;
+  boss: boolean;
+  mini: boolean;
+  count: number;
+  hp: number;
+  speed: number;
+}
+
+/** What a wave brings (api.wavePreview / api.comingUp). */
+export interface WavePreview {
+  /** 0-based wave index. */
+  index: number;
+  name: string;
+  groups: WaveGroup[];
+  /** What can't be counted up front (mid-wave extras). */
+  notes: string[];
+  /** Sum of health × speed (bosses and tanks × their leak cost), its 1–5 rank tonight, and against the wave before. */
+  threat: number;
+  pips: number;
+  trend: "up" | "down" | null;
+  /** Short warnings, most important first (at most three). */
+  flags: string[];
+  /** Paratrooper drop points this wave uses. */
+  drops: number[];
+}
+
 /** A not-yet-built tower's numbers (api.previewStats). */
 export interface PreviewStats {
   dmg: number;
@@ -989,6 +1027,12 @@ export function createWorld(
    * `base` is the plain numbers (no fittings or perks); `why` says what moved each number.
    */
   previewStats: (kind: TowerKind, at?: { c: number; r: number }) => PreviewStats;
+  /** Wave `index` (0-based) as it will walk in: groups, notes, threat and flags (api.comingUp for the bar). */
+  wavePreview: (index: number) => WavePreview;
+  /** The Coming up bar: the next wave between waves; during one, what's still to come. */
+  comingUp: () => WavePreview;
+  /** Whether a tower stands in reach of drop point `index` (for the Coming up bar's warning). */
+  dropCovered: (index: number) => boolean;
   /** What a placed tower reaches: carpet tiles it can hit (null if it doesn't hit fruit), or "all" for the whole board; and how many towers it helps. */
   reachOf: (towerId: number) => { tiles: number | "all" | null; towers: number } | null;
   /** What a placed tower has done this night: damage dealt, fruit popped, and its share of all the damage. */
@@ -2439,12 +2483,147 @@ export function createWorld(
     float(parent.x, parent.y - 20, "split", "#f3e2c4");
   };
 
-  const buildQueue = (extra: SpawnSpec[] = []) => {
-    const spec = waveAt(cleared, world.hud.night);
+  /**
+   * Wave `index`'s spawn queue, exactly as it will walk in: the wave, the late slips' extras, and the room's
+   * own fruit swapped in. The wave start and the Coming up bar both build it here, so they can't disagree.
+   */
+  const queueFor = (index: number): QueueItem[] => {
+    const extra: SpawnSpec[] = [];
+    if (slip("heavy") && index >= SLIP_VALUES.heavyFrom && index <= SLIP_VALUES.heavyTo) {
+      extra.push({ kind: "melon", count: SLIP_VALUES.heavyCount, every: 1.2, guard: "rind", chute: true });
+    }
+    if (slip("karl") && index === SLIP_VALUES.karlWave) extra.push({ kind: "karl", count: 1, every: 0.4 });
+    const spec = waveAt(index, world.hud.night);
     // The room's own fruit take the place of some ordinary ones.
-    queue = assignNatives(waveQueue([...spec.spawns, ...extra]), BOARDS[world.hud.map].natives, cleared + 1, world.hud.difficulty);
+    return assignNatives(waveQueue([...spec.spawns, ...extra]), BOARDS[world.hud.map].natives, index + 1, world.hud.difficulty);
+  };
+  const buildQueue = () => {
+    queue = queueFor(cleared);
     queueCursor = 0;
     spawnClock = 0;
+  };
+
+  /** What one queued enemy will have when it spawns on wave `index`: health and speed (as spawnEnemy and siegeSetup work them out). */
+  const spawnNumbers = (q: QueueItem, index: number) => {
+    const st = STATS[q.kind];
+    const tuned = tune();
+    const mul = hpScaleFor(world.hud.night, index) * q.tough * tuned.hp * (BOARDS[world.hud.map].hp ?? 1);
+    let hp = Math.round(st.hp * mul);
+    let speed = st.speed * tuned.speed;
+    const sized = (v: { hp: number; speed?: number }) => {
+      hp = Math.max(1, Math.round(v.hp * mul));
+      if (v.speed) speed = v.speed * tuned.speed;
+    };
+    if (q.siege === "gosling") sized(q.leader ? { ...SIEGE.gosling, ...SIEGE.leader } : SIEGE.gosling);
+    else if (q.siege === "matriarch") sized(SIEGE.matriarch);
+    else if (q.siege === "tank") sized(SIEGE.tank);
+    else if (q.siege === "general") sized(SIEGE.general);
+    const boss = Boolean(st.boss) || q.siege === "matriarch" || q.siege === "general";
+    const mini = boss && world.hud.night !== "endless" && index + 1 < nightLength(world.hud.night);
+    if (mini) {
+      const base = q.siege === "matriarch" ? STATS.goose.hp : q.siege === "general" ? STATS.cat.hp : STATS.pumpkin.hp;
+      hp = Math.max(1, Math.round(base * BALANCE.miniBossHp * mul));
+    }
+    if (q.borrower) {
+      hp = Math.max(1, Math.round(hp * 0.4));
+      speed *= 1.35;
+    }
+    return { hp, speed, boss, mini };
+  };
+  /** Queue items as groups of identical enemies, in spawn order. */
+  const groupQueue = (items: QueueItem[], index: number): WaveGroup[] => {
+    const out: WaveGroup[] = [];
+    for (const q of items) {
+      const n = spawnNumbers(q, index);
+      const g: WaveGroup = {
+        kind: q.kind,
+        guard: q.guard,
+        split: q.split,
+        raw: q.raw,
+        chute: q.chute,
+        pit: q.pit,
+        gall: q.gall,
+        borrower: q.borrower,
+        native: q.native,
+        siege: q.siege,
+        leader: q.leader,
+        boss: n.boss,
+        mini: n.mini,
+        count: 1,
+        hp: n.hp,
+        speed: n.speed,
+      };
+      const last = out[out.length - 1];
+      const same = last && (Object.keys(g) as Array<keyof WaveGroup>).every((k) => k === "count" || last[k] === g[k]);
+      if (same) last.count += 1;
+      else out.push(g);
+    }
+    return out;
+  };
+  /** A wave's threat: health × speed, bosses and tanks counted by what a leak costs. */
+  const threatOf = (groups: WaveGroup[]) =>
+    groups.reduce((sum, g) => sum + g.count * g.hp * g.speed * (g.boss ? 3 : g.siege === "tank" ? 2 : 1), 0);
+  /** The flags and notes for a wave's groups. */
+  const flagsFor = (groups: WaveGroup[], drops: number[]) => {
+    const has = (f: (g: WaveGroup) => boolean) => groups.some(f);
+    const armoured = (g: WaveGroup) => g.guard === "rind" || g.guard === "husk" || g.guard === "damp" || g.pit;
+    const front = groups.slice(0, 2);
+    const flags = [
+      has((g) => g.boss) ? "Boss" : "",
+      has((g) => g.chute) ? "Up the chute" : "",
+      drops.length ? "Paratroopers" : "",
+      has((g) => g.siege === "boxed") ? "Box Cats (can't be aimed at)" : "",
+      front.length && front.every(armoured) ? "Armoured front" : "",
+      has((g) => g.gall) ? "Gall riders" : "",
+      has((g) => g.borrower) ? "Borrowers take seeds" : "",
+    ].filter(Boolean);
+    return flags.slice(0, 3);
+  };
+  const notesFor = (groups: WaveGroup[], index: number, drops: number[]) => {
+    const has = (f: (g: WaveGroup) => boolean) => groups.some(f);
+    return [
+      world.hud.night === "overflow" && index >= WAVE_COUNT - 2 ? "+1 shelled melon up the chute per 25 absurdity" : "",
+      has((g) => g.split) ? "Split pumpkins crack into four melons" : "",
+      has((g) => g.native === "parcel") ? "Parcels drop three corn" : "",
+      has((g) => g.native === "sprout") ? "Sprouts grow into melons in the beds" : "",
+      has((g) => g.gall) ? "A gall rides each gall pumpkin" : "",
+      drops.length ? "Paratroopers land halfway" : "",
+      has((g) => g.kind === "cat") && has((g) => g.siege === "general") ? "Cats have more health while General Mittens stands" : "",
+    ].filter(Boolean);
+  };
+  /** Waves to rank a wave against: tonight's (Endless: the next ten). */
+  const rankRange = (index: number) => {
+    if (world.hud.night === "endless") return Array.from({ length: 10 }, (_, k) => index + k);
+    return Array.from({ length: nightLength(world.hud.night) }, (_, k) => k);
+  };
+  const previewOf = (index: number, items: QueueItem[], drops: number[]): WavePreview => {
+    const groups = groupQueue(items, index);
+    const threat = threatOf(groups);
+    const all = rankRange(index).map((i) => (i === index ? threat : threatOf(groupQueue(queueFor(i), i))));
+    const lo = Math.min(...all);
+    const hi = Math.max(...all);
+    const pips = hi > lo ? 1 + Math.round(((threat - lo) / (hi - lo)) * 4) : 3;
+    const prev = index > 0 ? threatOf(groupQueue(queueFor(index - 1), index - 1)) : null;
+    const trend = prev == null ? null : threat > prev * 1.05 ? "up" : threat < prev * 0.95 ? "down" : null;
+    return {
+      index,
+      name: waveAt(index, world.hud.night).name,
+      groups,
+      notes: notesFor(groups, index, drops),
+      threat,
+      pips,
+      trend,
+      flags: flagsFor(groups, drops),
+      drops,
+    };
+  };
+  /** Wave `index`'s preview, as it will walk in. */
+  const wavePreview = (index: number) => previewOf(index, queueFor(index), dropsFor(index));
+  /** The Coming up bar: the next wave between waves; during one, what's still to come (paratroopers on the way included). */
+  const comingUp = (): WavePreview => {
+    if (world.hud.phase !== "combat") return wavePreview(cleared);
+    const left = [...queue.slice(queueCursor), ...drops.map((d) => d.q)];
+    return previewOf(cleared, left, world.hud.dropWave);
   };
 
   const applyBoard = (map: MapId) => {
@@ -2926,7 +3105,9 @@ export function createWorld(
   const addFrost = (e: Enemy, n: number) => {
     if (!COMBO.on || e.hp <= 0 || e.guard === "husk" || expressOnBelt(e)) return;
     const was = e.frost ?? 0;
-    e.frost = Math.min(frostCap(e), was + n);
+    // A chill (one stack) only builds frost to COMBO.chillCap; a Freeze cannon hit goes all the way.
+    const cap = n <= COMBO.chillHit ? Math.min(frostCap(e), Math.max(was, COMBO.chillCap)) : frostCap(e);
+    e.frost = Math.min(cap, was + n);
     e.frostT = drainTime(e);
     if (e.frost >= COMBO.frostMax && was < COMBO.frostMax) {
       // Frozen solid for today's freeze time, then back to two (see the tick).
@@ -4553,13 +4734,8 @@ export function createWorld(
       lectureNow = lecture && lecture.waves > 0 ? lecture.kind : null;
       reached.clear();
       syncMimics(true);
-      const extra: SpawnSpec[] = [];
-      if (slip("heavy") && cleared >= SLIP_VALUES.heavyFrom && cleared <= SLIP_VALUES.heavyTo) {
-        extra.push({ kind: "melon", count: SLIP_VALUES.heavyCount, every: 1.2, guard: "rind", chute: true });
-      }
-      if (slip("karl") && cleared === SLIP_VALUES.karlWave) extra.push({ kind: "karl", count: 1, every: 0.4 });
       const spec = waveAt(cleared, world.hud.night);
-      buildQueue(extra);
+      buildQueue();
       world.hud.waveSize = queue.length;
       world.hud.left = queue.length;
       world.hud.phase = "combat";
@@ -5210,6 +5386,16 @@ export function createWorld(
     },
     previewStats(kind: TowerKind, at?: { c: number; r: number }) {
       return previewStats(kind, at);
+    },
+    wavePreview(index: number) {
+      return wavePreview(index);
+    },
+    comingUp() {
+      return comingUp();
+    },
+    dropCovered(index: number) {
+      const spot = dropSpot(index);
+      return world.towers.some((t) => !PASSIVE.includes(t.kind) && Math.hypot(t.x - spot.x, t.y - spot.y) <= towerRange(t));
     },
     statsOf(towerId: number) {
       const tower = world.towers.find((t) => t.id === towerId);

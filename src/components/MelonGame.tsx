@@ -21,6 +21,7 @@ import { setupSummary } from "@/components/ui";
 import { layoutFor } from "@/lib/layout";
 import { EnemyCard, type EnemyHover } from "@/components/EnemyCard";
 import { useCatalogueRequest } from "@/components/catalogueLink";
+import { ComingUpBar } from "@/components/ComingUpBar";
 import { MenuCard } from "@/components/ui";
 
 /** Largest uniform scale that fits the board in a w×h box, plus the offset that centers it (CSS px). */
@@ -256,10 +257,11 @@ export function MelonGame() {
           <BuildFooter api={api} onGesture={gesture} column />
         </aside>
       ) : null}
-      <div data-board-controls className={`relative min-h-0 min-w-0 flex-1 ${wide ? "py-3" : "sm:px-3"}`}>
+      <div data-board-controls className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${wide ? "py-3" : "sm:px-3"}`}>
+        {showPlace ? <ComingUpBar api={api} /> : null}
         <canvas
           ref={canvasRef}
-          className="h-full w-full touch-none bg-ink sm:rounded-xl sm:border sm:border-line"
+          className="min-h-0 w-full flex-1 touch-none bg-ink sm:rounded-xl sm:border sm:border-line"
           onPointerMove={(e) => {
             const p = toWorld(e.clientX, e.clientY);
             api.pointer(p.x, p.y, "move");

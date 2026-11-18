@@ -3,6 +3,18 @@ import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, 
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
+/** The picture for a Coming up chip: the enemy's own sprite (its look, as the board draws it). */
+export function enemySpriteSrc(g: { kind: string; pit?: boolean; borrower?: boolean; native?: string | null; siege?: string | null }): string {
+  const src = SPRITE_SRC as Record<string, string>;
+  const look =
+    g.pit ? "pit"
+    : g.borrower ? "borrower"
+    : g.native ?? (g.kind === "goose" ? (g.siege === "gosling" ? "gosling" : g.siege === "matriarch" ? "matriarch" : "honker")
+    : g.kind === "cat" ? (g.siege === "boxed" ? "boxcat" : g.siege === "para" ? "para" : g.siege === "tank" ? "tank" : g.siege === "general" ? "general" : "whiskers")
+    : g.kind);
+  return src[look] ?? src[g.kind] ?? "";
+}
+
 const SPRITE_SRC = {
   melon: asset("sprites/melon.webp"),
   corn: asset("sprites/corn.webp"),

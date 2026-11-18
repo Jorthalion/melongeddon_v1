@@ -5,6 +5,7 @@ import { CHUTE_TIP_KEY, COMBO_TIP_KEYS, NATIVE_TIP_KEYS, SIEGE_TIP_KEYS, TUTORIA
 import { save } from "@/lib/storage";
 import { UI_SIZES, applyUiSize, readUiSize, writeUiSize, type UiSize } from "@/lib/layout";
 import { UnlockLink } from "@/components/catalogueLink";
+import { setWaveBar, waveBarOn } from "@/components/ComingUpBar";
 import { MenuButton, type GameApi } from "@/components/ui";
 
 /** One Settings panel for the Title and the pause menu. */
@@ -24,6 +25,7 @@ export function SettingsPanel({
   onGesture: () => void;
 }) {
   const [tipsReset, setTipsReset] = useState(false);
+  const [waveBar, setWaveBarUi] = useState(waveBarOn);
   const [uiSize, setUiSize] = useState<UiSize>(() => readUiSize(typeof localStorage === "undefined" ? null : localStorage));
   const speed = api.world.hud.speed;
   const reduced = api.world.reduced;
@@ -75,6 +77,15 @@ export function SettingsPanel({
           ))}
         </div>
       </div>
+      <MenuButton
+        onClick={() => {
+          onGesture();
+          setWaveBar(!waveBar);
+          setWaveBarUi(!waveBar);
+        }}
+      >
+        {waveBar ? "Coming up bar: on" : "Coming up bar: off"}
+      </MenuButton>
       <MenuButton
         onClick={() => {
           onGesture();

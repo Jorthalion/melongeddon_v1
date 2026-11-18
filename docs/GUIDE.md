@@ -229,6 +229,12 @@ After the guide, the next waves show short tips. Bring them back any time with *
 
 - **Header (top):** seeds, stacks, absurdity, game speed (− and +), pause, the menu button (☰), and sound.
 - **Board (middle):** the carpet, your cannons and the fruit. Tap the floor to build; tap a cannon to select it.
+- **Coming up (a strip over the board):** between waves, what the next wave brings; during a wave, what's still to come.
+  - **Chips:** one per group of identical enemies, in the order they walk in: its picture, how many (×6), and small badges for its marks (shell, husk, damp, split, raw, pit, gall, seeds, ↩ chute, drop, box, room, mini). Bosses have a gold crown. Hover or tap a chip for the enemy card: what it is, its health, and what beats it.
+  - **Threat pips (1–5):** how hard the wave is against tonight's other waves (Endless: the next ten), from its enemies' health and speed, with an arrow when it's tougher (↑) or a breather (↓) after the last.
+  - **Warnings:** up to three, such as Boss, Up the chute, Paratroopers or Box Cats, and short notes for what happens mid-wave (split pumpkins cracking, Parcels dropping corn).
+  - **"Your towers don't answer…":** between waves, a gentle line when nothing you've built answers something in the wave (husks and no splash or fire, shells and no Peeler, and so on). It uses the same list as the enemy card's "Beaten by".
+  - **Settings › Coming up bar** turns it off.
 - **Footer (bottom):**
   - **Start wave** (between waves) or the wave progress bar (during a wave).
   - **Build tabs:** Damage, Control, Support, your Keeper tab and Trick.
