@@ -16,6 +16,7 @@ import {
   tintedSprite,
   type Body,
 } from "./drawStatus.ts";
+import { TOWER_ANIM, TOWER_FRAME, TOWER_SHEETS } from "./towerAnims.ts";
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
 /** The picture for a Coming up chip: the enemy's own sprite (its look, as the board draws it). */
@@ -182,6 +183,65 @@ function getSprites() {
     sprites[name] = img;
   }
   return sprites;
+}
+
+let strips: Record<string, HTMLImageElement> | null = null;
+
+/** The towers' animation strips (made in Blender by scripts/animate-towers.py), loaded on first use. */
+function getStrips() {
+  if (strips) return strips;
+  if (typeof window === "undefined") return {};
+  strips = {};
+  for (const kind of Object.keys(TOWER_SHEETS)) {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = asset(`sprites/anim/${kind}.webp`);
+    strips[kind] = img;
+  }
+  return strips;
+}
+
+/** How a tower is moving right now: seconds since its last shot, and where it is in its idle loop. Drawing only. */
+type TowerMotion = { since: number; phase: number };
+const NO_MOTION: TowerMotion = { since: Infinity, phase: 0 };
+const shotSeen = new WeakMap<object, { cd: number; at: number }>();
+
+/** A shot shows as its cooldown jumping back up; remember when (on the world's clock). */
+function motionOf(tower: { id: number; cd: number }, now: number): TowerMotion {
+  const seen = shotSeen.get(tower);
+  if (!seen) shotSeen.set(tower, { cd: tower.cd, at: -Infinity });
+  else {
+    if (tower.cd > seen.cd + 0.01) seen.at = now;
+    seen.cd = tower.cd;
+  }
+  return { since: now - (shotSeen.get(tower)?.at ?? -Infinity), phase: (tower.id * 5) % TOWER_ANIM.idle };
+}
+
+/** How far a turning barrel is kicked back along its aim (px), just after a shot. */
+function recoil(motion: TowerMotion) {
+  const RECOIL = 0.16;
+  return motion.since < RECOIL ? (1 - motion.since / RECOIL) * 3.5 : 0;
+}
+
+/**
+ * A tower's animated painting: the strip's current frame, scaled so the painting inside it fits maxW × maxH
+ * with its base at baseY (as the still painting would be drawn). False if the strip isn't there.
+ */
+function drawStrip(ctx: CanvasRenderingContext2D, kind: TowerKind, painting: HTMLImageElement, x: number, baseY: number, maxW: number, maxH: number, now: number, motion: TowerMotion) {
+  const sheet = TOWER_SHEETS[kind];
+  const strip = sheet && getStrips()[kind];
+  if (!sheet || !ready(strip)) return false;
+  const ar = painting.naturalWidth / painting.naturalHeight;
+  const h = Math.min(maxH, maxW / ar);
+  const s = h / TOWER_FRAME.px;
+  const frame =
+    motion.since < TOWER_ANIM.fire / TOWER_ANIM.fireFps
+      ? TOWER_ANIM.idle + Math.min(TOWER_ANIM.fire - 1, Math.floor(motion.since * TOWER_ANIM.fireFps))
+      : Math.floor(now * TOWER_ANIM.idleFps + motion.phase) % TOWER_ANIM.idle;
+  const w = sheet.w * s;
+  const fh = sheet.h * s;
+  ctx.drawImage(strip, frame * sheet.w, 0, sheet.w, sheet.h, x - w / 2, baseY + TOWER_FRAME.foot * TOWER_FRAME.px * s - fh, w, fh);
+  return true;
 }
 
 /** True once every sprite has loaded (or failed), so a still picture can stop redrawing. */
@@ -775,7 +835,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.globalAlpha = 0.78;
       ctx.shadowColor = "rgba(111,198,239,0.95)";
       ctx.shadowBlur = 12;
-      drawTower(ctx, t.x, t.y, t.copy.aim, t.copy.kind, t.copy.orange, t.id === world.hud.selected, art, world.anim);
+      drawTower(ctx, t.x, t.y, t.copy.aim, t.copy.kind, t.copy.orange, t.id === world.hud.selected, art, world.anim, motionOf(t.copy, world.anim));
       ctx.restore();
       // Memec's eye, and the tag.
       ctx.fillStyle = "rgba(20,12,16,0.9)";
@@ -804,7 +864,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.restore();
       continue;
     }
-    drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim);
+    drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim, motionOf(t, world.anim));
     // The Pamphlet: a lit fuse while armed; a shockwave down its straight when it goes off.
     if (t.kind === "pamphlet") {
       if (t.armed !== false) {
@@ -2294,6 +2354,7 @@ function drawPaintedCannon(
   kind: TowerKind,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
   t: number,
+  motion: TowerMotion = NO_MOTION,
 ): boolean {
   const spec = PAINTED_CANNON[kind];
   const img = art[kind as SpriteName];
@@ -2315,15 +2376,20 @@ function drawPaintedCannon(
   ctx.fill();
   if (spec.aim) {
     blit(ctx, art.base!, x, y + 6, 46);
-    blitFit(ctx, img, x, y - 2, spec.w, spec.h, aim);
+    const kick = recoil(motion);
+    blitFit(ctx, img, x - Math.cos(aim) * kick, y - 2 - Math.sin(aim) * kick, spec.w, spec.h, aim);
     return true;
   }
   if (kind === "scope") {
     drawScopeArt(ctx, img, x, y + 18 - spec.h / 2, spec.w, spec.h, aim);
     return true;
   }
-  const sway = kind === "bell" ? Math.sin(t * 2) * 0.04 : 0;
-  blitFit(ctx, img, x, y + 18 - spec.h / 2, spec.w, spec.h, sway);
+  // Animated (Blender strips) when they've loaded; the still painting until then.
+  const h = Math.min(spec.h, spec.w / (img.naturalWidth / img.naturalHeight));
+  if (!drawStrip(ctx, kind, img, x, y + 18 - spec.h / 2 + h / 2, spec.w, spec.h, t, motion)) {
+    const sway = kind === "bell" ? Math.sin(t * 2) * 0.04 : 0;
+    blitFit(ctx, img, x, y + 18 - spec.h / 2, spec.w, spec.h, sway);
+  }
   if (kind === "hive") {
     ctx.fillStyle = "#1b1410";
     for (let i = 0; i < 3; i++) {
@@ -2366,9 +2432,10 @@ function drawTower(
   selected: boolean,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
   t = 0,
+  motion: TowerMotion = NO_MOTION,
 ) {
   if (DRAWN_KINDS.includes(kind)) {
-    if (!drawPaintedCannon(ctx, x, y, aim, kind, art, t)) drawCannon(ctx, x, y, aim, kind, t);
+    if (!drawPaintedCannon(ctx, x, y, aim, kind, art, t, motion)) drawCannon(ctx, x, y, aim, kind, t);
     if (selected) ring(ctx, x, y);
     return;
   }
@@ -2387,7 +2454,9 @@ function drawTower(
     ctx.beginPath();
     ctx.ellipse(x, y + 18, 16, 6, 0, 0, Math.PI * 2);
     ctx.fill();
-    if (ready(art.still)) blit(ctx, art.still, x, y + 2, 52);
+    if (ready(art.still)) {
+      if (!drawStrip(ctx, "still", art.still, x, y + 28, Infinity, 52, t, motion)) blit(ctx, art.still, x, y + 2, 52);
+    }
     else if (ready(base)) {
       blit(ctx, base, x, y + 8, 40);
       ctx.fillStyle = "#6a4a8a";
@@ -2413,7 +2482,8 @@ function drawTower(
     ctx.fill();
     blit(ctx, base, x, y + 6, 46);
     const tall = kind === "fire" || kind === "freeze" ? 32 : kind === "mortar" ? 34 : 28;
-    blit(ctx, barrel, x, y - 2, tall, aim);
+    const kick = recoil(motion);
+    blit(ctx, barrel, x - Math.cos(aim) * kick, y - 2 - Math.sin(aim) * kick, tall, aim);
   } else {
     ctx.save();
     ctx.translate(x, y);

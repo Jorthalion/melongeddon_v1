@@ -14,6 +14,7 @@ npm run dev      # http://localhost:5173
 npm run build    # typecheck + production build into dist/
 npm test         # engine tests
 npm run sim      # balance simulator -> sim-results/report.md (add -- --seeds 10 for more runs)
+npm run animate  # tower animations via Blender (add -- trebuchet still for just those)
 ```
 
 ## Publishing
@@ -232,6 +233,7 @@ All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `worl
 - `src/lib/saves.ts` – save version and migrations (runs at startup)
 - `public/sprites/` – art
 - `scripts/sim.ts`, `scripts/sim-core.ts` – headless bot runs for balance testing
+- `scripts/animate-towers.py`, `scripts/blender/tower_rig.py` – tower animations. Blender bends each still tower painting on a plane pinned at its base and renders a 16-frame idle loop (sway and breath) and a 6-frame shot (duck, punch up, settle); the driver packs them into `public/sprites/anim/<kind>.webp` and writes `src/game/towerAnims.ts`. `draw.ts` plays them (a shot is a tower's cooldown jumping back up; each tower starts its loop at its own point) and falls back to the still painting while they load. Turning cannons recoil in code instead. Needs Python with Pillow and Blender 4+ (found on PATH, as the Microsoft Store's `blender-launcher`, or set `BLENDER` to `blender.exe`).
 - `tests/` – engine tests (`node --test`)
 - `docs/balance-baseline.md` – simulator report before any rebalancing
 - `docs/balance-current.md` – simulator report for the current numbers
