@@ -8,7 +8,7 @@ import {
   nearestOnCarpet, gateStrip,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, fittingName, ballistaPierce,
-  NATIVES, NATIVE_INFO, waveQueue, assignNatives, type NativeId, type QueueItem,
+  NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
   SIEGE, type SiegeVariant,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
@@ -314,7 +314,8 @@ export function targetScore(mode: TargetMode, tower: Tower, e: Enemy, prog: numb
 }
 
 /** Towers that work on an area rather than aiming a shot: they can see a Box Cat (and their puddles, chords and stamps knock the box off). */
-const BOX_SEERS: TowerKind[] = ["still", "organ", "bell", "stomp", "lionblade", "honey", "bombard", "geese"];
+// The Cauldron and the Quack-Liber lob area shots (a puddle, a rocket's burst), so they see one too.
+export const BOX_SEERS: TowerKind[] = ["still", "organ", "bell", "stomp", "lionblade", "honey", "bombard", "geese", "cauldron", "quackliber"];
 
 interface Tower {
   id: number;
@@ -2173,7 +2174,9 @@ export function createWorld(
   };
 
   const tune = () => {
-    const d = DIFFICULTIES.find((x) => x.id === world.hud.difficulty) ?? DIFFICULTIES[1];
+    const found = DIFFICULTIES.find((x) => x.id === world.hud.difficulty) ?? DIFFICULTIES[1];
+    // A room may slow its fruit on a difficulty (BOARDS[map].pace).
+    const d = { ...found, speed: found.speed * (BOARDS[world.hud.map].pace?.[found.id] ?? 1) };
     // Mynxi's tutorial night: much softer, slower fruit, whatever the difficulty says.
     return world.hud.tutorial ? { ...d, hp: d.hp * BALANCE.tutorialHp, speed: d.speed * BALANCE.tutorialSpeed } : d;
   };
@@ -2535,7 +2538,8 @@ export function createWorld(
     if (slip("karl") && index === SLIP_VALUES.karlWave) extra.push({ kind: "karl", count: 1, every: 0.4 });
     const spec = waveAt(index, world.hud.night);
     // The room's own fruit take the place of some ordinary ones.
-    return assignNatives(waveQueue([...spec.spawns, ...extra]), BOARDS[world.hud.map].natives, index + 1, world.hud.difficulty);
+    const spawns = trimSpawns(spec.spawns, BOARDS[world.hud.map].trim, world.hud.difficulty, index + 1);
+    return assignNatives(waveQueue([...spawns, ...extra]), BOARDS[world.hud.map].natives, index + 1, world.hud.difficulty);
   };
   const buildQueue = () => {
     queue = queueFor(cleared);
@@ -4028,6 +4032,8 @@ export function createWorld(
         credit = e.wormBy ?? null;
         hurt(e, null, (e.wormDps ?? 0) * dt, 0, "worm");
       }
+      // Doused fruit is still steaming: no fire damage, but a growth bed or vine doesn't heal it either.
+      const steaming = COMBO.on && (e.doused ?? 0) > 0;
       if (COMBO.on && e.hp > 0) {
         if ((e.doused ?? 0) > 0) {
           // Fire, then ice: its fire is out for a moment, even standing in a patch.
@@ -4077,15 +4083,15 @@ export function createWorld(
           } else e.markCd = 0;
         }
       }
-      // A growth bed (or a Creeping Squash's vine) heals whatever stands in it, unless it's burning. Fire burns a vine away.
+      // A growth bed (or a Creeping Squash's vine) heals whatever stands in it, unless it's burning (or doused: still steaming). Fire burns a vine away.
       const vine = world.vines.has(tileOf(e));
       if (burn && vine) world.vines.delete(tileOf(e));
       const onBed = floorAt(e)?.kind === "bed" || (vine && !burn);
-      if (e.hp > 0 && !burn && e.hp < e.maxHp && onBed) {
+      if (e.hp > 0 && !burn && !steaming && e.hp < e.maxHp && onBed) {
         e.hp = Math.min(e.maxHp, e.hp + e.maxHp * FLOOR.bedHeal * dt);
         e.healT = STATUS_LOOK.healGlow;
       }
-      if (e.native === "sprout" && e.hp > 0 && !burn && onBed) {
+      if (e.native === "sprout" && e.hp > 0 && !burn && !steaming && onBed) {
         e.bedTime = (e.bedTime ?? 0) + dt;
         if (e.bedTime >= NATIVES.sproutGrow) growSprout(e);
       }

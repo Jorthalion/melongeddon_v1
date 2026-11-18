@@ -124,6 +124,18 @@ test("a growth bed heals a hurt fruit, but not while it burns", () => {
   assert.ok(e.hp < e.maxHp / 2, "burning: no healing, and it hurts");
 });
 
+test("a doused fruit is still steaming: no fire, but the bed doesn't heal it", () => {
+  const api = night("greenhouse");
+  const e = api.world.enemies[0];
+  api.world.enemies = [e];
+  Object.assign(e, { x: center(7), y: center(2), wp: 3, freeze: 99, doused: 1 });
+  e.hp = e.maxHp / 2;
+  for (let i = 0; i < 30; i++) stepWorld(api.world, 1 / 60);
+  assert.equal(e.hp, e.maxHp / 2, "steaming: neither burnt nor healed");
+  for (let i = 0; i < 60; i++) stepWorld(api.world, 1 / 60);
+  assert.ok(e.hp > e.maxHp / 2, "the steam clears, then the bed heals");
+});
+
 test("off a bed nothing heals; the Greenhouse is damp, so burning does 45% less", () => {
   const damp = night("greenhouse");
   const dry = night("stacks");

@@ -71,15 +71,15 @@ const popAtDoor = (api: Api) => () => {
 
 const KIND_OF: Record<string, EnemyKind> = { "The melons": "melon", "The corn": "corn", "The pumpkins": "pumpkin", Karl: "karl" };
 
-test("he starts poorer: 8 stacks and 100 seeds", () => {
-  assert.deepEqual(KEEPER_START.scholar, { seeds: 100, lives: 8 });
+test("he starts with 10 stacks and 150 seeds", () => {
+  assert.deepEqual(KEEPER_START.scholar, { seeds: 150, lives: 10 });
   const api = createWorld(() => {}, { keepers: emptyProgress() });
   api.openSetup();
   api.chooseHero("scholar");
   api.beginNight();
-  assert.equal(api.world.hud.seeds, 100);
-  assert.equal(api.world.hud.lives, 8);
-  assert.equal(api.world.hud.maxLives, 8);
+  assert.equal(api.world.hud.seeds, 150);
+  assert.equal(api.world.hud.lives, 10);
+  assert.equal(api.world.hud.maxLives, 10);
 });
 
 test("his shelf has three upgrades and the Doctor's pick, a real fourth one; Mynxi's has three", () => {
@@ -137,7 +137,7 @@ test("a Lectern doesn't change a cannon's damage", () => {
   assert.equal(api.statsOf(melon.id)!.dmg, plain, "nor after a wave");
 });
 
-test("a fruit that got 75% of the way slows its kind next wave at 0.85, and not the wave after", () => {
+test("a fruit that got 75% of the way slows its kind next wave at CANNON.lectureSlow, and not the wave after", () => {
   const api = start();
   build(api, "lectern");
   api.dismissSelection();
@@ -168,7 +168,7 @@ test("a fruit that got 75% of the way slows its kind next wave at 0.85, and not 
     });
     return { share, other };
   };
-  // Next wave: that kind walks at 0.85. (Sell the lectern first, so it can't take a new note.)
+  // Next wave: that kind walks at CANNON.lectureSlow. (Sell the lectern first, so it can't take a new note.)
   const lec = api.world.towers.find((t) => t.kind === "lectern")!;
   api.pointer(lec.x, lec.y, "down");
   api.sellSelected();

@@ -39,7 +39,7 @@ export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: s
 export const KEEPER_START: Partial<Record<HeroId, { seeds: number; lives: number }>> = {
   elf: { seeds: 150, lives: 12 },
   ooze: { seeds: 140, lives: 13 },
-  scholar: { seeds: 100, lives: 8 },
+  scholar: { seeds: 150, lives: 10 },
   quack: { seeds: 150, lives: 11 },
   asser: { seeds: 100, lives: 25 },
 };
@@ -766,7 +766,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   lectern: {
     name: "History Lectern",
     blurb: "The Doctor's own. No shot, and it helps no cannon. After each wave it notes which fruit got furthest along the carpet; next wave that kind walks slower. If nothing got far, it has nothing to add.",
-    cost: 65,
+    cost: 50,
     role: "Study",
   },
   quackliber: {
@@ -981,7 +981,7 @@ export const CANNON = {
   lecternRadius: 80,
   /** History Lectern: a fruit this far along the carpet (or leaked) gets noted; its kind walks at this speed next wave. */
   lectureAt: 0.75,
-  lectureSlow: 0.85,
+  lectureSlow: 0.75,
   /** Dr. Samodovol's false book: next combat his cannons deal (1 - this) damage and take (1 + this) time between shots. */
   /** Quack-Liber: rocket burst radius (px) and share of the hit it deals there, and how long what it hits stays slowed (s). */
   quackSplash: 44,
@@ -1345,6 +1345,13 @@ export interface Board {
   dark?: boolean;
   /** Enemy health multiplier on this map (1 if unset). */
   hp?: number;
+  /**
+   * Fewer fruit on some difficulties: from wave `from` (1-based), every group of two or more has its count ×
+   * `count` (rounded, at least 1). Bosses and single fruit are untouched. See `trimSpawns`.
+   */
+  trim?: Partial<Record<Difficulty, { from: number; count: number }>>;
+  /** Slower fruit on some difficulties: their speed × this, on every wave (bosses too). Unlike `trim`, it costs no seeds. */
+  pace?: Partial<Record<Difficulty, number>>;
   /** Board size in cells (default COLS x ROWS). Bigger boards draw smaller so they still fit the screen. */
   cols?: number;
   rows?: number;
@@ -1594,6 +1601,8 @@ export const BOARDS: Record<MapId, Board> = {
     rows: 14,
     // Nine bed tiles on a long walk heal a lot: slightly weaker fruit keep it about as hard as the Stacks (tuned with the simulator).
     hp: 0.85,
+    // Story: three-quarters of the fruit from wave 9 (the beds made it the hardest room on Story, 71%).
+    trim: { easy: { from: 9, count: 0.75 } },
     damp: true,
     carpet: "path",
     // The middle drop is a garden path running diagonally.
@@ -1682,6 +1691,9 @@ export const BOARDS: Record<MapId, Board> = {
     blurb: "The library's back courtyard: flagstones, hedges and a dry fountain, with the carpet runner laid across it to the back door. Geese and cats, no fruit.",
     cols: 22,
     rows: 14,
+    // Story walks at 80% (fewer animals cost seeds and made the finale harder); Normal has fewer from wave 6. Was Story 82%, Normal 53%.
+    pace: { easy: 0.8 },
+    trim: { normal: { from: 6, count: 0.85 } },
     carpet: "path",
     // In past the hedges, down and back up beside the fountain, along the top and down to the back door. Two garden paths run at 45°.
     corners: [
@@ -1919,6 +1931,13 @@ export interface QueueItem {
 }
 
 /** A wave's spawns as one queue, in spawn order. */
+/** A board's `trim` for this difficulty, applied to a wave's groups (wave is 1-based). */
+export function trimSpawns(spawns: SpawnSpec[], trim: Board["trim"], difficulty: Difficulty, wave: number): SpawnSpec[] {
+  const t = trim?.[difficulty];
+  if (!t || wave < t.from) return spawns;
+  return spawns.map((g) => (g.count >= 2 ? { ...g, count: Math.max(1, Math.round(g.count * t.count)) } : g));
+}
+
 export function waveQueue(spawns: SpawnSpec[]): QueueItem[] {
   const items: QueueItem[] = [];
   let t = 0.35;
@@ -1988,8 +2007,8 @@ export const WAVES: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> 
     name: "Rind rush",
     blurb: "The first hit only cracks the shell. Hold them, then hit them again.",
     spawns: [
-      { kind: "melon", count: 6, every: 0.75, guard: "rind" },
-      { kind: "corn", count: 4, every: 0.6 },
+      { kind: "melon", count: 5, every: 0.9, guard: "rind" },
+      { kind: "corn", count: 4, every: 0.65 },
     ],
   },
   {
@@ -2834,22 +2853,24 @@ export function waveAt(
   return ACT_THREE[Math.min(act - waves.length, ACT_THREE.length - 1)];
 }
 
-/** Midnight, act three (waves 16 to 21): one lesson each, at wave-15 health. */
+/** Midnight, act three (waves 16 to 21): one lesson each leads, with a climbing mix behind it (storyHpStep keeps growing). */
 const ACT_THREE: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> = [
   {
     name: "Stone fruit",
     blurb: "Pits in the crowd. Splash, fire and puddles roll off them. A direct shot is what cracks a pit.",
     spawns: [
-      { kind: "melon", count: 6, every: 0.55 },
+      { kind: "melon", count: 7, every: 0.5 },
       { kind: "melon", count: 4, every: 0.7, pit: true },
+      { kind: "corn", count: 5, every: 0.4 },
     ],
   },
   {
     name: "The aisle",
     blurb: "Ordinary fruit. The stone ones are not in this wave.",
     spawns: [
-      { kind: "corn", count: 8, every: 0.34, guard: "husk" },
-      { kind: "melon", count: 5, every: 0.5, guard: "rind" },
+      { kind: "corn", count: 9, every: 0.34, guard: "husk" },
+      { kind: "melon", count: 6, every: 0.5, guard: "rind" },
+      { kind: "pumpkin", count: 3, every: 0.9, tough: 1.2 },
     ],
   },
   {
@@ -2857,15 +2878,17 @@ const ACT_THREE: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> = [
     blurb: "A small thing rides behind each pumpkin and keeps it alive. Shoot the rider, not the front.",
     spawns: [
       { kind: "pumpkin", count: 4, every: 1, gall: true },
-      { kind: "corn", count: 4, every: 0.45 },
+      { kind: "corn", count: 6, every: 0.42 },
+      { kind: "melon", count: 5, every: 0.5, guard: "rind" },
     ],
   },
   {
     name: "Damp again",
     blurb: "No riders. These pumpkins are wet, and fire will not do the work.",
     spawns: [
-      { kind: "pumpkin", count: 4, every: 0.9, guard: "damp" },
-      { kind: "melon", count: 6, every: 0.48 },
+      { kind: "pumpkin", count: 5, every: 0.85, guard: "damp" },
+      { kind: "melon", count: 7, every: 0.45 },
+      { kind: "corn", count: 6, every: 0.36, guard: "husk" },
     ],
   },
   {
@@ -2873,7 +2896,9 @@ const ACT_THREE: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> = [
     blurb: "Fast, and frail. One that reaches the door takes seeds. It does not cost a stack.",
     spawns: [
       { kind: "corn", count: 5, every: 0.7, borrower: true },
-      { kind: "melon", count: 6, every: 0.5 },
+      { kind: "melon", count: 8, every: 0.45 },
+      { kind: "pumpkin", count: 4, every: 0.8, tough: 1.3 },
+      { kind: "melon", count: 3, every: 0.7, guard: "rind" },
     ],
   },
   {
@@ -2909,6 +2934,8 @@ export const BALANCE = {
   miniBossHp: 2.5,
   /** Story nights: health steps per wave after wave 6 (0.375 = the 15th wave is as tough as the old 10th). */
   storyHpPace: 0.375,
+  /** Midnight's act three (waves 16-21): health steps per wave past 15, so the act climbs into Karl. */
+  actThreeHpPace: 0.3,
   /** Endless only: enemy health growth per wave after wave 10 (1.15 = +15% a wave). */
   endlessGrowth: 1.15,
   /** Act three: a pit takes this share of splash, burn and pulp damage; a gall heals its host this share of max health a second; a borrower at the door takes this many seeds. */
@@ -2945,12 +2972,13 @@ export function softenSlow(speed: number) {
 
 /**
  * Story health. Act one (waves 1-6) climbs the curve as written; each later wave climbs
- * BALANCE.storyHpPace of a step, up to wave 15. From there it holds: Midnight's act three is
- * not thicker just because the night is longer.
+ * BALANCE.storyHpPace of a step, up to wave 15. Midnight's act three (waves 16-21, the only
+ * story waves past 15) keeps climbing, slower: BALANCE.actThreeHpPace of a step a wave.
  */
 export function storyHpStep(cleared: number) {
   const c = Math.min(cleared, WAVE_COUNT - 1);
-  return c <= 6 ? c : 6 + (c - 6) * BALANCE.storyHpPace;
+  const late = Math.max(0, cleared - (WAVE_COUNT - 1));
+  return (c <= 6 ? c : 6 + (c - 6) * BALANCE.storyHpPace) + late * BALANCE.actThreeHpPace;
 }
 
 /** Health multiplier for enemies spawned after `cleared` waves. */

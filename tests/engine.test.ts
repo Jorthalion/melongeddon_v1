@@ -135,14 +135,17 @@ test("every wave on every night is defined and uses known enemies", () => {
     }
 });
 
-test("Midnight is 21 waves, the Overflow 15, and health holds from wave 15", () => {
+test("Midnight is 21 waves, the Overflow 15, and act three climbs slower than act two", () => {
   assert.equal(nightLength("midnight"), 21);
   assert.equal(MIDNIGHT_WAVES, 21);
   assert.equal(nightLength("overflow"), WAVE_COUNT);
   assert.equal(nightLength("endless"), 0);
-  assert.equal(storyHpStep(14), storyHpStep(18));
-  assert.equal(storyHpStep(14), storyHpStep(20));
   assert.ok(storyHpStep(13) < storyHpStep(14), "still climbing up to wave 15");
+  const actTwo = storyHpStep(14) - storyHpStep(13);
+  for (let c = 15; c <= 20; c++) {
+    const step = storyHpStep(c) - storyHpStep(c - 1);
+    assert.ok(step > 0 && step < actTwo, `act three, wave ${c + 1}: ${step}`);
+  }
 });
 
 test("act three: one lesson per wave, and none of it on the Overflow", () => {
