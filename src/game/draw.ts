@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, type OathId, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
@@ -1766,20 +1766,34 @@ function drawReach(
   const points = world.points;
   const whole = range >= GLOBAL_RANGE;
   ctx.save();
-  if (shape.mode !== "none" && !whole) {
+  // The circle it aims with (the Orrery's reaches past its orbit; the Gourd Gate has none, only its strip).
+  if (shape.mode !== "none" && shape.mode !== "gate" && !whole) {
     ctx.beginPath();
-    ctx.arc(x, y, range, 0, Math.PI * 2);
+    ctx.arc(x, y, shape.outer, 0, Math.PI * 2);
     ctx.strokeStyle = "rgba(198,161,90,0.22)";
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 5]);
     ctx.stroke();
     ctx.setLineDash([]);
   }
+  // Hits that land outside that circle (the Serpent Quill's line, the Foot of the Law's sole): a fainter one.
+  if (shape.beyond?.radius && !whole) {
+    ctx.beginPath();
+    ctx.arc(x, y, shape.beyond.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(198,161,90,0.13)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 7]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   let label = "";
-  if (shape.mode === "carpet" && points.length > 1) {
-    const reach = whole
-      ? { stretches: points.slice(1).map((p, i) => ({ x1: points[i].x, y1: points[i].y, x2: p.x, y2: p.y })), length: 0 }
-      : carpetInReach(points, x, y, range, shape.inner);
+  if ((shape.mode === "carpet" || shape.mode === "gate") && points.length > 1) {
+    const gate = shape.mode === "gate";
+    const reach = gate
+      ? gateStrip(points, x, y, world.hud.map === "overflow")
+      : whole
+        ? { stretches: points.slice(1).map((p, i) => ({ x1: points[i].x, y1: points[i].y, x2: p.x, y2: p.y })), length: 0 }
+        : carpetInReach(points, x, y, shape.outer, shape.inner);
     // Dim the carpet it can't reach...
     const round = isBand(world) ? CELL / 2 : 0;
     if (!whole) {
@@ -1829,7 +1843,14 @@ function drawReach(
         }
     }
     const tiles = Math.round((reach.length / CELL) * 2) / 2;
-    label = whole ? "Whole carpet" : tiles > 0 ? `${tiles} ${tiles === 1 ? "tile" : "tiles"} of carpet` : "No carpet in reach";
+    label = gate
+      ? "Holds fruit here"
+      : whole
+        ? "Whole carpet"
+        : tiles > 0
+          ? `${tiles} ${tiles === 1 ? "tile" : "tiles"} of carpet`
+          : "No carpet in reach";
+    if (shape.beyond && tiles > 0) label += ` · ${shape.beyond.note}`;
   }
   // Towers it helps: the Reading Lamp's reach, or the Quack-Liber's speed-up.
   const helps = shape.mode === "towers" ? range : shape.aura ? world.hud.quackAura : 0;

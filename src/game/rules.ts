@@ -2435,16 +2435,73 @@ export function carpetInReach(points: Array<{ x: number; y: number }>, x: number
 }
 
 /**
- * How to show a tower's reach. "carpet": the stretch of carpet it can hit (between `inner` and its range).
- * "towers": it helps towers, not fruit (Reading Lamp), so show the towers in reach. "none": nothing to show.
- * `aura` adds the towers a Quack-Liber speeds up.
+ * How to show a tower's reach. "carpet": the stretch of carpet it can hit (fruit centres between `inner` and
+ * `outer`; `outer` is its range except for the Orrery). "towers": it helps towers, not fruit (Reading Lamp), so show
+ * the towers in reach. "gate": the Gourd Gate holds fruit only on a short strip before the carpet point nearest it
+ * (see `gateStrip`). "none": nothing to show. `aura` adds the towers a Quack-Liber speeds up. `beyond` is for towers
+ * whose hits land outside the circle they aim with: a second, fainter circle (`radius`) and/or a short note.
  */
-export function reachShape(kind: TowerKind, range: number): { mode: "carpet" | "towers" | "none"; inner: number; aura: boolean } {
-  if (range <= 0 || kind === "compost" || kind === "lectern") return { mode: "none", inner: 0, aura: false };
-  if (kind === "lantern") return { mode: "towers", inner: 0, aura: false };
-  // Orrery planets hit fruit within about a fruit's width of their orbit, not inside it.
-  if (kind === "orrery") return { mode: "carpet", inner: Math.max(0, range - CANNON.orreryReach), aura: false };
-  return { mode: "carpet", inner: 0, aura: kind === "quackliber" };
+export function reachShape(
+  kind: TowerKind,
+  range: number,
+): { mode: "carpet" | "towers" | "gate" | "none"; inner: number; outer: number; aura: boolean; beyond?: { radius?: number; note: string } } {
+  if (range <= 0 || kind === "compost" || kind === "lectern") return { mode: "none", inner: 0, outer: 0, aura: false };
+  if (kind === "lantern") return { mode: "towers", inner: 0, outer: range, aura: false };
+  if (kind === "gourdgate") return { mode: "gate", inner: 0, outer: range, aura: false };
+  // Orrery planets touch a fruit within about a fruit's width of their orbit, on either side of it.
+  if (kind === "orrery") return { mode: "carpet", inner: Math.max(0, range - CANNON.orreryReach), outer: range + CANNON.orreryReach, aura: false };
+  const shape = { mode: "carpet" as const, inner: 0, outer: range, aura: kind === "quackliber" };
+  if (kind === "quill") return { ...shape, beyond: { radius: Math.round(range * CANNON.quillReach), note: "writes on past it" } };
+  if (kind === "stomp") return { ...shape, beyond: { radius: range + CANNON.stompRadius, note: "the foot lands wider" } };
+  if (kind === "press") return { ...shape, beyond: { note: "the sheet slides back past it" } };
+  if (kind === "globe") return { ...shape, beyond: { note: "it rolls back to the entrance" } };
+  if (kind === "plane") return { ...shape, beyond: { note: "the plane chases anywhere" } };
+  return shape;
+}
+
+/** The point on the carpet's centre line nearest (x, y), with how far along the carpet it is and the carpet's length. */
+export function nearestOnCarpet(points: Array<{ x: number; y: number }>, x: number, y: number) {
+  let best = { x, y, along: 0, d: Infinity };
+  let run = 0;
+  for (let k = 1; k < points.length; k++) {
+    const a = points[k - 1];
+    const b = points[k];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * (b.x - a.x) + (y - a.y) * (b.y - a.y)) / (len * len)));
+    const px = a.x + (b.x - a.x) * t;
+    const py = a.y + (b.y - a.y) * t;
+    const d = Math.hypot(px - x, py - y);
+    if (d < best.d) best = { x: px, y: py, along: run + len * t, d };
+    run += len;
+  }
+  return { x: best.x, y: best.y, along: best.along, total: run };
+}
+
+/** The stretch of the carpet's centre line from `from` to `to` px along it, as stretches. */
+export function carpetSlice(points: Array<{ x: number; y: number }>, from: number, to: number): Stretch[] {
+  const out: Stretch[] = [];
+  let run = 0;
+  for (let k = 1; k < points.length; k++) {
+    const a = points[k - 1];
+    const b = points[k];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const t0 = Math.max(0, (from - run) / (len || 1));
+    const t1 = Math.min(1, (to - run) / (len || 1));
+    if (len > 0 && t1 > t0) out.push({ x1: a.x + (b.x - a.x) * t0, y1: a.y + (b.y - a.y) * t0, x2: a.x + (b.x - a.x) * t1, y2: a.y + (b.y - a.y) * t1 });
+    run += len;
+  }
+  return out;
+}
+
+/**
+ * Where a Gourd Gate at (x, y) works: its portcullis drops on the carpet point nearest it, and it holds fruit within
+ * `CANNON.gateBand` before that point (`chute`: also just past it, for fruit walking the carpet backwards).
+ */
+export function gateStrip(points: Array<{ x: number; y: number }>, x: number, y: number, chute = false) {
+  const spot = nearestOnCarpet(points, x, y);
+  const stretches = carpetSlice(points, spot.along - CANNON.gateBand, spot.along + (chute ? CANNON.gateBand : 0));
+  const length = stretches.reduce((n, s) => n + Math.hypot(s.x2 - s.x1, s.y2 - s.y1), 0);
+  return { spot, stretches, length };
 }
 
 /** Midnight has a third act: six more waves after Unchaperoned. */

@@ -5,6 +5,7 @@ import {
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
+  nearestOnCarpet, gateStrip,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile,
   NATIVES, NATIVE_INFO, waveQueue, assignNatives, type NativeId, type QueueItem,
@@ -1900,8 +1901,9 @@ export function createWorld(
   };
   /** The Archive is dark: see statsFor. */
   const dark = () => Boolean(BOARDS[world.hud.map].dark);
+  /** A kind's reach with no tile in mind: its back-room fittings (every new one gets them), the room's dark, no lamp. */
   const rangeFor = (kind: TowerKind) => {
-    const range = withPerks(kind, towerReadout(world.hud.hero, kind, [], world.hud.upgrades)).range;
+    const range = withPerks(kind, towerReadout(world.hud.hero, kind, world.hud.fitted[kind] ?? [], world.hud.upgrades)).range;
     if (!dark() || PASSIVE.includes(kind) || range >= GLOBAL_RANGE) return range;
     return Math.round(range * BALANCE.archiveDark);
   };
@@ -1920,7 +1922,23 @@ export function createWorld(
     isSignature(kind) &&
     (!own(kind) || world.towers.filter((t) => t.kind === kind).length >= 1 + (ownSignature(kind) ? fx.sigExtra : 0));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
-  const towerRange = (tower: Tower) => statsFor(tower).range;
+  /** What a tower reaches: a Copycat reaches what its copy does. */
+  const towerRange = (tower: Tower) => statsFor(tower.kind === "copycat" && tower.copy ? tower.copy : tower).range;
+  /**
+   * The reach a `kind` built on tile (c, r) would have: the same numbers as once it's built (its fittings, any
+   * Reading Lamp in reach, the Archive's dark), so the placing preview shows what it will really hit.
+   */
+  const rangeAt = (kind: TowerKind, c: number, r: number) => {
+    const p = cellCenter(c, r);
+    const ghost: Tower = { id: -1, c, r, x: p.x, y: p.y, cd: 0, aim: 0, orange: false, kind, mods: [...(world.hud.fitted[kind] ?? [])], paid: 0 };
+    return towerRange(ghost);
+  };
+  /** Keep the drawn reach current: the selected tower's (lamps, upgrades and copies change it), or the one being placed. */
+  const syncReach = () => {
+    const picked = world.hud.selected != null ? world.towers.find((t) => t.id === world.hud.selected) : undefined;
+    if (picked) world.hud.range = towerRange(picked);
+    else if (world.hover) world.hud.range = world.hud.placeRange = rangeAt(world.hud.build, world.hover.c, world.hover.r);
+  };
   const syncPrice = () => {
     world.hud.towerCost = priceNext();
     world.hud.placeRange = rangeFor(world.hud.build);
@@ -2521,21 +2539,8 @@ export function createWorld(
   /** Gourd Gate: the point on the carpet nearest the tower (worked out once). */
   const gateSpot = (tower: Tower) => {
     if (tower.gate) return tower.gate;
-    const pts = world.points;
-    let best = { x: tower.x, y: tower.y, along: 0, d: Infinity };
-    let run = 0;
-    for (let k = 1; k < pts.length; k++) {
-      const a = pts[k - 1];
-      const b = pts[k];
-      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-      const t = Math.max(0, Math.min(1, ((tower.x - a.x) * (b.x - a.x) + (tower.y - a.y) * (b.y - a.y)) / (len * len)));
-      const x = a.x + (b.x - a.x) * t;
-      const y = a.y + (b.y - a.y) * t;
-      const d = Math.hypot(x - tower.x, y - tower.y);
-      if (d < best.d) best = { x, y, along: run + len * t, d };
-      run += len;
-    }
-    tower.gate = { x: best.x, y: best.y, along: best.along, total: run };
+    // The same point the reach preview draws (gateStrip in rules.ts).
+    tower.gate = nearestOnCarpet(world.points, tower.x, tower.y);
     return tower.gate;
   };
   /** Gourd Gate: every fruit on the carpet just short of the portcullis (from whichever way it walks). */
@@ -3919,6 +3924,7 @@ export function createWorld(
         return;
       }
       world.hover = { c, r };
+      syncReach();
       const path = world.pathCells.has(`${c},${r}`);
       const verge = world.vergeCells.has(`${c},${r}`);
       const shelf = world.shelfCells.has(`${c},${r}`);
@@ -4688,8 +4694,10 @@ export function createWorld(
         world.towers.filter((t) => t !== tower && !PASSIVE.includes(t.kind) && (t.x - tower.x) ** 2 + (t.y - tower.y) ** 2 <= r * r).length;
       if (shape.mode === "none") return { tiles: null, towers: 0 };
       if (shape.mode === "towers") return { tiles: null, towers: near(range) };
+      if (shape.mode === "gate") return { tiles: Math.round((gateStrip(world.points, tower.x, tower.y, world.hud.map === "overflow").length / CELL) * 2) / 2, towers: 0 };
       if (range >= GLOBAL_RANGE) return { tiles: "all" as const, towers: 0 };
-      const { length } = carpetInReach(world.points, tower.x, tower.y, range, shape.inner);
+      const { length } = carpetInReach(world.points, tower.x, tower.y, shape.outer, shape.inner);
+
       return { tiles: Math.round((length / CELL) * 2) / 2, towers: shape.aura ? near(world.hud.quackAura) : 0 };
     },
     statsOf(towerId: number) {
@@ -4725,6 +4733,7 @@ export function createWorld(
       if (world.hud.heavyOpen) notify();
     }
     tickFx(dt);
+    if (world.hud.phase === "prep" || world.hud.phase === "combat") syncReach();
     if (world.hud.phase === "combat") tickCombat(dt);
   };
 
