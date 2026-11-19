@@ -78,3 +78,43 @@
     animation: none;
   }
 }
+
+/* Scrollbars: a brass rail on a dark, recessed track, to match the gilded frames (Catalogue, How to play,
+   Settings). Chromium and Safari use the ::-webkit-scrollbar parts; Chrome ignores those once
+   scrollbar-color is set, so the plain colours are only for browsers without them (Firefox). */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: linear-gradient(90deg, #0d090b, #1d1418 50%, #0d090b);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgb(226 199 138 / 0.18);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #8d6730, #e2c78a 45%, #b48a45 60%, #6e4f22);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgb(20 14 18 / 0.5);
+}
+::-webkit-scrollbar-thumb:horizontal {
+  background: linear-gradient(180deg, #8d6730, #e2c78a 45%, #b48a45 60%, #6e4f22);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #a77b3a, #f6e7b4 45%, #d0a65a 60%, #876029);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-color: #c6a15a #1d1418;
+    scrollbar-width: thin;
+  }
+}
