@@ -287,7 +287,7 @@ Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't 
 | Keeper | Starts with | Perk | Signature tower |
 |---|---|---|---|
 | **Mynxi**, Head librarian | 12 stacks, 150 seeds | Her first cannon costs 40; her cannons reach farther | **Card Catalogue** (90): long reach; every shot chains into two more fruit. Also **Reserve Desk** (30): see below |
-| **Vaelithra**, Potions division | 11 stacks, 120 seeds | Her shots slow what they hit. **New kinds cost more, the back room costs less:** the first tower of each kind she places in a night costs 20 seeds more (the second is the normal price, and selling the first doesn't bring the extra back), and her back-room upgrades cost 25, then 15 more per upgrade that kind has | **Bubbling Cauldron** (85, so 105 the first time): a potion puddle that slows and poisons. Also **Unstoppered** (150): see below |
+| **Vaelithra**, Potions division | 11 stacks, 120 seeds | Her shots make fruit **drowsy** (see [Slows](#slows-ice-drowsy-daze-and-puddles)). **New kinds cost more, the back room costs less:** the first tower of each kind she places in a night costs 20 seeds more (the second is the normal price, and selling the first doesn't bring the extra back), and her back-room upgrades cost 25, then 15 more per upgrade that kind has | **Bubbling Cauldron** (85, so 105 the first time): a potion puddle that slows and poisons. Also **Unstoppered** (150): see below |
 | **Sir Michael**, Pumpkin Knight | 11 stacks, 145 seeds, no cannon | Ordinary shots. On the intro, with the board in view, he picks one oath; the other two are refused for the night. **Hold the last tiles**: towers that reach the last three tiles of carpet fire 20% faster, but he starts with 2 fewer stacks. **Meet them coming in**: fruit on the first three tiles take 30% more damage from everything, but he starts with 10 fewer seeds. **Bring one pumpkin**: the Trebuchet costs 30 seeds less, with no zone | **Pumpkin Trebuchet** (110): a huge, slow splash that knocks non-boss fruit back one tile (more with Heavier Pumpkins). Also **The Gourd Gate** (300): a pumpkin gatehouse built right beside the carpet. Every few seconds it slams a portcullis on the carpet next to it: nothing gets past for 3 seconds (Karl for 1; husks too), and its crossbows shoot everything held there. Inside his oath's zone it holds for 4. And **The Harvest Bombard** (400, or 350 under "Bring one pumpkin"): anywhere on the board, a flaming giant pumpkin lands on the biggest crowd every 3 seconds, hits hard, shoves everything but Karl back a tile and sets the carpet burning |
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Copycat** (free): see below |
@@ -334,7 +334,7 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 |---|---|---|
 | 2 | **Pocket Money**: Start with 30 more seeds. | **Spare Flask**: Start with two more stacks. |
 | 4 | **Slow Simmer**: Cauldron puddles last 50% longer. | **Wide Pot**: Cauldron puddles are 30% wider. |
-| 6 | **Cold Hands**: Her slow lasts 60% longer. | **Potent**: All your cannons hit 8% harder. |
+| 6 | **Cold Hands**: Drowsy lasts 60% longer. | **Potent**: All your cannons hit 8% harder. |
 | 8 | **Reduction**: The Cauldron hits 40% harder, puddles too. | **Quick Stir**: The Cauldron fires 25% faster. |
 | 10 | **Second Cauldron**: You can build two Bubbling Cauldrons. | **Philosopher's Tip**: +15 seeds after every wave. |
 
@@ -468,16 +468,27 @@ Every cannon that aims picks one fruit from the ones in reach. Select it and the
 
 Each cannon starts on the **recommended** mode, the best choice for most nights: **First, not affected** for Fire, Freeze, the Still, the Ink Well, the Bookworm, the Peeler, Honeyed Heel and the Bubbling Cauldron; **Strongest** for the Long Reader and the Scales of Justice; **Boss** for the Brass Telescope; **First** for the rest. A new cannon of a kind starts on whatever you last set that kind to tonight. Towers that don't aim (the Bell, the Organ, the Lamp, the Orrery, the Lion Blade and so on), the Fly Hive (random) and the Mimic Chest (its own rule) have no option. While a cannon is selected, a dashed gold ring marks the fruit it's aiming at.
 
+### Slows: ice, drowsy, daze and puddles
+
+Slowing comes in four kinds, and only ice counts for the ice combos below.
+
+- **Ice (frost).** The Freeze cannon and the Cold rind upgrade. It builds the frost meter, freezes fruit solid at three, and sets up shatters, thermal shock and Black Ice.
+- **Drowsy (Vaelithra).** Every hit from any of her towers makes a fruit drowsy: half speed for 1.4 seconds (bosses shake it off sooner). The **third hit on a drowsy fruit puts it to sleep**: it stops for a second (Karl and the other bosses 0.3 seconds), then can't nod off again for two seconds. It shows as a lilac tint, heavy eyelids, drifting z's and a moon pip. It never adds frost, so it never freezes anything or sets up an ice combo. **Fire wakes it** (a fire shot or a fire patch ends drowsy and sleep at once), and a **Shush Bell or Organ crescendo stops a drowsy fruit half again as long**.
+- **Daze.** The Pipe Organ's chord, Barbed Spears and a Quack-Liber rocket's burst slow what they hit for a moment (a lilac swirl pip). No frost.
+- **Puddles.** The Still's and the Cauldron's puddles slow anything standing in them. No frost.
+
+Husks ignore every one of these. When several apply, the strongest wins; they don't multiply.
+
 ### Combos: ice, fire, explosions and stings
 
-Status effects build on each other. Small coloured dots under a fruit show what it carries, with a number for stacks (hover over it for the details): amber stings, green poison, orange fire, pink worm, pale blue frost.
+Status effects build on each other. Small coloured dots under a fruit show what it carries, with a number for stacks (hover over it for the details): amber stings, green poison, orange fire, pink worm, pale blue frost, a lilac moon for drowsy and a lilac swirl for dazed.
 
 **Ice and fire**
 
-- **Frost (0–3).** A Freeze cannon hit adds two and holds the fruit as before; any chill (Cold rind, Vaelithra's shots, the Pipe Organ's chord, Barbed Spears, a Quack-Liber rocket) adds one. One frost slows to 80%, two to 55%, three freezes it solid (then it drops back to two). The meter drops one 1.2 seconds after the last was added (damp fruit: twice as long). Bosses stop at two; husks never take frost. Three frost also tints the fruit pale blue.
+- **Frost (0–3).** Only ice adds frost: a Freeze cannon hit adds two and holds the fruit as before, and a Cold rind hit adds one. Other slows aren't ice and add none (see [Slows](#slows-ice-drowsy-daze-and-puddles)). One frost slows to 80%, two to 55%, three freezes it solid (then it drops back to two). The meter drops one 1.2 seconds after the last was added (damp fruit: twice as long). Bosses stop at two; husks never take frost. Three frost also tints the fruit pale blue.
 - **Shatter.** The first **splash** on a fruit with two or more frost (a Mortar, Juicy Explosions, Splatter, the Trebuchet, a Quack-Liber rocket, the Bombard) shatters it: that hit does **half again**, its frost goes to zero, and **ice shards** hit every other fruit within a tile for 25% of the hit (40% at three frost). Shards are splash, so pits shrug them off. Any stings, poison or fire on it go off at once. Aimed shots (Melon, Spitter, Ballista, Long Reader, Telescope) never shatter.
 - **Thermal shock.** **Ice, then fire:** a Fire cannon shot, or walking into a fire patch, on a frosted fruit thaws it at once and bursts for 60% more ("HISS"). It doesn't bake a raw pumpkin. **Fire, then ice:** a Freeze hit on a burning fruit puts the fire out for 1.5 seconds, even standing in the patch. It's still steaming for those seconds, so a growth bed doesn't heal it either. So put the Freeze cannon earlier on the carpet than the Fire cannon.
-- **Wildfire.** A burning fruit that's slowed but not frozen (frost, a chill or a slowing puddle) sets a neighbour within about a tile alight every second, for two seconds. Damp fruit, damp rooms and wet carpet halve it; husks catch it first.
+- **Wildfire.** A burning fruit that's slowed but not frozen (frost, a daze, drowsy or a slowing puddle) sets a neighbour within about a tile alight every second, for two seconds. Damp fruit, damp rooms and wet carpet halve it; husks catch it first.
 - **Explosions** spread a puddle by half (once), make a fire patch burn twice as hard for a second, and Electrified Melons' spark reaches twice as far to a fruit with frost.
 
 **Afflictions** (damage over time that stacks)
@@ -656,7 +667,7 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | **Raw** | 100% | 100% | First burn bakes it into "bread" instead of hurting it | 100% | 100% | Work normally |
 
 - **Shell:** whatever lands first is wasted, however big it is, but the hit after that does full damage. Seed Spitter seeds **bounce off** ("ping") without cracking it, so a spitter on its own never gets through. One Mortar blast cracks every shell it touches at once.
-- **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, Vaelithra's slowing shots, the Cold rind upgrade and the Cauldron's slow. Three things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
+- **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, the Organ's daze, a Quack-Liber rocket's daze, Vaelithra's drowsy, the Cold rind upgrade and the Cauldron's slow. Three things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
 - **Raw:** once baked, the pumpkin crawls at 55% speed for the rest of its walk, but fire can't hurt it any more. Finish it with anything else.
 - **Split:** not armour. When popped, it breaks into four small melons with about half a melon's health, which have no armour.
 
@@ -673,7 +684,7 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | You see | Bring | Avoid relying on |
 |---|---|---|
 | Shelled melons | Mortar (cracks many at once), Peeler, any fast cannon | Seed Spitter, fire alone |
-| Husked corn | Mortar, Trebuchet, fire, Peeler, the Foot of the Law | Still, Freeze, Shush Bell, Vaelithra's slow |
+| Husked corn | Mortar, Trebuchet, fire, Peeler, the Foot of the Law | Still, Freeze, Shush Bell, Vaelithra's drowsy |
 | Damp pumpkins | Melon, Ballista, Long Reader, Freeze | Fire |
 | Raw pumpkins | One touch of fire, then direct hits | Fire alone |
 | Split pumpkins | Splash and fast cannons for the four melons | One slow, big hitter |

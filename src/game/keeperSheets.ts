@@ -25,7 +25,7 @@ export const KEEPER_SHEETS: Record<
     seeds: 120,
     difficulty: "Steady",
     rules: [
-      "Her shots slow whatever they hit.",
+      "Her shots make fruit drowsy: half speed for a moment, and the third hit puts one to sleep for a second. Not ice, so no frost; fire wakes them.",
       "The first tower of each kind costs her 20 more each night; her back-room upgrades cost less.",
       "Bubbling Cauldron: a slowing, poisoned puddle. Unstoppered: a flask that soaks the carpet so puddles last longer.",
     ],

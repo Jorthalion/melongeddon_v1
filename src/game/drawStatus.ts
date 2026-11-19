@@ -2,7 +2,7 @@
  * How status effects look on the fruit and on the carpet. Drawing only: nothing here changes a rule.
  *
  * Five layers, one job each:
- *  1. the body: one coating on the sprite, for the most important effect (frozen, burning, frost, poison, ink, honey);
+ *  1. the body: one coating on the sprite, for the most important effect (frozen, burning, frost, drowsy, poison, ink, honey);
  *  2. particles above it: flames, bubbles, flies, steam, stars;
  *  3. the ground: a mark at its feet for anything that slows or stops it;
  *  4. pips: one chip per timed or stacking effect, with a shape as well as a colour;
@@ -53,6 +53,9 @@ export const STATUS_LOOK = {
   /** Ink fades out over its last this-many seconds. */
   inkFade: 1.5,
   honeyAlpha: 0.38,
+  drowsyAlpha: 0.3,
+  /** Walking bob while drowsy (a slow, heavy-lidded plod). */
+  drowsyBob: 0.5,
   /** A healed fruit glows this long after the last heal. */
   healGlow: 0.35,
   flatten: 0.45,
@@ -72,14 +75,16 @@ export const STATUS_COLOR = {
   honey: "#e8b040",
   stun: "#e6c36a",
   heal: "#8fdc6a",
+  drowsy: "#b9a2ea", // Vaelithra's sleeping draught
+  daze: "#c9b2ec", // the Organ's lilac: a plain slow, not ice
 } as const;
 
-export type Body = "ice" | "burn" | "frost" | "poison" | "ink" | "honey";
-export type PipShape = "snowflake" | "star" | "flame" | "drop" | "stinger" | "worm" | "blot" | "honeycomb";
-export type ParticleKind = "stunstar" | "note" | "flame" | "smoke" | "bubble" | "fly" | "breath" | "inkdrip" | "wormhead" | "sweat" | "feather" | "plus" | "juice";
+export type Body = "ice" | "burn" | "frost" | "drowsy" | "poison" | "ink" | "honey";
+export type PipShape = "snowflake" | "star" | "flame" | "drop" | "stinger" | "worm" | "blot" | "honeycomb" | "moon" | "swirl";
+export type ParticleKind = "stunstar" | "note" | "flame" | "smoke" | "bubble" | "fly" | "breath" | "inkdrip" | "wormhead" | "sweat" | "feather" | "plus" | "juice" | "zzz";
 export type Ground = "frost" | "ripple" | "dust";
 export interface Pip {
-  id: "frost" | "stun" | "fire" | "poison" | "sting" | "worm" | "ink" | "honey";
+  id: "frost" | "drowsy" | "daze" | "stun" | "fire" | "poison" | "sting" | "worm" | "ink" | "honey";
   shape: PipShape;
   color: string;
   /** Stacks (1 when it has none). */
@@ -132,7 +137,10 @@ export function statusLook(e: Enemy, world: Pick<World, "pools" | "reduced">, op
   const frostN = Math.floor(e.frost ?? 0);
   const ice = pos(e.iced) || frostN >= COMBO.frostMax || (e.freeze > 0 && !stun);
   const iceLeft = Math.max(e.freeze, e.iced ?? 0);
-  const frost = ice ? 0 : Math.min(2, Math.max(frostN, e.chill > 0 ? 1 : 0));
+  // Only ice is frost. With combos off there's no meter, so Cold rind's chill shows as one frost.
+  const frost = ice ? 0 : Math.min(2, Math.max(frostN, !COMBO.on && e.chill > 0 ? 1 : 0));
+  const drowsy = pos(e.drowsy);
+  const dazed = COMBO.on && e.chill > 0;
   const burning = pos(e.burnT) || world.pools.some((p) => p.hot && Math.hypot(e.x - p.x, e.y - p.y) <= p.r);
   const poison = e.poison ?? 0;
   const sting = Math.min(5, e.sting ?? 0);
@@ -157,6 +165,9 @@ export function statusLook(e: Enemy, world: Pick<World, "pools" | "reduced">, op
   } else if (frost > 0) {
     body = "frost";
     amount = frost / 2;
+  } else if (drowsy || stun === "sleep") {
+    body = "drowsy";
+    amount = 1;
   } else if (poison > 0) {
     body = "poison";
     amount = Math.min(1, poison / 3);
@@ -170,12 +181,13 @@ export function statusLook(e: Enemy, world: Pick<World, "pools" | "reduced">, op
 
   // Particles, most important first, capped per fruit (halved on a phone).
   const want: Array<{ kind: ParticleKind; n: number }> = [];
-  if (stun) want.push({ kind: stun === "organ" ? "note" : "stunstar", n: 3 });
+  if (stun) want.push({ kind: stun === "organ" ? "note" : stun === "sleep" ? "zzz" : "stunstar", n: 3 });
   if (burning) want.push({ kind: "flame", n: e.r > 18 ? 3 : 2 }, { kind: "smoke", n: 1 });
   if (poison > 0) want.push({ kind: "bubble", n: Math.min(5, poison) });
   if (sting > 0) want.push({ kind: "fly", n: sting >= 3 ? 2 : 1 });
   else if (honey) want.push({ kind: "fly", n: 1 });
   if (frost > 0) want.push({ kind: "breath", n: 1 });
+  if (drowsy && !stun) want.push({ kind: "zzz", n: 2 });
   if (inked) want.push({ kind: "inkdrip", n: 1 });
   if (burrow) want.push({ kind: "wormhead", n: 1 });
   if (back) want.push({ kind: "sweat", n: 1 });
@@ -197,7 +209,9 @@ export function statusLook(e: Enemy, world: Pick<World, "pools" | "reduced">, op
   // Pips: every timed or stacking effect, most important first, four at most.
   const pips: Pip[] = [];
   if (ice || frostN > 0) pips.push({ id: "frost", shape: "snowflake", color: STATUS_COLOR.frost, n: ice ? COMBO.frostMax : frostN });
-  if (stun) pips.push({ id: "stun", shape: "star", color: STATUS_COLOR.stun, n: 1 });
+  if (drowsy || stun === "sleep") pips.push({ id: "drowsy", shape: "moon", color: STATUS_COLOR.drowsy, n: 1 });
+  if (dazed) pips.push({ id: "daze", shape: "swirl", color: STATUS_COLOR.daze, n: 1 });
+  if (stun && stun !== "sleep") pips.push({ id: "stun", shape: "star", color: STATUS_COLOR.stun, n: 1 });
   if (burning) pips.push({ id: "fire", shape: "flame", color: STATUS_COLOR.fire, n: 1 });
   if (poison > 0) pips.push({ id: "poison", shape: "drop", color: STATUS_COLOR.poison, n: poison });
   if (sting > 0) pips.push({ id: "sting", shape: "stinger", color: STATUS_COLOR.sting, n: e.sting ?? 0 });
@@ -225,7 +239,7 @@ export function statusLook(e: Enemy, world: Pick<World, "pools" | "reduced">, op
     ground,
     pips: pips.slice(0, STATUS_LOOK.maxPips),
     motion: {
-      bob: !moving || still ? 0 : (STATUS_LOOK.frostBob[frost] ?? 1),
+      bob: !moving || still ? 0 : Math.min(STATUS_LOOK.frostBob[frost] ?? 1, drowsy ? STATUS_LOOK.drowsyBob : 1),
       faceBack: back,
       rock: moving && stun ? STATUS_LOOK.rock : 0,
       wobble: moving && hurt && !still ? STATUS_LOOK.wobble : 0,
@@ -239,6 +253,8 @@ export function statusLook(e: Enemy, world: Pick<World, "pools" | "reduced">, op
 /** The colour an enemy-card "Right now" line is drawn in (matching its pip), or null for a plain one. */
 export function effectColor(text: string): string | null {
   if (/^(Frozen|Frost|Chilled)/.test(text)) return STATUS_COLOR.frost;
+  if (/^(Drowsy|Asleep)/.test(text)) return STATUS_COLOR.drowsy;
+  if (/^Dazed/.test(text)) return STATUS_COLOR.daze;
   if (/^(Burning|On fire|Flaring)/.test(text)) return STATUS_COLOR.fire;
   if (/^Poisoned/.test(text)) return STATUS_COLOR.poison;
   if (/^Stung/.test(text)) return STATUS_COLOR.sting;
@@ -277,6 +293,7 @@ const seed = (id: number, k: number) => {
 const TINT: Record<Body, string> = {
   ice: "#d6eef9",
   frost: "#a9d8f2",
+  drowsy: "#9d86d8",
   burn: "#ff8a3a",
   poison: "#5fd36a",
   ink: "#1d2640",
@@ -337,6 +354,8 @@ export function bodyTintAlpha(look: StatusLook, anim: number): number {
       return STATUS_LOOK.inkAlpha * look.amount;
     case "honey":
       return STATUS_LOOK.honeyAlpha;
+    case "drowsy":
+      return STATUS_LOOK.drowsyAlpha;
     default:
       return 0;
   }
@@ -599,6 +618,16 @@ export function drawStatusBody(ctx: CanvasRenderingContext2D, e: Enemy, look: St
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  } else if (look.body === "drowsy") {
+    // Heavy eyelids: two sleepy arcs low on the face.
+    ctx.strokeStyle = "rgba(40,26,64,0.85)";
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = "round";
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(x + side * r * 0.32, y - r * 0.12, r * 0.16, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+    }
   } else if (look.body === "honey") {
     // A glossy amber glaze: a shine on top and a drip.
     ctx.fillStyle = "rgba(255,236,180,0.6)";
@@ -806,6 +835,15 @@ export function drawStatusAbove(ctx: CanvasRenderingContext2D, e: Enemy, look: S
           }
           break;
         }
+        case "zzz": {
+          // Little z's drifting up and away.
+          ctx.fillStyle = `rgba(214,200,250,${0.95 * (1 - ph)})`;
+          ctx.font = `bold ${7 + Math.round(ph * 5)}px sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("z", x + dir * (r * 0.5 + ph * 9), y - r - 2 - ph * 12);
+          break;
+        }
         case "sweat":
           ctx.fillStyle = `rgba(170,215,245,${0.9 * (1 - ph)})`;
           ctx.beginPath();
@@ -929,6 +967,24 @@ function pipShape(ctx: CanvasRenderingContext2D, shape: PipShape, x: number, y: 
       ctx.arc(x - s * 0.15, y, s * 0.7, 0, Math.PI * 2);
       ctx.arc(x + s * 0.55, y + s * 0.45, s * 0.3, 0, Math.PI * 2);
       ctx.fill();
+      break;
+    case "moon":
+      ctx.beginPath();
+      ctx.arc(x, y, s, 0.35 * Math.PI, 1.65 * Math.PI, false);
+      ctx.arc(x + s * 0.45, y - s * 0.1, s * 0.8, 1.6 * Math.PI, 0.4 * Math.PI, true);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case "swirl":
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      for (let i = 0; i <= 20; i++) {
+        const a = (i / 20) * Math.PI * 3.2;
+        const rr = (i / 20) * s;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      }
+      ctx.stroke();
       break;
     case "honeycomb":
       ctx.beginPath();

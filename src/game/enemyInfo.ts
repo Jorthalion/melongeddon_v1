@@ -111,11 +111,12 @@ export function describeEnemy(e: Fruit, world: Pick<World, "pools" | "floors" | 
   if (e.general) traits.push("Every cat has more health while she stands. When she falls they scatter.");
 
   // What's on it now.
-  if (e.freeze > 0) effects.push(`Frozen (${secs(e.freeze)})`);
+  if (e.freeze > 0) effects.push(e.stunBy === "sleep" ? `Asleep (${secs(e.freeze)})` : e.stunBy ? `Stunned (${secs(e.freeze)})` : `Frozen (${secs(e.freeze)})`);
   else if ((e.stomped ?? 0) > 0) effects.push(`Pinned under the Foot (${secs(e.stomped!)})`);
   else if ((e.halt ?? 0) > 0) effects.push((e.brawl ?? 0) > 0 ? "Fighting" : "Stopped");
-  if (e.chill > 0) effects.push(`Chilled: slowed (${secs(e.chill)})`);
-  if (e.slow < 0.999 && e.chill <= 0) effects.push(`Slowed to ${Math.round(e.slow * 100)}%`);
+  if ((e.drowsy ?? 0) > 0) effects.push(`Drowsy: slowed (${secs(e.drowsy!)})`);
+  if (e.chill > 0) effects.push(`Dazed: slowed (${secs(e.chill)})`);
+  if (e.slow < 0.999 && e.chill <= 0 && (e.drowsy ?? 0) <= 0) effects.push(`Slowed to ${Math.round(e.slow * 100)}%`);
   if (world.pools.some((p) => p.hot && Math.hypot(e.x - p.x, e.y - p.y) < p.r)) effects.push("Burning");
   if ((e.ink ?? 0) > 0) effects.push(`Inked: takes ${Math.round(((e.inkMul ?? 1) - 1) * 100)}% more damage`);
   if ((e.honeyed ?? 0) > 0) effects.push(`Honeyed: takes more damage (${secs(e.honeyed!)})`);

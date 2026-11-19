@@ -1,6 +1,6 @@
 import {
   CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
-  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  BALANCE, DROWSY, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
@@ -103,7 +103,10 @@ interface Enemy {
   r: number;
   wp: number;
   boss: boolean;
+  /** A plain slow with no frost (the Organ's chord, Barbed Spears, a Quack-Liber rocket; Cold rind with combos off): "dazed". */
   chill: number;
+  /** Vaelithra's sleeping draught: seconds left drowsy (slowed; fire wakes it). Never frost. */
+  drowsy?: number;
   freeze: number;
   /** Foot of the Law: seconds left pinned under the foot. Unlike freeze, husks feel it. */
   stomped?: number;
@@ -192,7 +195,10 @@ interface Enemy {
   /** Wildfire: progress toward setting the next neighbour alight (1 = now). */
   wildAcc?: number;
   /** Drawing only: what stopped it, when `freeze` is a stun rather than ice (stars for the Bell, notes for the Organ). */
-  stunBy?: "bell" | "organ";
+  stunBy?: "bell" | "organ" | "sleep";
+  /** Vaelithra: hits taken while drowsy (the third puts it to sleep), and seconds before it can nod off again. */
+  dozeHits?: number;
+  restT?: number;
   /** Drawing only: seconds it has burned lately (char spots build up), seconds since it was last healed, and the trail timer. */
   charred?: number;
   healT?: number;
@@ -280,9 +286,9 @@ export const FRESH_TEST: Partial<Record<TowerKind, (e: Enemy, pools: Pool[], tow
   peeler: (e) => armoured(e),
   honey: (e) => (e.honeyed ?? 0) <= 0,
   cauldron: (e, pools) => !standingIn(e, pools, (p) => Boolean(p.toxic)),
-  // The Cold rind fitting: one not chilled yet.
-  melon: (e, _p, t) => !t.mods.includes("chill") || e.chill <= 0,
-  spitter: (e, _p, t) => !t.mods.includes("chill") || e.chill <= 0,
+  // The Cold rind fitting: one with no frost yet (combos off: not chilled yet).
+  melon: (e, _p, t) => !t.mods.includes("chill") || (COMBO.on ? (e.frost ?? 0) < 1 : e.chill <= 0),
+  spitter: (e, _p, t) => !t.mods.includes("chill") || (COMBO.on ? (e.frost ?? 0) < 1 : e.chill <= 0),
 };
 
 /**
@@ -3168,6 +3174,12 @@ export function createWorld(
       douse(e);
     }
   };
+  /** Fire wakes it: no longer drowsy, and a sleeping fruit gets up. */
+  const wake = (e: Enemy) => {
+    e.drowsy = 0;
+    e.dozeHits = 0;
+    if (e.freeze > 0 && e.stunBy === "sleep") e.freeze = 0;
+  };
   /** Ice, then fire: thaw it now. */
   const thaw = (e: Enemy) => {
     e.frost = 0;
@@ -3524,13 +3536,28 @@ export function createWorld(
         addSting(e, spitter?.mods.includes("grit") ? AFFLICT.gritStacks : AFFLICT.seedStacks);
       }
     }
-    if (world.hud.hero === "vael" && e.guard !== "husk") {
-      e.chill = Math.max(e.chill, 1.15 * fx.chill);
-      addFrost(e, COMBO.chillHit);
+    // Vaelithra's sleeping draught: drowsy, not frosted.
+    if (world.hud.hero === "vael" && e.guard !== "husk" && !expressOnBelt(e)) {
+      const was = (e.drowsy ?? 0) > 0;
+      if (!was) float(e.x, e.y - 18, "drowsy", "#b9a2ea");
+      e.dozeHits = was ? (e.dozeHits ?? 0) + 1 : 1;
+      e.drowsy = Math.max(e.drowsy ?? 0, DROWSY.time * fx.chill * (e.boss ? DROWSY.boss : 1));
+      // The third hit while drowsy: it nods off (a stop, not ice), then needs a rest before it can again.
+      if (e.dozeHits >= DROWSY.sleepHits && (e.restT ?? 0) <= 0 && e.freeze <= 0) {
+        const nap = e.boss ? DROWSY.sleepBoss : DROWSY.sleep;
+        e.freeze = nap;
+        e.stunBy = "sleep";
+        e.restT = nap + DROWSY.rest;
+        e.dozeHits = 0;
+        float(e.x, e.y - 22, "asleep", "#d6c8fa");
+      }
     }
+    // Fire wakes a drowsy fruit (even her own fire), and a sleeping one.
+    if (shot.element === "fire") wake(e);
+    // Cold rind is ice: it adds frost (with combos off, the old chill slow instead).
     if (shot.chill > 0 && e.guard !== "husk") {
-      e.chill = Math.max(e.chill, shot.chill);
-      addFrost(e, COMBO.chillHit);
+      if (COMBO.on) addFrost(e, COMBO.chillHit);
+      else e.chill = Math.max(e.chill, shot.chill);
     }
     if (shot.element === "fire") addFire(e.x, e.y, shot.fireLife, shot.fireBurn);
     if (shot.element === "ice" && e.guard !== "husk") {
@@ -3585,8 +3612,8 @@ export function createWorld(
       for (const other of world.enemies) {
         if (other.hp <= 0 || other.guard === "husk") continue;
         if (Math.hypot(other.x - e.x, other.y - e.y) > shot.splash + other.r) continue;
+        // A daze, not ice: slowed, no frost.
         other.chill = Math.max(other.chill, shot.splashChill);
-        addFrost(other, COMBO.chillHit);
       }
     }
     if (shot.cover && e.hp > 0) {
@@ -3978,6 +4005,13 @@ export function createWorld(
         e.chill -= dt;
         slow = Math.min(slow, softenSlow(has("distill") ? 0.48 : 0.62));
       }
+      // Drowsy (Vaelithra): slowed until it wears off, or until fire wakes it.
+      if ((e.restT ?? 0) > 0) e.restT = (e.restT ?? 0) - dt;
+      if (((e.drowsy ?? 0) > 0 || (e.freeze > 0 && e.stunBy === "sleep")) && burningNow(e)) wake(e);
+      if ((e.drowsy ?? 0) > 0) {
+        e.drowsy = (e.drowsy ?? 0) - dt;
+        slow = Math.min(slow, softenSlow(DROWSY.slow));
+      }
       if (e.freeze > 0) {
         e.freeze -= dt;
         slow = 0;
@@ -3999,6 +4033,7 @@ export function createWorld(
       }
       if (e.guard === "husk") {
         e.chill = 0;
+        e.drowsy = 0;
         e.freeze = 0;
         e.frost = 0;
         e.iced = 0;
@@ -4017,6 +4052,7 @@ export function createWorld(
       // Express Corn on a belt: no slow, stop, honey or walk-back takes hold.
       if (expressOnBelt(e)) {
         e.chill = 0;
+        e.drowsy = 0;
         e.freeze = 0;
         e.frost = 0;
         e.iced = 0;
@@ -4366,10 +4402,10 @@ export function createWorld(
         for (const e of inRange) {
           hurt(e, null, stats.dmg, 0, "splash");
           if (e.guard === "husk") continue;
+          // The chord dazes (a slow, not ice); a crescendo stops it, longer if it's drowsy.
           e.chill = Math.max(e.chill, CANNON.organChill);
-          addFrost(e, COMBO.chillHit);
           if (swell) {
-            e.freeze = Math.max(e.freeze, e.boss ? CANNON.organStunBoss : CANNON.organStun);
+            e.freeze = Math.max(e.freeze, (e.boss ? CANNON.organStunBoss : CANNON.organStun) * ((e.drowsy ?? 0) > 0 ? DROWSY.stun : 1));
             e.stunBy = "organ";
           }
         }
@@ -4382,7 +4418,7 @@ export function createWorld(
         cue("fire", "bell");
         for (const e of inRange) {
           if (e.guard === "husk") continue;
-          e.freeze = Math.max(e.freeze, e.boss ? CANNON.bellStunBoss : CANNON.bellStun);
+          e.freeze = Math.max(e.freeze, (e.boss ? CANNON.bellStunBoss : CANNON.bellStun) * ((e.drowsy ?? 0) > 0 ? DROWSY.stun : 1));
           e.stunBy = "bell";
         }
         world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.45, max: 0.45, color: "230,195,106" });
@@ -4488,8 +4524,8 @@ export function createWorld(
           onLine.sort((a, b) => a.along - b.along);
           for (const { e } of onLine.slice(0, ballistaPierce(tower.mods))) {
             if (has("barbed") && e.guard !== "husk") {
+              // Hooks, not ice: slowed, no frost.
               e.chill = Math.max(e.chill, CANNON.barbedSlow);
-              addFrost(e, COMBO.chillHit);
             }
             hurt(e, null, stats.dmg);
           }

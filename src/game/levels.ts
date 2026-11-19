@@ -142,7 +142,7 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
       { name: "Wide Pot", blurb: "Cauldron puddles are 30% wider.", fx: { poolWide: 1.3 } },
     ],
     [
-      { name: "Cold Hands", blurb: "Her slow lasts 60% longer.", fx: { chill: 1.6 } },
+      { name: "Cold Hands", blurb: "Drowsy lasts 60% longer.", fx: { chill: 1.6 } },
       { name: "Potent", blurb: "All your cannons hit 8% harder.", fx: { allDmg: 1.08 } },
     ],
     [

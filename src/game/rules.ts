@@ -859,6 +859,26 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
 };
 
 /** Tunable numbers for the newer cannons' special effects. */
+/**
+ * Vaelithra's sleeping draught. Her hits make fruit drowsy: a plain slow with no frost, so it never freezes
+ * anything solid or sets up an ice combo. Fire wakes a fruit up; a shush or a crescendo keeps a drowsy fruit
+ * stopped longer.
+ */
+export const DROWSY = {
+  /** Seconds a hit keeps it drowsy (the Cold Hands perk stretches it), and its pace while drowsy. */
+  time: 1.4,
+  slow: 0.5,
+  /** The third hit on a drowsy fruit puts it to sleep (stopped) this long, bosses `sleepBoss`; then it can't nod off again for `rest`. */
+  sleepHits: 3,
+  sleep: 1,
+  sleepBoss: 0.3,
+  rest: 2,
+  /** Bosses shake it off sooner: this share of the time. */
+  boss: 0.6,
+  /** A Shush Bell or Organ crescendo stops a drowsy fruit this much longer. */
+  stun: 1.5,
+};
+
 export const CANNON = {
   bellStun: 0.9,
   /** Printing Press: how far a sheet slides (px), how fast, and the ink it leaves (damage taken ×, seconds). */
@@ -1150,7 +1170,7 @@ export interface ModDef {
 
 export const MODS: ModDef[] = [
   { id: "reach", name: "Longer barrel", blurb: "Reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane", "quill", "globe", "press", "scope"] },
-  { id: "chill", name: "Cold rind", blurb: "Its shot slows whatever it hits, for a moment.", kinds: ["melon", "spitter"] },
+  { id: "chill", name: "Cold rind", blurb: "Its shot frosts whatever it hits.", kinds: ["melon", "spitter"] },
   {
     id: "haste",
     name: "Quick wick",
@@ -1257,7 +1277,7 @@ export function fittingDetail(kind: TowerKind, id: ModId): string {
       return "15% less time between shots.";
     case "chill":
       return COMBO.on
-        ? "Every hit slows the fruit to about 62% speed for 0.75 seconds and adds one frost (one frost slows to 80%, two to 55%)."
+        ? "Every hit adds one frost: one frost slows a fruit to 80%, two to 55%, three freezes it solid."
         : "Every hit slows the fruit to about 62% speed for 0.75 seconds.";
     case "loud":
       return `The shush reaches ${tiles(28)} farther.`;
@@ -3103,11 +3123,11 @@ export const COMBO = {
   /** Seconds after the last stack before one drains (damp fruit: ×`dampDrain`). */
   frostDrain: 1.2,
   dampDrain: 2,
-  /** Stacks a Freeze cannon hit adds (Deep Freeze: `deepFreezeHit`), and any chill (Cold rind, Vaelithra, a chord, Barbed Spears, a rocket). */
+  /** Stacks a Freeze cannon hit adds (Deep Freeze: `deepFreezeHit`), and a Cold rind hit. Only ice adds frost. */
   freezeHit: 2,
   deepFreezeHit: 3,
   chillHit: 1,
-  /** Chills alone can build frost only this high (a Freeze cannon hit fills the rest). */
+  /** Cold rind alone can build frost only this high (a Freeze cannon hit fills the rest). */
   chillCap: 3,
   /** Pace at 0, 1 and 2 stacks (3 is frozen solid). */
   frostSlow: [1, 0.8, 0.55] as number[],
