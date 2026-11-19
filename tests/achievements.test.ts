@@ -386,3 +386,7 @@ test("dev mode and options.meta runs save nothing", () => {
     g.window = had.win;
   }
 });
+
+test("every secret shelf has a hint for the Grand Catalogue", () => {
+  for (const a of ACHIEVEMENTS.filter((x) => x.secret)) assert.ok(a.hint && a.hint.length > 0, a.id);
+});

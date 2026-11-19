@@ -219,6 +219,8 @@ export interface Achievement {
   /** Fragments it will be worth (step 2): 1 common, 2 harder, 3 the hardest and the secrets. */
   tier: 1 | 2 | 3;
   secret?: boolean;
+  /** A secret's nudge, shown while it's still hidden. */
+  hint?: string;
   check: (ctx: NightContext) => boolean;
   /** For the catalogue: [have, need] where a counter exists. */
   progress?: (ledger: Ledger, endlessBest: number, catalogue: { fragmentsEarned: number; rooms: RoomId[] }) => [number, number];
@@ -521,9 +523,9 @@ const LIST: Array<Omit<Achievement, "tier">> = [
   },
 
   // Restricted Section (secret)
-  { id: "karl-first-wave", name: "Early Karl", blurb: "Lose a stack to Karl and still win the night.", shelf: "restricted", secret: true, check: (c) => c.won && c.log.karlStacksLost > 0 },
-  { id: "penniless", name: "Penniless", blurb: "Win a night that ends with 0 seeds.", shelf: "restricted", secret: true, check: (c) => c.won && c.seeds === 0 },
-  { id: "one-tower", name: "One Good Tower", blurb: "Win a story night with exactly one tower ever built.", shelf: "restricted", secret: true, check: (c) => storyWin(c) && builtCount(c.log) === 1 },
+  { id: "karl-first-wave", name: "Early Karl", blurb: "Lose a stack to Karl and still win the night.", shelf: "restricted", secret: true, hint: "Karl doesn't have to be stopped cleanly.", check: (c) => c.won && c.log.karlStacksLost > 0 },
+  { id: "penniless", name: "Penniless", blurb: "Win a night that ends with 0 seeds.", shelf: "restricted", secret: true, hint: "Spend everything you have.", check: (c) => c.won && c.seeds === 0 },
+  { id: "one-tower", name: "One Good Tower", blurb: "Win a story night with exactly one tower ever built.", shelf: "restricted", secret: true, hint: "Sometimes less is more. Much less.", check: (c) => storyWin(c) && builtCount(c.log) === 1 },
 ];
 
 const TIER_1 = ["fragments-10", "restorer", "first-night", "librarian", "overflow", "endless-20", "minimalist", "no-signature", "hoarder", "back-room-ban", "slow-cooker", "massacre", "out-of-box", "nine-lives", "shatter", "stung"];

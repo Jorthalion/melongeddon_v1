@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { BookMarked, Brush, Map as MapIcon, UserRound, Wrench } from "lucide-react";
 import { asset } from "@/lib/asset";
 import { ACHIEVEMENT, ACHIEVEMENTS, SECTIONS, shownAs } from "@/game/achievements";
+import { FRAGMENTS } from "@/game/catalogue";
 import { BOARDS, BOOKMARK, KEEPER_NAMES, ROOM, ROOMS, TOWERS, type Hud, type Reward, type RoomId } from "@/game/engine";
 import { KEEPERS } from "@/components/keeperCards";
 import type { GameApi } from "@/components/ui";
@@ -144,6 +145,44 @@ export function GrandCatalogue({
   );
 }
 
+/** How fragments are earned and what rooms do: read from FRAGMENTS, so it can't drift from the rules. */
+function EarnGuide({ open }: { open: boolean }) {
+  const w = FRAGMENTS.win;
+  return (
+    <details open={open} className="group rounded-[4px] border border-[#c6a15a]/60 bg-[#f3e2c4] px-3 py-2 text-[#2a1c22]">
+      <summary className="cursor-pointer list-none font-display text-base font-semibold select-none">
+        <FragmentIcon className="mr-1.5 h-4" />
+        How to earn fragments
+        <span className="ml-1 text-xs font-normal text-[#7a5a3a] group-open:hidden">(tap to read)</span>
+      </summary>
+      <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs text-[#4a3428]">
+        <li>
+          <b>Win a night:</b> {w.easy} on Easy, {w.normal} on Normal, {w.hard} on Hard, {w.overdue} on Overdue.
+        </li>
+        <li>
+          <b>+{FRAGMENTS.overflowBonus}</b> for winning the Overflow, <b>+{FRAGMENTS.siegeBonus}</b> for winning the Siege.
+        </li>
+        <li>
+          <b>+{FRAGMENTS.karl}</b> for popping Karl, win or lose.
+        </li>
+        <li>
+          <b>Lost?</b> Holding {FRAGMENTS.lossFrom} waves or more still pays {FRAGMENTS.loss}.
+        </li>
+        <li>
+          <b>Endless:</b> 1 for every {FRAGMENTS.endlessEvery} waves cleared.
+        </li>
+        <li>
+          <b>Shelves:</b> every achievement pays 1 to 3, once. See them on the Shelves tab.
+        </li>
+      </ul>
+      <p className="mt-1.5 text-xs text-[#6b5040]">
+        Fragments are counted at the end of each night. Spend them on any room, in any order: each one opens what's listed under it. Tap a
+        chip to see what it does.
+      </p>
+    </details>
+  );
+}
+
 function RoomsTab({
   api,
   onGesture,
@@ -180,6 +219,8 @@ function RoomsTab({
   };
   return (
     <div className="mt-3 flex flex-col gap-2" onKeyDown={onKey}>
+      {/* Open for a new player (only the Stacks restored); folded once they've restored a room. */}
+      <EarnGuide open={hud.rooms.length <= 1 && !focus} />
       {opened ? (
         <div className="rounded-[4px] border border-gold/70 bg-[#f3e2c4] px-3 py-2 text-[#2a1c22]" role="status">
           <p className="font-display text-base font-semibold">{ROOM[opened].name} is restored.</p>
@@ -275,6 +316,10 @@ function RoomsTab({
                     >
                       <span className="block h-full rounded-full bg-[linear-gradient(90deg,#b89249,#e6c87a)]" style={{ width: `${Math.min(100, (hud.fragments / room.cost) * 100)}%` }} />
                     </span>
+                    <span className="text-right text-[0.625rem] leading-tight text-muted">
+                      {short} more,
+                      <span className="block whitespace-nowrap">about {plural(Math.ceil(short / FRAGMENTS.win.normal), "Normal win")}</span>
+                    </span>
                   </span>
                 )}
               </div>
@@ -363,7 +408,9 @@ function ShelvesTab({ hud }: { hud: Hud }) {
                   {shown.name}
                   {sel.set ? <span className="ml-1.5 text-[0.6875rem] font-normal text-[#7a5a3a]">{sel.set}</span> : null}
                 </p>
-                <p className="text-xs text-[#6b5040]">{shown.blurb}</p>
+                <p className="text-xs text-[#6b5040]">
+                  {has ? shown.blurb : sel.secret ? `A secret. Hint: ${sel.hint ?? "keep playing."}` : `To restore: ${shown.blurb}`}
+                </p>
                 <p className="mt-0.5 text-[0.6875rem] font-semibold text-[#7a5a3a]">
                   {sel.secret && !has ? "" : `${plural(sel.tier, "fragment")} · `}
                   {has
@@ -376,7 +423,7 @@ function ShelvesTab({ hud }: { hud: Hud }) {
             );
           })()
         ) : (
-          <p className="text-xs text-[#6b5040] italic">Tap a shelf to read it. Restored books are coloured; gaps are still to find. Each pays fragments once.</p>
+          <p className="text-xs text-[#6b5040] italic">Tap a book to see how to earn it. Coloured books are restored; dusty gaps are still to earn; chained books are secrets (tap for a hint). Each pays 1 to 3 fragments once, at the end of the night you earn it.</p>
         )}
       </div>
 
