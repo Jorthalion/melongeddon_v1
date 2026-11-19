@@ -33,7 +33,7 @@ function board(kinds: TowerKind[]) {
 }
 
 test("each tower counts its own damage and pops through a wave, and the shares add up", () => {
-  const api = board(["melon", "melon", "mortar"]);
+  const api = board(["mortar", "spitter", "melon"]);
   const w = api.world;
   api.startWave();
   let popped = 0;

@@ -123,7 +123,6 @@ function shoot(api: Api, e: Foe, dmg: number, opts: { splash?: number; owner?: n
     freezeExtra: 0,
     fireLife: 0,
     fireBurn: 0,
-    pulp: false,
     owner: opts.owner,
   });
   stepWorld(api.world, 1 / 60);

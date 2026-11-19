@@ -63,7 +63,7 @@ test("honey doesn't slow: it sticks, and sticky fruit (husks too) take 25% more 
   const fresh = { ...plain, honeyed: 0, hp: 500, guard: "none" as const, id: -1 };
   w.pools = [];
   w.enemies.push(fresh);
-  const shot = (e: typeof plain) => w.shots.push({ id: 9e6 + e.id, x: e.x, y: e.y, tx: e.x, ty: e.y, target: e.id, dmg: 40, life: 1, bounces: 0, orange: false, splash: 0, element: "shot", procs: false, splashRatio: 0, chill: 0, freezeExtra: 0, fireLife: 0, fireBurn: 0, pulp: false });
+  const shot = (e: typeof plain) => w.shots.push({ id: 9e6 + e.id, x: e.x, y: e.y, tx: e.x, ty: e.y, target: e.id, dmg: 40, life: 1, bounces: 0, orange: false, splash: 0, element: "shot", procs: false, splashRatio: 0, chill: 0, freezeExtra: 0, fireLife: 0, fireBurn: 0 });
   plain.guard = "none";
   for (const e of [plain, fresh]) { e.speed = 0; e.ink = 0; shot(e); }
   for (const t of w.towers) t.cd = 99;

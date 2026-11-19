@@ -76,7 +76,7 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   juicy: {
     id: "juicy",
     name: "Juicy Explosions",
-    blurb: "Cannon hits burst. The pulp pool burns anyone standing in it.",
+    blurb: "Cannon hits burst, splashing everyone standing close.",
   },
   rapid: {
     id: "rapid",
@@ -95,12 +95,12 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   },
   bounce: {
     id: "bounce",
-    name: "Bouncing Melons",
-    blurb: "Melon cannon shots ricochet into a second target.",
+    name: "Prize Melons",
+    blurb: "Melon cannons hit 30% harder. Nothing fancy: just bigger melons.",
   },
   electric: {
     id: "electric",
-    name: "Electrified Melons",
+    name: "Electrified Rounds",
     blurb: "Cannon impacts throw a spark into a nearby foe.",
   },
   fines: {
@@ -411,18 +411,25 @@ export const UPGRADE_TARGETS: Partial<Record<UpgradeId, TowerType[]>> = {
   juicy: ["cannon"],
   splatter: ["cannon"],
   electric: ["cannon"],
-  // Puddle upgrades: the still and cauldron, and the pulp melon cannons leave.
-  sticky: ["alchemy", "cannon"],
-  vial: ["alchemy", "cannon"],
-  distill: ["alchemy", "cannon"],
+  // Puddle upgrades: the still and cauldron.
+  sticky: ["alchemy"],
+  vial: ["alchemy"],
+  distill: ["alchemy"],
 };
 
-/** Shared upgrades that belong to one tower rather than a type (Bouncing Melons is the melon cannon's). */
+/**
+ * The melon cannon is the plain gun: upgrades only make it hit harder, fire faster or reach farther.
+ * These cannon upgrades add an effect (a burst, a chip, a spark), so they skip it.
+ */
+export const MELON_SKIPS: UpgradeId[] = ["juicy", "splatter", "electric"];
+
+/** Shared upgrades that belong to one tower rather than a type (Prize Melons is the melon cannon's). */
 export const UPGRADE_KIND: Partial<Record<UpgradeId, TowerKind>> = { bounce: "melon" };
 
 /** Does upgrade `id` change tower `kind`? */
 export function upgradeAffects(id: UpgradeId, kind: TowerKind) {
   if (CANNON_UPGRADES[kind] === id || UPGRADE_KIND[id] === kind) return true;
+  if (kind === "melon" && MELON_SKIPS.includes(id)) return false;
   return UPGRADE_TARGETS[id]?.includes(TOWER_TYPE[kind]) ?? false;
 }
 
@@ -431,16 +438,16 @@ export function upgradeAffects(id: UpgradeId, kind: TowerKind) {
  * ("Melon cannons", "Cannons and precision", "The ledger").
  */
 export const UPGRADE_SCOPE: Record<UpgradeId, string> = {
-  juicy: "Cannons",
+  juicy: "Cannons, not melons",
   rapid: "Cannons and precision",
   seeds: "Seeds, once",
   sticky: "Puddles",
   bounce: "Melon cannons",
-  electric: "Cannons",
+  electric: "Cannons, not melons",
   fines: "The ledger",
   caliber: "Cannons",
   lamp: "Cannons and precision",
-  splatter: "Cannons",
+  splatter: "Cannons, not melons",
   vial: "Puddles",
   distill: "Puddles",
   barbed: "Ballistas",
@@ -567,9 +574,9 @@ export const GLOBAL_RANGE = 1400;
 export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: number; role: string }> = {
   melon: {
     name: "Melon cannon",
-    blurb: "Steady shot at whoever is furthest along the carpet.",
+    blurb: "A heavy shot at whoever is furthest along the carpet. No tricks: it just hits hard.",
     cost: 60,
-    role: "Long range",
+    role: "Damage",
   },
   mortar: {
     name: "Pumpkin mortar",
@@ -777,7 +784,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   pamphlet: {
     name: "The Post",
-    blurb: "Quackarot's third. One bad take, and everything on the straight beside it gets ratioed. When the front fruit reaches that straight's corner with at least one more still on it, every fruit on the straight takes a hit worth two melon shots. Then it waits for the next group. Fruit that already turned the corner are safe.",
+    blurb: "Quackarot's third. One bad take, and everything on the straight beside it gets ratioed. When the front fruit reaches that straight's corner with at least one more still on it, every fruit on the straight takes one big hit. Then it waits for the next group. Fruit that already turned the corner are safe.",
     cost: 70,
     role: "Line blast",
   },
@@ -880,6 +887,12 @@ export const DROWSY = {
 };
 
 export const CANNON = {
+  /** Melon cannon: its damage over the shared cannon base (14). It has no element, pulp or status, so it simply hits harder.
+   * 2.9: tuned in the simulator to win what it did when its pulp slowed and burned (Normal + Hard: 61% before; 1.3 gave 28%, 2.6 53%, 3.0 63%). */
+  melonDmg: 2.9,
+  /** Prize Melons (card): melon cannon damage ×. Ripe core (back room): melon cannon damage ×. */
+  prizeMelon: 1.3,
+  ripeMelon: 1.2,
   bellStun: 0.9,
   /** Printing Press: how far a sheet slides (px), how fast, and the ink it leaves (damage taken ×, seconds). */
   pressSheet: 220,
@@ -986,7 +999,7 @@ export const CANNON = {
   driverImmune: 4,
   /** The Post (pamphlet): living fruit that must be on its straight (the one at the corner included) for it to go off. */
   pamphletCrowd: 2,
-  /** The Post (pamphlet)'s hit, as a share of a fresh melon's (2: tuned in the simulator, so the 70 seeds pay back). */
+  /** The Post (pamphlet)'s hit, as a share of the plain cannon base of 14 (2: tuned in the simulator, so the 70 seeds pay back). */
   pamphletHit: 2,
   /** How far a Trebuchet shove moves a fruit back along the carpet: one tile (times Heavier Pumpkins). */
   trebuchetKnock: CELL,
@@ -1076,8 +1089,9 @@ export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind, 
 }
 
 export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]): { dmg: number; range: number; interval: number } {
-  // The Post (pamphlet) hits each fruit on its straight for what a fresh Melon cannon would deal (no melon fittings), and has no reach circle.
-  if (kind === "pamphlet") return { dmg: Math.round(towerReadout(hero, "melon", [], upgradesOwned).dmg * CANNON.pamphletHit), range: 0, interval: 0 };
+  // The Post (pamphlet) hits each fruit on its straight for a share of the plain cannon base (14, Heavy Caliber 22), and has no reach circle.
+  // It stays on the base, not the melon cannon's own boost, so its tuned hit didn't move when melons got stronger.
+  if (kind === "pamphlet") return { dmg: Math.round((14 + (upgradesOwned.includes("caliber") ? 8 : 0)) * CANNON.pamphletHit), range: 0, interval: 0 };
   // The Unstoppered drips like a Still from its own tile (its spills wet the carpet instead).
   if (kind === "flask") return towerReadout(hero, "still", mods, upgradesOwned);
   // The Copycat itself does nothing; the copy it makes uses the copied kind's numbers.
@@ -1121,6 +1135,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   if (kind === "still") interval = (mods.includes("drip") ? 1 : 1.45) * (mods.includes("mimicstep") ? CANNON.mimicDrip : 1);
   let dmg = 14;
   if (upgrades.includes("caliber")) dmg += 8;
+  if (kind === "melon") dmg = Math.round(dmg * CANNON.melonDmg * (upgrades.includes("bounce") ? CANNON.prizeMelon : 1) * (mods.includes("ripe") ? CANNON.ripeMelon : 1));
   if (kind === "mortar") dmg = Math.round(dmg * 0.8);
   if (kind === "fire") dmg = Math.round(dmg * 0.65);
   if (kind === "freeze") dmg = Math.round(dmg * (mods.includes("brittle") ? 0.7 : 0.45));
@@ -1131,6 +1146,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
 export type ModId =
   | "reach"
   | "chill"
+  | "ripe"
   | "haste"
   | "wide"
   | "heavy"
@@ -1178,7 +1194,8 @@ export interface ModDef {
 
 export const MODS: ModDef[] = [
   { id: "reach", name: "Longer barrel", blurb: "Reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane", "quill", "globe", "press", "scope"] },
-  { id: "chill", name: "Cold rind", blurb: "Its shot frosts whatever it hits.", kinds: ["melon", "spitter"] },
+  { id: "chill", name: "Cold rind", blurb: "Its shot frosts whatever it hits.", kinds: ["spitter"] },
+  { id: "ripe", name: "Ripe core", blurb: "Heavier melons. Hits 20% harder.", kinds: ["melon"] },
   {
     id: "haste",
     name: "Quick wick",
@@ -1283,6 +1300,8 @@ export function fittingDetail(kind: TowerKind, id: ModId): string {
       return kind === "orrery" ? `The planets circle ${tiles(28)} farther out.` : reach;
     case "haste":
       return "15% less time between shots.";
+    case "ripe":
+      return `Each melon hits ${Math.round((CANNON.ripeMelon - 1) * 100)}% harder. No element, no effect: just a heavier shot.`;
     case "chill":
       return COMBO.on
         ? "Every hit adds one frost: one frost slows a fruit to 80%, two to 55%, three freezes it solid."
@@ -3035,7 +3054,6 @@ const ACT_THREE: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> = [
  * hpPerWave: health growth per wave cleared.
  * hpCurve:   shape of that growth. 1 = straight line; 2 = gentle early, steep late.
  * killGold:  multiplier on seeds paid per kill.
- * pulpEvery: seconds between pulp puddles from one melon cannon (pulp upgrades).
  * slowPower: strength of puddle and chill slows (1 = as written, 0.5 = half as strong). Freeze is separate.
  * michaelSeeds / michaelLives: Sir Michael's starting seeds and stacks.
  */
@@ -3044,7 +3062,6 @@ export const BALANCE = {
   hpPerWave: 0.55,
   hpCurve: 2,
   killGold: 1,
-  pulpEvery: 2.5,
   slowPower: 1,
   /** A boss before its night's last wave is a mini-boss: this many times the health of an ordinary one of its kind
    * (a pumpkin for Karl, a goose for the Matriarch, a cat for General Mittens), so 2.5 = 150% more. */
@@ -3167,7 +3184,7 @@ export const COMBO = {
   /** A splash in a fire patch: burn × `flare` for `flareTime` s. */
   flareTime: 1,
   flare: 2,
-  /** Electrified Melons: the spark reaches × as far to a fruit with frost. */
+  /** Electrified Rounds: the spark reaches × as far to a fruit with frost. */
   sparkFrost: 2,
 };
 

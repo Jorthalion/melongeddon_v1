@@ -222,7 +222,7 @@ test("on wet carpet, fire burns at 0.6 for 0.6 as long, and a Still's puddle las
   const patch = (wet: boolean) => {
     const e = fruitOnCell();
     w.wet = wet ? new Set([cell]) : new Set();
-    w.shots.push({ id: 1e7, x, y, tx: x, ty: y, target: e.id, dmg: 0, life: 1, bounces: 0, orange: false, splash: 0, element: "fire", procs: false, splashRatio: 0, chill: 0, freezeExtra: 0, fireLife: 2.4, fireBurn: 22, pulp: false });
+    w.shots.push({ id: 1e7, x, y, tx: x, ty: y, target: e.id, dmg: 0, life: 1, bounces: 0, orange: false, splash: 0, element: "fire", procs: false, splashRatio: 0, chill: 0, freezeExtra: 0, fireLife: 2.4, fireBurn: 22 });
     for (const t of w.towers) t.cd = 99;
     stepWorld(w, 1 / 60);
     const pool = w.pools.find((p) => p.hot)!;

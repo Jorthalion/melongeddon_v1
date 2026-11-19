@@ -21,7 +21,7 @@ import {
   waveAt,
   type NightId,
 } from "../src/game/engine.ts";
-import { ALL_UNLOCKED, EMPTY_META, GLOBAL_RANGE, boardSize, TOWERS as T, buildOffer, TOWER_GROUPS, backRoomPrice, stepWorld, type TowerKind } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, EMPTY_META, GLOBAL_RANGE, boardSize, TOWERS as T, buildOffer, TOWER_GROUPS, backRoomPrice, stepWorld, towerReadout, type TowerKind } from "../src/game/engine.ts";
 import { HEROES, KEEPER_TOWERS, SIGNATURE, SIGNATURE_KINDS, keeperOf, type HeroId } from "../src/game/engine.ts";
 import { simulateRun, smartPick } from "../scripts/sim-core.ts";
 
@@ -84,7 +84,7 @@ test("Sir Michael has no free cannon, ordinary shots, and waits on the intro for
   api.pointer(center(4), center(3), "down");
   const melon = world.towers[0];
   assert.ok(melon);
-  assert.equal(api.statsOf(melon.id)!.dmg, 14, "the same shot as everyone else");
+  assert.equal(api.statsOf(melon.id)!.dmg, towerReadout(null, "melon", [], []).dmg, "the same shot as everyone else");
 });
 
 test("towers cannot be placed on the carpet", () => {
@@ -477,6 +477,7 @@ test("Ink Blot spreads ink when a marked fruit pops", () => {
         a.ink = 4;
         a.hp = Math.min(a.hp, 1);
         b.ink = 0;
+        b.hp = Math.max(b.hp, 999); // a melon shot one-shots a plain melon now; keep the neighbour standing
         b.x = a.x + 10;
         b.y = a.y;
       }
@@ -526,9 +527,11 @@ test("simulation is repeatable for the same seed", () => {
 });
 
 test("the smart sim bot picks by its board: Juicy first, Sticky once it has puddles, a cannon's own upgrade when it has several", () => {
-  assert.equal(smartPick(["juicy", "rapid", "fines"], [], ["melon", "melon"], 1), "juicy");
-  assert.equal(smartPick(["sticky", "electric", "lamp"], ["juicy"], ["melon"], 2), "sticky");
-  assert.equal(smartPick(["sticky", "electric", "lamp"], ["rapid"], ["melon"], 2), "electric");
+  assert.equal(smartPick(["juicy", "rapid", "fines"], [], ["melon", "mortar"], 1), "juicy");
+  // Juicy skips the melon cannon, so a melons-only board doesn't want it.
+  assert.notEqual(smartPick(["juicy", "rapid", "fines"], [], ["melon", "melon"], 1), "juicy");
+  assert.equal(smartPick(["sticky", "electric", "lamp"], ["vial"], ["mortar"], 2), "sticky");
+  assert.equal(smartPick(["sticky", "electric", "lamp"], ["rapid"], ["mortar"], 2), "electric");
   assert.equal(smartPick(["sticky", "stinging", "lamp"], ["rapid"], ["hive", "hive", "hive", "hive"], 3), "stinging");
   const cfg = { hero: "michael", difficulty: "normal", strategy: "mixed", night: "midnight", map: "stacks", seed: 2, picks: "smart", oath: "door" } as const;
   const r = simulateRun(cfg);

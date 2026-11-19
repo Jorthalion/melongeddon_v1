@@ -287,7 +287,6 @@ export const FRESH_TEST: Partial<Record<TowerKind, (e: Enemy, pools: Pool[], tow
   honey: (e) => (e.honeyed ?? 0) <= 0,
   cauldron: (e, pools) => !standingIn(e, pools, (p) => Boolean(p.toxic)),
   // The Cold rind fitting: one with no frost yet (combos off: not chilled yet).
-  melon: (e, _p, t) => !t.mods.includes("chill") || (COMBO.on ? (e.frost ?? 0) < 1 : e.chill <= 0),
   spitter: (e, _p, t) => !t.mods.includes("chill") || (COMBO.on ? (e.frost ?? 0) < 1 : e.chill <= 0),
 };
 
@@ -348,8 +347,6 @@ interface Tower {
   spill?: Array<{ c: number; r: number; x: number; y: number; cd: number }>;
   /** Seeds spent on this tower (build + shop mods). Sell refunds a share of it. */
   paid: number;
-  /** Seconds until this cannon's shots can leave another pulp puddle. */
-  pulpCd?: number;
   /** Waves cleared when it was built (the History Lectern grows with each wave since). */
   born?: number;
   /** Orrery: the planets' current angle and orbit radius. */
@@ -447,8 +444,6 @@ interface Shot {
   freezeExtra: number;
   fireLife: number;
   fireBurn: number;
-  /** This shot leaves a pulp puddle where it lands. */
-  pulp: boolean;
   /** Damage kept on each bounce (Card Catalogue chains lose some; plain bounces keep it all). */
   bounceRatio?: number;
   /** Pumpkin Trebuchet: push fruit this far back along the carpet. */
@@ -1716,7 +1711,7 @@ export function createWorld(
         // A fresh tower of the copied kind on the Copycat's tile and id (so its kills count for the Copycat).
         m.copy = {
           id: m.id, c: m.c, r: m.r, x: m.x, y: m.y, aim: m.aim, paid: 0, born: m.born,
-          kind: source.kind, mods: copyMods(source), orange: source.orange, cd: 0.4, pulpCd: 0, copied: true,
+          kind: source.kind, mods: copyMods(source), orange: source.orange, cd: 0.4, copied: true,
         };
       } else if (refit) {
         m.copy.mods = copyMods(source);
@@ -2990,7 +2985,7 @@ export function createWorld(
   /**
    * The Post (pamphlet): armed, it goes off when a fruit on its straight reaches the straight's far end (in its
    * own walking direction) with at least `pamphletCrowd` living fruit there, that one included. Every one
-   * of them takes a fresh melon's direct hit. Spent, it re-arms once fewer than that are on the straight.
+   * of them takes one Post hit (towerReadout's pamphlet damage). Spent, it re-arms once fewer than that are on the straight.
    */
   const tickPamphlet = (tower: Tower, dt: number) => {
     tower.blast = Math.max(0, (tower.blast ?? 0) - dt);
@@ -3597,10 +3592,6 @@ export function createWorld(
         addFrost(e, fitted("freeze", "deepfreeze") ? COMBO.deepFreezeHit : COMBO.freezeHit);
       }
     }
-    if (shot.pulp) {
-      addPool(e.x, e.y);
-      shot.pulp = false; // a bounce does not leave a second puddle
-    }
     if (shot.element === "potion") {
       // Puddle upgrades (Alchemy) reach the cauldron: Sticky spreads it, Vial and Distilled make it bite.
       const life = CANNON.cauldronLife * (has("sticky") ? 1.4 : 1) * fx.poolLife * (wetAt(e.x, e.y) ? CANNON.wetPuddle : 1);
@@ -4027,10 +4018,9 @@ export function createWorld(
         }
         const crawl = has("distill") ? 0.38 : has("sticky") ? 0.45 : has("vial") ? 0.55 : 0.78;
         slow = Math.min(slow, softenSlow(crawl));
-        if (has("juicy") || has("distill")) {
-          const pulp = has("distill") ? 16 : 10;
-          if (pulp > dot) dotBy = pool.owner;
-          dot = Math.max(dot, pulp);
+        if (has("distill")) {
+          if (16 > dot) dotBy = pool.owner;
+          dot = Math.max(dot, 16);
         }
       }
       if (e.chill > 0) {
@@ -4271,7 +4261,6 @@ export function createWorld(
     for (const tower of (world.bell?.quiet ?? 0) > 0 ? [] : actingTowers()) {
       credit = tower.id;
       tower.cd -= dt;
-      tower.pulpCd = (tower.pulpCd ?? 0) - dt;
       if (tower.rally) tower.rally = Math.max(0, tower.rally - dt);
       if (PASSIVE.includes(tower.kind)) continue;
       if (tower.kind === "orrery") {
@@ -4380,7 +4369,6 @@ export function createWorld(
           freezeExtra: 0,
           fireLife: 0,
           fireBurn: 0,
-          pulp: false,
           bombard: true,
         });
         continue;
@@ -4581,12 +4569,6 @@ export function createWorld(
       }
       tower.cd = stats.interval;
       const dmg = stats.dmg;
-      // Pulp upgrades: only melon cannons leave puddles, and at most one per cannon every few seconds.
-      const pulp =
-        tower.kind === "melon" &&
-        (tower.pulpCd ?? 0) <= 0 &&
-        (has("juicy") || has("sticky") || has("vial") || has("distill"));
-      if (pulp) tower.pulpCd = BALANCE.pulpEvery;
       cue("fire", tower.kind);
       const element: Shot["element"] =
         tower.kind === "fire"
@@ -4631,7 +4613,7 @@ export function createWorld(
         bounces:
           tower.kind === "catalogue"
             ? CANNON.catalogueChains + fx.chains
-            : (tower.kind === "melon" && has("bounce")) || (tower.kind === "hive" && has("stinging"))
+            : tower.kind === "hive" && has("stinging")
               ? 1
               : 0,
         bounceRatio: tower.kind === "catalogue" ? Math.max(CANNON.catalogueChainRatio, fx.chainRatio) : 1,
@@ -4639,8 +4621,8 @@ export function createWorld(
         orange: tower.kind === "mortar" || tower.kind === "trebuchet" || quack || tower.orange,
         splash: tower.kind === "mortar" ? 46 + (hasMod(tower, "wide") ? 18 : 0) + (hasMod(tower, "mimicstep") ? CANNON.mimicSplash : 0) : tower.kind === "trebuchet" ? Math.round(CANNON.trebuchetSplash * fx.splash) : quack ? Math.round(CANNON.quackSplash * fx.splash) : 0,
         element,
-        // Juicy, Splatter and Electric go off from Cannon-type towers only.
-        procs: TOWER_TYPE[tower.kind] === "cannon",
+        // Juicy, Splatter and Electric go off from Cannon-type towers only, and never the plain melon cannon.
+        procs: TOWER_TYPE[tower.kind] === "cannon" && tower.kind !== "melon",
         inkTime: hasMod(tower, "indelible") ? CANNON.inkTime * 1.5 : CANNON.inkTime,
         inkMul: (hasMod(tower, "indelible") ? CANNON.inkBonus + 0.1 : CANNON.inkBonus) + (has("blot") ? CANNON.blotInkBonus : 0),
         wormDps: hasMod(tower, "venom") ? CANNON.wormDps * 1.5 : CANNON.wormDps,
@@ -4648,11 +4630,10 @@ export function createWorld(
         splashChill: quack ? CANNON.quackSlow : 0,
         cover: quack && fx.covering > 0 ? CANNON.quackCover : 0,
         lock,
-        chill: hasMod(tower, "chill") ? 0.75 : 0,
+        chill: hasMod(tower, "chill") && tower.kind !== "melon" ? 0.75 : 0,
         freezeExtra: (hasMod(tower, "hold") ? 0.55 : 0) + (hasMod(tower, "mimicstep") ? CANNON.mimicFreeze : 0),
         fireLife: (hasMod(tower, "lasting") ? 3.6 : 2.4) + (hasMod(tower, "mimicstep") ? CANNON.mimicBurn : 0),
         fireBurn: hasMod(tower, "hotter") ? 34 : 22,
-        pulp,
       });
       }
     }

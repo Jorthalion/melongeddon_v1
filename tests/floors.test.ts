@@ -170,7 +170,11 @@ test("the Bell Tower strikes every 24 s of a wave: towers go quiet for 2.5 s, th
   api.startWave();
   const w = api.world;
   assert.deepEqual(w.bell, { next: FLOOR.bellEvery, quiet: 0 });
-  for (let i = 0; i < Math.ceil(FLOOR.bellEvery * 60) + 1; i++) stepWorld(w, 1 / 60);
+  // The clock runs down during the wave. Skip to the last moment (a wave can end before 24 s now melons hit harder).
+  for (let i = 0; i < 60; i++) stepWorld(w, 1 / 60);
+  assert.ok(Math.abs(w.bell!.next - (FLOOR.bellEvery - 1)) < 0.05, "counting down");
+  w.bell!.next = 1 / 120;
+  stepWorld(w, 1 / 60);
   assert.ok(w.bell!.quiet > 0, "struck");
   // While it rings nothing fires: the tower's cooldown holds.
   const cd = tower.cd;

@@ -105,29 +105,33 @@ function mulberry32(seed: number) {
 
 /**
  * A thoughtful player's shelf pick: score each card by what it does for the board standing now.
- * Puddles first (Juicy Explosions), then what makes puddles worse to stand in (Sticky Pulp,
+ * Juicy Explosions first, then what makes puddles worse to stand in (Sticky Pulp,
  * Distilled Batch), then extra hits; a cannon's own upgrade is worth more the more of it there are;
- * money only early; melon-only upgrades only with melons out. The base values come from the random
+ * money only early; melon-only upgrades only with melons out. Juicy, Splatter and Electric skip
+ * the melon cannon, so they count only the other cannons. The base values come from the random
  * bots' runs (sim-results/final10), where Juicy first won 81% of Normal and Hard runs and Rapid first 48%.
  */
 export function smartPick(offer: UpgradeId[], owned: UpgradeId[], board: TowerKind[], wave: number): UpgradeId {
   const count = (k: TowerKind) => board.filter((b) => b === k).length;
   const cannons = board.filter((k) => k === "melon" || k === "mortar" || k === "fire" || k === "freeze").length;
-  const puddles = owned.includes("juicy") || owned.includes("vial") || owned.includes("distill");
+  // Juicy, Splatter and Electric never go off from a melon cannon.
+  const effectCannons = cannons - count("melon");
+  const effects = (full: number) => (board.length && effectCannons === 0 ? 2 : full);
+  const puddles = owned.includes("vial") || owned.includes("distill") || count("still") > 0;
   const own: Partial<Record<UpgradeId, TowerKind>> = { barbed: "ballista", footnotes: "reader", stinging: "hive", blot: "ink", interest: "compost" };
   const score = (id: UpgradeId): number => {
     const kind = own[id];
     if (kind) return 3 + 2 * count(kind);
     switch (id) {
-      case "juicy": return 10;
+      case "juicy": return effects(10);
       case "sticky": return puddles ? 9.5 : 5;
       case "distill": return 9;
-      case "electric": return 8;
+      case "electric": return effects(8);
       case "rapid": return 4 + Math.min(4, cannons / 3);
       case "caliber": return 6;
-      case "splatter": return 6.5;
+      case "splatter": return effects(6.5);
       case "lamp": return 5;
-      case "bounce": return 2 + Math.min(4, count("melon") / 2);
+      case "bounce": return 3 + Math.min(5, count("melon") / 2);
       case "fines": return wave <= 3 ? 5.5 : 3;
       case "seeds": return wave <= 3 ? 4 : 2.5;
       case "vial": return 4;

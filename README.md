@@ -92,7 +92,7 @@ Pick **Endless** as the night on the setup screen (New night). You play act one'
 
 In simulation (bot always takes the cannon upgrade vs never), Barbed Spears, Footnotes and Stinging Flies are about level with the general pick they replace. Ink Blot and Interest still trail by roughly 20 points: both boost other cannons or reward saving seeds, which the bot doesn't plan for. The simulator accepts a `pickUpgrade` chooser in `RunConfig` for this kind of test.
 
-The ten newer cannons are drawn in code (`src/game/drawCannons.ts`) until there is painted art. Their stats are in `PROFILE` and `CANNON` in `src/game/rules.ts`. Upgrade on-hit effects (Juicy, Splatter, Electric) only fire from the original four shooting cannons, so rapid-fire cannons don't multiply them.
+The ten newer cannons are drawn in code (`src/game/drawCannons.ts`) until there is painted art. Their stats are in `PROFILE` and `CANNON` in `src/game/rules.ts`. Upgrade on-hit effects (Juicy, Splatter, Electric) only fire from the Mortar, Fire and Freeze cannons (and the other Cannon-type towers), so rapid-fire cannons don't multiply them. **The Melon cannon is the plain gun:** no element, pulp or on-hit effect (`MELON_SKIPS` in `rules.ts`). It hits ×`CANNON.melonDmg` (2.9, 41 damage) over the shared base, tuned in the simulator to win what it won when its pulp slowed and burned, and its upgrades only add damage (Prize Melons ×`prizeMelon`, the Ripe core fitting ×`ripeMelon`, Heavy Caliber), pace (Rapid Rind, Oiled breech) or reach (Reading Lamp, Longer barrel). The Post's hit stays on the plain base (14 × `pamphletHit`).
 
 ## Tower types
 
@@ -109,9 +109,10 @@ The build tabs (Damage / Control / Support) say what a tower is for. Each tower 
 | Upgrade | Affects |
 |---|---|
 | Rapid Rind, Reading Lamp | Cannon, Precision |
-| Heavy Caliber, Juicy Explosions, Knight's Splatter, Electrified Melons | Cannon |
-| Bouncing Melons | Melon cannon |
-| Sticky Pulp, Trial Vial, Distilled Batch | Alchemy, and the pulp cannons leave (they also make the Bubbling Cauldron's puddle bigger or stronger) |
+| Heavy Caliber | Cannon |
+| Juicy Explosions, Knight's Splatter, Electrified Rounds | Cannon, except the Melon cannon |
+| Prize Melons (id `bounce`, melon damage ×`CANNON.prizeMelon`) | Melon cannon |
+| Sticky Pulp, Trial Vial, Distilled Batch | Alchemy (they also make the Bubbling Cauldron's puddle bigger or stronger) |
 | Seed Cache, Overdue Fines | Seeds only |
 | Barbed Spears, Footnotes, Stinging Flies, Ink Blot, Interest | Their own cannon |
 
@@ -240,7 +241,7 @@ All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `worl
 
 ## Tuning
 
-The main knobs are in `BALANCE` in `src/game/rules.ts` (enemy health curve, story-night pace, kill rewards, pulp puddle rate, slow strength, Sir Michael's start, endless health growth), plus `DIFFICULTIES` in the same file. After changing them, run `npm run sim` and compare against `docs/balance-current.md`. `--workers N` splits the runs over N processes (a 5-seed run of everything is 6,400 runs, about an hour on 15 workers); `--set PATH=VALUE` changes an exported rules object for one run without editing it (`--set COMBO.on=false` is the combos-off comparison); `--from a/runs.json,b/runs.json` rebuilds a report from saved runs, a later file's run replacing the same run in an earlier one. A board can ease one difficulty on its own: `Board.trim` (`{ from, count }`: from that wave, groups of 2 or more are cut to that share, through `trimSpawns` in `queueFor`) and `Board.pace` (a speed multiplier in `tune`). The Greenhouse trims Story to 75% from wave 9; the Courtyard walks at 80% on Story and trims Normal to 85% from wave 6.
+The main knobs are in `BALANCE` in `src/game/rules.ts` (enemy health curve, story-night pace, kill rewards, slow strength, Sir Michael's start, endless health growth), plus `DIFFICULTIES` in the same file. After changing them, run `npm run sim` and compare against `docs/balance-current.md`. `--workers N` splits the runs over N processes (a 5-seed run of everything is 6,400 runs, about an hour on 15 workers); `--set PATH=VALUE` changes an exported rules object for one run without editing it (`--set COMBO.on=false` is the combos-off comparison); `--from a/runs.json,b/runs.json` rebuilds a report from saved runs, a later file's run replacing the same run in an earlier one. A board can ease one difficulty on its own: `Board.trim` (`{ from, count }`: from that wave, groups of 2 or more are cut to that share, through `trimSpawns` in `queueFor`) and `Board.pace` (a speed multiplier in `tune`). The Greenhouse trims Story to 75% from wave 9; the Courtyard walks at 80% on Story and trims Normal to 85% from wave 6.
 
 `docs/balance-current.md` (10 seeds, 12,800 runs) against the review targets: Story is 90% or better on every room (the Stacks 90%, the Siege 93%) and for every keeper (91–97%). Normal is 62–80% by keeper, average 73.5; the Doctor is lowest at 62%, 11.5 points under. The 10-seed run first matched the 5-seed one (the Doctor 58% on Normal and 90% on Story, Quackarot 89% on Story, Asser 83% on Normal), so starting stacks moved: the Doctor 10 → 12 (Normal 62%, Story 91%), Quackarot 11 → 12 (Story 91%, Normal 67%), Asser 25 → 20 (Normal 80%, Story 95%; Hard Lessons now counts 19 missing stacks so it pays out on his last stack). Still weak: Quackarot on the Siege's Story (83%), and the Doctor and Quackarot on the Siege's Normal (38%, 43%). Combos on against off (`--set COMBO.on=false`): nights are within 2 points on Story and Normal, Midnight is 8–11 points easier with combos on above Normal, and the Siege is 7–12 points harder on Melongeddon and Overdue, where its finale's tanks lean on fire patches that a later Freeze hit douses. Vaelithra was the big mover (+26 on Normal) while her slow built frost; it is now its own kind, Drowsy (`DROWSY` in `rules.ts`: half speed, the third hit puts a fruit to sleep, fire wakes it, no frost), tuned back to 93% Story and 66% Normal (4 seeds, `sim-results/drowsy-e`). The Organ's chord, Barbed Spears and Quack-Liber's rocket are a daze now (`Enemy.chill`, no frost); only the Freeze cannon and Cold rind add frost. Melon-only bots still lose Story on the Siege (Box Cats), which mixing towers answers.
 

@@ -175,7 +175,7 @@ test("knockback on a diagonal pushes the fruit back along the diagonal", () => {
   onLeg(api, e, DOWN, legs[DOWN].from + legs[DOWN].length / 2);
   e.speed = 0;
   const before = along(api, e);
-  api.world.shots.push({ id: 9e6, x: e.x, y: e.y, tx: e.x, ty: e.y, target: e.id, dmg: 1, life: 1, bounces: 0, orange: false, splash: 1, knock: 40, element: "shot", procs: false, splashRatio: 0, chill: 0, freezeExtra: 0, fireLife: 0, fireBurn: 0, pulp: false });
+  api.world.shots.push({ id: 9e6, x: e.x, y: e.y, tx: e.x, ty: e.y, target: e.id, dmg: 1, life: 1, bounces: 0, orange: false, splash: 1, knock: 40, element: "shot", procs: false, splashRatio: 0, chill: 0, freezeExtra: 0, fireLife: 0, fireBurn: 0 });
   run(api, [e], 0.1);
   assert.ok(Math.abs(before - along(api, e) - 40) < 1, `pushed ${(before - along(api, e)).toFixed(1)} px back`);
   assert.ok(offLeg(api, e, DOWN) < 0.5, "and it's still on the diagonal");
@@ -217,7 +217,7 @@ test("the Pamphlet binds to a diagonal and fires when the front fruit reaches it
   onLeg(api, front, DOWN, legs[DOWN].to - 3);
   onLeg(api, back, DOWN, legs[DOWN].from + 30);
   run(api, [front, back], 0.6);
-  const hit = Math.round(towerReadout(api.world.hud.hero, "melon", [], api.world.hud.upgrades).dmg * CANNON.pamphletHit);
+  const hit = towerReadout(api.world.hud.hero, "pamphlet", [], api.world.hud.upgrades).dmg;
   assert.equal(9999 - front.hp, hit);
   assert.equal(9999 - back.hp, hit);
 });

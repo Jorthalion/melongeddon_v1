@@ -58,7 +58,7 @@ function stride(api: Api, e: Fruit, c: number, r: number, wp: number, set: Parti
 
 /** A direct hit (or a splash shot) on `e`, landing next frame. */
 function shoot(api: Api, e: Fruit, dmg: number, splash = 0) {
-  api.world.shots.push({ id: 9e6 + api.world.shots.length + Math.random(), x: e.x, y: e.y, tx: e.x, ty: e.y, target: e.id, dmg, life: 1, bounces: 0, orange: false, splash, element: "shot", procs: false, splashRatio: splash ? 0.5 : 0, chill: 0, freezeExtra: 0, fireLife: 0, fireBurn: 0, pulp: false });
+  api.world.shots.push({ id: 9e6 + api.world.shots.length + Math.random(), x: e.x, y: e.y, tx: e.x, ty: e.y, target: e.id, dmg, life: 1, bounces: 0, orange: false, splash, element: "shot", procs: false, splashRatio: splash ? 0.5 : 0, chill: 0, freezeExtra: 0, fireLife: 0, fireBurn: 0 });
 }
 
 const seconds = (api: Api, s: number) => {

@@ -384,7 +384,7 @@ His perks bend the Doctor's pick and the Lectern. None of them add damage, reach
 
 His Keeper tab has four towers: the Quack-Liber, the Anti-Geese Protocol, The Post and Instant Quackmission (one of each at a time).
 
-- **The Post** (70). One bad take, and everything on the straight gets ratioed. It must stand on a tile **beside a straight stretch of carpet** (a "straight" runs from one corner to the next). It watches that straight; the orange wash shows which one, with an arrow at the corner where it goes off. When the **front fruit reaches that corner** with **at least one more fruit still on the straight**, every fruit on the straight takes **one big hit** (a speech-bubble shockwave runs down it), twice what a fresh Melon cannon's shot deals (card upgrades count, melon fittings don't). It's a direct hit, so a shell takes it and cracks, and a pit takes it in full. One fruit alone, or Karl alone, sets nothing off. After it goes off it waits until fewer than two fruit are left on the straight before it arms again, so a long line gets one blast. Fruit that have already turned the corner are safe. On a tile beside two straights it takes the one further along; **Other straight** in its panel swaps between waves. On the Overflow, chute fruit set it off at the corner they're walking towards.
+- **The Post** (70). One bad take, and everything on the straight gets ratioed. It must stand on a tile **beside a straight stretch of carpet** (a "straight" runs from one corner to the next). It watches that straight; the orange wash shows which one, with an arrow at the corner where it goes off. When the **front fruit reaches that corner** with **at least one more fruit still on the straight**, every fruit on the straight takes **one big hit** (a speech-bubble shockwave runs down it), 28 damage (44 with Heavy Caliber). It is tuned off the plain cannon shot, so the Melon cannon's own boosts don't change it. It's a direct hit, so a shell takes it and cracks, and a pit takes it in full. One fruit alone, or Karl alone, sets nothing off. After it goes off it waits until fewer than two fruit are left on the straight before it arms again, so a long line gets one blast. Fruit that have already turned the corner are safe. On a tile beside two straights it takes the one further along; **Other straight** in its panel swaps between waves. On the Overflow, chute fruit set it off at the corner they're walking towards.
 - **Instant Quackmission** (50). Two feathers to the forehead. It does no damage. Every 4 seconds the fruit **furthest along** in its reach (a melon cannon's) **blinks** (a bright flash and a twinkle over it) and walks **back the way it came for 2.5 seconds**; everything else keeps walking. Husks are steered too, and Karl only turns for 0.6 seconds. A fruit it has just turned can't be turned again for 4 seconds, so nothing is held forever. At the start of the carpet (or the chute's end) a driven fruit just waits.
 
 | Level | Option A | Option B |
@@ -431,7 +431,7 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 
 | Tower | Cost | Role |
 |---|---|---|
-| Melon cannon | 60 | Steady shot at whoever is furthest along the carpet |
+| Melon cannon | 60 | A heavy shot at whoever is furthest along the carpet. No tricks: its upgrades only make it hit harder, fire faster or reach farther |
 | Pumpkin mortar | 75 | Slow lob; the splash hits everyone nearby |
 | Seed Spitter | 50 | Very fast, tiny seeds, short reach. Great on corn; bounces off shells |
 | Shelf Ballista | 80 | A spear that goes through the first four fruit in a straight line (seven with **Through and through**) |
@@ -472,7 +472,7 @@ Each cannon starts on the **recommended** mode, the best choice for most nights:
 
 Slowing comes in four kinds, and only ice counts for the ice combos below.
 
-- **Ice (frost).** The Freeze cannon and the Cold rind upgrade. It builds the frost meter, freezes fruit solid at three, and sets up shatters, thermal shock and Black Ice.
+- **Ice (frost).** The Freeze cannon and the Seed Spitter's Cold rind upgrade. It builds the frost meter, freezes fruit solid at three, and sets up shatters, thermal shock and Black Ice.
 - **Drowsy (Vaelithra).** Every hit from any of her towers makes a fruit drowsy: half speed for 1.4 seconds (bosses shake it off sooner). The **third hit on a drowsy fruit puts it to sleep**: it stops for a second (Karl and the other bosses 0.3 seconds), then can't nod off again for two seconds. It shows as a lilac tint, heavy eyelids, drifting z's and a moon pip. It never adds frost, so it never freezes anything or sets up an ice combo. **Fire wakes it** (a fire shot or a fire patch ends drowsy and sleep at once), and a **Shush Bell or Organ crescendo stops a drowsy fruit half again as long**.
 - **Daze.** The Pipe Organ's chord, Barbed Spears and a Quack-Liber ki blast's burst slow what they hit for a moment (a lilac swirl pip). No frost.
 - **Puddles.** The Still's and the Cauldron's puddles slow anything standing in them. No frost.
@@ -489,7 +489,7 @@ Status effects build on each other. Small coloured dots under a fruit show what 
 - **Shatter.** The first **splash** on a fruit with two or more frost (a Mortar, Juicy Explosions, Splatter, the Trebuchet, a Quack-Liber ki blast, the Bombard) shatters it: that hit does **half again**, its frost goes to zero, and **ice shards** hit every other fruit within a tile for 25% of the hit (40% at three frost). Shards are splash, so pits shrug them off. Any stings, poison or fire on it go off at once. Aimed shots (Melon, Spitter, Ballista, Long Reader, Telescope) never shatter.
 - **Thermal shock.** **Ice, then fire:** a Fire cannon shot, or walking into a fire patch, on a frosted fruit thaws it at once and bursts for 60% more ("HISS"). It doesn't bake a raw pumpkin. **Fire, then ice:** a Freeze hit on a burning fruit puts the fire out for 1.5 seconds, even standing in the patch. It's still steaming for those seconds, so a growth bed doesn't heal it either. So put the Freeze cannon earlier on the carpet than the Fire cannon.
 - **Wildfire.** A burning fruit that's slowed but not frozen (frost, a daze, drowsy or a slowing puddle) sets a neighbour within about a tile alight every second, for two seconds. Damp fruit, damp rooms and wet carpet halve it; husks catch it first.
-- **Explosions** spread a puddle by half (once), make a fire patch burn twice as hard for a second, and Electrified Melons' spark reaches twice as far to a fruit with frost.
+- **Explosions** spread a puddle by half (once), make a fire patch burn twice as hard for a second, and Electrified Rounds' spark reaches twice as far to a fruit with frost.
 
 **Afflictions** (damage over time that stacks)
 
@@ -554,7 +554,7 @@ The **Back room** is a tab on the right edge of the board; on a phone it's a but
 
 - **Hover an upgrade to see what it does.** Hover (or focus) an upgrade, bought or not, and a card opens beside the back room: what it does with its real numbers (for example "Each hit adds 3 frost instead of 2"), and any change to the kind's damage, reach, time between shots or pierce, such as "Reach 3.7 tiles → 4.3 tiles". Meanwhile the board draws every tower of that kind's reach now (faint) and with the upgrade (gold, dashed).
 
-- **Each tower names its own reach and pace upgrades.** They do the same thing everywhere (reach farther, cycle faster), but each tower calls them what they are: the Melon's **Longer barrel** and **Oiled breech**, the Spitter's **Long straw** and **Deep breath**, the Ballista's **Taut string** and **Ratchet winch**, the Orrery's **Wider orbit** and **Spin faster**, the Fly Hive's **Queen bee**, the Shush Bell's **Lighter clapper**, the Organ's **Bellows**, and so on.
+- **Each tower names its own reach and pace upgrades.** They do the same thing everywhere (reach farther, cycle faster), but each tower calls them what they are: the Melon's **Longer barrel** and **Oiled breech** (plus its own **Ripe core**: 20% more damage), the Spitter's **Long straw** and **Deep breath**, the Ballista's **Taut string** and **Ratchet winch**, the Orrery's **Wider orbit** and **Spin faster**, the Fly Hive's **Queen bee**, the Shush Bell's **Lighter clapper**, the Organ's **Bellows**, and so on.
 - **An upgrade belongs to the kind, not to one tower.** Buy Longer barrel for the Melon cannon and every Melon cannon on the floor reaches farther, and so does every one you build later tonight. A Mimic copying a Melon cannon gets it too.
 - **Each kind has its own price.** A kind's first upgrade costs 40 seeds, then 30 more for each upgrade it already has (40, 70, 100…). Upgrading Melon cannons never makes Mortar upgrades dearer.
 - **No cap.** Buy every upgrade a kind has, if you can pay for it. Each one can be bought once.
@@ -572,11 +572,11 @@ After waves **1**, **2** and **6**, you choose one upgrade from three. Dr. Samod
 | Rapid Rind | Fire 30% faster | Cannon, Precision |
 | Reading Lamp | See farther down the carpet | Cannon, Precision |
 | Heavy Caliber | Hit harder, reload slower | Cannon |
-| Juicy Explosions | Hits burst; the pulp puddle burns | Cannon |
-| Knight's Splatter | Each hit chips everyone near the target | Cannon |
-| Electrified Melons | Impacts spark into a nearby fruit | Cannon |
-| Bouncing Melons | Shots ricochet into a second fruit | Melon cannon |
-| Sticky Pulp / Trial Vial / Distilled Batch | Stronger, longer-lasting slowing puddles | Alchemy, and melon-cannon pulp |
+| Juicy Explosions | Hits burst, splashing everyone close | Cannon (not the Melon cannon) |
+| Knight's Splatter | Each hit chips everyone near the target | Cannon (not the Melon cannon) |
+| Electrified Rounds | Impacts spark into a nearby fruit | Cannon (not the Melon cannon) |
+| Prize Melons | Melon cannons hit 30% harder | Melon cannon |
+| Sticky Pulp / Trial Vial / Distilled Batch | Stronger, longer-lasting slowing puddles | Alchemy |
 | Seed Cache | +55 seeds now | Seeds |
 | Overdue Fines | Every kill pays 5 extra seeds | Seeds |
 | Barbed Spears, Footnotes, Stinging Flies, Ink Blot, Interest | Each boosts one specific tower (Ballista, Long Reader, Fly Hive, Ink Well, Compost Heap). Offered only once you've built that tower | That tower |
@@ -649,10 +649,10 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 
 | Kind | Comes from |
 |---|---|
-| **Direct hit** | Melon, Seed Spitter, Ballista, Long Reader, Fly Hive, Ink Well, Peeler, the Printing Press's sheet, every trick cannon, the keepers' own towers, the hit itself from Mortars, Fire and Freeze cannons, and Electrified Melons' zap |
+| **Direct hit** | Melon, Seed Spitter, Ballista, Long Reader, Fly Hive, Ink Well, Peeler, the Printing Press's sheet, every trick cannon, the keepers' own towers, the hit itself from Mortars, Fire and Freeze cannons, and Electrified Rounds' zap |
 | **Splash** | The blast around a Mortar or Pumpkin Trebuchet hit, the Foot of the Law's stomp, the Pipe Organ's chord, Juicy Explosions, Knight's Splatter, and the burst when Karl pops |
 | **Fire** | The flames a Fire cannon leaves on the carpet |
-| **Puddle** | Puddles that hurt: pulp with Juicy or Distilled, and the Cauldron's poison |
+| **Puddle** | Puddles that hurt: the Still's with Distilled, and the Cauldron's poison |
 | **Bookworm** | The Bookworm burrowing into pumpkins and Karl |
 
 #### What each armour blocks

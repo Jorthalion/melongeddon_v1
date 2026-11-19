@@ -80,8 +80,9 @@ function run(api: Api, keep: Fruit[], s: number, each?: () => void) {
   }
 }
 
-/** The Pamphlet's hit: a fresh melon's, times CANNON.pamphletHit. */
-const melonHit = (api: Api) => Math.round(towerReadout(api.world.hud.hero, "melon", [], api.world.hud.upgrades).dmg * CANNON.pamphletHit);
+/** The Post's hit: what its inspector shows (CANNON.pamphletHit times the plain cannon base). */
+// The Post hits for a share of the plain cannon base (14), not the melon cannon's own boost.
+const melonHit = (api: Api) => towerReadout(api.world.hud.hero, "pamphlet", [], api.world.hud.upgrades).dmg;
 
 test("carpetLegs: the straights of the Stacks, the Reading Room and the Overflow", () => {
   const legs = (map: MapId) => carpetLegs(buildBoard(BOARDS[map].corners).points).map((l) => l.tiles.length);
