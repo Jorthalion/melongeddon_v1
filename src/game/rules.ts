@@ -2464,21 +2464,21 @@ export const OATH_TEXT: Record<OathId, { said: string; title: string; gain: stri
     title: "Hold the door",
     gain: `+${Math.round((OATH_VALUES.doorHaste - 1) * 100)}% fire rate, last 3 tiles`,
     cost: `−${OATH_VALUES.doorStacks} stacks`,
-    log: "I hold the last tiles. He did not meet them coming in. He did not bring one pumpkin.",
+    log: "Sir Michael: “I hold the last tiles.” The other two oaths can wait for another night.",
   },
   mouth: {
     said: "I meet them coming in.",
     title: "Meet them first",
     gain: `+${Math.round((OATH_VALUES.mouthAmp - 1) * 100)}% damage, first 3 tiles`,
     cost: `−${OATH_VALUES.mouthSeeds} seeds`,
-    log: "I meet them coming in. He did not hold the last tiles. He did not bring one pumpkin.",
+    log: "Sir Michael: “I meet them coming in.” The other two oaths can wait for another night.",
   },
   sling: {
     said: "I brought one pumpkin.",
     title: "Bring one pumpkin",
     gain: `Trebuchet −${OATH_VALUES.slingDiscount} seeds`,
     cost: "No zone",
-    log: "I brought one pumpkin. He did not hold the last tiles. He did not meet them coming in.",
+    log: "Sir Michael: “I brought one pumpkin.” The other two oaths can wait for another night.",
   },
 };
 

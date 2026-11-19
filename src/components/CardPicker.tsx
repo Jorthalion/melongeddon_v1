@@ -13,6 +13,7 @@ import {
 } from "@/game/engine";
 import { BookOpen, Droplet, Droplets, Flame, FlaskConical, FlaskRound, Lamp, Package, Sparkles, Weight, Zap, type LucideIcon } from "lucide-react";
 import { victoryAction } from "@/game/keys";
+import { loseLine, winLine } from "@/game/keeperVoice";
 import { tone } from "@/game/audio";
 import { Dialog } from "@/components/Dialog";
 import { NewUnlocks } from "@/components/Bookmarks";
@@ -134,21 +135,7 @@ export function CardOverlay({
         {hudPhase === "victory" ? (
           <EndCard
             title={hud.night === "overflow" ? "The chute holds." : hud.night === "siege" ? "The courtyard holds." : "The stacks hold."}
-            body={`${hud.blurb} Absurdity ${hud.absurdity}. ${
-              hud.hero === "michael"
-                ? "Sir Michael held the carpet. Barely."
-                : hud.hero === "vael"
-                  ? "Vael files the result. The formula held."
-                  : hud.hero === "elf"
-                    ? "Case closed. The Legal Elf bills the produce for his time."
-                    : hud.hero === "ooze"
-                      ? "Quest complete. Memec is still chewing."
-                      : hud.hero === "scholar"
-                        ? "The Doctor writes it down. History will remember this one."
-                        : hud.hero === "asser"
-                          ? "Asser counts what he lost and writes it down. It will make a good chapter."
-                        : "Mynxi is filing this under accidents that worked."
-            }`}
+            body={`${hud.blurb} Absurdity ${hud.absurdity}. ${winLine(hud.hero ?? "mynxi")}`}
             action={victoryAction(hud.night)}
 
             unlocks={hud.newUnlocks}
@@ -175,8 +162,8 @@ export function CardOverlay({
             title="The carpet won."
             body={
               hud.night === "endless"
-                ? `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your endless best is ${hud.endlessBest}. The produce does not send condolences.`
-                : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. The produce does not send condolences.`
+                ? `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your endless best is ${hud.endlessBest}. ${loseLine(hud.hero ?? "mynxi")}`
+                : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. ${loseLine(hud.hero ?? "mynxi")}`
             }
             action="Try again"
             unlocks={hud.newUnlocks}

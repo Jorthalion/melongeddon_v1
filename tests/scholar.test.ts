@@ -142,7 +142,7 @@ test("a fruit that got 75% of the way slows its kind next wave at CANNON.lecture
   build(api, "lectern");
   api.dismissSelection();
   const log = playWave(api, noDamage(api)); // everything leaks
-  const m = log.match(/(The melons|The corn|The pumpkins|Karl) got furthest\. (They|He) will be slower\./);
+  const m = log.match(/(The melons|The corn|The pumpkins|Karl) got furthest\. I've taken notes\. (They|He) will be slower next time\./);
   assert.ok(m, `the Lectern speaks: "${log}"`);
   const kind = KIND_OF[m![1]];
   if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer[0].id);
@@ -187,7 +187,7 @@ test("a fruit that died near the entrance slows nothing", () => {
   build(api, "lectern");
   api.dismissSelection();
   const log = playWave(api, popAtDoor(api));
-  assert.match(log, /Nothing reached the stacks\. I have nothing to add\./);
+  assert.match(log, /Nothing got far\. I have nothing to add\./);
   if (api.world.hud.phase === "upgrade") api.pickUpgrade(api.world.hud.offer[0].id);
   // Next wave every fruit walks at full speed.
   let slowest = 1;

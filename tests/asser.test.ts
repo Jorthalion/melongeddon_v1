@@ -114,7 +114,7 @@ test("Asser starts with 20 stacks and 100 seeds, no towers, his line, and no oat
   assert.equal(w.hud.seeds, 100);
   assert.equal(w.towers.length, 0);
   assert.equal(w.hud.oath, null);
-  assert.match(w.hud.log, /^Twenty-five stacks\. He expects to lose some\./);
+  assert.match(w.hud.log, /^“I start with 20 stacks\. I'll lose some\./);
   assert.equal(w.hud.sisu, 0);
 });
 
@@ -142,7 +142,7 @@ test("Material: a leak pays 4 seeds a stack (12 for Karl's 3), a borrower pays n
   leak(api, e);
   assert.equal(w.hud.lives, 19);
   assert.equal(w.hud.seeds - seeds, ASSER_VALUES.materialSeeds);
-  assert.equal(w.hud.log, "Asser writes it down.");
+  assert.equal(w.hud.log, "Asser: “That one's going in the book.”");
 
   hold(karl, 0, 0, { boss: true, kind: "karl" });
   seeds = w.hud.seeds;
@@ -315,7 +315,7 @@ test("Second Wind: dropping to 5 gives 5 back, once a night", () => {
   w.hud.lives = 6;
   leak(api, e);
   assert.equal(w.hud.lives, 10);
-  assert.equal(w.hud.log, "Asser gets back up.");
+  assert.equal(w.hud.log, "Asser gets back up. “Not yet.”");
   w.hud.lives = 6;
   leak(api, again);
   assert.equal(w.hud.lives, 5);

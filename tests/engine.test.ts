@@ -75,7 +75,7 @@ test("Sir Michael has no free cannon, ordinary shots, and waits on the intro for
   assert.equal(world.towers.length, 0, "no free cannon");
   assert.equal(world.hud.phase, "poster");
   assert.equal(world.hud.oath, null);
-  assert.equal(world.hud.log, "He has not said where he stands.");
+  assert.equal(world.hud.log, "Sir Michael is still deciding which oath to swear.");
   api.beginNight();
   assert.equal(world.hud.phase, "poster", "beginNight does not start him");
   api.pickOath("sling");

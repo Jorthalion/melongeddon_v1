@@ -12,6 +12,7 @@ import {
   SIEGE, type SiegeVariant,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
+import { KEEPER_VOICE, openingLine } from "./keeperVoice.ts";
 import { STATUS_LOOK } from "./drawStatus.ts";
 
 export * from "./rules.ts";
@@ -2819,7 +2820,7 @@ export function createWorld(
       float(x, y, `−${n} stack${n > 1 ? "s" : ""} · +${pay}`, "#e23b4a");
       if (!materialNoted) {
         materialNoted = true;
-        world.hud.log = "Asser writes it down.";
+        world.hud.log = "Asser: “That one's going in the book.”";
       }
       // Rally: every Lion Blade swings at once, and harder (once per leak; rallies don't add up).
       for (const blade of world.towers) {
@@ -2832,7 +2833,7 @@ export function createWorld(
         windUsed = true;
         world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + 5);
         float(x, y - 18, "second wind", "#6fa8ef");
-        world.hud.log = "Asser gets back up.";
+        world.hud.log = "Asser gets back up. “Not yet.”";
       }
       syncSisu();
     } else {
@@ -2842,7 +2843,7 @@ export function createWorld(
     if (world.hud.lives <= 0) {
       cue("defeat");
       world.hud.phase = "defeat";
-      world.hud.log = "The stacks are pulp. Mynxi is not speaking to you.";
+      world.hud.log = `The stacks are pulp. ${world.hud.hero ? `${KEEPER_NAMES[world.hud.hero].short}: ${KEEPER_VOICE[world.hud.hero].lose}` : ""}`.trim();
       bumpBest();
       finishNight(false);
       notify();
@@ -3039,7 +3040,7 @@ export function createWorld(
     world.towers = world.towers.filter((t) => t !== tower);
     if (world.hud.selected === tower.id) world.hud.selected = null;
     world.hud.geeseSpent = true;
-    world.hud.log = `Anti-Geese Protocol: ${inRange.filter((e) => !e.boss).length} fruit thrown back. It can be rebuilt after this wave.`;
+    world.hud.log = `Quackarot: “Anti-Geese Protocol, go!” ${inRange.filter((e) => !e.boss).length} thrown back. It can be rebuilt after this wave.`;
     syncPrice();
   };
 
@@ -3743,7 +3744,7 @@ export function createWorld(
       world.runLog.mended += mended;
       syncSisu();
     }
-    const mendLine = mended > 0 ? `The Lion Blade puts ${mended} stack${mended > 1 ? "s" : ""} back.` : "";
+    const mendLine = mended > 0 ? `The Lion Blade held its ground: ${mended} stack${mended > 1 ? "s" : ""} back.` : "";
     // Dr. Samodovol: the Lectern's note from this wave counts down, and if a lectern stands it notes
     // the kind that got furthest (one kind, the newest note wins).
     if (lectureNow && lecture) {
@@ -3767,9 +3768,9 @@ export function createWorld(
           goose: ["The geese", "They"],
           cat: ["The cats", "They"],
         }[best];
-        lectureLine = `${name[0]} got furthest. ${name[1]} will be slower.`;
+        lectureLine = `The Doctor: “${name[0]} got furthest. I've taken notes. ${name[1]} will be slower next time.”`;
       } else {
-        lectureLine = "Nothing reached the stacks. I have nothing to add.";
+        lectureLine = "The Doctor: “Nothing got far. I have nothing to add.”";
       }
     }
     reached.clear();
@@ -3849,7 +3850,7 @@ export function createWorld(
       world.hud.waveName = upcoming.name;
       world.hud.log = `Wave ${cleared} cleared.`;
     }
-    if (spilled) world.hud.log = `${world.hud.log} That was not in the notes.`;
+    if (spilled) world.hud.log = `${world.hud.log} Vaelithra: “That was not in the notes.”`;
     if (lectureLine) world.hud.log = `${world.hud.log} ${lectureLine}`;
     if (mendLine) world.hud.log = `${world.hud.log} ${mendLine}`;
     recordWave();
@@ -4191,7 +4192,7 @@ export function createWorld(
       );
       if (!thief) continue;
       float(desk.x, desk.y - 24, `bank eaten −${desk.bank}`, "#e23b4a");
-      world.hud.log = `A melon walked past the Reserve Desk and ate the bank (${desk.bank} seeds).`;
+      world.hud.log = `A melon walked past the Reserve Desk and ate the bank: ${desk.bank} seeds. Mynxi: “That melon owes me.”`;
       desk.bank = 0;
     }
 
@@ -5014,38 +5015,23 @@ export function createWorld(
         world.hud.seeds = 150;
         world.hud.lives = 12;
         world.hud.maxLives = 12;
-        world.hud.log = overflow
-          ? "The floor is wet. Her reach still looks down the carpet, including the chute."
-          : "First build is 40 seeds. Hers reach farther down the carpet.";
       } else if (hero === "vael") {
         world.hud.seeds = 120;
         world.hud.lives = 11;
         world.hud.maxLives = 11;
-        world.hud.log = overflow
-          ? "Her shots still slow the line. The wet does not care."
-          : "Her shots slow the line. They do not hit harder.";
       } else if (KEEPER_START[hero]) {
         const start = KEEPER_START[hero]!;
         world.hud.seeds = start.seeds;
         world.hud.lives = start.lives;
         world.hud.maxLives = start.lives;
-        world.hud.log =
-          hero === "elf"
-            ? "The back room takes his retainer: upgrades cost less. The Scales are on the Keeper tab."
-            : hero === "ooze"
-              ? "The first fruit to leak each wave gets absorbed. Memec is on the Keeper tab."
-              : hero === "asser"
-                ? overflow
-                  ? "He has lost stacks before. He kept the notes."
-                  : "Twenty-five stacks. He expects to lose some. Every one he loses pays seeds and makes his towers hit harder. The Lion Blade is on the Keeper tab."
-                : "Every shelf has one more book: the Doctor's pick. The Lectern is on the Keeper tab.";
       } else {
         world.hud.seeds = BALANCE.michaelSeeds;
         world.hud.lives = BALANCE.michaelLives;
         world.hud.maxLives = BALANCE.michaelLives;
         // No free cannon: he picks an oath on the intro instead (pickOath).
-        world.hud.log = "He has not said where he stands.";
       }
+      // The keeper's own first line, in their voice (keeperVoice.ts).
+      world.hud.log = openingLine(hero, world.hud.night);
       if (overflow) {
         // Night two starts with a little extra. Added after the keeper's opening line, not over it.
         world.hud.seeds += BALANCE.overflowSeeds;
