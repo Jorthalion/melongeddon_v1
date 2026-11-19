@@ -105,7 +105,7 @@ test("Quack-Liber haste: a tile in its aura previews the faster pace; a tile out
   const slow = api.previewStats("melon", outside);
   assert.ok(fast.interval < slow.interval, `${fast.interval} vs ${slow.interval}`);
   assert.ok(fast.quick);
-  assert.ok(fast.why.interval.some((w) => w.startsWith("Quack-Liber nearby")));
+  assert.ok(fast.why.interval.some((w) => w.startsWith("Quack-Liber aura")));
 });
 
 test("every kind: building it on a tile gives the numbers previewed for that tile", () => {

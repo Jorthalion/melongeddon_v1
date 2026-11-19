@@ -104,6 +104,16 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "siege", map: "courtyard" },
 ];
 
+/** --perks 00010: every keeper at level 10 with these perk picks (one digit per tier). Default: level 1, no perks. */
+const PERK_ARG = argOf("--perks");
+const KEEPERS: ENGINE.KeeperProgress | undefined = PERK_ARG
+  ? (() => {
+      const p = ENGINE.emptyProgress();
+      for (const h of Object.keys(p) as HeroId[]) p[h] = { xp: ENGINE.xpForLevel(ENGINE.MAX_LEVEL), picks: [...PERK_ARG].map(Number) as ENGINE.PerkPicks };
+      return p;
+    })()
+  : undefined;
+
 const configs: RunConfig[] = [];
 for (const hero of HEROES)
   for (const difficulty of DIFFS)
@@ -119,6 +129,7 @@ for (const hero of HEROES)
               map: sc.map,
               seed,
               picks: PICKS,
+              ...(KEEPERS ? { keepers: KEEPERS } : {}),
               ...(oath ? { oath } : {}),
               ...(STYLE_FILE ? { style: st.name, ...(st.rotation ? { rotation: st.rotation } : {}), ...(st.withKeeper ? { withKeeper: true } : {}) } : {}),
             });

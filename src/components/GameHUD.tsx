@@ -75,7 +75,7 @@ export function GameHeader({
               : !inRun
                 ? "Midnight Library"
                 : hud.hero
-                  ? KEEPER_NAMES[hud.hero].name
+                  ? <span className={hud.golden > 0 ? "font-semibold text-[#ffd65a] [text-shadow:0_0_8px_rgba(255,214,90,0.8)]" : ""}>{KEEPER_NAMES[hud.hero].name}</span>
                   : "Midnight Library"}
             {inRun ? ` · ${BOARDS[hud.map].name}${hud.night === "endless" ? " · Endless" : ""}` : ""}
           </p>
@@ -101,6 +101,14 @@ export function GameHeader({
               <span className={`font-display leading-none font-semibold ${wide ? "text-2xl" : "text-lg"}`}>
                 {hud.lives}/{hud.maxLives}
               </span>
+              {hud.golden > 0 ? (
+                <span
+                  className="rounded-full border border-[#ffd65a] bg-[#ffd65a]/15 px-1.5 text-[0.75rem] font-bold whitespace-nowrap text-[#ffd65a] shadow-[0_0_10px_rgba(255,214,90,0.6)]"
+                  title={`Quackarot is golden: every tower fires ${Math.round((CANNON.overQuackHaste - 1) * 100)}% faster`}
+                >
+                  GOLDEN {Math.ceil(hud.golden)}s
+                </span>
+              ) : null}
               {hud.sisu > 0 ? (
                 <span className="text-[0.8125rem] font-semibold whitespace-nowrap text-[#8fbcf2]" title="Sisu: Asser's towers hit harder for every stack he is missing">
                   Sisu +{hud.sisu}%
@@ -426,13 +434,13 @@ const SHORT_NAME: Record<TowerKind, string> = {
   lionblade: "Lion Blade",
   gourdgate: "Gourd Gate",
   bombard: "Bombard",
-  pamphlet: "Pamphlet",
-  driver: "Driver",
+  pamphlet: "The Post",
+  driver: "Quackmission",
 };
 /** Quackarot's newest towers: the one line under them on the build bar and in the inspector. */
 const TOWER_LINE: Partial<Record<TowerKind, string>> = {
-  pamphlet: "He holds it until the straight is full. Then the pamphlet goes off.",
-  driver: "One fruit is walked back. The others are not his problem.",
+  pamphlet: "He drafts it until the straight is full. Then he hits post.",
+  driver: "Two feathers to the forehead. One fruit blinks back. The others are not his problem.",
 };
 
 /** A number that's better than plain (fittings, perks, a lamp) in gold with ▲; worse (the dark) muted with ▼. */
@@ -458,8 +466,8 @@ function whyText(read: PreviewStats) {
 function CardStat({ kind, read }: { kind: TowerKind; read: PreviewStats }) {
   if (kind === "geese") return <>Throws back {CANNON.geeseShove / CELL} tiles</>;
   if (kind === "gourdgate") return <>Holds {CANNON.gateHold}s</>;
-  if (kind === "pamphlet") return <>Hits a straight</>;
-  if (kind === "driver") return <>Walks one back</>;
+  if (kind === "pamphlet") return <>Ratios a straight</>;
+  if (kind === "driver") return <>Blinks one back</>;
   if (read.dmg <= 0 || PASSIVE.includes(kind) || kind === "flask" || kind === "copycat") return <>No damage</>;
   const dmg = Number.isInteger(read.dmg) ? String(read.dmg) : read.dmg.toFixed(1);
   const reachMoved = Math.abs(read.range - read.base.range) > 1e-6 && read.range < 900;
@@ -538,10 +546,10 @@ function NightTally({ tally }: { tally: { dmg: number; pops: number; share: numb
   );
 }
 
-export function describeStats(kind: TowerKind, read: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; pierce?: number }) {
+export function describeStats(kind: TowerKind, read: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; powered?: boolean; pierce?: number }) {
   const tiles = read.range >= 900 ? "whole board" : `${(read.range / 48).toFixed(1)} tiles`;
-  // "lit" by a Reading Lamp; "quick" beside a Quack-Liber.
-  const lit = (read.lit ? " · lit" : "") + (read.quick ? " · quick" : "");
+  // "lit" by a Reading Lamp; "powered up" in a Quack-Liber's aura (or Quackarot golden); "quick" from another speed-up.
+  const lit = (read.lit ? " · lit" : "") + (read.powered ? " · powered up" : read.quick ? " · quick" : "");
   if (kind === "compost") return "No shot · pays seeds every wave";
   if (kind === "flask") return `No shot · puddle every ${read.interval.toFixed(1)}s from each tile · ${tiles} · spills to ${CANNON.flaskMaxTiles} tiles`;
   if (kind === "desk") return `No shot · banks ${CANNON.deskBank} a wave · melons within ${tiles} eat it`;
@@ -551,7 +559,7 @@ export function describeStats(kind: TowerKind, read: { dmg: number; range: numbe
   if (kind === "catalogue") return `DMG ${read.dmg} · chains ×${CANNON.catalogueChains} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "lantern") return `Boosts cannons within ${tiles}`;
   if (kind === "quackliber")
-    return `DMG ${read.dmg} rockets · burst slows · ${tiles} · ${read.interval.toFixed(1)}s · towers within ${(CANNON.quackAura / 48).toFixed(0)} tiles fire ${Math.round((CANNON.quackHaste - 1) * 100)}% faster`;
+    return `DMG ${read.dmg} ki blasts · burst dazes · ${tiles} · ${read.interval.toFixed(1)}s · towers within ${(CANNON.quackAura / 48).toFixed(0)} tiles powered up ${Math.round((CANNON.quackHaste - 1) * 100)}% faster`;
   if (kind === "orrery") return `DMG ${read.dmg} per sweep · orbit ${tiles}${lit}`;
   if (kind === "boomerang") return `DMG ${read.dmg} out and back · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "quill") return `DMG ${read.dmg} per fruit · writes ${((read.range * CANNON.quillReach) / 48).toFixed(1)} tiles · ${read.interval.toFixed(1)}s${lit}`;
@@ -563,7 +571,7 @@ export function describeStats(kind: TowerKind, read: { dmg: number; range: numbe
   if (kind === "scope") return `DMG ${read.dmg} · pierces armour · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "honey") return `No damage · sticky footprint every ${read.interval.toFixed(1)}s: +${Math.round((CANNON.honeyAmp - 1) * 100)}% damage taken for ${CANNON.honeyTime}s · ${tiles}`;
   if (kind === "pamphlet") return `Hit: ${read.dmg} per fruit on the straight · goes off at its corner when 2+ are on it`;
-  if (kind === "driver") return `No damage · walks the furthest fruit back ${CANNON.driverTime}s (Karl ${CANNON.driverKarl}s) · ${tiles} · ${read.interval.toFixed(1)}s`;
+  if (kind === "driver") return `No damage · blinks the furthest fruit back ${CANNON.driverTime}s (Karl ${CANNON.driverKarl}s) · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "gourdgate") return `Holds the carpet beside it ${CANNON.gateHold}s (${CANNON.gateHoldOath}s in his oath's zone) every ${read.interval.toFixed(1)}s · ${read.dmg} dmg/s to held fruit${lit}`;
   if (kind === "bombard") return `DMG ${read.dmg} + ${Math.round(read.dmg * CANNON.bombardSplashRatio)} splash · whole board · shoves 1 tile · burns · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "lionblade") return `DMG ${read.dmg} to every fruit in ${tiles} · ${read.interval.toFixed(1)}s · a lost stack: swings now, +${Math.round((CANNON.bladeRally - 1) * 100)}%${lit}`;

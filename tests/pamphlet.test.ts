@@ -103,7 +103,7 @@ test("placement: not beside a straight is refused; beside one binds it; a corner
       far = [c, r];
     }
   assert.equal(place(api, far![0], far![1]), null);
-  assert.equal(w.hud.log, "The Pamphlet has to stand beside a straight.");
+  assert.equal(w.hud.log, "The Post has to stand beside a straight.");
 
   const mid = place(api, 3, 4); // beside the middle of the first straight (row 5)
   assert.equal(mid?.leg, 0);

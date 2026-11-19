@@ -898,7 +898,7 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       break;
     }
     case "driver": {
-      // Quackarot's Reverse Driver (stand-in): a chunky orange-and-black hand tool upright in a little stand, its tip glowing green-white.
+      // Quackarot's Instant Quackmission (stand-in): a chunky orange-and-black hand tool upright in a little stand, its tip glowing green-white.
       shadow(ctx, x, y, 15);
       ctx.translate(x, y);
       ctx.fillStyle = "#2a2426";

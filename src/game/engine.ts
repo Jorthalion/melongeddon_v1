@@ -103,7 +103,7 @@ interface Enemy {
   r: number;
   wp: number;
   boss: boolean;
-  /** A plain slow with no frost (the Organ's chord, Barbed Spears, a Quack-Liber rocket; Cold rind with combos off): "dazed". */
+  /** A plain slow with no frost (the Organ's chord, Barbed Spears, a Quack-Liber ki blast; Cold rind with combos off): "dazed". */
   chill: number;
   /** Vaelithra's sleeping draught: seconds left drowsy (slowed; fire wakes it). Never frost. */
   drowsy?: number;
@@ -127,7 +127,7 @@ interface Enemy {
   /** The tower whose bookworm is burrowing (for its damage count). */
   wormBy?: number;
   /** Act three. Pit: stone, shrugs off splash, burn and pulp. Gall: a rider healing the enemy `mends` while that one lives. Borrower: takes seeds at the door instead of a stack. */
-  /** Reverse Driver: seconds left walking back the way it came, and the world time it can be driven again. */
+  /** Instant Quackmission: seconds left walking back the way it came, and the world time it can be driven again. */
   driven?: number;
   driveReady?: number;
   pit?: boolean;
@@ -361,12 +361,12 @@ interface Tower {
   target?: TargetMode;
   /** The fruit it aimed at last tick (drawn with a ring while the tower is selected). */
   aimAt?: number;
-  /** Quack-Liber: rockets fired (Lane Lockdown counts them), and seconds left of Quiet Confidence. */
+  /** Quack-Liber: ki blast fired (Ground Pound counts them), and seconds left of Quack-hameha. */
   volley?: number;
   rally?: number;
   /** Gourd Gate: the carpet point its portcullis drops on (with how far along the carpet that is), seconds it stays down, and seconds since it dropped. */
   gate?: { x: number; y: number; along: number; total: number };
-  /** The Pamphlet: its straight (index into carpetLegs), whether it's armed, each fruit's place along the carpet last tick, and the shockwave's time left. */
+  /** The Post (pamphlet): its straight (index into carpetLegs), whether it's armed, each fruit's place along the carpet last tick, and the shockwave's time left. */
   leg?: number;
   armed?: boolean;
   prevAlong?: Record<number, number>;
@@ -457,7 +457,7 @@ interface Shot {
   bombard?: boolean;
   /** Fruit this shot has killed so far, its chains included (Chain Reaction). */
   kills?: number;
-  /** Quack-Liber rocket: everything in the burst is slowed this long (s); Covering Fire makes the target sticky this long (s); Lane Lockdown leaves a patch. */
+  /** Quack-Liber rocket: everything in the burst is slowed this long (s); Blinded by the Light makes the target sticky this long (s); Ground Pound leaves a patch. */
   splashChill?: number;
   cover?: number;
   lock?: boolean;
@@ -481,6 +481,8 @@ interface Pool {
   grown?: boolean;
   /** An explosion on this fire patch: seconds left burning harder. */
   flare?: number;
+  /** Ground Pound (Quackarot): drawn as a cracked crater, not a puddle. */
+  crater?: boolean;
 }
 
 /** Instant-hit trails (ballista spear, reader shot). */
@@ -626,6 +628,10 @@ export interface Hud {
   dropSeen: boolean;
   /** Quack-Liber speed-up reach in px for the run in play (perks can widen it), for drawing it. */
   quackAura: number;
+  /** Quackarot is golden (Over Nine Thousand Quacks): seconds left; every tower fires faster meanwhile. */
+  golden: number;
+  /** Tag Team (Quackarot's perk): the line between two Quack-Libers slows fruit, so it's drawn crackling. */
+  tagTeam: boolean;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
   geeseSpent: boolean;
   /** Asser's Sisu right now, in percent (0 for everyone else). */
@@ -882,7 +888,7 @@ function writeBest(n: number, key = BEST_KEY) {
 }
 
 /** Sound cues the engine raises; the UI drains and plays them. Ignored headless. */
-export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss";
+export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden";
 export interface Sfx {
   kind: SfxKind;
   tower?: TowerKind;
@@ -988,7 +994,7 @@ export function createWorld(
   setTarget: (mode: TargetMode) => void;
   /** A tower's targeting mode, the modes it can take and its recommended one; null if it doesn't aim. */
   targetOf: (towerId: number) => { mode: TargetMode; modes: TargetMode[]; recommended: TargetMode } | null;
-  /** The Pamphlet: bind the selected one to the other straight its tile touches (between waves). */
+  /** The Post (pamphlet): bind the selected one to the other straight its tile touches (between waves). */
   otherStraight: () => void;
   /** Anti-Geese Protocol (selected): fire on its own, or only on Engage. */
   setTrigger: (mode: "auto" | "manual") => void;
@@ -1055,7 +1061,7 @@ export function createWorld(
   /** Setup: choose perk `pick` (0 or 1) for the chosen keeper's tier `tier` (0-4). Saved. */
   setPerk: (tier: number, pick: 0 | 1) => void;
   /** Live stats for a placed tower (includes a Reading Lamp's boost). */
-  statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; pierce?: number } | null;
+  statsOf: (towerId: number) => { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; powered?: boolean; pierce?: number } | null;
   /**
    * The numbers a `kind` will have once built (on tile `at`, or anywhere): through the same `statsFor` a placed
    * tower uses, so fittings, perks, the dark, Close Reading and (on a tile) a lamp or the Quack-Liber all count.
@@ -1130,6 +1136,8 @@ export function createWorld(
       shopRings: [],
       dropSeen: false,
       quackAura: CANNON.quackAura,
+      golden: 0,
+      tagTeam: false,
       geeseSpent: false,
       sisu: 0,
       keepers: emptyProgress(),
@@ -1284,6 +1292,8 @@ export function createWorld(
   /** Asser: Material's first line has been said tonight; Second Wind has been used tonight. */
   let materialNoted = false;
   let windUsed = false;
+  /** Over Nine Thousand Quacks has gone off tonight (once a night). */
+  let goldenUsed = false;
   const has = (u: UpgradeId) => world.hud.upgrades.includes(u);
 
   const persistMeta = !options.meta && typeof window !== "undefined";
@@ -2009,7 +2019,7 @@ export function createWorld(
 
   /**
    * Quackarot's Quack-Liber: every other tower within its reach fires faster while it stands (the best one
-   * counts; two don't stack). Quiet Confidence: faster again for a moment after one of its kills.
+   * counts; two don't stack). Quack-hameha: faster again for a moment after one of its kills.
    */
   const quackHaste = (tower: Tower) => {
     if (tower.kind === "quackliber") return 1;
@@ -2028,7 +2038,7 @@ export function createWorld(
     if (range >= GLOBAL_RANGE) return OATH_VALUES.doorHaste;
     return carpetInReach(oathStretch(world.points, "door"), tower.x, tower.y, range).length > 0 ? OATH_VALUES.doorHaste : 1;
   };
-  /** Defensive Perimeter: with two Quack-Libers standing, fruit near the line between them walk slower. */
+  /** Tag Team: with two Quack-Libers standing, fruit near the line between them walk slower. */
   const perimeterAt = (e: Enemy) => {
     if (!fx.perimeter) return 1;
     const qs = world.towers.filter((t) => t.kind === "quackliber");
@@ -2093,8 +2103,9 @@ export function createWorld(
     // Dr. Samodovol's Close Reading: each Doctor's pick taken tonight makes his cannons fire a little faster.
     const read2 = fx.closeReading ? Math.min(3, world.runLog.doctorTaken) * fx.closeReading : 0;
     const studied = read2 > 0 ? { ...read, interval: read.interval / (1 + read2) } : read;
-    const haste = quackHaste(tower) * doorHaste(tower, studied.range);
-    const base = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true } : studied;
+    const aura = quackHaste(tower) * (world.hud.golden > 0 ? CANNON.overQuackHaste : 1);
+    const haste = aura * doorHaste(tower, studied.range);
+    const base = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true, powered: aura > 1 } : studied;
     if (base.range >= GLOBAL_RANGE) return base;
     // Reading Lamp: the best lamp in reach boosts this cannon (lamps do not stack).
     let boost: { range: number; pace: number } | null = null;
@@ -2121,7 +2132,7 @@ export function createWorld(
     const mods = [...new Set([...(world.hud.fitted[kind] ?? []), ...extra])];
     const p = at ? cellCenter(at.c, at.r) : { x: -1e6, y: -1e6 };
     const ghost: Tower = { id: -1, c: at?.c ?? -1, r: at?.r ?? -1, x: p.x, y: p.y, cd: 0, aim: 0, orange: false, kind, mods, paid: 0 };
-    const now: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; pierce?: number } = statsFor(ghost);
+    const now: { dmg: number; range: number; interval: number; lit?: boolean; quick?: boolean; powered?: boolean; pierce?: number } = statsFor(ghost);
     const base = towerReadout(world.hud.hero, kind, [], world.hud.upgrades);
     const fitted = towerReadout(world.hud.hero, kind, mods, world.hud.upgrades);
     const perked = withPerks(kind, fitted);
@@ -2139,7 +2150,7 @@ export function createWorld(
     if (perked.interval !== fitted.interval) why.interval.push(`keeper perks ${pace(fitted.interval, perked.interval)}`);
     if (now.range !== perked.range) why.range.push(`${now.lit ? "Reading Lamp nearby" : "the dark"} ${pct(perked.range, now.range)}`);
     if (now.interval !== perked.interval) {
-      const from = [now.lit ? "Reading Lamp nearby" : "", now.quick ? "Quack-Liber nearby" : "", fx.closeReading && world.runLog.doctorTaken ? "Close Reading" : ""].filter(Boolean).join(", ");
+      const from = [now.lit ? "Reading Lamp nearby" : "", now.powered ? (world.hud.golden > 0 ? "Quackarot golden" : "Quack-Liber aura") : now.quick ? "an oath" : "", fx.closeReading && world.runLog.doctorTaken ? "Close Reading" : ""].filter(Boolean).join(", ");
       why.interval.push(`${from || "nearby towers"} ${pace(perked.interval, now.interval)}`);
     }
     return { ...now, base, why };
@@ -2731,6 +2742,8 @@ export function createWorld(
     absorbed = 0;
     materialNoted = false;
     windUsed = false;
+    goldenUsed = false;
+    world.hud.golden = 0;
     absurdDrops = 0;
     stillBuilt = false;
     tally.clear();
@@ -2783,6 +2796,8 @@ export function createWorld(
       shopRings: [],
       dropSeen: false,
       quackAura: CANNON.quackAura,
+      golden: 0,
+      tagTeam: false,
       geeseSpent: false,
       sisu: 0,
     };
@@ -2846,6 +2861,16 @@ export function createWorld(
       syncSisu();
     } else {
       float(x, y, n > 1 ? `−${n} stacks` : "Leak", "#e23b4a");
+    }
+    // Over Nine Thousand Quacks (perk): once a night, at 5 stacks or fewer, Quackarot goes golden.
+    if (world.hud.hero === "quack" && fx.overQuack && !goldenUsed && world.hud.lives > 0 && world.hud.lives <= CANNON.overQuackAt) {
+      goldenUsed = true;
+      world.hud.golden = CANNON.overQuackTime;
+      world.runLog.wentGolden = true;
+      world.rings.push({ x: world.w / 2, y: world.h / 2, r: Math.max(world.w, world.h), life: 0.9, max: 0.9, color: "255,214,90", fill: true });
+      world.floaters.push({ x: world.w / 2, y: world.h / 2 - 30, text: "POWER LEVEL: ABSURD", life: 1.8, color: "#ffd65a", size: 26 });
+      world.hud.log = "Quackarot goes golden. “This isn't even my final post!” Every tower fires faster for a moment.";
+      cue("golden");
     }
     cue("leak");
     if (world.hud.lives <= 0) {
@@ -2963,7 +2988,7 @@ export function createWorld(
     }
   };
   /**
-   * The Pamphlet: armed, it goes off when a fruit on its straight reaches the straight's far end (in its
+   * The Post (pamphlet): armed, it goes off when a fruit on its straight reaches the straight's far end (in its
    * own walking direction) with at least `pamphletCrowd` living fruit there, that one included. Every one
    * of them takes a fresh melon's direct hit. Spent, it re-arms once fewer than that are on the straight.
    */
@@ -3491,7 +3516,7 @@ export function createWorld(
       world.shake = Math.max(world.shake, world.reduced ? 0 : 5);
       return false;
     }
-    // Quiet Confidence counts this rocket's kills.
+    // Quack-hameha counts this rocket's kills.
     const popsBefore = shot.splashChill && shot.owner != null ? tallyFor(shot.owner).pops : null;
     if (shot.element === "seed" && e.guard === "rind" && e.shell > 0) {
       float(e.x, e.y - 16, "ping", "#d8c9a8");
@@ -3617,16 +3642,22 @@ export function createWorld(
       }
     }
     if (shot.cover && e.hp > 0) {
-      if ((e.honeyed ?? 0) <= 0) float(e.x, e.y - 18, "covered", "#e8883a");
+      if ((e.honeyed ?? 0) <= 0) float(e.x, e.y - 18, "blinded", "#ffd65a");
       e.honeyed = Math.max(e.honeyed ?? 0, shot.cover);
     }
     if (shot.lock) {
       const life = CANNON.quackLockLife * (wetAt(e.x, e.y) ? CANNON.wetPuddle : 1);
-      world.pools.push({ x: e.x, y: e.y, r: CANNON.quackLockRadius, life, max: life, hot: false, burn: 0, owner: shot.owner });
+      world.pools.push({ x: e.x, y: e.y, r: CANNON.quackLockRadius, life, max: life, hot: false, burn: 0, owner: shot.owner, crater: true });
     }
     if (shot.owner != null && fx.confidence > 0 && popsBefore != null && tallyFor(shot.owner).pops > popsBefore) {
       const q = world.towers.find((t) => t.id === shot.owner);
-      if (q) q.rally = CANNON.quackRallyTime;
+      if (q) {
+        q.rally = CANNON.quackRallyTime;
+        // Quack-hameha: a charged beam flashes from the turret to the next fruit in line, and the aura flares.
+        const next = world.enemies.find((o) => o.hp > 0 && o.id !== e.id && Math.hypot(o.x - q.x, o.y - q.y) <= statsFor(q).range);
+        if (next) world.lines.push({ x: q.x, y: q.y - 18, x2: next.x, y2: next.y, life: 0.35, max: 0.35, color: "255,214,90", width: 5 });
+        world.rings.push({ x: q.x, y: q.y, r: CANNON.quackAura * fx.auraReach, life: 0.45, max: 0.45, color: "255,200,80" });
+      }
     }
     if (shot.knock) {
       for (const other of world.enemies) {
@@ -3887,6 +3918,7 @@ export function createWorld(
   };
 
   const tickCombat = (dt: number) => {
+    if (world.hud.golden > 0) world.hud.golden = Math.max(0, world.hud.golden - dt);
     clock += dt;
     const scale = hpScaleFor(world.hud.night, cleared);
     spawnClock += dt;
@@ -4158,7 +4190,7 @@ export function createWorld(
           continue;
         }
       }
-      // Reverse Driver: walk back toward the corner behind it for a while (wait at the carpet's start or the chute's end).
+      // Instant Quackmission: walk back toward the corner behind it for a while (wait at the carpet's start or the chute's end).
       // A goose the Anti-Geese Protocol threw panics too: it walks back a little further.
       if ((e.driven ?? 0) > 0 || (e.panic ?? 0) > 0) {
         const driven = (e.driven ?? 0) > 0;
@@ -4318,7 +4350,8 @@ export function createWorld(
         tower.aim = Math.atan2(pick.y - tower.y, pick.x - tower.x);
         pick.driven = pick.boss ? CANNON.driverKarl : CANNON.driverTime;
         pick.driveReady = world.anim + pick.driven + CANNON.driverImmune;
-        world.lines.push({ x: tower.x, y: tower.y - 14, x2: pick.x, y2: pick.y, life: 0.35, max: 0.35, color: "200,255,215", width: 2 });
+        // Instant Quackmission: it blinks (a bright flash where it stood), no beam.
+        world.rings.push({ x: pick.x, y: pick.y, r: pick.r + 12, life: 0.3, max: 0.3, color: "255,244,200", fill: true });
         cue("fire", "driver");
         continue;
       }
@@ -4578,7 +4611,7 @@ export function createWorld(
                             ? "mortar"
                             : "shot";
       const flies = tower.kind === "hive" && hasMod(tower, "swarm") ? 2 : 1;
-      // Quack-Liber: Lane Lockdown marks the carpet with every fourth rocket.
+      // Quack-Liber: Ground Pound marks the carpet with every fourth rocket.
       const quack = tower.kind === "quackliber";
       if (quack) tower.volley = (tower.volley ?? 0) + 1;
       const lock = quack && fx.lockdown > 0 && (tower.volley ?? 0) % CANNON.quackLockEvery === 0;
@@ -4786,7 +4819,7 @@ export function createWorld(
       if (offCarpet(buildKind, c, r)) {
         world.hud.log =
           buildKind === "pamphlet"
-            ? "The Pamphlet has to stand beside a straight."
+            ? "The Post has to stand beside a straight."
             : `The ${TOWERS[buildKind].name} goes right beside the carpet.`;
         notify();
         return;
@@ -4928,7 +4961,7 @@ export function createWorld(
       tower.armed = true;
       tower.prevAlong = {};
       cue("build");
-      world.hud.log = "The Pamphlet watches the other straight now.";
+      world.hud.log = "The Post watches the other straight now.";
       notify();
     },
     /** The selected tower's next (or previous) targeting mode, from the ones its kind offers. Free, any time. */
@@ -5031,6 +5064,7 @@ export function createWorld(
       world.hud.tutorial = false;
       fx = perkFx(hero, world.hud.keepers[hero]);
       world.hud.quackAura = CANNON.quackAura * fx.auraReach;
+      world.hud.tagTeam = Boolean(fx.perimeter);
       world.hud.runLevel = levelFor(world.hud.keepers[hero].xp);
       world.hud.xpStart = world.hud.keepers[hero].xp;
       world.hud.xpRun = 0;
@@ -5056,6 +5090,8 @@ export function createWorld(
       absurdDrops = 0;
       materialNoted = false;
       windUsed = false;
+      goldenUsed = false;
+      world.hud.golden = 0;
       if (hero === "mynxi") {
         world.hud.seeds = 150;
         world.hud.lives = 12;

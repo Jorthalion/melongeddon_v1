@@ -88,13 +88,14 @@ export interface PerkFx {
   /** Doctor's pick: extra picks on each shelf (Second Opinion), faster firing per pick taken, up to 3 (Close Reading). */
   secondOpinion?: number;
   closeReading?: number;
-  /** Quackarot: aura reach multiplier, extra attack speed in it (0.1 = +10% more), and 1 = on (Quiet Confidence, Lane Lockdown, Covering Fire, Defensive Perimeter). */
+  /** Quackarot: aura reach multiplier, extra attack speed in it (0.1 = +10% more), and 1 = on (Quack-hameha, Ground Pound, Blinded by the Light, Tag Team, Over Nine Thousand Quacks). */
   auraReach?: number;
   auraHaste?: number;
   confidence?: number;
   lockdown?: number;
   covering?: number;
   perimeter?: number;
+  overQuack?: number;
   /** Asser: extra seeds per lost stack (Bitter Ink), extra stacks Sisu counts (Hard Lessons), 1 = Second Wind, extra Sisu per stack (Saga). */
   material?: number;
   sisuCap?: number;
@@ -241,27 +242,27 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
     ],
     [{ name: "Second Lectern", blurb: "You can build two History Lecterns.", fx: { sigExtra: 1 } }],
   ],
-  // Quackarot controls the carpet and makes the towers around him better; his perks lean that way.
+  // Quackarot powers up the towers around him and dazes the carpet; his perks lean that way.
   quack: [
     [
-      { name: "Field Rations", blurb: "Start with 30 more seeds.", fx: { seeds: 30 } },
-      { name: "Spare Feathers", blurb: "Start with two more stacks.", fx: { lives: 2 } },
+      { name: "Bean Bag", blurb: "Start with 30 more seeds.", fx: { seeds: 30 } },
+      { name: "Plot Armour", blurb: "Start with two more stacks.", fx: { lives: 2 } },
     ],
     [
-      { name: "Wide Wake", blurb: "The Quack-Liber's speed-up reaches 30% farther.", fx: { auraReach: 1.3 } },
-      { name: "Heavy Payload", blurb: "Quack-Liber rockets burst 25% wider.", fx: { splash: 1.25 } },
+      { name: "Big Aura", blurb: "The Quack-Liber's power-up aura reaches 30% farther.", fx: { auraReach: 1.3 } },
+      { name: "Bigger Blasts", blurb: "Quack-Liber ki blasts burst 25% wider.", fx: { splash: 1.25 } },
     ],
     [
-      { name: "Quiet Confidence", blurb: "After each Quack-Liber kill, the towers around it fire 20% faster again for 2 s.", fx: { confidence: 1 } },
-      { name: "Lane Lockdown", blurb: "Every fourth rocket leaves a suppression patch on the carpet for 3 s. Fruit in it crawl.", fx: { lockdown: 1 } },
+      { name: "Quack-hameha", blurb: "After each Quack-Liber kill, a charged beam flashes and its aura flares: the towers around it fire 20% faster again for 2 s.", fx: { confidence: 1 } },
+      { name: "Ground Pound", blurb: "Every fourth ki blast leaves a cracked crater on the carpet for 3 s. Fruit in it crawl.", fx: { lockdown: 1 } },
     ],
     [
-      { name: "Covering Fire", blurb: "Fruit a rocket hits take 25% more damage from everything for 2 s.", fx: { covering: 1 } },
-      { name: "Spare Rockets", blurb: "The Quack-Liber costs 25 seeds less.", fx: { sigCost: 25 } },
+      { name: "Blinded by the Light", blurb: "Fruit a ki blast hits take 25% more damage from everything for 2 s.", fx: { covering: 1 } },
+      { name: "Over Nine Thousand Quacks", blurb: "Once a night, the first time you drop to 6 stacks or fewer, he goes golden: every tower fires 50% faster for 10 s of fighting.", fx: { overQuack: 1 } },
     ],
     [
-      { name: "Defensive Perimeter", blurb: "You can build two Quack-Libers. Fruit crossing the line between them walk 30% slower.", fx: { sigExtra: 1, perimeter: 1 } },
-      { name: "Steady Hands", blurb: "The Quack-Liber's speed-up is 25% instead of 15%.", fx: { auraHaste: 0.1 } },
+      { name: "Tag Team", blurb: "You can build two Quack-Libers. The line between them crackles with energy: fruit crossing it walk 30% slower.", fx: { sigExtra: 1, perimeter: 1 } },
+      { name: "Focused Ki", blurb: "The Quack-Liber's power-up aura is 25% instead of 15%.", fx: { auraHaste: 0.1 } },
     ],
   ],
   // Asser is built to take hits; his perks make losing stacks pay more.
@@ -371,6 +372,7 @@ export function perkFx(hero: HeroId | null, rec: KeeperRecord | undefined): Requ
     lockdown: 0,
     covering: 0,
     perimeter: 0,
+    overQuack: 0,
     material: 0,
     sisuCap: 0,
     secondWind: 0,

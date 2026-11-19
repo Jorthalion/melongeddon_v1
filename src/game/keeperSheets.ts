@@ -80,9 +80,9 @@ export const KEEPER_SHEETS: Record<
     seeds: 150,
     difficulty: "Advanced",
     rules: [
-      "Every tower within three tiles of his Quack-Liber fires 15% faster.",
-      "Quack-Liber rockets burst and slow. Anti-Geese Protocol throws a crowd back once a wave.",
-      "Pamphlet blasts a whole straight when a group reaches its corner; Reverse Driver walks the lead fruit back.",
+      "His Quack-Liber's power-up aura makes every tower within three tiles fire 15% faster.",
+      "Quack-Liber ki blasts burst and daze. Anti-Geese Protocol throws a crowd back once a wave.",
+      "The Post ratios a whole straight when a group reaches its corner; Instant Quackmission blinks the lead fruit back.",
     ],
     suits: "Players who like placing towers in clusters and timing.",
   },

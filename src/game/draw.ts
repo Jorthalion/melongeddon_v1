@@ -137,7 +137,7 @@ const SPRITE_SRC = {
   mimic: asset("sprites/sig-mimic.webp"),
   lectern: asset("sprites/sig-lectern.webp"),
   quackliber: asset("sprites/sig-quackliber.webp"),
-  // Quackarot's Anti-Geese Protocol, Pamphlet and Reverse Driver.
+  // Quackarot's Anti-Geese Protocol, Pamphlet and Instant Quackmission.
   geese: asset("sprites/sig-geese.webp"),
   pamphlet: asset("sprites/sig-pamphlet.webp"),
   driver: asset("sprites/sig-driver.webp"),
@@ -510,7 +510,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.restore();
   }
 
-  // The Pamphlet's straight: while placing one, while one is selected, and (between waves) every one's.
+  // The Post (pamphlet)'s straight: while placing one, while one is selected, and (between waves) every one's.
   {
     const legs = carpetLegs(world.points);
     const shown = new Set<number>();
@@ -549,7 +549,33 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   for (const pool of world.pools) {
     const a = Math.max(0, pool.life / pool.max);
-    if (pool.hot) {
+    if (pool.crater) {
+      // Ground Pound: a dark dent in the carpet with cracks running out of it.
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, a * 1.6);
+      ctx.fillStyle = "rgba(30,18,14,0.55)";
+      ctx.beginPath();
+      ctx.ellipse(pool.x, pool.y, pool.r * 0.8, pool.r * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,206,110,0.55)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(pool.x, pool.y, pool.r * 0.8, pool.r * 0.55, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(20,12,10,0.8)";
+      ctx.lineWidth = 1.6;
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2 + (pool.x % 7);
+        const r1 = pool.r * 0.55;
+        const r2 = pool.r * (0.95 + ((i * 37) % 10) / 40);
+        ctx.beginPath();
+        ctx.moveTo(pool.x + Math.cos(ang) * r1, pool.y + Math.sin(ang) * r1 * 0.7);
+        ctx.lineTo(pool.x + Math.cos(ang + 0.15) * (r1 + r2) / 2, pool.y + Math.sin(ang + 0.15) * ((r1 + r2) / 2) * 0.7);
+        ctx.lineTo(pool.x + Math.cos(ang - 0.05) * r2, pool.y + Math.sin(ang - 0.05) * r2 * 0.7);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (pool.hot) {
       ctx.fillStyle = `rgba(232,136,58,${0.45 * a})`;
       ctx.beginPath();
       ctx.arc(pool.x, pool.y, pool.r, 0, Math.PI * 2);
@@ -647,7 +673,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.stroke();
     }
     const next = world.points[Math.min(e.wp, world.points.length - 1)];
-    // Walked back (Reverse Driver, panic, a scatter): it turns to face the way it's going.
+    // Walked back (Instant Quackmission, panic, a scatter): it turns to face the way it's going.
     const faceLeft = (next ? next.x < e.x - 4 : false) !== Boolean(sl?.motion.faceBack);
     // A goose or a cat wears its variant's face. A Parcel out of its paper is a plain pumpkin.
     const siegeLook = siegeLookOf(e);
@@ -675,19 +701,31 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         ctx.stroke();
       }
     }
-    // Reverse Driver: a little green-white swirl over a fruit being walked back.
+    // Instant Quackmission: two feathers to the forehead and a twinkle over a fruit that blinked back.
     if ((e.driven ?? 0) > 0) {
       ctx.save();
       ctx.translate(e.x, e.y - e.r - 12);
-      ctx.rotate(world.anim * 9);
-      ctx.strokeStyle = "rgba(200,255,215,0.9)";
-      ctx.lineWidth = 1.8;
+      const tw = 0.6 + Math.sin(world.anim * 18 + e.id) * 0.4;
+      ctx.fillStyle = `rgba(255,244,200,${0.6 + tw * 0.4})`;
       ctx.beginPath();
-      ctx.arc(0, 0, 5, 0, Math.PI * 1.4);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, 0, 2.5, Math.PI, Math.PI * 2.2);
-      ctx.stroke();
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2 + world.anim * 3;
+        const rr = i % 2 ? 2 : 6 * (0.7 + tw * 0.3);
+        if (i === 0) ctx.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+        else ctx.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+      }
+      ctx.closePath();
+      ctx.fill();
+      // Two little feather-fingers, raised.
+      ctx.strokeStyle = "rgba(255,244,200,0.85)";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      for (const dx of [-9, -5]) {
+        ctx.beginPath();
+        ctx.moveTo(dx, 5);
+        ctx.lineTo(dx + 1, -2);
+        ctx.stroke();
+      }
       ctx.restore();
     }
     // A gall's mark is what it does: a pulsing green thread to the fruit it is healing.
@@ -923,6 +961,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   soldGhosts = soldGhosts.filter((g) => world.anim >= g.at && world.anim - g.at < BUILD_TIME);
   for (const { t, at } of soldGhosts)
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, false, art, world.anim, { since: Infinity, phase: (t.id * 5) % TOWER_ANIM.idle, build: 1 - (world.anim - at) / BUILD_TIME });
+  drawPowerUps(ctx, world);
   for (const t of world.towers) {
     if (t.kind === "copycat" && t.copy) {
       // The Copycat draws as what it copies, but plainly a clone: a ghostly blue copy on a turning dashed ring,
@@ -983,7 +1022,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       continue;
     }
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim, motionOf(t, world.anim));
-    // The Pamphlet: a lit fuse while armed; a shockwave down its straight when it goes off.
+    // The Post: a lit "typing" dot while armed; a speech-bubble shockwave down its straight when it goes off.
     if (t.kind === "pamphlet") {
       if (t.armed !== false) {
         const flick = 0.55 + Math.sin(world.anim * 14 + t.id) * 0.3;
@@ -998,13 +1037,33 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         const hx = leg.a.x + (leg.b.x - leg.a.x) * k;
         const hy = leg.a.y + (leg.b.y - leg.a.y) * k;
         ctx.save();
-        ctx.strokeStyle = `rgba(232,116,42,${0.85 - k * 0.5})`;
-        ctx.lineWidth = CELL * 0.55;
+        // The wake: a pale wash down the straight.
+        ctx.strokeStyle = `rgba(240,236,255,${0.55 - k * 0.35})`;
+        ctx.lineWidth = CELL * 0.5;
         ctx.lineCap = "round";
         ctx.beginPath();
         ctx.moveTo(leg.a.x, leg.a.y);
         ctx.lineTo(hx, hy);
         ctx.stroke();
+        // The head: a speech bubble riding the shockwave.
+        const bw = 34;
+        const bh = 20;
+        ctx.globalAlpha = 1 - k * 0.4;
+        ctx.fillStyle = "#f6f0ff";
+        ctx.strokeStyle = "#2a1c30";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(hx - bw / 2, hy - bh - 14, bw, bh, 7);
+        ctx.moveTo(hx - 4, hy - 14);
+        ctx.lineTo(hx, hy - 6);
+        ctx.lineTo(hx + 4, hy - 14);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#2a1c30";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("!!", hx, hy - bh / 2 - 14);
         ctx.restore();
       }
     }
@@ -1206,9 +1265,9 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       }
       continue;
     }
-    // Quack-Liber rockets: the duck-nosed rocket, pointing where it flies.
-    if (s.splashChill && ready(art.flyQuack)) {
-      blitFit(ctx, art.flyQuack, s.x, s.y, 30, 14, Math.atan2(s.ty - s.y, s.tx - s.x));
+    // Quack-Liber ki blasts: a glowing orange-gold energy ball with a short trail.
+    if (s.splashChill) {
+      drawKiBlast(ctx, s.x, s.y, Math.atan2(s.ty - s.y, s.tx - s.x), world.anim + s.id);
       continue;
     }
     const img =
@@ -2270,7 +2329,7 @@ const ROOM_LOOK: Partial<
   belltower: { floor: ["#6a6a78", 0.45], carpet: "#8a1f2a", light: { x: 0.5, y: 0.45, r: 0.5, color: "230,200,140", a: 0.14 } },
 };
 
-/** The Pamphlet's straight: a faint orange wash over its tiles and an arrowhead at the corner where it goes off. */
+/** The Post (pamphlet)'s straight: a faint orange wash over its tiles and an arrowhead at the corner where it goes off. */
 function drawLegWash(ctx: CanvasRenderingContext2D, leg: ReturnType<typeof carpetLegs>[number]) {
   ctx.save();
   ctx.fillStyle = "rgba(232,116,42,0.22)";
@@ -3035,4 +3094,99 @@ function shotTrail(ctx: CanvasRenderingContext2D, x: number, y: number, tx: numb
   ctx.strokeStyle = `rgba(${color},0.9)`;
   ctx.lineWidth = 1.5;
   ctx.stroke();
+}
+
+/** A Quack-Liber ki blast: a glowing orange-gold ball with a short tapering trail behind it. */
+function drawKiBlast(ctx: CanvasRenderingContext2D, x: number, y: number, ang: number, t: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  const trail = ctx.createLinearGradient(-22, 0, 0, 0);
+  trail.addColorStop(0, "rgba(255,170,60,0)");
+  trail.addColorStop(1, "rgba(255,200,90,0.7)");
+  ctx.fillStyle = trail;
+  ctx.beginPath();
+  ctx.moveTo(-22, 0);
+  ctx.quadraticCurveTo(-8, -5, 0, -5);
+  ctx.lineTo(0, 5);
+  ctx.quadraticCurveTo(-8, 5, -22, 0);
+  ctx.fill();
+  const pulse = 1 + Math.sin(t * 30) * 0.08;
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 10 * pulse);
+  glow.addColorStop(0, "rgba(255,255,235,1)");
+  glow.addColorStop(0.35, "rgba(255,214,90,0.95)");
+  glow.addColorStop(0.75, "rgba(255,140,40,0.55)");
+  glow.addColorStop(1, "rgba(255,120,30,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, 10 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Quackarot's power-ups, under the towers: a soft golden flame under each tower a Quack-Liber's aura is boosting,
+ * every tower while he's golden, and Tag Team's crackling line between two Quack-Libers.
+ */
+function drawPowerUps(ctx: CanvasRenderingContext2D, world: World) {
+  const qs = world.towers.filter((t) => t.kind === "quackliber");
+  const golden = world.hud.golden > 0;
+  if (!qs.length && !golden) return;
+  const reach2 = world.hud.quackAura * world.hud.quackAura;
+  const t = world.anim;
+  ctx.save();
+  for (const tower of world.towers) {
+    if (tower.kind === "quackliber" || PASSIVE.includes(tower.kind)) continue;
+    const boosted = golden || qs.some((q) => (q.x - tower.x) ** 2 + (q.y - tower.y) ** 2 <= reach2);
+    if (!boosted) continue;
+    // A golden aura round the tower: a glow behind it, and flame tongues rising up both sides of it.
+    const strong = golden ? 1 : 0.7;
+    const glow = ctx.createRadialGradient(tower.x, tower.y + 4, 8, tower.x, tower.y + 4, 40);
+    glow.addColorStop(0, `rgba(255,220,110,${0.6 * strong})`);
+    glow.addColorStop(0.65, `rgba(255,190,70,${0.35 * strong})`);
+    glow.addColorStop(1, "rgba(255,170,60,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.ellipse(tower.x, tower.y + 4, 40, 36, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const tongues = world.reduced ? 0 : 8;
+    for (let i = 0; i < tongues; i++) {
+      const side = i % 2 ? 1 : -1;
+      const k = (t * 1.4 + i / tongues + tower.id * 0.13) % 1;
+      const fx = tower.x + side * (29 + Math.sin(t * 5 + i) * 3);
+      const fy = tower.y + 20 - k * 44;
+      const w = 6 * (1 - k * 0.7);
+      ctx.fillStyle = `rgba(255,${200 + Math.round(k * 40)},${80 + Math.round(k * 80)},${0.85 * strong * (1 - k * 0.8)})`;
+      ctx.beginPath();
+      ctx.moveTo(fx - w, fy + 5);
+      ctx.quadraticCurveTo(fx - side * 2, fy - 8, fx + w, fy + 5);
+      ctx.fill();
+    }
+  }
+  // Tag Team: two Quack-Libers and a crackling line between them.
+  if (world.hud.tagTeam && qs.length >= 2) {
+    const [a, b] = qs;
+    const steps = 12;
+    ctx.strokeStyle = "rgba(255,226,120,0.75)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const k = i / steps;
+      const jit = i === 0 || i === steps || world.reduced ? 0 : Math.sin(t * 40 + i * 2.3) * 4;
+      const nx = -(b.y - a.y);
+      const ny = b.x - a.x;
+      const len = Math.hypot(nx, ny) || 1;
+      const px = a.x + (b.x - a.x) * k + (nx / len) * jit;
+      const py = a.y + (b.y - a.y) * k + (ny / len) * jit;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  // Golden: a warm wash over the whole board.
+  if (golden) {
+    ctx.fillStyle = `rgba(255,214,90,${0.06 + Math.sin(t * 6) * 0.03})`;
+    ctx.fillRect(0, 0, world.w, world.h);
+  }
+  ctx.restore();
 }

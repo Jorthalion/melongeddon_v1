@@ -89,7 +89,7 @@ export const ROOMS: Room[] = [
   {
     id: "greathall",
     name: "The Great Hall",
-    blurb: "Rehang the banners. Quackarot has a plan for the floor.",
+    blurb: "Rehang the banners. Quackarot has been powering up out here for three episodes.",
     cost: 15,
     rewards: [
       { kind: "map", id: "greathall" },

@@ -31,7 +31,7 @@ export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: s
   elf: { name: "Legal Elf", short: "The Legal Elf", role: "Legal advisor" },
   ooze: { name: "Ooze Clues", short: "Ooze", role: "Astral adventurer" },
   scholar: { name: "Dr. Samodovol", short: "The Doctor", role: "The Scholar" },
-  quack: { name: "Quackarot", short: "Quackarot", role: "Field strategist" },
+  quack: { name: "Quackarot", short: "Quackarot", role: "Duck of Destiny" },
   asser: { name: "Asser Mälkki", short: "Asser", role: "Author-Knight" },
 };
 
@@ -514,7 +514,7 @@ const aims = (def: TargetMode, modes: TargetMode[]) => ({ default: def, modes })
 /**
  * Each aiming tower's recommended mode (the best choice for typical play) and the modes the inspector
  * offers it. null: it doesn't aim, or it picks by its own rule (the Fly Hive at random, the Mimic Chest
- * the first fruit that isn't a boss, the Harvest Bombard the thickest crowd, the Reverse Driver the
+ * the first fruit that isn't a boss, the Harvest Bombard the thickest crowd, the Instant Quackmission the
  * fruit furthest along that isn't already walking back), so there's nothing to choose.
  */
 export const DEFAULT_TARGET: Record<TowerKind, { default: TargetMode; modes: TargetMode[] } | null> = {
@@ -771,21 +771,21 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   quackliber: {
     name: "Quack-Liber",
-    blurb: "Quackarot's own. A two-barrel backpack turret that fires orange rockets: they burst over a small area and slow what they hit. Every other tower within three tiles fires 15% faster while it stands.",
+    blurb: "Quackarot's own. A two-barrel backpack turret that charges up and fires glowing ki blasts: they burst over a small area and daze what they hit. Its power-up aura makes every other tower within three tiles fire 15% faster while it stands.",
     cost: 95,
-    role: "Rockets",
+    role: "Ki blasts",
   },
   pamphlet: {
-    name: "The Pamphlet",
-    blurb: "Quackarot's third. Bound to the straight beside it. When the front fruit reaches that straight's corner with at least one more still on it, every fruit on the straight takes a hit worth two melon shots. Then it waits for the next group. Fruit that already turned the corner are safe.",
+    name: "The Post",
+    blurb: "Quackarot's third. One bad take, and everything on the straight beside it gets ratioed. When the front fruit reaches that straight's corner with at least one more still on it, every fruit on the straight takes a hit worth two melon shots. Then it waits for the next group. Fruit that already turned the corner are safe.",
     cost: 70,
     role: "Line blast",
   },
   driver: {
-    name: "The Reverse Driver",
-    blurb: "Quackarot's fourth. Every 4 s it buzzes the fruit furthest along in reach and walks it back the way it came for 2.5 s. Everything else keeps walking. Husks are steered too: this is not cold. Karl only turns for a moment. A fruit it has just turned can't be turned again for a few seconds.",
+    name: "Instant Quackmission",
+    blurb: "Quackarot's fourth. Two feathers to the forehead: every 4 s the fruit furthest along in reach blinks and walks back the way it came for 2.5 s. Everything else keeps walking. Husks are steered too: this is not cold. Karl only turns for a moment. A fruit it has just turned can't be turned again for a few seconds.",
     cost: 50,
-    role: "Walk back",
+    role: "Blink back",
   },
   geese: {
     name: "Anti-Geese Protocol",
@@ -854,7 +854,7 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   gourdgate: { dmg: 10, pace: 4.45, range: 0.5 },
   // Harvest Bombard: 500 a pumpkin, every 3 s, whole board.
   bombard: { dmg: 35.72, pace: 3.34, range: 0 },
-  // Reverse Driver: no damage, a plain melon's reach; its pace is CANNON.driverEvery.
+  // Instant Quackmission: no damage, a plain melon's reach; its pace is CANNON.driverEvery.
   driver: { dmg: 0, pace: 1, range: 1 },
 };
 
@@ -978,15 +978,15 @@ export const CANNON = {
   bombardFireLife: 3,
   bombardFireBurn: 25,
   bombardSlingDiscount: 50,
-  /** Reverse Driver: seconds between buzzes, how long a fruit walks back, and Karl's (shorter) turn. */
+  /** Instant Quackmission: seconds between buzzes, how long a fruit walks back, and Karl's (shorter) turn. */
   driverEvery: 4,
   driverTime: 2.5,
   driverKarl: 0.6,
   /** Seconds after a fruit turns back round before the Driver can take it again (or a lone fruit would rock back and forth forever). */
   driverImmune: 4,
-  /** The Pamphlet: living fruit that must be on its straight (the one at the corner included) for it to go off. */
+  /** The Post (pamphlet): living fruit that must be on its straight (the one at the corner included) for it to go off. */
   pamphletCrowd: 2,
-  /** The Pamphlet's hit, as a share of a fresh melon's (2: tuned in the simulator, so the 70 seeds pay back). */
+  /** The Post (pamphlet)'s hit, as a share of a fresh melon's (2: tuned in the simulator, so the 70 seeds pay back). */
   pamphletHit: 2,
   /** How far a Trebuchet shove moves a fruit back along the carpet: one tile (times Heavier Pumpkins). */
   trebuchetKnock: CELL,
@@ -1003,25 +1003,33 @@ export const CANNON = {
   lectureAt: 0.75,
   lectureSlow: 0.75,
   /** Dr. Samodovol's false book: next combat his cannons deal (1 - this) damage and take (1 + this) time between shots. */
-  /** Quack-Liber: rocket burst radius (px) and share of the hit it deals there, and how long what it hits stays slowed (s). */
+  /** Quack-Liber: ki blast burst radius (px) and share of the hit it deals there, and how long what it hits stays slowed (s). */
   quackSplash: 44,
   quackSplashRatio: 0.6,
   quackSlow: 0.6,
   /** Quack-Liber: towers within this reach (px) fire this much faster (1.15 = +15% attack speed). */
   quackAura: 144,
   quackHaste: 1.15,
-  /** Quiet Confidence: after a Quack-Liber kill, its aura is this much faster again for this long (s). */
+  /** Quack-hameha: after a Quack-Liber kill, its aura is this much faster again for this long (s). */
   quackRally: 1.2,
   quackRallyTime: 2,
-  /** Lane Lockdown: every this many rockets, a suppression patch of this radius (px) and life (s) on the carpet. */
+  /** Ground Pound: every this many rockets, a suppression patch of this radius (px) and life (s) on the carpet. */
   quackLockEvery: 4,
   quackLockRadius: 34,
   quackLockLife: 3,
-  /** Covering Fire: fruit a rocket hits are sticky (honey's damage taken) for this long (s). */
+  /** Blinded by the Light: fruit a ki blast hits are sticky (honey's damage taken) for this long (s). */
   quackCover: 2,
-  /** Defensive Perimeter: fruit this close (px) to the line between two Quack-Libers walk at this speed. */
+  /** Tag Team: fruit this close (px) to the line between two Quack-Libers walk at this speed. */
   quackLine: 22,
   quackLineSlow: 0.7,
+  /**
+   * Over Nine Thousand Quacks: once a night, the first time his stacks drop to this many or fewer, every tower
+   * fires this much faster (1.5 = +50%) for this many seconds of combat (left over at a wave's end, it carries on
+   * into the next). Tuned in the simulator: it comes late in a losing night, so even huge numbers move little.
+   */
+  overQuackAt: 6,
+  overQuackHaste: 1.5,
+  overQuackTime: 10,
   /** Trick shots. */
   boomerangTime: 1.2,
   /** How wide the loop is, as a share of the throw distance. */
@@ -1068,7 +1076,7 @@ export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind, 
 }
 
 export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]): { dmg: number; range: number; interval: number } {
-  // The Pamphlet hits each fruit on its straight for what a fresh Melon cannon would deal (no melon fittings), and has no reach circle.
+  // The Post (pamphlet) hits each fruit on its straight for what a fresh Melon cannon would deal (no melon fittings), and has no reach circle.
   if (kind === "pamphlet") return { dmg: Math.round(towerReadout(hero, "melon", [], upgradesOwned).dmg * CANNON.pamphletHit), range: 0, interval: 0 };
   // The Unstoppered drips like a Still from its own tile (its spills wet the carpet instead).
   if (kind === "flask") return towerReadout(hero, "still", mods, upgradesOwned);
@@ -1098,7 +1106,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
     let dmg = 14;
     if (upgrades.includes("caliber")) dmg += 8;
     dmg = profile.dmg === 0 ? 0 : Math.max(1, Math.round(dmg * profile.dmg * (mods.includes("whetstone") ? 1.25 : 1)));
-    // The Reverse Driver buzzes on its own clock (card upgrades don't touch a utility tower anyway).
+    // The Instant Quackmission buzzes on its own clock (card upgrades don't touch a utility tower anyway).
     if (kind === "driver") return { dmg: 0, range, interval: CANNON.driverEvery };
     return { dmg, range, interval };
   }
@@ -2631,7 +2639,7 @@ export function legsTouching(legs: ReturnType<typeof carpetLegs>, c: number, r: 
   return out;
 }
 
-/** The Pamphlet's straight from tile (c, r): the leg with the most tiles touching it; a tie goes downstream. -1 if none. */
+/** The Post (pamphlet)'s straight from tile (c, r): the leg with the most tiles touching it; a tie goes downstream. -1 if none. */
 export function bindLeg(legs: ReturnType<typeof carpetLegs>, c: number, r: number) {
   let best = -1;
   let most = 0;

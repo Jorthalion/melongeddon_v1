@@ -72,9 +72,9 @@ export const KEEPERS: Array<{
   {
     id: "quack",
     name: "Quackarot",
-    role: "Field strategist",
-    flavor: "“Relax. I've got a turret on my back.”",
-    line: "His turret's rockets slow what they hit, and every tower near it fires faster.",
+    role: "Duck of Destiny",
+    flavor: "“Small duck. Big hair. Posts first, plans later.”",
+    line: "His aura powers up every tower beside him, and his ki blasts daze the carpet.",
     toneHz: 280,
     portrait: asset("sprites/portrait-quack.webp"),
   },

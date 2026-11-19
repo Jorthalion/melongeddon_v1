@@ -126,7 +126,7 @@ Two images, each in the style of what's already in the game. Send them in **sepa
 >
 > Dignified and steady, a little heroic. 3/4 top-down view, transparent background, no text, no letters, no watermark.
 
-#### The Pamphlet and the Reverse Driver, Quackarot's third and fourth (done: `public/sprites/sig-pamphlet.webp` and `sig-driver.webp`)
+#### The Post and Instant Quackmission, Quackarot's third and fourth (done: `public/sprites/sig-pamphlet.webp` and `sig-driver.webp`; the file names keep the old ids)
 
 Attach **Quackarot's portrait** (`portrait-quack.webp`) and the **Quack-Liber art** (`sig-quackliber.webp`) with each prompt so the colours match: **orange canvas hoodie fabric, black drawstrings and straps, the black crowned-duck emblem**, brass and dark walnut. Painterly like the other towers, **not** bold comic ink outlines.
 
@@ -134,6 +134,16 @@ Attach **Quackarot's portrait** (`portrait-quack.webp`) and the **Quack-Liber ar
 |---|---|
 | `sig-pamphlet.png` | A **stubby orange megaphone-shaped launcher** lying at a low angle on a **small round dark walnut base with brass rivets**, its wide mouth facing forward. The body is wrapped in **orange canvas with black drawstring cords** and a stitched **black crowned-duck emblem**. A **rolled-up paper pamphlet tied with string** sticks out of the mouth, ready to burst out. A **short twisted fuse** on top with a tiny glowing orange spark. Small brass fittings and a brass sight on the side. Playful and a bit absurd, but well made. 3/4 top-down view, transparent background, no text. |
 | `sig-driver.png` | A **chunky hand-held tool**, an original design (not a copy of any film or TV prop): a fat **orange-and-black grip with black rubber bands** and a stitched **black crowned-duck emblem**, a short **brushed-steel shaft**, and a **glowing green-white crystal tip** with a soft halo, standing **upright in a little dark walnut stand** with brass clips on a **small round base**. A few faint green-white sparks around the tip, as if it just buzzed. Neat and clever-looking, a field strategist's gadget. 3/4 top-down view, transparent background, no text. |
+
+#### Quackarot as an anime-hero duck (to do; code-drawn versions ship meanwhile)
+
+He's a duck with **spiky, gravity-defying anime-hero hair** who posts first and plans later. Keep it an original design: puns and the general shape of a shouting, powering-up anime hero only, **no real anime characters, logos, symbols or costumes**. Attach his portrait (`portrait-quack.webp`) and the Quack-Liber art so the colours match: **orange hoodie, black drawstrings, black crowned-duck emblem**.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `portrait-quack-golden.png` | The same duck as `portrait-quack.webp`, **powered up**: his spiky hair now **glowing gold and standing even taller**, eyes fierce, a **flickering golden aura** of flame-like light around his whole body, a few small sparks rising. Same framing and crop as the normal portrait. No text. |
+| `fly-ki.png` | A **ki blast in flight**: a round, glowing **orange-gold energy ball**, white-hot at the centre, with a short **tapering trail** of orange light behind it. Side view, flying to the right. Transparent background, no text. |
+| `sig-post.png` | The Post as a tower: a **tall wooden signpost** on a small round walnut base with brass rivets, holding up a big **blank speech-bubble sign** of cream card with a dark outline, a little **orange-and-black hoodie scarf** tied round the post, and a **stubby phone-shaped loudspeaker** clipped to the top. **No letters, no logos.** |
 
 #### Anti-Geese Protocol, Quackarot's second (done: `public/sprites/sig-geese.webp`)
 

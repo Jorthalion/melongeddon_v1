@@ -292,7 +292,7 @@ Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't 
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Copycat** (free): see below |
 | **Dr. Samodovol**, The Scholar | 12 stacks, 150 seeds | **The Doctor's pick.** Each shelf shows four cards: the usual three, plus one more marked "Doctor's pick", a real upgrade from further along the shelves (one you'd normally see later) | **History Lectern** (50): no shot, and it helps no cannon. After each wave it looks at how far the fruit got: if any got three-quarters of the way along the carpet (or leaked), the kind that got furthest walks 25% slower next wave, and the Doctor says so ("The corn got furthest. They will be slower."). If none did: "Nothing reached the stacks. I have nothing to add." One kind, one wave, one Lectern |
-| **Quackarot**, Field strategist | 12 stacks, 150 seeds | While his turret stands, every other tower within three tiles of it fires 15% faster (the panel says "quick") | **Quack-Liber** (95): a two-barrel backpack turret. Its orange rockets burst over a small area and slow everything they hit for a moment. Like other cannons it aims at the fruit furthest along unless you change it (see **Targeting**). Also **Anti-Geese Protocol** (60): one use. Every fruit within about two and a half tiles is thrown three tiles back down the carpet (Karl only takes a knock). Tap it to choose **Auto** (goes off by itself when four fruit crowd in, or one gets near the door) or **Manual** (only when you press **Engage**). Then it's gone; you can rebuild it after the wave. Also **the Pamphlet** (70) and **the Reverse Driver** (50): see below |
+| **Quackarot**, Duck of Destiny | 12 stacks, 150 seeds | A duck with spiky anime-hero hair and a lot to say. While his turret stands, its **power-up aura** makes every other tower within three tiles of it fire 15% faster (a soft golden flame under each one; the panel says "powered up") | **Quack-Liber** (95): a two-barrel backpack turret. It charges up and fires glowing orange-gold **ki blasts** that burst over a small area and daze everything they hit for a moment. Like other cannons it aims at the fruit furthest along unless you change it (see **Targeting**). Also **Anti-Geese Protocol** (60): one use. Every fruit within about two and a half tiles is thrown three tiles back down the carpet (Karl only takes a knock). Tap it to choose **Auto** (goes off by itself when four fruit crowd in, or one gets near the door) or **Manual** (only when you press **Engage**). Then it's gone; you can rebuild it after the wave. Also **The Post** (70) and **Instant Quackmission** (50): see below |
 | **Asser Mälkki**, Author-Knight | 20 stacks, 100 seeds | **Built to take hits.** Every stack he loses pays 4 seeds (**Material**), and every stack he is missing makes all his towers hit 2% harder, up to +30% (**Sisu**, shown next to his stacks) | **Lion Blade** (90): a sword in a stone that sweeps every fruit right beside it at once. When he loses a stack it swings at once and harder. After each wave it stood through, it puts 2 stacks back |
 
 ## Developer mode
@@ -382,18 +382,18 @@ His perks bend the Doctor's pick and the Lectern. None of them add damage, reach
 
 **Quackarot**
 
-His Keeper tab has four towers: the Quack-Liber, the Anti-Geese Protocol, the Pamphlet and the Reverse Driver (one of each at a time).
+His Keeper tab has four towers: the Quack-Liber, the Anti-Geese Protocol, The Post and Instant Quackmission (one of each at a time).
 
-- **The Pamphlet** (70). It must stand on a tile **beside a straight stretch of carpet** (a "straight" runs from one corner to the next). It watches that straight; the orange wash shows which one, with an arrow at the corner where it goes off. When the **front fruit reaches that corner** with **at least one more fruit still on the straight**, every fruit on the straight takes **one big hit**, twice what a fresh Melon cannon's shot deals (card upgrades count, melon fittings don't). It's a direct hit, so a shell takes it and cracks, and a pit takes it in full. One fruit alone, or Karl alone, sets nothing off. After it goes off it waits until fewer than two fruit are left on the straight before it arms again, so a long line gets one blast. Fruit that have already turned the corner are safe. On a tile beside two straights it takes the one further along; **Other straight** in its panel swaps between waves. On the Overflow, chute fruit set it off at the corner they're walking towards.
-- **The Reverse Driver** (50). It does no damage. Every 4 seconds it buzzes the fruit **furthest along** in its reach (a melon cannon's) and walks it **back the way it came for 2.5 seconds**; everything else keeps walking. Husks are steered too, and Karl only turns for 0.6 seconds. A fruit it has just turned can't be turned again for 4 seconds, so nothing is held forever. At the start of the carpet (or the chute's end) a driven fruit just waits.
+- **The Post** (70). One bad take, and everything on the straight gets ratioed. It must stand on a tile **beside a straight stretch of carpet** (a "straight" runs from one corner to the next). It watches that straight; the orange wash shows which one, with an arrow at the corner where it goes off. When the **front fruit reaches that corner** with **at least one more fruit still on the straight**, every fruit on the straight takes **one big hit** (a speech-bubble shockwave runs down it), twice what a fresh Melon cannon's shot deals (card upgrades count, melon fittings don't). It's a direct hit, so a shell takes it and cracks, and a pit takes it in full. One fruit alone, or Karl alone, sets nothing off. After it goes off it waits until fewer than two fruit are left on the straight before it arms again, so a long line gets one blast. Fruit that have already turned the corner are safe. On a tile beside two straights it takes the one further along; **Other straight** in its panel swaps between waves. On the Overflow, chute fruit set it off at the corner they're walking towards.
+- **Instant Quackmission** (50). Two feathers to the forehead. It does no damage. Every 4 seconds the fruit **furthest along** in its reach (a melon cannon's) **blinks** (a bright flash and a twinkle over it) and walks **back the way it came for 2.5 seconds**; everything else keeps walking. Husks are steered too, and Karl only turns for 0.6 seconds. A fruit it has just turned can't be turned again for 4 seconds, so nothing is held forever. At the start of the carpet (or the chute's end) a driven fruit just waits.
 
 | Level | Option A | Option B |
 |---|---|---|
-| 2 | **Field Rations**: Start with 30 more seeds. | **Spare Feathers**: Start with two more stacks. |
-| 4 | **Wide Wake**: The Quack-Liber's speed-up reaches 30% farther. | **Heavy Payload**: Rockets burst 25% wider. |
-| 6 | **Quiet Confidence**: After each Quack-Liber kill, the towers around it fire 20% faster again for 2 s. | **Lane Lockdown**: Every fourth rocket leaves a suppression patch on the carpet for 3 s. Fruit in it crawl. |
-| 8 | **Covering Fire**: Fruit a rocket hits take 25% more damage from everything for 2 s. | **Spare Rockets**: The Quack-Liber costs 25 seeds less. |
-| 10 | **Defensive Perimeter**: You can build two Quack-Libers. Fruit crossing the line between them walk 30% slower. | **Steady Hands**: The speed-up is 25% instead of 15%. |
+| 2 | **Bean Bag**: Start with 30 more seeds. | **Plot Armour**: Start with two more stacks. |
+| 4 | **Big Aura**: The Quack-Liber's power-up aura reaches 30% farther. | **Bigger Blasts**: Ki blasts burst 25% wider. |
+| 6 | **Quack-hameha**: After each Quack-Liber kill, a charged beam flashes and its aura flares: the towers around it fire 20% faster again for 2 s. | **Ground Pound**: Every fourth ki blast leaves a cracked crater on the carpet for 3 s. Fruit in it crawl. |
+| 8 | **Blinded by the Light**: Fruit a ki blast hits take 25% more damage from everything for 2 s. | **Over Nine Thousand Quacks**: Once a night, the first time you drop to 6 stacks or fewer, he goes golden: every tower fires 50% faster for 10 s of fighting, carried over a wave break if it ends first (a golden flash, "POWER LEVEL: ABSURD", and a GOLDEN badge by your stacks). |
+| 10 | **Tag Team**: You can build two Quack-Libers. The line between them crackles with energy: fruit crossing it walk 30% slower. | **Focused Ki**: The aura is 25% instead of 15%. |
 
 **Asser Mälkki**
 
@@ -474,7 +474,7 @@ Slowing comes in four kinds, and only ice counts for the ice combos below.
 
 - **Ice (frost).** The Freeze cannon and the Cold rind upgrade. It builds the frost meter, freezes fruit solid at three, and sets up shatters, thermal shock and Black Ice.
 - **Drowsy (Vaelithra).** Every hit from any of her towers makes a fruit drowsy: half speed for 1.4 seconds (bosses shake it off sooner). The **third hit on a drowsy fruit puts it to sleep**: it stops for a second (Karl and the other bosses 0.3 seconds), then can't nod off again for two seconds. It shows as a lilac tint, heavy eyelids, drifting z's and a moon pip. It never adds frost, so it never freezes anything or sets up an ice combo. **Fire wakes it** (a fire shot or a fire patch ends drowsy and sleep at once), and a **Shush Bell or Organ crescendo stops a drowsy fruit half again as long**.
-- **Daze.** The Pipe Organ's chord, Barbed Spears and a Quack-Liber rocket's burst slow what they hit for a moment (a lilac swirl pip). No frost.
+- **Daze.** The Pipe Organ's chord, Barbed Spears and a Quack-Liber ki blast's burst slow what they hit for a moment (a lilac swirl pip). No frost.
 - **Puddles.** The Still's and the Cauldron's puddles slow anything standing in them. No frost.
 
 Husks ignore every one of these. When several apply, the strongest wins; they don't multiply.
@@ -486,7 +486,7 @@ Status effects build on each other. Small coloured dots under a fruit show what 
 **Ice and fire**
 
 - **Frost (0–3).** Only ice adds frost: a Freeze cannon hit adds two and holds the fruit as before, and a Cold rind hit adds one. Other slows aren't ice and add none (see [Slows](#slows-ice-drowsy-daze-and-puddles)). One frost slows to 80%, two to 55%, three freezes it solid (then it drops back to two). The meter drops one 1.2 seconds after the last was added (damp fruit: twice as long). Bosses stop at two; husks never take frost. Three frost also tints the fruit pale blue.
-- **Shatter.** The first **splash** on a fruit with two or more frost (a Mortar, Juicy Explosions, Splatter, the Trebuchet, a Quack-Liber rocket, the Bombard) shatters it: that hit does **half again**, its frost goes to zero, and **ice shards** hit every other fruit within a tile for 25% of the hit (40% at three frost). Shards are splash, so pits shrug them off. Any stings, poison or fire on it go off at once. Aimed shots (Melon, Spitter, Ballista, Long Reader, Telescope) never shatter.
+- **Shatter.** The first **splash** on a fruit with two or more frost (a Mortar, Juicy Explosions, Splatter, the Trebuchet, a Quack-Liber ki blast, the Bombard) shatters it: that hit does **half again**, its frost goes to zero, and **ice shards** hit every other fruit within a tile for 25% of the hit (40% at three frost). Shards are splash, so pits shrug them off. Any stings, poison or fire on it go off at once. Aimed shots (Melon, Spitter, Ballista, Long Reader, Telescope) never shatter.
 - **Thermal shock.** **Ice, then fire:** a Fire cannon shot, or walking into a fire patch, on a frosted fruit thaws it at once and bursts for 60% more ("HISS"). It doesn't bake a raw pumpkin. **Fire, then ice:** a Freeze hit on a burning fruit puts the fire out for 1.5 seconds, even standing in the patch. It's still steaming for those seconds, so a growth bed doesn't heal it either. So put the Freeze cannon earlier on the carpet than the Fire cannon.
 - **Wildfire.** A burning fruit that's slowed but not frozen (frost, a daze, drowsy or a slowing puddle) sets a neighbour within about a tile alight every second, for two seconds. Damp fruit, damp rooms and wet carpet halve it; husks catch it first.
 - **Explosions** spread a puddle by half (once), make a fire patch burn twice as hard for a second, and Electrified Melons' spark reaches twice as far to a fruit with frost.
@@ -619,7 +619,7 @@ Everything on a fruit shows on the fruit itself. Its body takes one coating, for
 | Ripples at its feet | Slowed by a **puddle** |
 | Stars (the Shush Bell) or music notes (the Organ) circling, rocking in place | **Stunned** |
 | Squashed flat, with a dust ring | **Stomped** by the Foot of the Law, or held by the Gourd Gate |
-| Turned round to face back, sweating; panicking geese drop feathers | **Walked back** (the Reverse Driver, the Anti-Geese Protocol, the General's scatter) |
+| Turned round to face back, sweating; panicking geese drop feathers | **Walked back** (Instant Quackmission, the Anti-Geese Protocol, the General's scatter) |
 | A "!" over its head | **Standing still** (a Gosling leader fell); a fight has its own dust cloud |
 | A soft green glow and rising "+" | **Healing** on a bed, a vine, or from a gall |
 | Speed lines; a goose stretches its neck forward | **Rallied** by the Matriarch |
@@ -667,7 +667,7 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | **Raw** | 100% | 100% | First burn bakes it into "bread" instead of hurting it | 100% | 100% | Work normally |
 
 - **Shell:** whatever lands first is wasted, however big it is, but the hit after that does full damage. Seed Spitter seeds **bounce off** ("ping") without cracking it, so a spitter on its own never gets through. One Mortar blast cracks every shell it touches at once.
-- **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, the Organ's daze, a Quack-Liber rocket's daze, Vaelithra's drowsy, the Cold rind upgrade and the Cauldron's slow. Three things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
+- **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, the Organ's daze, a Quack-Liber ki blast's daze, Vaelithra's drowsy, the Cold rind upgrade and the Cauldron's slow. Three things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
 - **Raw:** once baked, the pumpkin crawls at 55% speed for the rest of its walk, but fire can't hurt it any more. Finish it with anything else.
 - **Split:** not armour. When popped, it breaks into four small melons with about half a melon's health, which have no armour.
 
@@ -899,6 +899,7 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 - **Three Oaths**: Win as Sir Michael once with each oath.
 - **Well Read**: As Dr. Samodovol, win a night taking the Doctor's pick at least 3 times.
 - **Off the Shelf**: As Dr. Samodovol, win a night without taking a single Doctor's pick.
+- **Power Level: Absurd**: As Quackarot, win a night after going golden (Over Nine Thousand Quacks).
 - **Unbroken**: As Asser, win a night after Sisu reached its cap.
 - **Field Dressing**: As Asser, have the Lion Blade mend 20 stacks in one night.
 
@@ -917,7 +918,7 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 
 **The Workshop** (14)
 
-- **Rocket Mail**: The Quack-Liber gets 100 kills, across all nights.
+- **Ki-mail**: The Quack-Liber's ki blasts get 100 kills, across all nights.
 - **Chain Reaction**: One Card Catalogue shot kills 3 fruit.
 - **Knockback King**: The Pumpkin Trebuchet moves 30 fruit in one night.
 - **Slow Cooker**: Have 10 fruit slowed at the same moment.

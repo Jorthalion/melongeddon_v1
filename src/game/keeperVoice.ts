@@ -53,11 +53,11 @@ export const KEEPER_VOICE: Record<HeroId, Voice> = {
     lose: "“A lesson. An expensive one, but a lesson.”",
   },
   quack: {
-    open: "“Turret's on the Keeper tab. Anything standing near it shoots faster. Try to keep up.”",
-    overflow: "“Wet floor, same plan. Put the turret where the action is.”",
-    siege: "“Geese. Of course it's geese. Good thing I came prepared.”",
-    win: "“Easy. Okay, not easy. But I looked cool doing it.”",
-    lose: "“That was lag. Definitely lag.”",
+    open: "“Powering up. This might take three episodes.” The Quack-Liber is on the Keeper tab: anything near it gets his aura.",
+    overflow: "“Filler arc. Wet floor. Still powering up.”",
+    siege: "“Geese. Of course it's geese. My power level was made for this.”",
+    win: "“Posting about it. The post is doing numbers.”",
+    lose: "“That was lag. That was definitely lag. Next episode.”",
   },
   asser: {
     open: `“I start with ${asserStacks} stacks. I'll lose some. Every one I lose pays for something, and the next swing lands harder.” The Lion Blade is on the Keeper tab.`,

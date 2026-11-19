@@ -152,15 +152,21 @@ function fire(kind: TowerKind | undefined) {
       voice({ freq: vary(130), to: 45, dur: 0.22, type: "sine", gain: 0.09 });
       hiss({ dur: 0.12, gain: 0.04, freq: 500 });
       break;
+    case "quackliber":
+      // A ki blast: a quick rising charge, then the release.
+      voice({ freq: vary(260, 0.05), to: 780, dur: 0.12, type: "sine", gain: 0.035 });
+      voice({ freq: vary(520, 0.05), to: 160, dur: 0.14, type: "triangle", gain: 0.04, at: 0.11 });
+      hiss({ dur: 0.1, gain: 0.03, freq: 1600, to: 600, at: 0.11 });
+      break;
     case "pamphlet":
-      // A soft "fwump" as the pamphlet goes off down the straight.
+      // A soft "fwump" as the Post goes off down the straight.
       voice({ freq: vary(180), to: 60, dur: 0.18, type: "sine", gain: 0.08 });
       hiss({ dur: 0.16, gain: 0.05, freq: 900, to: 200 });
       break;
     case "driver":
-      // A short electric buzz.
-      voice({ freq: vary(220, 0.05), to: 260, dur: 0.22, type: "sawtooth", gain: 0.025 });
-      voice({ freq: vary(1760, 0.05), dur: 0.18, type: "square", gain: 0.008 });
+      // Instant Quackmission: a quick bright blink, there and gone.
+      voice({ freq: vary(1320, 0.05), to: 1980, dur: 0.06, type: "sine", gain: 0.03 });
+      voice({ freq: vary(1980, 0.05), to: 990, dur: 0.08, type: "sine", gain: 0.025, at: 0.06 });
       break;
     case "fire":
       hiss({ dur: 0.22, gain: 0.05, filter: "bandpass", freq: 1400, to: 500, q: 1.2 });
@@ -269,6 +275,12 @@ export function playSfx(cue: Sfx) {
       break;
     case "clear":
       [392, 494, 587].forEach((f, i) => voice({ freq: f, dur: 0.22, gain: 0.045, at: i * 0.08 }));
+      break;
+    case "golden":
+      // Powering up: a long rising roar under a bright chord.
+      voice({ freq: 110, to: 440, dur: 1.1, type: "sawtooth", gain: 0.04, attack: 0.05 });
+      [523, 659, 784, 1047].forEach((f, i) => voice({ freq: f, dur: 0.4, gain: 0.035, at: 0.5 + i * 0.07 }));
+      hiss({ dur: 0.9, gain: 0.05, freq: 600, to: 2400 });
       break;
     case "victory":
       [392, 494, 587, 784].forEach((f, i) => voice({ freq: f, dur: i === 3 ? 0.9 : 0.25, gain: 0.05, at: i * 0.14 }));

@@ -66,6 +66,8 @@ export interface RunLog {
   /** Asser: highest Sisu in percent, and whether it reached its cap. */
   sisuPeak: number;
   sisuCapped: boolean;
+  /** Quackarot went golden tonight (Over Nine Thousand Quacks). */
+  wentGolden: boolean;
   /** Stacks Asser's Lion Blades put back. */
   mended: number;
   /** The Siege: goose-and-cat fights, geese the Anti-Geese Protocol threw, boxes knocked off Box Cats, and Private
@@ -116,6 +118,7 @@ export function emptyRunLog(): RunLog {
     oath: null,
     sisuPeak: 0,
     sisuCapped: false,
+    wentGolden: false,
     mended: 0,
     feuds: 0,
     protocolGeese: 0,
@@ -326,6 +329,13 @@ const LIST: Array<Omit<Achievement, "tier">> = [
     shelf: "staff",
     check: (c) => storyWin(c) && c.hero === "scholar" && c.log.doctorOffered >= 3 && c.log.doctorTaken === 0,
   },
+  {
+    id: "power-level",
+    name: "Power Level: Absurd",
+    blurb: "As Quackarot, win a night after going golden.",
+    shelf: "staff",
+    check: (c) => storyWin(c) && c.hero === "quack" && c.log.wentGolden,
+  },
   { id: "sisu-max", name: "Unbroken", blurb: "As Asser, win a night after Sisu reached its cap.", shelf: "staff", check: (c) => storyWin(c) && c.hero === "asser" && c.log.sisuCapped },
   { id: "mender", name: "Field Dressing", blurb: "As Asser, have the Lion Blade mend 20 stacks in one night.", shelf: "staff", check: (c) => c.hero === "asser" && c.log.mended >= 20 },
 
@@ -380,8 +390,8 @@ const LIST: Array<Omit<Achievement, "tier">> = [
   // The Workshop
   {
     id: "rockets",
-    name: "Rocket Mail",
-    blurb: "The Quack-Liber gets 100 kills, across all nights.",
+    name: "Ki-mail",
+    blurb: "The Quack-Liber's ki blasts get 100 kills, across all nights.",
     shelf: "workshop",
     check: (c) => c.ledger.killsBy.quackliber >= 100,
     progress: (l) => [l.killsBy.quackliber, 100],
