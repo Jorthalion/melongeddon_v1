@@ -191,6 +191,7 @@ Build cannons on the open **floor** beside the carpet: never on the carpet itsel
 ## Getting started
 
 1. **Title screen.**
+   - Hover a button (or move to it with the arrow keys) and a card beside the menu says what it does.
    - **Start** (first visit) or **Continue** plays right away with your last setup. The line under it shows what that setup is.
    - **New night** opens Setup, where you pick everything yourself.
    - **How to play** is a quick reference inside the game.

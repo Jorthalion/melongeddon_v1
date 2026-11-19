@@ -42,6 +42,7 @@ export function MenuButton({
   ref,
   disabled,
   title,
+  onHint,
 }: {
   gold?: boolean;
   onClick: () => void;
@@ -49,6 +50,8 @@ export function MenuButton({
   ref?: Ref<HTMLButtonElement>;
   disabled?: boolean;
   title?: string;
+  /** Hover, or keyboard focus: called with the button (null when the pointer or focus leaves), for a hint card. */
+  onHint?: (el: HTMLElement | null) => void;
 }) {
   // Shared by every menu button (title, pause, settings): a pointer, a brighter face and a soft gold
   // glow on hover, a slight press, and a keyboard outline. Disabled buttons stay still.
@@ -70,7 +73,12 @@ export function MenuButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={title}
+      title={onHint ? undefined : title}
+      onPointerEnter={onHint ? (e) => e.pointerType === "mouse" && onHint(e.currentTarget) : undefined}
+      onPointerLeave={onHint ? () => onHint(null) : undefined}
+      // Keyboard focus only: the title focuses its first button on its own, and that shouldn't pop a card.
+      onFocus={onHint ? (e) => e.currentTarget.matches(":focus-visible") && onHint(e.currentTarget) : undefined}
+      onBlur={onHint ? () => onHint(null) : undefined}
       className={`group ${face} ${live ? `${motion} ${hover}` : "cursor-not-allowed opacity-45"}`}
     >
       <span className={`pointer-events-none absolute top-1/2 left-3 size-1.5 -translate-y-1/2 rotate-45 ${mark}`} />

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { asset } from "@/lib/asset";
 import { BOARDS, KEEPER_TOWERS, MAP_GOALS, PICKABLE_MAPS, TOWERS, TOWER_GROUPS, TOWER_TYPE, TYPE_INFO, MIDNIGHT_WAVES, WAVE_COUNT } from "@/game/engine";
 import { HOTKEY_HELP } from "@/components/hotkeys";
@@ -46,6 +47,12 @@ export function TitleScreen({
   const [view, setView] = useState<"menu" | "howto" | "settings" | "catalogue">("menu");
   const startRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  /** The menu button under the pointer (or keyboard focus), and the line that says what it does. */
+  const [hint, setHint] = useState<{ text: string; rect: DOMRect } | null>(null);
+  const hintFor = (text: string) => (el: HTMLElement | null) => setHint(el ? { text, rect: el.getBoundingClientRect() } : null);
+  useEffect(() => {
+    if (view !== "menu") setHint(null);
+  }, [view]);
   // Focus the main button whenever the menu shows, so Enter starts and arrows have a place to begin.
   useEffect(() => {
     if (view === "menu") startRef.current?.focus({ preventScroll: true });
@@ -82,7 +89,18 @@ export function TitleScreen({
       <div className="absolute top-[43%] left-1/2 w-[min(20.5rem,74vw)] -translate-x-1/2">
         {view === "menu" ? (
           <div ref={menuRef} className="flex flex-col gap-2.5" role="group" aria-label="Main menu" onKeyDown={onMenuKey}>
-            <MenuButton gold ref={startRef} onClick={onStart}>
+            <MenuButton
+              gold
+              ref={startRef}
+              onClick={onStart}
+              onHint={hintFor(
+                guide
+                  ? "Start your first night: Mynxi walks you through it in a few short lessons."
+                  : saved
+                    ? "Jump straight back in with the same night, room, keeper and difficulty as last time (shown just below)."
+                    : "Play right away with the setup shown just below.",
+              )}
+            >
               {saved ? "Continue" : "Start"}
             </MenuButton>
             <p className="-mt-1 rounded bg-black/55 px-2 py-1 text-center text-xs leading-snug text-[#f4ead8]">
@@ -91,7 +109,7 @@ export function TitleScreen({
             </p>
             {guide ? (
               <>
-                <MenuButton disabled onClick={() => {}} title="Opens after the guided first night">
+                <MenuButton disabled onClick={() => {}} onHint={hintFor("Opens after the guided first night. Then you pick your own keeper, room and difficulty.")}>
                   New night (after your first night)
                 </MenuButton>
                 <button
@@ -103,13 +121,18 @@ export function TitleScreen({
                 </button>
               </>
             ) : (
-              <MenuButton onClick={onKeeper}>New night</MenuButton>
+              <MenuButton onClick={onKeeper} onHint={hintFor("Set up a night yourself: choose your keeper, then the room, difficulty and night to play.")}>
+                New night
+              </MenuButton>
             )}
             <MenuButton
               onClick={() => {
                 onCatalogue?.();
                 setView("catalogue");
               }}
+              onHint={hintFor(
+                "The library is in pieces. Spend the Catalogue Fragments you earn from nights and achievements to restore its rooms, and each room opens something for good: a new map, keeper, bookmark, keeper tower or look.",
+              )}
             >
               Grand Catalogue
             </MenuButton>
@@ -118,13 +141,30 @@ export function TitleScreen({
                 {catalogueNote}
               </p>
             ) : null}
-            {onTutorial ? <MenuButton onClick={onTutorial}>Tutorial</MenuButton> : null}
-            <MenuButton onClick={() => setView("howto")}>How to play</MenuButton>
-            <MenuButton onClick={() => setView("settings")}>Settings</MenuButton>
-            {onInstall ? <MenuButton onClick={onInstall}>Install app</MenuButton> : null}
-            {onQuit ? <MenuButton onClick={onQuit}>Quit</MenuButton> : null}
+            {onTutorial ? (
+              <MenuButton onClick={onTutorial} onHint={hintFor("Play Mynxi's guided first night again, with her lessons.")}>
+                Tutorial
+              </MenuButton>
+            ) : null}
+            <MenuButton onClick={() => setView("howto")} onHint={hintFor("A quick reference: controls, the tower tabs, keepers, nights and rooms.")}>
+              How to play
+            </MenuButton>
+            <MenuButton onClick={() => setView("settings")} onHint={hintFor("Sound, music, game speed, reduced motion and showing the tips again.")}>
+              Settings
+            </MenuButton>
+            {onInstall ? (
+              <MenuButton onClick={onInstall} onHint={hintFor("Install Melongeddon so it opens in its own window and plays offline.")}>
+                Install app
+              </MenuButton>
+            ) : null}
+            {onQuit ? (
+              <MenuButton onClick={onQuit} onHint={hintFor("Close the game. Your progress is saved.")}>
+                Quit
+              </MenuButton>
+            ) : null}
           </div>
         ) : null}
+        {view === "menu" && hint ? <MenuHint text={hint.text} rect={hint.rect} /> : null}
       </div>
       {view !== "menu" ? (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 p-4">
@@ -264,5 +304,33 @@ export function HowToPlay() {
       <p className={h}>Keys</p>
       <p className="text-muted">{HOTKEY_HELP}</p>
     </div>
+  );
+}
+
+/**
+ * What a title-menu button does: a card beside the menu (to its right, else its left), or above the button
+ * when the screen is too narrow for either side.
+ */
+function MenuHint({ text, rect }: { text: string; rect: DOMRect }) {
+  const width = 256;
+  const gap = 14;
+  const right = window.innerWidth - rect.right >= width + gap + 8;
+  const left = rect.left >= width + gap + 8;
+  const top = Math.max(8, Math.min(rect.top + rect.height / 2 - 28, window.innerHeight - 140));
+  const style: React.CSSProperties = right
+    ? { left: rect.right + gap, top, width }
+    : left
+      ? { right: window.innerWidth - rect.left + gap, top, width }
+      : { left: Math.max(8, Math.min(rect.left, window.innerWidth - Math.min(width, rect.width) - 8)), bottom: window.innerHeight - rect.top + 8, width: Math.min(width, rect.width) };
+  return createPortal(
+    <div
+      role="tooltip"
+      data-menu-hint
+      style={style}
+      className="pointer-events-none fixed z-50 rounded-md border border-[#d7b56a]/70 bg-[#100c0e]/94 px-3 py-2 text-sm leading-snug text-[#f4ead8] shadow-[0_6px_18px_rgba(0,0,0,0.55)]"
+    >
+      {text}
+    </div>,
+    document.body,
   );
 }
