@@ -7,12 +7,12 @@ import type { HeroId } from "./rules.ts";
  */
 export const KEEPER_SHEETS: Record<
   HeroId,
-  { stacks: number; seeds: number; difficulty: "Gentle" | "Steady" | "Tricky" | "Hard"; rules: string[]; suits: string }
+  { stacks: number; seeds: number; difficulty: "Easy" | "Medium" | "Advanced" | "Expert"; rules: string[]; suits: string }
 > = {
   mynxi: {
     stacks: 12,
     seeds: 150,
-    difficulty: "Gentle",
+    difficulty: "Easy",
     rules: [
       "Her first cannon of the night costs only 40 seeds.",
       "All her cannons see farther down the carpet.",
@@ -23,7 +23,7 @@ export const KEEPER_SHEETS: Record<
   vael: {
     stacks: 11,
     seeds: 120,
-    difficulty: "Steady",
+    difficulty: "Medium",
     rules: [
       "Her shots make fruit drowsy: half speed for a moment, and the third hit puts one to sleep for a second. Not ice, so no frost; fire wakes them.",
       "The first tower of each kind costs her 20 more each night; her back-room upgrades cost less.",
@@ -34,7 +34,7 @@ export const KEEPER_SHEETS: Record<
   michael: {
     stacks: 11,
     seeds: 145,
-    difficulty: "Steady",
+    difficulty: "Medium",
     rules: [
       "Before each night he swears one oath: faster towers at the door, harder hits at the entrance, or a cheaper Trebuchet.",
       "His own shots are ordinary. The oath is the plan.",
@@ -45,7 +45,7 @@ export const KEEPER_SHEETS: Record<
   elf: {
     stacks: 12,
     seeds: 150,
-    difficulty: "Steady",
+    difficulty: "Medium",
     rules: [
       "Back-room upgrades cost him 30% less.",
       "Scales of Justice take a share of the heaviest fruit's health, and kills pay a fee.",
@@ -56,7 +56,7 @@ export const KEEPER_SHEETS: Record<
   ooze: {
     stacks: 13,
     seeds: 140,
-    difficulty: "Gentle",
+    difficulty: "Easy",
     rules: [
       "The first fruit to leak each wave is absorbed: no stack lost.",
       "Mimic Chest (Memec) swallows a fruit whole every few seconds; Karl only loses a bite.",
@@ -67,7 +67,7 @@ export const KEEPER_SHEETS: Record<
   scholar: {
     stacks: 12,
     seeds: 150,
-    difficulty: "Hard",
+    difficulty: "Expert",
     rules: [
       "Every upgrade shelf has a fourth card, the Doctor's pick: a real upgrade from further along the shelves.",
       "No cannon of his own to start with. He is the hardest keeper, on purpose.",
@@ -78,7 +78,7 @@ export const KEEPER_SHEETS: Record<
   quack: {
     stacks: 12,
     seeds: 150,
-    difficulty: "Tricky",
+    difficulty: "Advanced",
     rules: [
       "Every tower within three tiles of his Quack-Liber fires 15% faster.",
       "Quack-Liber rockets burst and slow. Anti-Geese Protocol throws a crowd back once a wave.",
@@ -89,7 +89,7 @@ export const KEEPER_SHEETS: Record<
   asser: {
     stacks: 20,
     seeds: 100,
-    difficulty: "Tricky",
+    difficulty: "Advanced",
     rules: [
       "Every stack he loses pays 4 seeds (Material).",
       "Every stack he is missing makes all his towers hit 2% harder, up to +30% (Sisu).",

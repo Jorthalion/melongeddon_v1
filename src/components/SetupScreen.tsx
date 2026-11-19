@@ -1,4 +1,5 @@
-import { Lock } from "lucide-react";
+import { Coins, Heart, Lock, Star } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   BOARDS,
   DIFFICULTIES,
@@ -466,7 +467,28 @@ function Footer({
   );
 }
 
-const DIFFICULTY_TONE = { Gentle: "text-[#7fc98f]", Steady: "text-gold", Tricky: "text-[#e8a35a]", Hard: "text-flesh" } as const;
+/** How hard each keeper is to play well: a colour, and how many of four pips are lit. */
+const DIFFICULTY_LOOK = {
+  Easy: { tone: "text-[#7fc98f]", fill: "bg-[#7fc98f]", pips: 1 },
+  Medium: { tone: "text-gold", fill: "bg-gold", pips: 2 },
+  Advanced: { tone: "text-[#e8a35a]", fill: "bg-[#e8a35a]", pips: 3 },
+  Expert: { tone: "text-flesh", fill: "bg-flesh", pips: 4 },
+} as const;
+
+/** One stat on the keeper sheet: an icon or meter, the value, and a small label under it. */
+function SheetStat({ icon, value, label, title }: { icon: ReactNode; value: ReactNode; label: string; title?: string }) {
+  return (
+    <div title={title} className="flex min-w-0 items-center gap-2 rounded-lg border border-line/60 bg-[#140e12]/70 px-2.5 py-1.5">
+      <span className="grid size-5 shrink-0 place-items-center" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate text-sm font-semibold text-parchment">{value}</span>
+        <span className="block text-[0.625rem] tracking-[0.14em] text-muted uppercase">{label}</span>
+      </span>
+    </div>
+  );
+}
 
 /** The keeper sheet: what they start with, how forgiving they are, how they play, who they suit, and their perks. */
 function KeeperSheet({ hud, hero }: { hud: Hud; hero: HeroId }) {
@@ -475,22 +497,30 @@ function KeeperSheet({ hud, hero }: { hud: Hud; hero: HeroId }) {
   const level = levelFor(rec.xp);
   const perks = activePerks(hero, rec);
   const next = PERK_LEVELS.find((at) => at > level);
-  const chip = "rounded-full border border-line/70 bg-ink/40 px-2 py-0.5 text-xs";
+  const diff = DIFFICULTY_LOOK[sheet.difficulty];
   return (
     <div className="mt-2.5 border-t border-line/50 pt-2.5">
-      <div className="flex flex-wrap gap-1.5">
-        <span className={chip}>
-          <span className="font-semibold text-parchment">{sheet.stacks}</span> <span className="text-muted">stacks</span>
-        </span>
-        <span className={chip}>
-          <span className="font-semibold text-parchment">{sheet.seeds}</span> <span className="text-muted">seeds</span>
-        </span>
-        <span className={chip} title="How forgiving this keeper is to play">
-          <span className={`font-semibold ${DIFFICULTY_TONE[sheet.difficulty]}`}>{sheet.difficulty}</span> <span className="text-muted">to play</span>
-        </span>
-        <span className={chip}>
-          <span className="text-muted">Level</span> <span className="font-semibold text-parchment">{level}</span>
-        </span>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        <SheetStat
+          icon={<Heart className="size-4 text-flesh" />}
+          value={sheet.stacks}
+          label="Stacks"
+          title="Stacks: your lives. A fruit that reaches the door costs one."
+        />
+        <SheetStat icon={<Coins className="size-4 text-gold" />} value={sheet.seeds} label="Seeds" title="Seeds to build with at the start of the night." />
+        <SheetStat
+          icon={
+            <span className="flex h-3.5 items-end gap-[2px]">
+              {[0, 1, 2, 3].map((i) => (
+                <span key={i} className={`w-[3px] rounded-sm ${i < diff.pips ? diff.fill : "bg-line"}`} style={{ height: `${6 + i * 2.5}px` }} />
+              ))}
+            </span>
+          }
+          value={<span className={diff.tone}>{sheet.difficulty}</span>}
+          label="Difficulty"
+          title="How hard this keeper is to play well: Easy, Medium, Advanced or Expert."
+        />
+        <SheetStat icon={<Star className="size-4 text-gold" />} value={`Level ${level}`} label="Keeper" title="This keeper's level. New perks open as it rises." />
       </div>
       <p className="mt-2.5 text-[0.625rem] tracking-[0.22em] text-gold uppercase">How they play</p>
       <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-5 text-sm leading-snug marker:text-gold/70">
