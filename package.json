@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "sim": "node --disable-warning=ExperimentalWarning scripts/sim.ts",
+    "sim:keeper": "node --disable-warning=ExperimentalWarning scripts/sim-keeper.ts",
     "test": "node --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\"",
     "package": "npm run build && node --disable-warning=ExperimentalWarning scripts/package-itch.ts",
     "app": "npm run build && electron .",

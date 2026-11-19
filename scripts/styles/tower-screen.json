@@ -1,0 +1,208 @@
+[
+ {
+  "name": "melon+keeper",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+mortar",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "mortar"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+still",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "still"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+fire",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "fire"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+freeze",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "freeze"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+spitter",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "spitter"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+ballista",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "ballista"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+reader",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "reader"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+bell",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "bell"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+hive",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "hive"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+press",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "press"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+organ",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "organ"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+scope",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "scope"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+lantern",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "lantern"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+ink",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "ink"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+compost",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "compost"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+peeler",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "peeler"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+bookworm",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "bookworm"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+boomerang",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "boomerang"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+orrery",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "orrery"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+plane",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "plane"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+quill",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "quill"
+  ],
+  "withKeeper": true
+ },
+ {
+  "name": "melon+globe",
+  "strategy": "mixed+mods",
+  "rotation": [
+   "melon",
+   "globe"
+  ],
+  "withKeeper": true
+ }
+]

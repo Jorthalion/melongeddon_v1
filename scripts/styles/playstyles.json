@@ -1,0 +1,10 @@
+[
+ {"name": "default mix", "strategy": "mixed"},
+ {"name": "fire+hive", "strategy": "mixed+mods", "rotation": ["melon", "fire", "hive"], "withKeeper": true},
+ {"name": "fire+hive+reader", "strategy": "mixed+mods", "rotation": ["melon", "fire", "hive", "reader"], "withKeeper": true},
+ {"name": "fire+hive+reader, no mods", "strategy": "mixed", "rotation": ["melon", "fire", "hive", "reader"], "withKeeper": true},
+ {"name": "compost economy", "strategy": "mixed+mods", "rotation": ["compost", "melon", "fire", "hive", "fire", "hive"], "withKeeper": true},
+ {"name": "freeze control", "strategy": "mixed+mods", "rotation": ["melon", "freeze", "fire", "hive"], "withKeeper": true},
+ {"name": "hive swarm", "strategy": "mixed+mods", "rotation": ["melon", "hive", "hive", "fire"], "withKeeper": true},
+ {"name": "lean fire+hive", "strategy": "lean", "rotation": ["melon", "fire", "hive"], "withKeeper": true}
+]

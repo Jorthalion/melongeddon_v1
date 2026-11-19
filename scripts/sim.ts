@@ -13,6 +13,10 @@
  *                               # change any exported rules object for this run only (JSON values)
  *   npm run sim -- --out sim-results/combos-off   # write the report somewhere else
  *   npm run sim -- --heroes scholar --diffs easy,normal --only stacks   # a quick probe
+ *   npm run sim -- --picks smart  # bots choose shelf upgrades by what suits their board (default: random)
+ *   npm run sim -- --heroes michael --oaths door,mouth,sling   # Sir Michael once per oath (default: sling)
+ *   npm run sim -- --styles scripts/styles/playstyles.json   # play these named playstyles instead of the four strategies
+ *                               # each: {"name", "strategy", "rotation"?: [tower kinds], "withKeeper"?: true}
  *   npm run sim -- --from sim-results/a/runs.json,sim-results/b/runs.json --out sim-results/ab
  *                               # no new runs: rebuild the report from saved runs (a later file's run replaces the same run)
  *
@@ -25,7 +29,7 @@ import { fileURLToPath } from "node:url";
 import { simulateRun, type RunConfig, type RunResult, type Strategy } from "./sim-core.ts";
 import * as ENGINE from "../src/game/engine.ts";
 import { MIDNIGHT_WAVES } from "../src/game/engine.ts";
-import type { Difficulty, HeroId, MapId, NightId } from "../src/game/engine.ts";
+import type { Difficulty, HeroId, MapId, NightId, OathId } from "../src/game/engine.ts";
 
 const args = process.argv.slice(2);
 const seedArg = args.indexOf("--seeds");
@@ -38,6 +42,9 @@ const OUT = argOf("--out") ?? "sim-results";
 // --heroes scholar,vael and --diffs easy,normal: only those (quick probes).
 const HERO_ONLY = argOf("--heroes")?.split(",").filter(Boolean) ?? [];
 const DIFF_ONLY = argOf("--diffs")?.split(",").filter(Boolean) ?? [];
+const PICKS = argOf("--picks") === "smart" ? "smart" : "random";
+const OATH_LIST = (argOf("--oaths")?.split(",").filter(Boolean) ?? ["sling"]) as OathId[];
+for (const o of OATH_LIST) if (!ENGINE.OATHS.includes(o)) throw new Error(`--oaths: no oath ${o}`);
 
 /** --set PATH=VALUE (repeatable): change an exported rules object, e.g. COMBO.on=false. Applied in every worker. */
 const SETS: string[] = [];
@@ -75,6 +82,15 @@ const WORKERS = Math.max(1, Number(argOf("--workers") ?? Math.max(1, availablePa
 const HEROES = (["mynxi", "michael", "vael", "elf", "ooze", "scholar", "quack", "asser"] as HeroId[]).filter((h) => !HERO_ONLY.length || HERO_ONLY.includes(h));
 const DIFFS = (["easy", "normal", "hard", "overdue"] as Difficulty[]).filter((d) => !DIFF_ONLY.length || DIFF_ONLY.includes(d));
 const STRATEGIES: Strategy[] = ["melon", "mixed", "mixed+mods", "lean"];
+interface Style {
+  name: string;
+  strategy: Strategy;
+  rotation?: ENGINE.TowerKind[];
+  withKeeper?: boolean;
+}
+const STYLE_FILE = argOf("--styles");
+const STYLES: Style[] = STYLE_FILE ? JSON.parse(readFileSync(STYLE_FILE, "utf8")) : STRATEGIES.map((strategy) => ({ name: strategy, strategy }));
+for (const st of STYLES) for (const k of st.rotation ?? []) if (!(k in ENGINE.TOWERS)) throw new Error(`--styles ${st.name}: no tower ${k}`);
 const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "stacks" },
   { night: "midnight", map: "annex" },
@@ -91,17 +107,28 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
 const configs: RunConfig[] = [];
 for (const hero of HEROES)
   for (const difficulty of DIFFS)
-    for (const strategy of STRATEGIES)
+    for (const st of STYLES)
       for (const sc of SCENARIOS.filter((x) => !ONLY.length || ONLY.includes(x.night === "midnight" ? x.map : x.night)))
-        for (let seed = 1; seed <= SEEDS; seed++)
-          configs.push({ hero, difficulty, strategy, night: sc.night, map: sc.map, seed });
+        for (const oath of hero === "michael" ? OATH_LIST : [undefined])
+          for (let seed = 1; seed <= SEEDS; seed++)
+            configs.push({
+              hero,
+              difficulty,
+              strategy: st.strategy,
+              night: sc.night,
+              map: sc.map,
+              seed,
+              picks: PICKS,
+              ...(oath ? { oath } : {}),
+              ...(STYLE_FILE ? { style: st.name, ...(st.rotation ? { rotation: st.rotation } : {}), ...(st.withKeeper ? { withKeeper: true } : {}) } : {}),
+            });
 
 const started = Date.now();
 let results: RunResult[] = [];
 const FROM = argOf("--from")?.split(",").filter(Boolean) ?? [];
 if (FROM.length) {
   const byKey = new Map<string, RunResult>();
-  const key = (c: RunConfig) => [c.hero, c.difficulty, c.strategy, c.night, c.map, c.seed].join("|");
+  const key = (c: RunConfig) => [c.hero, c.difficulty, c.strategy, c.night, c.map, c.seed, c.oath ?? "sling", c.picks ?? "random", c.style ?? ""].join("|");
   for (const file of FROM) for (const r of JSON.parse(readFileSync(file, "utf8")) as RunResult[]) byKey.set(key(r.config), r);
   results = [...byKey.values()];
 } else if (shard) {
@@ -161,7 +188,9 @@ lines.push(
     : `${results.length} simulated runs (${SEEDS} seed${SEEDS > 1 ? "s" : ""} per combination) in ${secs}s. `) +
     `Overall win rate: **${winRate(results)}**.`,
   "",
-  "Bots place towers where they cover the most carpet, pick upgrades at random, and build between and during waves. " +
+  `Bots place towers where they cover the most carpet, pick upgrades ${
+    results.every((r) => r.config.picks === "smart") ? "by what suits their board (`--picks smart`)" : results.some((r) => r.config.picks === "smart") ? "at random or by what suits their board (mixed runs)" : "at random"
+  }, and build between and during waves. ` +
     "They are not smart players: treat these as relative numbers, not absolute difficulty.",
   "",
   "**Strategies:** `melon` = only melon cannons. `mixed` = rotates melon, mortar, freeze, fire, still. " +
@@ -171,12 +200,25 @@ lines.push(
 );
 lines.push("## Win rates", "");
 lines.push(table("Hero × difficulty", (r) => r.config.hero, (r) => r.config.difficulty, HEROES, DIFFS), "");
-lines.push(table("Strategy × difficulty", (r) => r.config.strategy, (r) => r.config.difficulty, STRATEGIES, DIFFS), "");
+const styleNames = [...new Set(results.map((r) => r.config.style).filter((x): x is string => !!x))];
+if (styleNames.length) {
+  lines.push(table("Playstyle × difficulty", (r) => r.config.style ?? "", (r) => r.config.difficulty, styleNames, DIFFS), "");
+  const hard = results.filter((r) => r.config.difficulty === "normal" || r.config.difficulty === "hard");
+  if (hard.length) lines.push(table("Playstyle × keeper (Normal and Hard)", (r) => r.config.style ?? "", (r) => r.config.hero, styleNames, HEROES, hard), "");
+} else lines.push(table("Strategy × difficulty", (r) => r.config.strategy, (r) => r.config.difficulty, STRATEGIES, DIFFS), "");
 lines.push(table("Map × difficulty", scenarioOf, (r) => r.config.difficulty, scenarioNames, DIFFS), "");
 // Night two and three each get their own keeper table (they are tuned against each other).
 for (const night of ["overflow", "siege"] as const) {
   const pool = results.filter((r) => r.config.night === night);
   if (pool.length) lines.push(table(`Hero × difficulty: ${night === "siege" ? "the Siege" : "the Overflow"}`, (r) => r.config.hero, (r) => r.config.difficulty, HEROES, DIFFS, pool), "");
+}
+
+// Sir Michael by oath, when the runs hold more than one.
+const michael = results.filter((r) => r.config.hero === "michael");
+const oathsRun = ENGINE.OATHS.filter((o) => michael.some((r) => (r.config.oath ?? "sling") === o));
+if (oathsRun.length > 1) {
+  lines.push(table("Sir Michael by oath × difficulty", (r) => r.config.oath ?? "sling", (r) => r.config.difficulty, oathsRun, DIFFS, michael), "");
+  lines.push(table("Sir Michael by oath × map", (r) => r.config.oath ?? "sling", scenarioOf, oathsRun, scenarioNames, michael), "");
 }
 
 lines.push("### Towers on the board at the end (average)", "");

@@ -43,12 +43,20 @@ export interface RunConfig {
   oath?: OathId;
   /** Optional build order to cycle through instead of the strategy's (any cannon types). */
   rotation?: TowerKind[];
+  /** With a `rotation`, still build the keeper's own towers the way the default bots do (default false). */
+  withKeeper?: boolean;
+  /** Towers to build first, in this order, before the strategy's own order takes over. */
+  opener?: TowerKind[];
+  /** A playstyle's name, for reports (sim.ts --styles). */
+  style?: string;
   /** Optional bookmark (meta perk) to equip. */
   bookmark?: BookmarkId;
   /** Optional cap on player towers (for "how few towers can win?" probes). */
   maxTowers?: number;
-  /** Optional upgrade chooser; gets the offered ids, returns one. Default: random. */
+  /** Optional upgrade chooser; gets the offered ids, returns one. Overrides `picks`. */
   pickUpgrade?: (offer: UpgradeId[]) => UpgradeId;
+  /** How the bot chooses from the upgrade shelf: "random" (default) or "smart" (see smartPick). */
+  picks?: "random" | "smart";
   /** Optional keeper levels and perk picks (default: every keeper at level 1). */
   keepers?: KeeperProgress;
   /** Optional Overflow late slips. */
@@ -95,6 +103,40 @@ function mulberry32(seed: number) {
   };
 }
 
+/**
+ * A thoughtful player's shelf pick: score each card by what it does for the board standing now.
+ * Puddles first (Juicy Explosions), then what makes puddles worse to stand in (Sticky Pulp,
+ * Distilled Batch), then extra hits; a cannon's own upgrade is worth more the more of it there are;
+ * money only early; melon-only upgrades only with melons out. The base values come from the random
+ * bots' runs (sim-results/final10), where Juicy first won 81% of Normal and Hard runs and Rapid first 48%.
+ */
+export function smartPick(offer: UpgradeId[], owned: UpgradeId[], board: TowerKind[], wave: number): UpgradeId {
+  const count = (k: TowerKind) => board.filter((b) => b === k).length;
+  const cannons = board.filter((k) => k === "melon" || k === "mortar" || k === "fire" || k === "freeze").length;
+  const puddles = owned.includes("juicy") || owned.includes("vial") || owned.includes("distill");
+  const own: Partial<Record<UpgradeId, TowerKind>> = { barbed: "ballista", footnotes: "reader", stinging: "hive", blot: "ink", interest: "compost" };
+  const score = (id: UpgradeId): number => {
+    const kind = own[id];
+    if (kind) return 3 + 2 * count(kind);
+    switch (id) {
+      case "juicy": return 10;
+      case "sticky": return puddles ? 9.5 : 5;
+      case "distill": return 9;
+      case "electric": return 8;
+      case "rapid": return 4 + Math.min(4, cannons / 3);
+      case "caliber": return 6;
+      case "splatter": return 6.5;
+      case "lamp": return 5;
+      case "bounce": return 2 + Math.min(4, count("melon") / 2);
+      case "fines": return wave <= 3 ? 5.5 : 3;
+      case "seeds": return wave <= 3 ? 4 : 2.5;
+      case "vial": return 4;
+      default: return 1;
+    }
+  };
+  return offer.reduce((best, id) => (score(id) > score(best) ? id : best), offer[0]);
+}
+
 export function simulateRun(config: RunConfig): RunResult {
   const realRandom = Math.random;
   const rng = mulberry32(config.seed * 7919 + config.hero.length * 31 + config.difficulty.length);
@@ -136,25 +178,28 @@ function play(config: RunConfig, rng: () => number): RunResult {
   }
 
   let placed = 0;
+  let builds = 0; // every tower the bot has put down, for the opener
   const order = config.rotation ?? (config.strategy === "melon" ? ["melon" as TowerKind] : ROTATION);
   // Bots that mix cannons build the keeper's signature tower as their third cannon (once).
+  const keeperOn = config.strategy !== "melon" && (!config.rotation || config.withKeeper === true);
   const signature = config.hero ? SIGNATURE[config.hero] : null;
   const nextKind = (): TowerKind => {
-    const own = signature && config.strategy !== "melon" && !config.rotation && placed >= 2 && !world.towers.some((t) => t.kind === signature);
+    if (config.opener && builds < config.opener.length) return config.opener[builds];
+    const own = signature && keeperOn && placed >= 2 && !world.towers.some((t) => t.kind === signature);
     if (own) return signature!;
     // Sir Michael's big siege towers: once eight cannons are down, the bot saves up for the Bombard,
     // then the Gourd Gate (one each), like a player would, instead of buying more small cannons.
-    if (config.hero === "michael" && config.strategy !== "melon" && !config.rotation && placed >= 8) {
+    if (config.hero === "michael" && keeperOn && placed >= 8) {
       const big = (["bombard", "gourdgate"] as TowerKind[]).find((k) => !world.towers.some((t) => t.kind === k));
       if (big) return big;
     }
     // Quackarot: once eight cannons are down, a Pamphlet beside the longest straight near the door, then a Driver near the door.
-    if (config.hero === "quack" && config.quackTowers !== false && config.strategy !== "melon" && !config.rotation && placed >= (config.quackFrom ?? 8)) {
+    if (config.hero === "quack" && config.quackTowers !== false && keeperOn && placed >= (config.quackFrom ?? 8)) {
       const extra = (["pamphlet", "driver"] as TowerKind[]).find((k) => !world.towers.some((t) => t.kind === k));
       if (extra) return extra;
     }
     // Ooze: once the Mimic Chest is down, the free Copycat goes beside the priciest tower it can copy.
-    if (config.hero === "ooze" && config.oozeCopycat !== false && config.strategy !== "melon" && !config.rotation && world.towers.some((t) => t.kind === "mimic") && !world.towers.some((t) => t.kind === "copycat") && copySpot())
+    if (config.hero === "ooze" && config.oozeCopycat !== false && keeperOn && world.towers.some((t) => t.kind === "mimic") && !world.towers.some((t) => t.kind === "copycat") && copySpot())
       return "copycat";
     // Keeper towers are one of each: once one is down, the rotation moves past it.
     for (let i = 0; i < order.length; i++) {
@@ -288,6 +333,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       api.dismissSelection(); // a click with a tower selected only closes it
       click(spot.c, spot.r);
       if (world.towers.length === before) break;
+      builds++;
       if (kind !== signature && kind !== "copycat" && kind !== "bombard" && kind !== "gourdgate" && kind !== "pamphlet" && kind !== "driver") placed++;
     }
     api.dismissSelection();
@@ -308,7 +354,13 @@ function play(config: RunConfig, rng: () => number): RunResult {
       api.startWave();
     } else if (phase === "upgrade") {
       const ids = world.hud.offer.map((u) => u.id);
-      api.pickUpgrade(config.pickUpgrade ? config.pickUpgrade(ids) : ids[Math.floor(rng() * ids.length)]);
+      api.pickUpgrade(
+        config.pickUpgrade
+          ? config.pickUpgrade(ids)
+          : config.picks === "smart"
+          ? smartPick(ids, world.hud.upgrades, world.towers.map((x) => x.kind), world.hud.wave)
+          : ids[Math.floor(rng() * ids.length)],
+      );
     } else if (phase === "combat") {
       const w = world.hud.wave - 1;
       while (leaks.length <= w) leaks.push(0);
