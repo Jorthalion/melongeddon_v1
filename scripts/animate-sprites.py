@@ -2,15 +2,17 @@
 Tower and enemy animations, made with Blender.
 
     npm run animate                      # everything
-    npm run animate -- towers            # one group (towers or enemies)
+    npm run animate -- towers            # one group (towers, enemies, pops or builds)
     npm run animate -- trebuchet melon   # just these
     set BLENDER=C:\\path\\to\\blender.exe   # if Blender isn't found on its own
 
 Blender (scripts/blender/sprite_rig.py) bends each painting on a plane pinned at its base and renders the
 frames listed here: for towers an idle loop (a slow sway and breath) and a shot (duck, punch up, settle);
 for enemies a walk (a hop that squashes on landing and stretches in the air, leaning forward) and a flinch
-when hit. Each sprite's frames are packed into one strip in public/sprites/anim/, and the group's layout is
-written to src/game/towerAnims.ts or src/game/enemyAnims.ts, which the game reads.
+when hit; for a fruit's pop a squash flat, then a swell outward as it fades; for a tower's build a rise
+from flat with an overshoot (played backwards when it's sold). Each sprite's frames are packed into one
+strip in public/sprites/anim/, and the group's layout is written to src/game/<group>Anims.ts (see "ts"
+below), which the game reads. A frame's optional sixth number is its opacity, applied after the render.
 Needs Python with Pillow, and Blender 4+.
 """
 import json
@@ -54,20 +56,40 @@ def enemy_frames():
     return out
 
 
+def pop_frames():
+    """6 frames: squashed flat by the hit, then swelling up and out as it fades (the juice burst is drawn by the game)."""
+    poses = [(0.74, 1.2, 0.0, 1.0), (0.58, 1.36, 0.0, 1.0), (1.12, 1.42, 0.02, 0.92), (1.3, 1.6, 0.05, 0.62), (1.42, 1.75, 0.07, 0.34), (1.5, 1.85, 0.08, 0.12)]
+    return [(f"pop_{f:02d}", sy, sx, 0.0, lift, a) for f, (sy, sx, lift, a) in enumerate(poses)]
+
+
+def build_frames():
+    """7 frames: rising from flat and wide, overshooting tall, settling. Fades in over the first three."""
+    poses = [(0.12, 1.3, 0.3), (0.4, 1.18, 0.65), (0.78, 1.06, 0.95), (1.1, 0.93, 1.0), (1.05, 0.97, 1.0), (0.97, 1.02, 1.0), (1.0, 1.0, 1.0)]
+    return [(f"build_{f:02d}", sy, sx, 0.0, 0.0, a) for f, (sy, sx, a) in enumerate(poses)]
+
+
+# Tower kind -> its painting. Turning cannons recoil in code instead; the Brass Telescope's tube turns on its own.
+TOWER_PAINTINGS = {
+    "still": "still.webp", "bell": "bell.webp", "hive": "hive.webp", "lantern": "lamp.webp", "compost": "compost.webp",
+    "catalogue": "sig-catalogue.webp", "cauldron": "sig-cauldron.webp", "trebuchet": "sig-trebuchet.webp",
+    "scales": "sig-scales.webp", "desk": "sig-desk.webp", "press": "heavy-press.webp", "organ": "heavy-organ.webp",
+    "flask": "sig-flask.webp", "copycat": "sig-copycat.webp", "stomp": "sig-stomp.webp", "honey": "sig-honey.webp",
+    "mimic": "sig-mimic.webp", "lectern": "sig-lectern.webp", "quackliber": "sig-quackliber.webp",
+    "geese": "sig-geese.webp", "pamphlet": "sig-pamphlet.webp", "driver": "sig-driver.webp",
+    "lionblade": "sig-lionblade.webp", "gourdgate": "sig-gourdgate.webp", "bombard": "sig-bombard.webp",
+    "boomerang": "trick-boomerang.webp", "orrery": "trick-orrery.webp", "plane": "trick-plane.webp",
+    "quill": "trick-quill.webp", "globe": "trick-globe.webp",
+}
+# Enemy look -> its painting (the fruit drawn by code have no painting to animate yet).
+ENEMY_PAINTINGS = {
+    "melon": "melon.webp", "corn": "corn.webp", "pumpkin": "pumpkin.webp", "karl": "karl.webp",
+    "pit": "enemy-pit.webp", "gall": "enemy-gall.webp", "borrower": "enemy-borrower.webp",
+}
+
+
 GROUPS = {
     "towers": {
-        # Tower kind -> its painting. Turning cannons recoil in code instead; the Brass Telescope's tube turns on its own.
-        "sprites": {
-            "still": "still.webp", "bell": "bell.webp", "hive": "hive.webp", "lantern": "lamp.webp", "compost": "compost.webp",
-            "catalogue": "sig-catalogue.webp", "cauldron": "sig-cauldron.webp", "trebuchet": "sig-trebuchet.webp",
-            "scales": "sig-scales.webp", "desk": "sig-desk.webp", "press": "heavy-press.webp", "organ": "heavy-organ.webp",
-            "flask": "sig-flask.webp", "copycat": "sig-copycat.webp", "stomp": "sig-stomp.webp", "honey": "sig-honey.webp",
-            "mimic": "sig-mimic.webp", "lectern": "sig-lectern.webp", "quackliber": "sig-quackliber.webp",
-            "geese": "sig-geese.webp", "pamphlet": "sig-pamphlet.webp", "driver": "sig-driver.webp",
-            "lionblade": "sig-lionblade.webp", "gourdgate": "sig-gourdgate.webp", "bombard": "sig-bombard.webp",
-            "boomerang": "trick-boomerang.webp", "orrery": "trick-orrery.webp", "plane": "trick-plane.webp",
-            "quill": "trick-quill.webp", "globe": "trick-globe.webp",
-        },
+        "sprites": TOWER_PAINTINGS,
         "strip": "{name}.webp",
         # The painting is px tall in each frame, its base foot × px up from the frame's bottom, centred; the frame is
         # top painting-heights tall and (width × padX + 2 × side) wide.
@@ -79,11 +101,7 @@ GROUPS = {
         "animDoc": "Idle loop and shot: frame counts and speeds (frames a second). The shot's frames follow the idle ones in the strip.",
     },
     "enemies": {
-        # Enemy look -> its painting (the fruit drawn by code have no painting to animate yet).
-        "sprites": {
-            "melon": "melon.webp", "corn": "corn.webp", "pumpkin": "pumpkin.webp", "karl": "karl.webp",
-            "pit": "enemy-pit.webp", "gall": "enemy-gall.webp", "borrower": "enemy-borrower.webp",
-        },
+        "sprites": ENEMY_PAINTINGS,
         "strip": "enemy-{name}.webp",
         "frame": {"px": 112, "padX": 1.14, "side": 0.08, "top": 1.24, "foot": 0.03},
         "frames": enemy_frames,
@@ -91,6 +109,28 @@ GROUPS = {
         "header": "ENEMY",
         "anim": lambda: "{ walk: 12, walkFps: 10, hit: 5, hitFps: 24 }",
         "animDoc": "Walk loop and flinch: frame counts and speeds (frames a second). The flinch's frames follow the walk's in the strip.",
+    },
+    "pops": {
+        # A fruit's pop when it's killed: a strip of its own, with room for the swell.
+        "sprites": ENEMY_PAINTINGS,
+        "strip": "pop-{name}.webp",
+        "frame": {"px": 112, "padX": 1.9, "side": 0.06, "top": 1.66, "foot": 0.03},
+        "frames": pop_frames,
+        "ts": "popAnims.ts",
+        "header": "POP",
+        "anim": lambda: "{ pop: 6, popFps: 24 }",
+        "animDoc": "A fruit's pop: frame count and speed (frames a second).",
+    },
+    "builds": {
+        # A tower rising when it's built (and sinking, the frames backwards, when it's sold).
+        "sprites": TOWER_PAINTINGS,
+        "strip": "build-{name}.webp",
+        "frame": {"px": 112, "padX": 1.32, "side": 0.06, "top": 1.2, "foot": 0.03},
+        "frames": build_frames,
+        "ts": "buildAnims.ts",
+        "header": "BUILD",
+        "anim": lambda: "{ build: 7, buildFps: 22, poses: %s }" % json.dumps([[f[1], f[2], f[5]] for f in build_frames()]),
+        "animDoc": "A tower's build: frame count and speed (frames a second), played backwards when it's sold; poses are each frame's [height ×, width ×, opacity] for towers drawn without a strip.",
     },
 }
 
@@ -117,7 +157,8 @@ def run_group(key, names):
         sprites.append({"name": name, "png": png, "dir": os.path.join(work, name)})
     frames = group["frames"]()
     job = os.path.join(work, "job.json")
-    json.dump({"frame": group["frame"], "frames": frames, "sprites": sprites, "out": work}, open(job, "w"))
+    rig_frames = [list(f[:5]) for f in frames]  # opacity (a sixth number) is applied below, not in Blender
+    json.dump({"frame": group["frame"], "frames": rig_frames, "sprites": sprites, "out": work}, open(job, "w"))
     rig = os.path.join(ROOT, "scripts", "blender", "sprite_rig.py")
     print(f"Blender: {len(sprites)} {key} in {work}", flush=True)
     subprocess.run([blender_exe(), "--background", "--factory-startup", "--python-exit-code", "1", "--python", rig, "--", job], check=True)
@@ -130,8 +171,11 @@ def run_group(key, names):
     for s in sprites:
         r = report[s["name"]]
         sheet = Image.new("RGBA", (r["w"] * len(frames), r["h"]), (0, 0, 0, 0))
-        for i, (fname, *_rest) in enumerate(frames):
-            sheet.paste(Image.open(os.path.join(s["dir"], fname + ".png")).convert("RGBA"), (i * r["w"], 0))
+        for i, (fname, *rest) in enumerate(frames):
+            img = Image.open(os.path.join(s["dir"], fname + ".png")).convert("RGBA")
+            if len(rest) > 4 and rest[4] < 1:
+                img.putalpha(img.getchannel("A").point(lambda v, a=rest[4]: round(v * a)))
+            sheet.paste(img, (i * r["w"], 0))
         dest = os.path.join(out_dir, group["strip"].format(name=s["name"]))
         sheet.save(dest, "WEBP", quality=78, method=6)
         meta[s["name"]] = {"w": r["w"], "h": r["h"]}
@@ -174,7 +218,8 @@ def main():
         owners = [k for k in GROUPS if a in GROUPS[k]["sprites"]]
         if not owners:
             sys.exit(f"unknown sprite or group: {a}")
-        picked[owners[0]].append(a)
+        for k in owners:
+            picked[k].append(a)
     if not args:
         picked = {k: list(GROUPS[k]["sprites"]) for k in GROUPS}
     for key, names in picked.items():

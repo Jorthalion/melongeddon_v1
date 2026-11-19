@@ -16,7 +16,9 @@ import {
   tintedSprite,
   type Body,
 } from "./drawStatus.ts";
+import { BUILD_ANIM, BUILD_FRAME, BUILD_SHEETS } from "./buildAnims.ts";
 import { ENEMY_ANIM, ENEMY_FRAME, ENEMY_SHEETS } from "./enemyAnims.ts";
+import { POP_ANIM, POP_FRAME, POP_SHEETS } from "./popAnims.ts";
 import { TOWER_ANIM, TOWER_FRAME, TOWER_SHEETS } from "./towerAnims.ts";
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
@@ -201,6 +203,8 @@ function getStrips() {
   };
   for (const kind of Object.keys(TOWER_SHEETS)) load(kind, kind);
   for (const look of Object.keys(ENEMY_SHEETS)) load(`enemy-${look}`, `enemy-${look}`);
+  for (const look of Object.keys(POP_SHEETS)) load(`pop-${look}`, `pop-${look}`);
+  for (const kind of Object.keys(BUILD_SHEETS)) load(`build-${kind}`, `build-${kind}`);
   return strips;
 }
 
@@ -223,20 +227,76 @@ function enemyMotion(e: { id: number; hp: number }, now: number, pace: number): 
   return { walk: seen.walk, since: now - seen.hitAt };
 }
 
-/** How a tower is moving right now: seconds since its last shot, and where it is in its idle loop. Drawing only. */
-type TowerMotion = { since: number; phase: number };
-const NO_MOTION: TowerMotion = { since: Infinity, phase: 0 };
-const shotSeen = new WeakMap<object, { cd: number; at: number }>();
+/**
+ * How a tower is moving right now: seconds since its last shot, where it is in its idle loop, and how far
+ * built it is (0 just placed, 1 standing; a sold tower's ghost runs it back to 0). Drawing only.
+ */
+type TowerMotion = { since: number; phase: number; build: number };
+const NO_MOTION: TowerMotion = { since: Infinity, phase: 0, build: 1 };
+const shotSeen = new WeakMap<object, { cd: number; at: number; born: number }>();
+const BUILD_TIME = BUILD_ANIM.build / BUILD_ANIM.buildFps;
 
-/** A shot shows as its cooldown jumping back up; remember when (on the world's clock). */
+/**
+ * The world being drawn, and its clock when it was first drawn: towers already there then came with it (a
+ * loaded night) and aren't built in front of you; fruit gone then didn't pop. Ghosts are what's left of what
+ * went: a popped fruit's last look, a sold tower.
+ */
+let drawnWorld: World | null = null;
+let drawnSince = 0;
+type PopGhost = { key: string; x: number; y: number; height: number; faceLeft: boolean; at: number };
+type EnemyLast = Omit<PopGhost, "at">;
+let lastEnemies = new Map<object, EnemyLast>();
+let popGhosts: PopGhost[] = [];
+type SoldGhost = { t: World["towers"][number]; at: number };
+let lastTowers = new Set<World["towers"][number]>();
+let soldGhosts: SoldGhost[] = [];
+
+function watchWorld(world: World) {
+  if (world === drawnWorld && world.anim >= drawnSince) return;
+  drawnWorld = world;
+  drawnSince = world.anim;
+  lastEnemies = new Map();
+  popGhosts = [];
+  lastTowers = new Set(world.towers);
+  soldGhosts = [];
+}
+
+/** A shot shows as its cooldown jumping back up; remember when (on the world's clock). A tower first seen after the world's first frame was just built. */
 function motionOf(tower: { id: number; cd: number }, now: number): TowerMotion {
-  const seen = shotSeen.get(tower);
-  if (!seen) shotSeen.set(tower, { cd: tower.cd, at: -Infinity });
-  else {
+  let seen = shotSeen.get(tower);
+  if (!seen) {
+    seen = { cd: tower.cd, at: -Infinity, born: now - drawnSince < 0.05 ? -Infinity : now };
+    shotSeen.set(tower, seen);
+  } else {
     if (tower.cd > seen.cd + 0.01) seen.at = now;
     seen.cd = tower.cd;
   }
-  return { since: now - (shotSeen.get(tower)?.at ?? -Infinity), phase: (tower.id * 5) % TOWER_ANIM.idle };
+  const age = now - seen.born;
+  return { since: now - seen.at, phase: (tower.id * 5) % TOWER_ANIM.idle, build: age >= 0 ? Math.min(1, age / BUILD_TIME) : 1 };
+}
+
+/** The build frame for a tower that far built, or -1 once it stands. */
+function buildFrame(motion: TowerMotion) {
+  return motion.build >= 1 ? -1 : Math.max(0, Math.min(BUILD_ANIM.build - 1, Math.floor(motion.build * BUILD_ANIM.build)));
+}
+
+/** Popped fruit: each plays its Blender pop strip once where it last stood. */
+function drawPopGhosts(ctx: CanvasRenderingContext2D, now: number) {
+  popGhosts = popGhosts.filter((g) => now - g.at < POP_ANIM.pop / POP_ANIM.popFps && now >= g.at);
+  for (const g of popGhosts) {
+    const sheet = POP_SHEETS[g.key];
+    const strip = getStrips()[`pop-${g.key}`];
+    if (!sheet || !ready(strip)) continue;
+    const frame = Math.min(POP_ANIM.pop - 1, Math.floor((now - g.at) * POP_ANIM.popFps));
+    const s = g.height / POP_FRAME.px;
+    const dw = sheet.w * s;
+    const dh = sheet.h * s;
+    ctx.save();
+    ctx.translate(g.x, g.y);
+    if (g.faceLeft) ctx.scale(-1, 1);
+    ctx.drawImage(strip, frame * sheet.w, 0, sheet.w, sheet.h, -dw / 2, g.height / 2 + POP_FRAME.foot * POP_FRAME.px * s - dh, dw, dh);
+    ctx.restore();
+  }
 }
 
 /** How far a turning barrel is kicked back along its aim (px), just after a shot. */
@@ -256,8 +316,18 @@ function drawStrip(ctx: CanvasRenderingContext2D, kind: TowerKind, painting: HTM
   const ar = painting.naturalWidth / painting.naturalHeight;
   const h = Math.min(maxH, maxW / ar);
   const s = h / TOWER_FRAME.px;
+  // Going up (or, sold, coming down): its build strip instead.
+  const bf = buildFrame(motion);
+  const bsheet = BUILD_SHEETS[kind];
+  const bstrip = getStrips()[`build-${kind}`];
+  if (bf >= 0 && bsheet && ready(bstrip)) {
+    const bw = bsheet.w * s;
+    const bh = bsheet.h * s;
+    ctx.drawImage(bstrip, bf * bsheet.w, 0, bsheet.w, bsheet.h, x - bw / 2, baseY + BUILD_FRAME.foot * BUILD_FRAME.px * s - bh, bw, bh);
+    return true;
+  }
   const frame =
-    motion.since < TOWER_ANIM.fire / TOWER_ANIM.fireFps
+    motion.since >= 0 && motion.since < TOWER_ANIM.fire / TOWER_ANIM.fireFps
       ? TOWER_ANIM.idle + Math.min(TOWER_ANIM.fire - 1, Math.floor(motion.since * TOWER_ANIM.fireFps))
       : Math.floor(now * TOWER_ANIM.idleFps + motion.phase) % TOWER_ANIM.idle;
   const w = sheet.w * s;
@@ -310,6 +380,7 @@ function roundRect(
 }
 
 export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
+  watchWorld(world);
   const shake = world.shake;
   const ox = shake ? (Math.random() - 0.5) * shake : 0;
   const oy = shake ? (Math.random() - 0.5) * shake : 0;
@@ -547,6 +618,9 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   // The selected tower's current target (a Copycat aims through its copy): a thin gold ring.
   const picked = world.towers.find((t) => t.id === world.hud.selected);
   const aimedAt = picked ? (picked.kind === "copycat" ? picked.copy?.aimAt : picked.aimAt) : undefined;
+  // Fruit that just popped, under the living ones; then note where each painted fruit is, for its own pop.
+  drawPopGhosts(ctx, world.anim);
+  const seenNow = new Map<object, EnemyLast>();
   for (const e of [...world.enemies.filter((f) => !f.gall), ...world.enemies.filter((f) => f.gall)]) {
     // On a rounded carpet, a fruit at a turn is drawn on the curve (its rules position stays on the corner).
     const drawn = band ? roundedSpot(world.points, e.x, e.y) : null;
@@ -660,6 +734,15 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       });
     if (sl) drawStatusBody(ctx, se, sl, world.anim, sprite);
     ctx.restore();
+    const popKey = shape ? null : painted ? look : e.kind;
+    if (popKey && POP_SHEETS[popKey])
+      seenNow.set(e, {
+        key: popKey,
+        x: drawn ? drawn.x : e.x,
+        y: drawn ? drawn.y : e.y,
+        height: painted && look ? LOOK_H[look] : (UNIT_H as Record<string, number>)[e.kind],
+        faceLeft,
+      });
     if (painted && e.native === "gargoyle" && quiet) {
       // Awake: a faint pale glow while the clock silences the towers.
       ctx.fillStyle = `rgba(200,220,255,${0.25 + Math.sin(world.anim * 12) * 0.1})`;
@@ -810,6 +893,10 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.restore();
   }
 
+  // Gone and killed (not leaked): it pops.
+  for (const [e, last] of lastEnemies) if (!seenNow.has(e) && (e as { hp: number }).hp <= 0) popGhosts.push({ ...last, at: world.anim });
+  lastEnemies = seenNow;
+
   for (const t of world.towers) {
     if (t.kind !== "lantern") continue;
     const reach = t.mods.includes("wick") ? 102 : 72;
@@ -828,6 +915,14 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       if (ready(art.spillFlask)) blitFit(ctx, art.spillFlask, s.x, s.y + 2, 50, 42);
       else drawSpillTile(ctx, s.x, s.y, world.anim);
     }
+  // Sold (or spent) towers sink away, their build run backwards. A board cleared all at once just goes.
+  const standing = new Set(world.towers);
+  const gone = [...lastTowers].filter((t) => !standing.has(t));
+  if (gone.length <= 3) for (const t of gone) soldGhosts.push({ t, at: world.anim });
+  lastTowers = standing;
+  soldGhosts = soldGhosts.filter((g) => world.anim >= g.at && world.anim - g.at < BUILD_TIME);
+  for (const { t, at } of soldGhosts)
+    drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, false, art, world.anim, { since: Infinity, phase: (t.id * 5) % TOWER_ANIM.idle, build: 1 - (world.anim - at) / BUILD_TIME });
   for (const t of world.towers) {
     if (t.kind === "copycat" && t.copy) {
       // The Copycat draws as what it copies, but plainly a clone: a ghostly blue copy on a turning dashed ring,
@@ -2446,6 +2541,36 @@ const LOOK_H = {
 type Look = keyof typeof LOOK_H;
 
 function drawTower(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  aim: number,
+  kind: TowerKind,
+  orange: boolean,
+  selected: boolean,
+  art: Partial<Record<SpriteName, HTMLImageElement>>,
+  t = 0,
+  motion: TowerMotion = NO_MOTION,
+) {
+  const bf = buildFrame(motion);
+  // Standing, or going up through its own build strip (drawStrip picks the frame): drawn as it is.
+  if (bf < 0 || (BUILD_SHEETS[kind] && ready(getStrips()[`build-${kind}`]))) {
+    drawTowerBody(ctx, x, y, aim, kind, orange, selected, art, t, motion);
+    return;
+  }
+  // Without a strip (the turning cannons, code-drawn ones): the same rise, squashed and stretched from its base.
+  const [sy, sx, a] = BUILD_ANIM.poses[bf];
+  const foot = y + 18;
+  ctx.save();
+  ctx.translate(x, foot);
+  ctx.scale(sx, sy);
+  ctx.translate(-x, -foot);
+  ctx.globalAlpha *= a;
+  drawTowerBody(ctx, x, y, aim, kind, orange, selected, art, t, motion);
+  ctx.restore();
+}
+
+function drawTowerBody(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,

@@ -6,7 +6,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 
 > Painterly hand-painted game asset, dark gothic library fantasy, rich dark walnut wood, polished antique brass and gold trim, deep crimson cloth with gold embroidery, warm candlelight, soft rim light, crisp readable silhouette, highly detailed, no text, no watermark.
 
-**Paintings move:** after adding or replacing a tower that doesn't turn to aim, or a fruit's sprite, add it to `GROUPS` in `scripts/animate-sprites.py` if it's new and run `npm run animate -- <name>` (needs Blender), so its idle sway and shot, or its walk and flinch, match the new painting.
+**Paintings move:** after adding or replacing a tower that doesn't turn to aim, or a fruit's sprite, add it to `GROUPS` in `scripts/animate-sprites.py` if it's new and run `npm run animate -- <name>` (needs Blender), so its idle sway, shot and build, or its walk, flinch and pop, match the new painting.
 
 **Format:** PNG with a transparent background unless the prompt says otherwise. Square canvas, at least 1024 px, object centered and filling about 85% of the frame. Sprites are shrunk to about 60 px on screen, so a bold, simple silhouette beats fine detail.
 
