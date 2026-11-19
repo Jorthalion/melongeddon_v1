@@ -65,18 +65,18 @@ export const KEEPER_SHEETS: Record<
     suits: "A forgiving start, and players who like a trick tower.",
   },
   scholar: {
-    stacks: 10,
+    stacks: 12,
     seeds: 150,
     difficulty: "Hard",
     rules: [
       "Every upgrade shelf has a fourth card, the Doctor's pick: a real upgrade from further along the shelves.",
-      "Fewer stacks than most, and no cannon of his own. He is the hardest keeper, on purpose.",
+      "No cannon of his own to start with. He is the hardest keeper, on purpose.",
       "History Lectern (50): the kind of fruit that got furthest walks a quarter slower next wave.",
     ],
     suits: "Experienced players who like choosing their upgrades with care.",
   },
   quack: {
-    stacks: 11,
+    stacks: 12,
     seeds: 150,
     difficulty: "Tricky",
     rules: [
@@ -87,7 +87,7 @@ export const KEEPER_SHEETS: Record<
     suits: "Players who like placing towers in clusters and timing.",
   },
   asser: {
-    stacks: 25,
+    stacks: 20,
     seeds: 100,
     difficulty: "Tricky",
     rules: [

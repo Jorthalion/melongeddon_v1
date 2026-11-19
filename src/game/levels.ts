@@ -276,7 +276,7 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
     ],
     [
       { name: "Bitter Ink", blurb: "Every lost stack pays 6 seeds instead of 4.", fx: { material: 2 } },
-      { name: "Hard Lessons", blurb: "Sisu counts up to 20 missing stacks instead of 15.", fx: { sisuCap: 5 } },
+      { name: "Hard Lessons", blurb: "Sisu counts up to 19 missing stacks instead of 15.", fx: { sisuCap: 4 } },
     ],
     [
       { name: "Second Wind", blurb: "Once a night, the first time he drops to 5 stacks or fewer, he gets 5 back.", fx: { secondWind: 1 } },

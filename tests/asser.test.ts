@@ -105,12 +105,12 @@ function clearWave(api: Api) {
   }
 }
 
-test("Asser starts with 25 stacks and 100 seeds, no towers, his line, and no oath", () => {
+test("Asser starts with 20 stacks and 100 seeds, no towers, his line, and no oath", () => {
   const api = start();
   const w = api.world;
   assert.equal(w.hud.phase, "prep");
-  assert.equal(w.hud.lives, 25);
-  assert.equal(w.hud.maxLives, 25);
+  assert.equal(w.hud.lives, 20);
+  assert.equal(w.hud.maxLives, 20);
   assert.equal(w.hud.seeds, 100);
   assert.equal(w.towers.length, 0);
   assert.equal(w.hud.oath, null);
@@ -140,20 +140,20 @@ test("Material: a leak pays 4 seeds a stack (12 for Karl's 3), a borrower pays n
   const [e, karl, thief] = more(api, 3);
   let seeds = w.hud.seeds;
   leak(api, e);
-  assert.equal(w.hud.lives, 24);
+  assert.equal(w.hud.lives, 19);
   assert.equal(w.hud.seeds - seeds, ASSER_VALUES.materialSeeds);
   assert.equal(w.hud.log, "Asser writes it down.");
 
   hold(karl, 0, 0, { boss: true, kind: "karl" });
   seeds = w.hud.seeds;
   leak(api, karl);
-  assert.equal(w.hud.lives, 21);
+  assert.equal(w.hud.lives, 16);
   assert.equal(w.hud.seeds - seeds, 12);
 
   hold(thief, 0, 0, { borrower: true });
   w.hud.seeds = 40;
   leak(api, thief);
-  assert.equal(w.hud.lives, 21, "no stack");
+  assert.equal(w.hud.lives, 16, "no stack");
   assert.equal(w.hud.seeds, 40 - 12, "it takes its seeds and Material pays nothing");
 
   const inked = start("asser", progress(6, [0, 0, 0]));
@@ -163,20 +163,20 @@ test("Material: a leak pays 4 seeds a stack (12 for Karl's 3), a borrower pays n
   assert.equal(inked.world.hud.seeds - before, 6);
 });
 
-test("Sisu: +2% a missing stack, capped at 15 stacks (20 with Hard Lessons); healing lowers it; nobody else gets it", () => {
+test("Sisu: +2% a missing stack, capped at 15 stacks (19 with Hard Lessons); healing lowers it; nobody else gets it", () => {
   const api = start();
   const w = api.world;
   const blade = buildBlade(api);
   const dmg = () => api.statsOf(blade.id)!.dmg;
   const base = dmg();
-  w.hud.lives = 20;
+  w.hud.lives = 15;
   assert.equal(dmg(), Math.round(base * 1.1));
   w.hud.lives = 5;
   assert.equal(dmg(), Math.round(base * 1.3), "capped at 30%");
-  w.hud.lives = 25 - 18;
+  w.hud.lives = 20 - 18;
   assert.equal(dmg(), Math.round(base * 1.3), "still 30%");
   // A real leak updates the HUD figure; a Karl kill's +2 lowers it by 4 points.
-  w.hud.lives = 25;
+  w.hud.lives = 20;
   const e = firstFruit(api);
   leak(api, e);
   assert.equal(w.hud.sisu, 2);
@@ -184,8 +184,8 @@ test("Sisu: +2% a missing stack, capped at 15 stacks (20 with Hard Lessons); hea
   const hard = start("asser", progress(6, [0, 1, 1]));
   const hb = buildBlade(hard);
   const hbase = hard.statsOf(hb.id)!.dmg;
-  hard.world.hud.lives = 5;
-  assert.equal(hard.statsOf(hb.id)!.dmg, Math.round(hbase * 1.4), "40% with Hard Lessons");
+  hard.world.hud.lives = 1; // 19 missing, his last stack
+  assert.equal(hard.statsOf(hb.id)!.dmg, Math.round(hbase * 1.38), "38% with Hard Lessons");
 
   const mynxi = start("mynxi", emptyProgress());
   mynxi.world.hud.seeds = 999;
@@ -202,8 +202,8 @@ test("Sisu in the HUD drops 4 points when Karl's kill heals 2", () => {
   firstFruit(api);
   const [e, karl] = more(api, 2);
   w.hud.lives = 15;
-  leak(api, e); // 14: 11 missing = 22%
-  assert.equal(w.hud.sisu, 22);
+  leak(api, e); // 14: 6 missing = 12%
+  assert.equal(w.hud.sisu, 12);
   Object.assign(karl, { kind: "karl", boss: true, hp: 1, maxHp: 1 });
   const blade = buildBlade(api);
   karl.x = blade.x;
@@ -213,7 +213,7 @@ test("Sisu in the HUD drops 4 points when Karl's kill heals 2", () => {
   for (let i = 0; i < 30 && karl.hp > 0; i++) stepWorld(w, 1 / 60);
   assert.ok(karl.hp <= 0, "Karl popped");
   assert.equal(w.hud.lives, 16);
-  assert.equal(w.hud.sisu, 18);
+  assert.equal(w.hud.sisu, 8);
 });
 
 test("the Lion Blade cleaves: every fruit in reach takes the same hit, one outside takes none, a boss too, nothing moves", () => {

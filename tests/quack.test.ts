@@ -60,8 +60,8 @@ function playWave(api: Api, each?: () => void) {
   }
 }
 
-test("Quackarot starts with 11 stacks and 150 seeds, and the Quack-Liber is his alone at 95", () => {
-  assert.deepEqual(KEEPER_START.quack, { seeds: 150, lives: 11 });
+test("Quackarot starts with 12 stacks and 150 seeds, and the Quack-Liber is his alone at 95", () => {
+  assert.deepEqual(KEEPER_START.quack, { seeds: 150, lives: 12 });
   const api = start();
   assert.equal(api.world.hud.seeds, 150);
   assert.equal(api.world.hud.lives, 999); // set by the test; the start was checked above

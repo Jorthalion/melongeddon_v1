@@ -39,9 +39,9 @@ export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: s
 export const KEEPER_START: Partial<Record<HeroId, { seeds: number; lives: number }>> = {
   elf: { seeds: 150, lives: 12 },
   ooze: { seeds: 140, lives: 13 },
-  scholar: { seeds: 150, lives: 10 },
-  quack: { seeds: 150, lives: 11 },
-  asser: { seeds: 100, lives: 25 },
+  scholar: { seeds: 150, lives: 12 },
+  quack: { seeds: 150, lives: 12 },
+  asser: { seeds: 100, lives: 20 },
 };
 
 export type UpgradeId =

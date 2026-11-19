@@ -71,15 +71,15 @@ const popAtDoor = (api: Api) => () => {
 
 const KIND_OF: Record<string, EnemyKind> = { "The melons": "melon", "The corn": "corn", "The pumpkins": "pumpkin", Karl: "karl" };
 
-test("he starts with 10 stacks and 150 seeds", () => {
-  assert.deepEqual(KEEPER_START.scholar, { seeds: 150, lives: 10 });
+test("he starts with 12 stacks and 150 seeds", () => {
+  assert.deepEqual(KEEPER_START.scholar, { seeds: 150, lives: 12 });
   const api = createWorld(() => {}, { keepers: emptyProgress() });
   api.openSetup();
   api.chooseHero("scholar");
   api.beginNight();
   assert.equal(api.world.hud.seeds, 150);
-  assert.equal(api.world.hud.lives, 10);
-  assert.equal(api.world.hud.maxLives, 10);
+  assert.equal(api.world.hud.lives, 12);
+  assert.equal(api.world.hud.maxLives, 12);
 });
 
 test("his shelf has three upgrades and the Doctor's pick, a real fourth one; Mynxi's has three", () => {
