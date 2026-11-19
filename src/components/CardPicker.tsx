@@ -124,10 +124,20 @@ export function CardOverlay({
               className="mt-4 min-h-11 w-full rounded-xl bg-flesh px-4 py-3 font-semibold text-parchment"
               onClick={() => {
                 onGesture();
+                api.prepareFinale();
+              }}
+            >
+              Get ready first <span className="ml-1 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
+            </button>
+            <button
+              type="button"
+              className="mt-2 min-h-11 w-full rounded-xl border border-line px-4 py-2 text-sm text-muted"
+              onClick={() => {
+                onGesture();
                 api.startWave();
               }}
             >
-              Face it <span className="ml-1 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
+              Face it now
             </button>
           </>
         ) : null}

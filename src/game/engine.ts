@@ -960,6 +960,8 @@ export function createWorld(
   world: World;
   pointer: (x: number, y: number, kind: "move" | "down") => void;
   startWave: () => void;
+  /** The last-wave card's "Get ready first": back to the board between waves; the start button begins the finale. */
+  prepareFinale: () => void;
   pickUpgrade: (id: UpgradeId) => void;
   chooseHero: (hero: HeroId) => void;
   chooseMap: (map: MapId) => void;
@@ -4807,6 +4809,13 @@ export function createWorld(
       world.hud.log = `${TOWERS[buildKind].name} set.`;
       syncGuide();
       syncPrice();
+      notify();
+    },
+    /** The last-wave card's "Get ready": back onto the board to build and upgrade; the start button begins the finale. */
+    prepareFinale() {
+      if (world.hud.phase !== "consequence" || world.hud.menu || world.hud.checkout) return;
+      world.hud.phase = "prep";
+      world.hud.log = `Last wave next: ${world.hud.waveName}. Build what you need, then start it when you're ready.`;
       notify();
     },
     startWave() {

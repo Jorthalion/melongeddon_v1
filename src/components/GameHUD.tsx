@@ -266,7 +266,7 @@ export function BuildFooter({
             api.startWave();
           }}
         >
-          Start wave {hud.wave}
+          {hud.night !== "endless" && hud.waveCount && hud.wave === hud.waveCount ? "Start the last wave" : `Start wave ${hud.wave}`}
           <span className="ml-2 hidden text-[0.8125rem] font-normal opacity-70 sm:inline">Space</span>
         </button>
       )}

@@ -50,6 +50,7 @@ export type KeyAction =
   | { type: "pickMod"; index: number }
   | { type: "closeShop" }
   | { type: "startWave" }
+  | { type: "prepareFinale" }
   | { type: "endPrimary" }
   | { type: "build"; index: number }
   | { type: "tab"; index: number }
@@ -129,8 +130,9 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       return null;
 
     case "consequence":
+      // Enter or Space: back to the board to get ready. The start button (or Space again) begins the finale.
       if (key === "Escape") return { type: "openMenu" };
-      if (key === "Enter" || key === " ") return { type: "startWave" };
+      if (key === "Enter" || key === " ") return { type: "prepareFinale" };
       return null;
 
     case "victory":
@@ -216,6 +218,9 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
     case "closeShop":
       api.closeShop();
       return false;
+    case "prepareFinale":
+      api.prepareFinale();
+      return true;
     case "startWave":
       // Whatever is open between waves gets out of the way.
       if (hud.checkout) api.closeCheckout();

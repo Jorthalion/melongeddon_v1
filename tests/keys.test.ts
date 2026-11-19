@@ -105,10 +105,11 @@ test("Intro: Enter goes to the carpet", () => {
   assert.equal(api.world.hud.phase, "prep");
 });
 
-test("the finale card: Enter starts the last wave, Esc opens the menu", () => {
+test("the finale card: Enter goes back to the board to get ready, Esc opens the menu", () => {
   const api = onBoard();
   api.world.hud.phase = "consequence";
-  assert.deepEqual(keyAction(api.world.hud, "Enter"), { type: "startWave" });
+  assert.deepEqual(keyAction(api.world.hud, "Enter"), { type: "prepareFinale" });
+  assert.deepEqual(keyAction(api.world.hud, " "), { type: "prepareFinale" });
   assert.deepEqual(keyAction(api.world.hud, "Escape"), { type: "openMenu" });
 });
 
@@ -222,11 +223,15 @@ test("the pause menu swallows Space: the wave doesn't start", () => {
   assert.equal(api.world.hud.phase, "prep");
 });
 
-test("the finale card: Space starts the last wave, as Enter does", () => {
+test("the finale card gives a break: Get ready returns to the board, then Space starts the last wave", () => {
   const api = between();
   api.world.hud.phase = "consequence";
-  assert.deepEqual(keyAction(api.world.hud, " "), { type: "startWave" });
-  assert.deepEqual(keyAction(api.world.hud, "Enter"), { type: "startWave" });
+  api.world.hud.waveName = "The Last Wave";
+  press(api, "Enter");
+  assert.equal(api.world.hud.phase, "prep", "back on the board, nothing started");
+  assert.match(api.world.hud.log, /Last wave next: The Last Wave/);
+  press(api, " ");
+  assert.equal(api.world.hud.phase, "combat");
 });
 
 test("keyGoesToButton: Space on the board is the game's; elsewhere, and Enter anywhere, the focused button's", () => {
