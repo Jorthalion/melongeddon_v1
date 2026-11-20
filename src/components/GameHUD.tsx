@@ -321,6 +321,8 @@ export function BuildFooter({
             const built = groupOf(id).id === "keeper" && api.world.towers.some((t) => t.kind === id);
             // The Anti-Geese Protocol went off this wave: it comes back when the wave is over.
             const spent = id === "geese" && hud.geeseSpent;
+            // The Copycat goes down once a wave: sold this wave, it waits for the next.
+            const waits = id === "copycat" && hud.copycatPlaced && !built;
             // Trick cannons open with the keeper's level (as it was when this night started).
             const needs = TRICK_LEVEL[id] ?? 0;
             // Keeper towers with an unlock goal (the Reserve Desk) stay locked until it's met.
@@ -343,7 +345,7 @@ export function BuildFooter({
                     ? `${TOWERS[id].name}: opens at keeper level ${needs}. ${TOWERS[id].blurb}`
                     : `${TOWERS[id].name} (${slot + 1}) · ${TYPE_INFO[TOWER_TYPE[id]].name}: ${TOWERS[id].blurb}\n${describeStats(id, read)}${whyText(read)}`
                 }
-                className={`relative min-w-0 rounded-lg border ${column ? "flex items-center gap-2.5 px-2 py-1.5 text-left" : "h-full px-1 py-1.5 text-center"} ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built || spent || locked ? "opacity-55" : ""}`}
+                className={`relative min-w-0 rounded-lg border ${column ? "flex items-center gap-2.5 px-2 py-1.5 text-left" : "h-full px-1 py-1.5 text-center"} ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built || spent || waits || locked ? "opacity-55" : ""}`}
                 onClick={() => {
                   gesture();
                   // Locked by a Grand Catalogue room: open the Catalogue there instead.
@@ -364,7 +366,7 @@ export function BuildFooter({
                 <span className={`block truncate leading-tight font-semibold ${column ? "text-sm" : "mt-0.5 text-[0.8125rem]"}`}>{column ? TOWERS[id].name : SHORT_NAME[id]}</span>
                 <span className={`block truncate leading-tight text-parchment ${column ? "text-[0.8125rem]" : "text-[0.8125rem]"}`}><CardStat kind={id} read={read} /></span>
                 <span className={`block truncate leading-tight text-muted ${column ? "text-[0.8125rem]" : "text-[0.8125rem]"}`}>
-                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : cost === 0 ? "Free" : cost}
+                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : waits ? "Next wave" : cost === 0 ? "Free" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                 </span>
                 </span>

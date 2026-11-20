@@ -90,6 +90,37 @@ test("the Copycat is free: placed with 0 seeds, sold for 0, and only one at a ti
   assert.equal(api.world.hud.seeds, 500, "sells for nothing");
 });
 
+test("the Copycat goes down once a wave: sold, it can't be rebuilt until the wave is over", () => {
+  const api = onBoard();
+  const w = api.world;
+  const { c, r } = findBlock(api);
+  const cat = place(api, "copycat", c, r);
+  assert.equal(w.hud.copycatPlaced, true);
+  sell(api, cat);
+
+  // Before the wave, and during it: refused, with a line saying why.
+  for (const when of ["prep", "combat"]) {
+    if (when === "combat") api.startWave();
+    api.dismissSelection();
+    api.chooseBuild("copycat");
+    api.pointer(center(c + 1), center(r), "down");
+    api.dismissSelection();
+    assert.equal(w.towers.filter((t) => t.kind === "copycat").length, 0, `refused in ${when}`);
+    assert.match(w.hud.log, /once a wave/);
+  }
+
+  // The wave ends: it can go down again (and then not a second time).
+  for (let i = 0; i < 60 * 240 && w.hud.phase === "combat"; i++) {
+    w.enemies.length = 0;
+    stepWorld(w, 1 / 60);
+  }
+  assert.notEqual(w.hud.phase, "combat");
+  assert.equal(w.hud.copycatPlaced, false);
+  if (w.hud.phase === "upgrade") api.pickUpgrade(w.hud.offer[0].id);
+  place(api, "copycat", c + 1, r);
+  assert.equal(w.hud.copycatPlaced, true);
+});
+
 test("the copy lists: no keeper tower, no helper, nothing on both lists", () => {
   for (const kind of [...COPY_STEP_KINDS, ...COPY_PLAIN_KINDS]) assert.ok(!isSignature(kind), kind);
   assert.equal(COPY_STEP_KINDS.filter((k) => COPY_PLAIN_KINDS.includes(k)).length, 0);

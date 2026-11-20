@@ -629,6 +629,8 @@ export interface Hud {
   tagTeam: boolean;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
   geeseSpent: boolean;
+  /** Ooze's Copycat was put down this wave: free, so only once a wave (a sold one can't be rebuilt until the wave is over). */
+  copycatPlaced: boolean;
   /** Asser's Sisu right now, in percent (0 for everyone else). */
   sisu: number;
   /** Keeper levels: XP and perk picks for every keeper. */
@@ -1134,6 +1136,7 @@ export function createWorld(
       golden: 0,
       tagTeam: false,
       geeseSpent: false,
+      copycatPlaced: false,
       sisu: 0,
       keepers: emptyProgress(),
       xpStart: 0,
@@ -2162,6 +2165,7 @@ export function createWorld(
   /** A keeper tower can be built only by its keeper, and only one of each at a time. */
   const signatureBlocked = (kind: TowerKind) =>
     (kind === "geese" && world.hud.geeseSpent) ||
+    (kind === "copycat" && world.hud.copycatPlaced) ||
     isSignature(kind) &&
     (!own(kind) || world.towers.filter((t) => t.kind === kind).length >= 1 + (ownSignature(kind) ? fx.sigExtra : 0));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
@@ -2794,6 +2798,7 @@ export function createWorld(
       golden: 0,
       tagTeam: false,
       geeseSpent: false,
+      copycatPlaced: false,
       sisu: 0,
     };
   };
@@ -3760,6 +3765,7 @@ export function createWorld(
   const endWave = () => {
     cleared += 1;
     world.hud.geeseSpent = false;
+    world.hud.copycatPlaced = false;
     world.hud.chuteWave = usesChute(cleared);
     world.hud.dropWave = dropsFor(cleared);
     clearSiegeWave();
@@ -4814,6 +4820,8 @@ export function createWorld(
         world.hud.log =
           buildKind === "geese" && world.hud.geeseSpent
             ? "The protocol is spent. Rebuild it after this wave."
+            : buildKind === "copycat" && world.hud.copycatPlaced
+            ? "The Copycat goes down once a wave. Place it again after this wave."
             : isSignature(buildKind)
               ? `Only one ${TOWERS[buildKind].name} at a time.`
               : world.hud.log;
@@ -4847,6 +4855,7 @@ export function createWorld(
       towerKinds.set(tower.id, buildKind);
       world.runLog.built[buildKind] = (world.runLog.built[buildKind] ?? 0) + 1;
       world.runLog.peakTowers = Math.max(world.runLog.peakTowers, world.towers.length);
+      if (buildKind === "copycat") world.hud.copycatPlaced = true;
       syncMimics();
       if (tower.kind === "orrery") tower.orbit = statsFor(tower).range;
       if (buildKind === "still") stillBuilt = true;

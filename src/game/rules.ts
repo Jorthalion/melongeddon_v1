@@ -760,7 +760,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   copycat: {
     name: "The Copycat",
-    blurb: "Ooze Clues' second. Free. Blank until it sits right beside a shared tower (corners don't count). Then it becomes a copy, upgrades and all. A Melon, Mortar, Still, Fire or Freeze copy is one step harder. A heavy cannon copy hits for 75%. It can't copy keeper towers or helpers.",
+    blurb: "Ooze Clues' second. Free, and it goes down once a wave. Blank until it sits right beside a shared tower (corners don't count). Then it becomes a copy, upgrades and all. A Melon, Mortar, Still, Fire or Freeze copy is one step harder. A heavy cannon copy hits for 75%. It can't copy keeper towers or helpers.",
     cost: 0,
     role: "Copy",
   },
