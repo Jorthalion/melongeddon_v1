@@ -1,0 +1,6 @@
+[
+ {"name": "freeze control", "strategy": "mixed+mods", "rotation": ["melon", "freeze", "fire", "hive"], "withKeeper": true},
+ {"name": "fire+freeze", "strategy": "mixed+mods", "rotation": ["melon", "freeze", "fire"], "withKeeper": true},
+ {"name": "fire+hive", "strategy": "mixed+mods", "rotation": ["melon", "fire", "hive"], "withKeeper": true},
+ {"name": "hive swarm", "strategy": "mixed+mods", "rotation": ["melon", "hive", "hive", "fire"], "withKeeper": true}
+]

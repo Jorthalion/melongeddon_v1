@@ -84,6 +84,10 @@ export interface RunResult {
   simSeconds: number;
   /** Upgrades held at the end of the run. */
   upgrades: UpgradeId[];
+  /** How often the status combos went off (from the run log), and the most stings / afflictions on one fruit. */
+  combos: { shatters: number; thermals: number; wildfires: number; contagion: number; maxStung: number; maxAfflictions: number };
+  /** Damage dealt by each tower kind still standing at the end. */
+  damageBy: Partial<Record<TowerKind, number>>;
 }
 
 const DT = 1 / 60;
@@ -398,5 +402,17 @@ function play(config: RunConfig, rng: () => number): RunResult {
     kinds: [...new Set(world.towers.map((x) => x.kind))],
     simSeconds: Math.round(t),
     upgrades: [...world.hud.upgrades],
+    combos: {
+      shatters: world.runLog.shatters,
+      thermals: world.runLog.thermals,
+      wildfires: world.runLog.wildfires,
+      contagion: world.runLog.contagion,
+      maxStung: world.runLog.maxStung,
+      maxAfflictions: world.runLog.maxAfflictions,
+    },
+    damageBy: world.towers.reduce<Partial<Record<TowerKind, number>>>((acc, x) => {
+      acc[x.kind] = Math.round((acc[x.kind] ?? 0) + (api.tallyOf(x.id)?.dmg ?? 0));
+      return acc;
+    }, {}),
   };
 }
