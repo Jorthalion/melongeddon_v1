@@ -5,7 +5,7 @@ import {
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
-  nearestOnCarpet, gateStrip,
+  nearestOnCarpet, gateStrip, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
@@ -93,6 +93,8 @@ const CANNON_GALL_GAP = 36;
 interface Enemy {
   id: number;
   kind: EnemyKind;
+  /** A board with doors: the route it walks (an index into world.routes; 0 if unset). */
+  route?: number;
   x: number;
   y: number;
   hp: number;
@@ -235,6 +237,8 @@ export interface WaveGroup {
   count: number;
   hp: number;
   speed: number;
+  /** A board with doors: the door this group walks in by. */
+  door?: DoorId;
 }
 
 /** What a wave brings (api.wavePreview / api.comingUp). */
@@ -362,7 +366,7 @@ interface Tower {
   volley?: number;
   rally?: number;
   /** Gourd Gate: the carpet point its portcullis drops on (with how far along the carpet that is), seconds it stays down, and seconds since it dropped. */
-  gate?: { x: number; y: number; along: number; total: number };
+  gate?: { x: number; y: number; along: number; total: number; seg?: number };
   /** The Post (pamphlet): its straight (index into carpetLegs), whether it's armed, each fruit's place along the carpet last tick, and the shockwave's time left. */
   leg?: number;
   armed?: boolean;
@@ -384,6 +388,8 @@ interface Tower {
 export interface Flyer {
   id: number;
   kind: "boomerang" | "plane" | "quill" | "globe" | "sheet";
+  /** Globe and sheet: the route of the fruit it was aimed at (they roll back along it). */
+  route?: number;
   /** Printing Press sheet: px left to slide, and how long the ink it leaves lasts. */
   left?: number;
   inkTime?: number;
@@ -930,7 +936,14 @@ export interface World {
   /** Bookshelf cells: part of the room, so nothing can be built there. */
   shelfCells: Set<string>;
   points: Waypoint[];
-  turns: Array<{ c: number; r: number; rot: number }>;
+  /** Corner pieces; `door`: a junction where that door's carpet comes in (no corner piece while it's open). */
+  turns: Array<{ c: number; r: number; rot: number; door?: DoorId }>;
+  /** What fruit walk: one route per door (the Rotunda), else just `points` (see routeOf). */
+  routes: Waypoint[][];
+  /** The carpet that's open, each tile once: each open door's own carpet, then the trunk (one-door boards: [points]). */
+  segments: Waypoint[][];
+  /** A board with doors: each door, whether it's open yet, its own tiles, and whether its lamp is lit. */
+  doors: Array<{ id: DoorId; open: boolean; cells: Set<string>; lit: boolean; seg: Waypoint[] }>;
   /** Board size in cells and world pixels (set with the map). */
   cols: number;
   rows: number;
@@ -1193,6 +1206,9 @@ export function createWorld(
     shelfCells: shelfCells("stacks", STACKS.cells),
     points: STACKS.points,
     turns: STACKS.turns,
+    routes: [STACKS.points],
+    segments: [STACKS.points],
+    doors: [],
     ...boardSize("stacks"),
     reduced: false,
     sfx: [],
@@ -1238,9 +1254,22 @@ export function createWorld(
   let lecture: { kind: EnemyKind; waves: number } | null = null;
   let lectureNow: EnemyKind | null = null;
   const reached = new Map<EnemyKind, number>();
+  /** The route a fruit (or a globe or sheet rolling back along one) walks. */
+  const routeOf = (e: { route?: number }) => world.routes[e.route ?? 0] ?? world.points;
+  /** Px left along its own route to the stacks (the same scale on every route). */
+  const toExit = (e: Enemy) => {
+    const { along, total } = carpetAlong(routeOf(e), e.x, e.y, e.wp, e.reverse);
+    return e.reverse ? along : total - along;
+  };
+  /**
+   * "How far along" for targeting and ties (higher: further along). One-door boards keep the old score exactly;
+   * a board with doors compares distance left to the stacks, which means the same on every route.
+   */
+  const progScore = (e: Enemy) =>
+    world.routes.length > 1 ? -toExit(e) : e.wp * 1000 - Math.hypot(e.x - (world.points[e.wp]?.x ?? e.x), e.y - (world.points[e.wp]?.y ?? e.y));
   /** How far along its own way a fruit is (0 at its entrance, 1 at the stacks). */
   const progressOf = (e: Enemy) => {
-    const pts = world.points;
+    const pts = routeOf(e);
     let total = 0;
     const cum = [0];
     for (let k = 1; k < pts.length; k++) {
@@ -1461,12 +1490,25 @@ export function createWorld(
     kind === "pamphlet"
       ? bindLeg(legsNow(), c, r) < 0
       : (kind === "desk" || kind === "gourdgate") && !besideCarpet(world, c, r);
-  /** The carpet's straights for the current board (worked out once per board). */
-  let legCache: { points: World["points"]; legs: ReturnType<typeof carpetLegs> } | null = null;
-  const legsNow = () => {
-    if (!legCache || legCache.points !== world.points) legCache = { points: world.points, legs: carpetLegs(world.points) };
-    return legCache.legs;
+  /**
+   * The carpet's straights for the current board (worked out once per board): every segment's, in order, so a
+   * board with doors numbers each straight once. `routeLegs(i)` are route i's straights with each one's number here.
+   */
+  let legCache: { routes: World["routes"]; legs: ReturnType<typeof carpetLegs>; byRoute: Array<{ legs: ReturnType<typeof carpetLegs>; map: number[] }> } | null = null;
+  const legsAll = () => {
+    if (!legCache || legCache.routes !== world.routes) {
+      const legs = boardLegs(world);
+      const same = (a: Waypoint, b: Waypoint) => Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
+      const byRoute = world.routes.map((r) => {
+        const own = carpetLegs(r);
+        return { legs: own, map: own.map((l) => legs.findIndex((g) => same(g.a, l.a) && same(g.b, l.b))) };
+      });
+      legCache = { routes: world.routes, legs, byRoute };
+    }
+    return legCache;
   };
+  const legsNow = () => legsAll().legs;
+  const routeLegs = (route: number) => legsAll().byRoute[route] ?? legsAll().byRoute[0];
   /** Why the guide won't let the wave start yet ("" when it will). */
   const guideHold = () => {
     const g = world.hud.guide;
@@ -1633,7 +1675,7 @@ export function createWorld(
       for (const e of world.enemies) {
         if (e.hp <= 0 || Math.hypot(e.x - tile.x, e.y - tile.y) > stats.range) continue;
         const wet = world.pools.some((p) => !p.hot && Math.hypot(e.x - p.x, e.y - p.y) < p.r);
-        const score = e.wp * 1000 - Math.hypot(e.x - (world.points[e.wp]?.x ?? e.x), e.y - (world.points[e.wp]?.y ?? e.y)) - (wet ? 1e6 : 0);
+        const score = progScore(e) - (wet ? 1e6 : 0);
         if (score > bestScore) {
           bestScore = score;
           best = e;
@@ -1821,6 +1863,7 @@ export function createWorld(
         dur: 99,
         heading: 0,
         wp: target.reverse ? target.wp : target.wp - 1,
+        route: target.route,
         rolling: true,
         left: CANNON.pressSheet * (hasMod(tower, "longsheet") ? 1.5 : 1),
         inkTime: CANNON.pressInkTime * (hasMod(tower, "wetink") ? 2 : 1),
@@ -1828,7 +1871,8 @@ export function createWorld(
     } else if (tower.kind === "globe") {
       // Lob onto the carpet a little ahead of the fruit, then roll back toward the entrance.
       tower.cd = stats.interval;
-      const ahead = world.points[target.reverse ? Math.max(0, target.wp - 1) : Math.min(world.points.length - 1, target.wp)];
+      const tp = routeOf(target);
+      const ahead = tp[target.reverse ? Math.max(0, target.wp - 1) : Math.min(tp.length - 1, target.wp)];
       const ad = Math.hypot(ahead.x - target.x, ahead.y - target.y);
       const lead = Math.min(ad, CELL);
       const lx = ad > 0 ? target.x + ((ahead.x - target.x) / ad) * lead : target.x;
@@ -1845,6 +1889,7 @@ export function createWorld(
         ly,
         // Toward the entrance: forward walkers came from points[wp - 1]; chute walkers are heading to points[wp].
         wp: target.reverse ? target.wp : target.wp - 1,
+        route: target.route,
         rolling: false,
       });
     } else {
@@ -1905,7 +1950,7 @@ export function createWorld(
       let step = Math.min(CANNON.pressSpeed * dt, f.left ?? 0);
       f.left = (f.left ?? 0) - step;
       while (step > 0 && f.wp! >= 0) {
-        const wp = world.points[f.wp!];
+        const wp = routeOf(f)[f.wp!];
         const dx = wp.x - f.x;
         const dy = wp.y - f.y;
         const dist = Math.hypot(dx, dy);
@@ -1951,7 +1996,7 @@ export function createWorld(
         // Roll back along the carpet, waypoint by waypoint, until it rolls out of the entrance.
         let step = CANNON.globeSpeed * dt;
         while (step > 0 && f.wp! >= 0) {
-          const wp = world.points[f.wp!];
+          const wp = routeOf(f)[f.wp!];
           const dx = wp.x - f.x;
           const dy = wp.y - f.y;
           const dist = Math.hypot(dx, dy);
@@ -2223,15 +2268,21 @@ export function createWorld(
       siege?: SiegeVariant | null;
       line?: number;
       leader?: boolean;
+      /** A board with doors: the route (door) it walks in by. */
+      route?: number;
     } = {},
   ) => {
     const st = STATS[kind];
-    const start = world.points[0];
+    const own = world.routes[flags.route ?? 0] ?? world.points;
+    const start = own[0];
     const tuned = tune();
     const hp = Math.round(st.hp * bonusHp * tuned.hp * (BOARDS[world.hud.map].hp ?? 1));
     const chute = Boolean(flags.chute) && !flags.at;
-    let x = flags.at?.x ?? start.x - CELL;
-    let y = flags.at?.y ?? start.y;
+    // It walks in from a tile before its entrance: off the left edge, or (a door) back the way its first straight runs.
+    const inX = world.doors.length && own.length > 1 ? Math.sign(own[1].x - start.x) : 1;
+    const inY = world.doors.length && own.length > 1 ? Math.sign(own[1].y - start.y) : 0;
+    let x = flags.at?.x ?? start.x - CELL * inX;
+    let y = flags.at?.y ?? start.y - CELL * inY;
     let wp = flags.at?.wp ?? 0;
     if (chute && world.points.length >= 2) {
       const last = world.points[world.points.length - 1];
@@ -2266,6 +2317,7 @@ export function createWorld(
       reverse: chute,
     });
     const host = world.enemies[world.enemies.length - 1];
+    if (flags.route) host.route = flags.route;
     if (kind === "goose" || kind === "cat") siegeSetup(host, flags.siege ?? null, bonusHp * tuned.hp * (BOARDS[world.hud.map].hp ?? 1), tuned.speed, flags);
     // A boss before its night's last wave comes as a mini-boss: 150% more health than an ordinary one of its kind,
     // and a little smaller. The finale's boss is the full one.
@@ -2324,6 +2376,7 @@ export function createWorld(
         reverse: host.reverse,
         gall: true,
         mends: host.id,
+        ...(host.route ? { route: host.route } : {}),
       });
     }
   };
@@ -2420,7 +2473,7 @@ export function createWorld(
   };
   /** Is point `p` ahead of `e` along the carpet (the way it is walking)? A Cardboard Tank's armour faces that way. */
   const ahead = (e: Enemy, p: { x: number; y: number }) => {
-    const pts = world.points;
+    const pts = routeOf(e);
     const k = Math.max(0, Math.min(pts.length - 1, e.wp));
     let dx = pts[k].x - e.x;
     let dy = pts[k].y - e.y;
@@ -2499,7 +2552,7 @@ export function createWorld(
     const scale = hpScaleFor(world.hud.night, cleared);
     for (let i = 0; i < NATIVES.parcelContents; i++) {
       const spread = (i - (NATIVES.parcelContents - 1) / 2) * 10;
-      spawnEnemy("corn", scale, "none", { at: { x: e.x + spread, y: e.y + spread * 0.5, wp: Math.min(e.wp, world.points.length - 1) } });
+      spawnEnemy("corn", scale, "none", { at: { x: e.x + spread, y: e.y + spread * 0.5, wp: Math.min(e.wp, routeOf(e).length - 1) }, route: e.route });
       const corn = world.enemies[world.enemies.length - 1];
       corn.contents = true;
       corn.gold = 0;
@@ -2530,7 +2583,8 @@ export function createWorld(
         slow: 1,
         gold: killReward(4),
         r: st.r,
-        wp: Math.min(parent.wp, world.points.length - 1),
+        wp: Math.min(parent.wp, routeOf(parent).length - 1),
+        ...(parent.route ? { route: parent.route } : {}),
         boss: false,
         chill: 0,
         freeze: 0,
@@ -2558,7 +2612,9 @@ export function createWorld(
     const spec = waveAt(index, world.hud.night);
     // The room's own fruit take the place of some ordinary ones.
     const spawns = trimSpawns(spec.spawns, BOARDS[world.hud.map].trim, world.hud.difficulty, index + 1);
-    return assignNatives(waveQueue([...spawns, ...extra]), BOARDS[world.hud.map].natives, index + 1, world.hud.difficulty);
+    const all = [...spawns, ...extra];
+    // A board with doors: which door each fruit walks in by (each door keeps its own spacing).
+    return assignNatives(waveQueue(all, assignDoors(all, BOARDS[world.hud.map], index + 1)), BOARDS[world.hud.map].natives, index + 1, world.hud.difficulty);
   };
   const buildQueue = () => {
     queue = queueFor(cleared);
@@ -2615,6 +2671,7 @@ export function createWorld(
         count: 1,
         hp: n.hp,
         speed: n.speed,
+        ...(q.route != null && world.doors[q.route] ? { door: world.doors[q.route].id } : {}),
       };
       const last = out[out.length - 1];
       const same = last && (Object.keys(g) as Array<keyof WaveGroup>).every((k) => k === "count" || last[k] === g[k]);
@@ -2689,13 +2746,35 @@ export function createWorld(
     return previewOf(cleared, left, world.hud.dropWave);
   };
 
+  /**
+   * A board with doors: which doors are open for wave `cleared + 1` (the open carpet follows), and the lamps
+   * between waves (the next wave's first door). Called with the board and after every wave.
+   */
+  const syncDoors = () => {
+    if (!world.doors.length) return;
+    const board = BOARDS[world.hud.map];
+    const wave = cleared + 1;
+    world.doors.forEach((d, i) => (d.open = (board.doors?.[i]?.from ?? 1) <= wave));
+    world.segments = [...world.doors.filter((d) => d.open).map((d) => d.seg), world.segments[world.segments.length - 1]];
+    legCache = null;
+    const first = queueFor(cleared)[0]?.route ?? 0;
+    world.doors.forEach((d, i) => (d.lit = i === first));
+  };
+  /** Sir Michael's mouth oath: the first tiles of the carpet (a board with doors: a shorter zone at each door). */
+  const mouthSize = () => (world.doors.length ? OATH_ZONE * OATH_VALUES.mouthZoneMulti : OATH_ZONE);
   const applyBoard = (map: MapId) => {
-    const built = buildBoard(BOARDS[map].corners);
+    const built = buildRoutes(BOARDS[map]);
     world.pathCells = built.cells;
     world.vergeCells = built.verge;
     world.shelfCells = shelfCells(map, built.cells, built.verge);
     world.points = built.points;
     world.turns = built.turns;
+    world.routes = built.routes;
+    world.segments = built.segments;
+    world.doors = (BOARDS[map].doors ?? []).map((d, i) => ({ id: d.id, open: true, cells: built.doorCells[i], lit: false, seg: built.segments[i] }));
+    // The trunk stays the last segment (syncDoors keeps it there).
+    if (world.doors.length) world.segments = [...built.segments];
+    legCache = null;
     world.floors = floorTiles(map);
     world.bell = BOARDS[map].bell ? { next: FLOOR.bellEvery, quiet: 0 } : null;
     world.vines = new Map();
@@ -2703,6 +2782,7 @@ export function createWorld(
     world.brawls = [];
     Object.assign(world, boardSize(map));
     world.hud.map = map;
+    syncDoors();
   };
   applyBoard(world.hud.map);
 
@@ -2737,6 +2817,7 @@ export function createWorld(
     queue = [];
     queueCursor = 0;
     spawnClock = 0;
+    syncDoors();
     karlReward = false;
     absorbed = 0;
     materialNoted = false;
@@ -2833,6 +2914,11 @@ export function createWorld(
     const log = world.runLog;
     log.stacksLost += lost;
     if (from?.reverse) log.chuteStacksLost += lost;
+    if (from && world.doors.length) {
+      const door = world.doors[from.route ?? 0]?.id;
+      if (door) log.leaksByDoor[door] = (log.leaksByDoor[door] ?? 0) + 1;
+    }
+
     if (from?.kind === "karl") log.karlStacksLost += lost;
     log.minStacks = Math.min(log.minStacks, world.hud.lives);
     world.shake = world.reduced ? 0 : 8;
@@ -2912,7 +2998,7 @@ export function createWorld(
     let left = distance;
     for (let guard = 0; left > 0 && guard < 8; guard++) {
       const prevIdx = e.reverse ? at.wp + 1 : at.wp - 1;
-      const prev = world.points[prevIdx];
+      const prev = routeOf(e)[prevIdx];
       if (!prev) break;
       const d = Math.hypot(prev.x - at.x, prev.y - at.y);
       if (d <= left) {
@@ -2932,7 +3018,7 @@ export function createWorld(
     let left = distance;
     for (let guard = 0; left > 0 && guard < 8; guard++) {
       const prevIdx = e.reverse ? e.wp + 1 : e.wp - 1;
-      const prev = world.points[prevIdx];
+      const prev = routeOf(e)[prevIdx];
       if (!prev) break;
       const d = Math.hypot(prev.x - e.x, prev.y - e.y);
       if (d <= left) {
@@ -2951,17 +3037,35 @@ export function createWorld(
   /** Gourd Gate: the point on the carpet nearest the tower (worked out once). */
   const gateSpot = (tower: Tower) => {
     if (tower.gate) return tower.gate;
-    // The same point the reach preview draws (gateStrip in rules.ts).
-    tower.gate = nearestOnCarpet(world.points, tower.x, tower.y);
+    // The same point the reach preview draws (gateStrip in rules.ts). A board with doors: on the nearest piece of carpet.
+    if (world.routes.length > 1) {
+      const near = nearestSegment(world.segments, tower.x, tower.y);
+      tower.gate = { ...near.spot, seg: near.seg };
+    } else tower.gate = nearestOnCarpet(world.points, tower.x, tower.y);
     return tower.gate;
   };
   /** Gourd Gate: every fruit on the carpet just short of the portcullis (from whichever way it walks). */
   const atGate = (tower: Tower) => {
     const g = gateSpot(tower);
+    // How far along each route the portcullis is (null: that route doesn't pass it).
+    const alongs = new Map<number, number | null>();
+    const gateAlong = (e: Enemy) => {
+      const ri = e.route ?? 0;
+      if (!alongs.has(ri)) {
+        if (world.routes.length <= 1) alongs.set(ri, g.along);
+        else {
+          const n = nearestOnCarpet(routeOf(e), g.x, g.y);
+          alongs.set(ri, Math.hypot(n.x - g.x, n.y - g.y) < 1 ? n.along : null);
+        }
+      }
+      return alongs.get(ri) ?? null;
+    };
     return world.enemies.filter((e) => {
       if (e.hp <= 0) return false;
-      const { along } = carpetAlong(world.points, e.x, e.y, e.wp, e.reverse);
-      return e.reverse ? along >= g.along - 4 && along - g.along <= CANNON.gateBand : along <= g.along + 4 && g.along - along <= CANNON.gateBand;
+      const ga = gateAlong(e);
+      if (ga == null) return false;
+      const { along } = carpetAlong(routeOf(e), e.x, e.y, e.wp, e.reverse);
+      return e.reverse ? along >= ga - 4 && along - ga <= CANNON.gateBand : along <= ga + 4 && ga - along <= CANNON.gateBand;
     });
   };
   /** Gourd Gate: drop the portcullis when fruit reach it (and it's ready), hold what's there, and shoot it. */
@@ -2971,7 +3075,14 @@ export function createWorld(
     tower.gateAge = (tower.gateAge ?? 0) + dt;
     const held = atGate(tower);
     if (tower.gateDown <= 0 && tower.cd <= 0 && held.length) {
-      const zone = world.hud.oath === "door" ? g.total - g.along <= OATH_ZONE : world.hud.oath === "mouth" ? g.along <= OATH_ZONE : false;
+      // A board with doors: "door" is the trunk's end; "mouth" is the start of a door's own carpet (a smaller zone).
+      const trunk = g.seg == null || g.seg === world.segments.length - 1;
+      const zone =
+        world.hud.oath === "door"
+          ? trunk && g.total - g.along <= OATH_ZONE
+          : world.hud.oath === "mouth"
+            ? (g.seg == null || !trunk) && g.along <= mouthSize()
+            : false;
       tower.gateDown = zone ? CANNON.gateHoldOath : CANNON.gateHold;
       tower.gateAge = 0;
       tower.cd = statsFor(tower).interval;
@@ -3003,16 +3114,21 @@ export function createWorld(
     const turning: Enemy[] = [];
     for (const e of world.enemies) {
       if (e.hp <= 0) continue;
-      const { along } = carpetAlong(world.points, e.x, e.y, e.wp, e.reverse);
+      // Along its own route; its straights there are numbered as the board's (so each Post binds one straight).
+      const own = routeLegs(e.route ?? 0);
+      const legAt = (a: number) => own.map[legOf(own.legs, a, e.reverse)] ?? -1;
+      const { along } = carpetAlong(routeOf(e), e.x, e.y, e.wp, e.reverse);
       next[e.id] = along;
-      if (legOf(legs, along, e.reverse) === tower.leg) {
+      if (legAt(along) === tower.leg) {
         on.push(e);
         continue;
       }
+      const mine = own.legs[own.map.indexOf(tower.leg ?? -1)];
+      if (!mine) continue;
       // Just reached the far end this tick (a corner belongs to the leg it walks into, so it has left this one).
       const was = prev[e.id];
-      const ended = e.reverse ? along <= leg.from : along >= leg.to;
-      if (was !== undefined && legOf(legs, was, e.reverse) === tower.leg && ended && !(e.driven && e.driven > 0)) turning.push(e);
+      const ended = e.reverse ? along <= mine.from : along >= mine.to;
+      if (was !== undefined && legAt(was) === tower.leg && ended && !(e.driven && e.driven > 0)) turning.push(e);
     }
     tower.prevAlong = next;
     if (!tower.armed) {
@@ -3034,7 +3150,7 @@ export function createWorld(
     for (const e of pool) {
       let n = 0;
       for (const o of pool) if ((o.x - e.x) ** 2 + (o.y - e.y) ** 2 <= CANNON.bombardRadius ** 2) n++;
-      const s = n * 1e6 + e.wp * 1000;
+      const s = n * 1e6 + (world.routes.length > 1 ? -toExit(e) / 1000 : e.wp * 1000);
       if (s > score) {
         score = s;
         best = e;
@@ -3046,7 +3162,7 @@ export function createWorld(
   /** Anti-Geese Protocol on Auto: a crowd in the ring, or a fruit in the last three tiles before the door. */
   const geeseShouldFire = (inRange: Enemy[]) =>
     inRange.filter((e) => !e.boss).length >= CANNON.geeseCrowd ||
-    inRange.some((e) => !e.boss && inOathZone(world.points, "door", e));
+    inRange.some((e) => !e.boss && inOathZone(routeOf(e), "door", e));
   /** Anti-Geese Protocol: shove every non-boss fruit in the ring back down the carpet, then the tower is gone. */
   const fireGeese = (tower: Tower, inRange: Enemy[]) => {
     credit = tower.id;
@@ -3461,7 +3577,7 @@ export function createWorld(
     // Black Ice (a Freeze cannon fitting): frozen fruit take more from everything.
     if (COMBO.on && (e.frost ?? 0) >= COMBO.frostMax && fitted("freeze", "blackice")) amount *= COMBO.blackIce;
     // Sir Michael's mouth oath: fruit on the first three tiles take more from everything.
-    if (world.hud.oath === "mouth" && inOathZone(world.points, "mouth", e)) amount *= OATH_VALUES.mouthAmp;
+    if (world.hud.oath === "mouth" && inOathZone(routeOf(e), "mouth", e, mouthSize())) amount *= OATH_VALUES.mouthAmp;
     }
     const before = e.hp;
     e.hp -= amount;
@@ -3772,6 +3888,7 @@ export function createWorld(
     bumpBest();
     const endless = world.hud.night === "endless";
     world.hud.wave = endless ? cleared + 1 : Math.min(nightLength(world.hud.night), cleared + 1);
+    syncDoors();
     world.enemies = [];
     world.shots = [];
     if (world.hud.lives <= 0) return;
@@ -3910,6 +4027,12 @@ export function createWorld(
     if (spilled) world.hud.log = `${world.hud.log} Vaelithra: “That was not in the notes.”`;
     if (lectureLine) world.hud.log = `${world.hud.log} ${lectureLine}`;
     if (mendLine) world.hud.log = `${world.hud.log} ${mendLine}`;
+    // A board with doors: a door opening in two waves is heard first; then it opens.
+    for (const d of BOARDS[world.hud.map].doors ?? []) {
+      if (d.id !== "stairs" || !d.from) continue;
+      if (d.from === cleared + 2) world.hud.log = `${world.hud.log} Someone's taken the boards off the back stairs.`;
+      if (d.from === cleared + 1) world.hud.log = `${world.hud.log} The back stairs are open.`;
+    }
     recordWave();
     notify();
   };
@@ -3942,7 +4065,16 @@ export function createWorld(
         siege: q.siege,
         line: q.line,
         leader: q.leader,
+        route: q.route,
       });
+    }
+    // Door lamps: a door glows for a moment before its next fruit walks in.
+    if (world.doors.length) {
+      world.doors.forEach((d) => (d.lit = false));
+      for (let k = queueCursor; k < queue.length && queue[k].t - spawnClock <= 1.5; k++) {
+        const d = world.doors[queue[k].route ?? 0];
+        if (d) d.lit = true;
+      }
     }
     if (drops.length) {
       for (const d of drops) {
@@ -4144,7 +4276,7 @@ export function createWorld(
                 ? "print"
                 : COMBO.on ? ((e.frost ?? 0) >= 1 ? "frost" : null) : e.chill > 0 ? "frost" : null;
           if (kind) {
-            const to = world.points[e.wp];
+            const to = routeOf(e)[e.wp];
             addMark(e.x, e.y + e.r * 0.6, kind, STATUS_LOOK.trailLife, to ? Math.atan2(to.y - e.y, to.x - e.x) : 0);
             e.markCd = STATUS_LOOK.trailEvery;
           } else e.markCd = 0;
@@ -4192,7 +4324,7 @@ export function createWorld(
         const driven = (e.driven ?? 0) > 0;
         if (driven) e.driven = Math.max(0, (e.driven ?? 0) - dt);
         const backAt = e.reverse ? e.wp + 1 : e.wp - 1;
-        const back = world.points[backAt];
+        const back = routeOf(e)[backAt];
         if (!back) e.panic = 0;
         if (back) {
           const bx = back.x - e.x;
@@ -4212,7 +4344,8 @@ export function createWorld(
         }
         continue;
       }
-      const wp = world.points[e.wp];
+      const route = routeOf(e);
+      const wp = route[e.wp];
       if (!wp) continue;
       const dx = wp.x - e.x;
       const dy = wp.y - e.y;
@@ -4234,7 +4367,7 @@ export function createWorld(
           }
         } else {
           e.wp += 1;
-          if (e.wp >= world.points.length) {
+          if (e.wp >= route.length) {
             noteReach(e, 1);
             if (e.borrower) borrow(e);
             else loseLife(leakOf(e), e.x, e.y, e);
@@ -4299,7 +4432,7 @@ export function createWorld(
         const d2 = (e.x - tower.x) ** 2 + (e.y - tower.y) ** 2;
         if (d2 > range * range) continue;
         inRange.push(e);
-        const prog = e.wp * 1000 - Math.hypot(e.x - (world.points[e.wp]?.x ?? e.x), e.y - (world.points[e.wp]?.y ?? e.y));
+        const prog = progScore(e);
         // The tower's targeting mode (Settings in the inspector, A); the Mimic Chest keeps its own rule:
         // the first fruit that isn't a boss.
         const score = tower.kind === "mimic" ? prog + (e.boss ? 0 : 1e6) : targetScore(mode, tower, e, prog, Math.sqrt(d2), world.pools);
@@ -4394,7 +4527,8 @@ export function createWorld(
         // Step onto the carpet a little ahead of the fruit, so it walks into the footprint.
         tower.cd = stats.interval;
         cue("fire", "honey");
-        const next = world.points[target.reverse ? Math.max(0, target.wp - 1) : Math.min(world.points.length - 1, target.wp)];
+        const tp = routeOf(target);
+        const next = tp[target.reverse ? Math.max(0, target.wp - 1) : Math.min(tp.length - 1, target.wp)];
         const d = Math.hypot(next.x - target.x, next.y - target.y);
         const lead = Math.min(d, CELL * 0.75);
         const fx2 = d > 0 ? target.x + ((next.x - target.x) / d) * lead : target.x;
@@ -5530,9 +5664,12 @@ export function createWorld(
         world.towers.filter((t) => t !== tower && !PASSIVE.includes(t.kind) && (t.x - tower.x) ** 2 + (t.y - tower.y) ** 2 <= r * r).length;
       if (shape.mode === "none") return { tiles: null, towers: 0 };
       if (shape.mode === "towers") return { tiles: null, towers: near(range) };
-      if (shape.mode === "gate") return { tiles: Math.round((gateStrip(world.points, tower.x, tower.y, world.hud.map === "overflow").length / CELL) * 2) / 2, towers: 0 };
+      if (shape.mode === "gate") {
+        const seg = world.segments[nearestSegment(world.segments, tower.x, tower.y).seg] ?? world.points;
+        return { tiles: Math.round((gateStrip(seg, tower.x, tower.y, world.hud.map === "overflow").length / CELL) * 2) / 2, towers: 0 };
+      }
       if (range >= GLOBAL_RANGE) return { tiles: "all" as const, towers: 0 };
-      const { length } = carpetInReach(world.points, tower.x, tower.y, shape.outer, shape.inner);
+      const { length } = carpetInReachAll(world.segments, tower.x, tower.y, shape.outer, shape.inner);
       return { tiles: Math.round((length / CELL) * 2) / 2, towers: shape.aura ? near(world.hud.quackAura) : 0 };
     },
     previewStats(kind: TowerKind, at?: { c: number; r: number }, extra?: ModId[]) {
@@ -5608,7 +5745,17 @@ export function createWorld(
 }
 
 
+/**
+ * The board's straights, each once: every door's own carpet (open or not, so the numbering never shifts), then
+ * the trunk; a one-door board's are its carpet's. A Post binds one of these by its number.
+ */
+export function boardLegs(world: Pick<World, "doors" | "segments" | "points">) {
+  if (!world.doors.length) return carpetLegs(world.points);
+  return [...world.doors.map((d) => d.seg), world.segments[world.segments.length - 1]].flatMap((s) => carpetLegs(s));
+}
+
 export function stepWorld(world: World, dt: number) {
+
   const fn = (world as World & { step?: (dt: number) => void }).step;
   fn?.(dt);
 }

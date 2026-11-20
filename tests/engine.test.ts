@@ -103,7 +103,10 @@ test("every board stays inside its own size and keeps fixed spots off the carpet
       const [c, r] = key.split(",").map(Number);
       assert.ok(inside(c, r), `${board.id}: path cell ${key} off map`);
     }
-    assert.equal(board.corners[0][0], 0, `${board.id}: fruit enter on the left edge`);
+    // Fruit walk in from an edge: the left one, or (a board with doors) every door is on some edge.
+    const starts = board.doors ? board.doors.map((d) => d.corners[0]) : [board.corners[0]];
+    if (!board.doors) assert.equal(board.corners[0][0], 0, `${board.id}: fruit enter on the left edge`);
+    for (const [c, r] of starts) assert.ok(c === 0 || r === 0 || c === cols - 1 || r === rows - 1, `${board.id}: a door at ${c},${r} is on an edge`);
     for (const [c, r] of [board.michaelCannon]) {
       assert.ok(inside(c, r), `${board.id}: fixed tower spot ${c},${r} off map`);
       assert.ok(!cells.has(`${c},${r}`), `${board.id}: fixed tower spot ${c},${r} is on the carpet`);

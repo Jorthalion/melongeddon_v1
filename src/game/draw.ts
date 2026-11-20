@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, type OathId, type TowerKind, type World } from "./engine";
+import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, boardLegs, carpetInReachAll, nearestSegment, OATH_ZONE, OATH_VALUES, type OathId, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
 import {
   STATUS_LOOK,
@@ -512,7 +512,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
 
   // The Post (pamphlet)'s straight: while placing one, while one is selected, and (between waves) every one's.
   {
-    const legs = carpetLegs(world.points);
+    const legs = boardLegs(world);
     const shown = new Set<number>();
     if (hover && placing && world.hud.build === "pamphlet" && world.hud.canPlace) shown.add(bindLeg(legs, hover.c, hover.r));
     for (const t of world.towers) {
@@ -672,7 +672,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.ellipse(e.x, e.y + 8, e.r + 6, e.r * 0.45, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
-    const next = world.points[Math.min(e.wp, world.points.length - 1)];
+    const route = world.routes[e.route ?? 0] ?? world.points;
+    const next = route[Math.min(e.wp, route.length - 1)];
     // Walked back (Instant Quackmission, panic, a scatter): it turns to face the way it's going.
     const faceLeft = (next ? next.x < e.x - 4 : false) !== Boolean(sl?.motion.faceBack);
     // A goose or a cat wears its variant's face. A Parcel out of its paper is a plain pumpkin.
@@ -1031,7 +1032,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         ctx.arc(t.x - 9, t.y - 23, 3, 0, Math.PI * 2);
         ctx.fill();
       }
-      const leg = carpetLegs(world.points)[t.leg ?? -1];
+      const leg = boardLegs(world)[t.leg ?? -1];
       if (leg && (t.blast ?? 0) > 0) {
         const k = 1 - (t.blast ?? 0) / 0.3;
         const hx = leg.a.x + (leg.b.x - leg.a.x) * k;
@@ -1616,7 +1617,11 @@ function drawCarpet(
   world: World,
   art: Partial<Record<SpriteName, HTMLImageElement>>,
 ) {
-  const cells = [...world.pathCells];
+  // A door that isn't open yet (the Rotunda's back stairs) has no carpet down: its tiles aren't drawn.
+  const closed = new Set(world.doors.filter((d) => !d.open).flatMap((d) => [...d.cells]));
+  const cells = [...world.pathCells].filter((k) => !closed.has(k));
+  const drawn = new Set(cells);
+  const entries = entryTiles(world);
   if (BOARDS[world.hud.map].carpet === "path") drawBand(ctx, world, art);
   else {
   if (ready(art.carpet)) {
@@ -1627,8 +1632,7 @@ function drawCarpet(
         const [c, r] = key.split(",").map(Number);
         ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
       }
-      const start = world.points[0];
-      ctx.fillRect(start.x - CELL * 1.5, start.y - CELL / 2, CELL, CELL);
+      for (const t of entries) ctx.fillRect(t.x, t.y, CELL, CELL);
     }
   } else {
     ctx.lineCap = "round";
@@ -1636,9 +1640,13 @@ function drawCarpet(
     ctx.strokeStyle = "#6a2a32";
     ctx.lineWidth = 36;
     ctx.beginPath();
-    const pts = world.points;
-    ctx.moveTo(pts[0].x - CELL, pts[0].y);
-    for (const p of pts) ctx.lineTo(p.x, p.y);
+    // Every open piece of carpet (a board with doors has several), each from a tile outside its entrance.
+    const pieces = world.doors.length ? world.segments : [world.points];
+    for (const pts of pieces) {
+      const m = world.doors.length && pts[1] ? { dx: Math.sign(pts[1].x - pts[0].x), dy: Math.sign(pts[1].y - pts[0].y) } : { dx: 1, dy: 0 };
+      ctx.moveTo(pts[0].x - CELL * m.dx, pts[0].y - CELL * m.dy);
+      for (const p of pts) ctx.lineTo(p.x, p.y);
+    }
     ctx.stroke();
     ctx.strokeStyle = "#8d3a42";
     ctx.lineWidth = 22;
@@ -1648,6 +1656,9 @@ function drawCarpet(
   // Corners first, so the dye below covers them too.
   if (ready(art.corner)) {
     for (const turn of world.turns) {
+      // A junction where an open door's carpet comes in has no corner piece; a closed door's corners aren't down yet.
+      if (turn.door && world.doors.find((d) => d.id === turn.door)?.open) continue;
+      if (closed.has(`${turn.c},${turn.r}`)) continue;
       blit(ctx, art.corner, turn.c * CELL + CELL / 2, turn.r * CELL + CELL / 2, CELL, turn.rot);
     }
   }
@@ -1664,8 +1675,7 @@ function drawCarpet(
       const [c, r] = key.split(",").map(Number);
       ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
     }
-    const start = world.points[0];
-    ctx.fillRect(start.x - CELL * 1.5, start.y - CELL / 2, CELL, CELL);
+    for (const t of entries) ctx.fillRect(t.x, t.y, CELL, CELL);
     if (chosen === "black") {
       ctx.globalCompositeOperation = "multiply";
       ctx.fillStyle = "rgba(90,90,100,1)";
@@ -1673,7 +1683,7 @@ function drawCarpet(
         const [c, r] = key.split(",").map(Number);
         ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
       }
-      ctx.fillRect(start.x - CELL * 1.5, start.y - CELL / 2, CELL, CELL);
+      for (const t of entries) ctx.fillRect(t.x, t.y, CELL, CELL);
     }
     ctx.restore();
   }
@@ -1693,19 +1703,19 @@ function drawCarpet(
     const [c, r] = key.split(",").map(Number);
     const x = c * CELL;
     const y = r * CELL;
-    if (!world.pathCells.has(`${c},${r - 1}`)) {
+    if (!drawn.has(`${c},${r - 1}`)) {
       ctx.moveTo(x, y + 1);
       ctx.lineTo(x + CELL, y + 1);
     }
-    if (!world.pathCells.has(`${c},${r + 1}`)) {
+    if (!drawn.has(`${c},${r + 1}`)) {
       ctx.moveTo(x, y + CELL - 1);
       ctx.lineTo(x + CELL, y + CELL - 1);
     }
-    if (!world.pathCells.has(`${c - 1},${r}`)) {
+    if (!drawn.has(`${c - 1},${r}`)) {
       ctx.moveTo(x + 1, y);
       ctx.lineTo(x + 1, y + CELL);
     }
-    if (!world.pathCells.has(`${c + 1},${r}`)) {
+    if (!drawn.has(`${c + 1},${r}`)) {
       ctx.moveTo(x + CELL - 1, y);
       ctx.lineTo(x + CELL - 1, y + CELL);
     }
@@ -1721,12 +1731,13 @@ function drawCarpet(
   ctx.beginPath();
   ctx.arc(end.x, end.y, 78, 0, Math.PI * 2);
   ctx.fill();
-  const start = world.points[0];
   const breath = 0.18 + Math.sin(world.anim * 2.2) * 0.08;
   ctx.fillStyle = `rgba(160,36,48,${breath})`;
-  ctx.beginPath();
-  ctx.ellipse(start.x - 18, start.y, 22, 12, 0, 0, Math.PI * 2);
-  ctx.fill();
+  for (const m of mouths(world)) {
+    ctx.beginPath();
+    ctx.ellipse(m.x - m.dx * 18, m.y - m.dy * 18, 22, 12, Math.atan2(m.dy, m.dx), 0, Math.PI * 2);
+    ctx.fill();
+  }
   // The room's own exit if it has one (Archive vault, Rare Books door, Annex hatch), else the stacks.
   const ownDoor = ROOM_ART[world.hud.map]?.door;
   const roomDoor = ownDoor ? art[ownDoor] : undefined;
@@ -1748,8 +1759,125 @@ function drawCarpet(
   }
 
   if (world.hud.map === "overflow" && world.points.length >= 2) drawChute(ctx, world, end, getSprites().chuteProp);
+  drawDoors(ctx, world);
   const oath = world.hud.oath;
-  if (oath && (world.hud.phase === "prep" || world.hud.phase === "combat")) drawOathBand(ctx, world.points, oath, 0.6);
+  if (oath && (world.hud.phase === "prep" || world.hud.phase === "combat")) {
+    // A board with doors: the mouth is the start of every open door's carpet (a shorter zone at each).
+    if (oath === "mouth" && world.doors.length) {
+      world.doors.forEach((d, i) => d.open && drawOathBand(ctx, world.routes[i], oath, 0.6, OATH_ZONE * OATH_VALUES.mouthZoneMulti));
+    } else drawOathBand(ctx, world.points, oath, 0.6);
+  }
+}
+
+/** Where fruit walk in: each open door's start (a board with doors), else the carpet's, with the way in. */
+function mouths(world: World) {
+  const starts = world.doors.length ? world.doors.filter((d) => d.open).map((d) => d.seg) : [world.points];
+  return starts.map((s) => {
+    const a = s[0];
+    const b = s[1] ?? { x: a.x + 1, y: a.y };
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    // One-door boards always come in from the left (the old look, exactly).
+    return world.doors.length ? { x: a.x, y: a.y, dx: (b.x - a.x) / len, dy: (b.y - a.y) / len } : { x: a.x, y: a.y, dx: 1, dy: 0 };
+  });
+}
+/** The carpet tile drawn just outside each entrance (top-left corners). */
+function entryTiles(world: World) {
+  return mouths(world).map((m) => ({ x: m.x - m.dx * CELL - CELL / 2, y: m.y - m.dy * CELL - CELL / 2 }));
+}
+
+/**
+ * A board with doors (the Rotunda): the round desk where the carpets meet, a brass lamp by each door (lit for the
+ * door the next fruit use), and a door that isn't open yet boarded up with its carpet still rolled.
+ */
+function drawDoors(ctx: CanvasRenderingContext2D, world: World) {
+  if (!world.doors.length) return;
+  const desk = BOARDS[world.hud.map].desk;
+  if (desk) {
+    const x = desk[0] * CELL + CELL / 2;
+    const y = desk[1] * CELL + CELL / 2;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath();
+    ctx.ellipse(x + 2, y + 4, CELL * 0.4, CELL * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const wood = ctx.createRadialGradient(x - 6, y - 6, 2, x, y, CELL * 0.4);
+    wood.addColorStop(0, "#8a5a34");
+    wood.addColorStop(1, "#4e2e18");
+    ctx.fillStyle = wood;
+    ctx.beginPath();
+    ctx.arc(x, y, CELL * 0.36, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(230,195,106,0.8)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // An open ledger and a candle on top.
+    ctx.fillStyle = "#efe0bd";
+    ctx.fillRect(x - 9, y - 5, 8, 10);
+    ctx.fillRect(x + 1, y - 5, 8, 10);
+    ctx.fillStyle = "#f6d27a";
+    ctx.beginPath();
+    ctx.arc(x + 9, y - 9, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  world.doors.forEach((d, i) => {
+    const s = d.seg;
+    const a = s[0];
+    const b = s[1] ?? a;
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const dx = (b.x - a.x) / len;
+    const dy = (b.y - a.y) / len;
+    // The lamp sits beside the carpet, just inside the room.
+    const lx = a.x + dx * CELL * 0.1 - dy * CELL * 0.62;
+    const ly = a.y + dy * CELL * 0.1 + dx * CELL * 0.62;
+    ctx.save();
+    if (d.open && d.lit) {
+      const pulse = 0.55 + Math.sin(world.anim * 5) * 0.2;
+      const glow = ctx.createRadialGradient(lx, ly, 1, lx, ly, 26);
+      glow.addColorStop(0, `rgba(255,214,120,${pulse})`);
+      glow.addColorStop(1, "rgba(255,214,120,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(lx, ly, 26, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#6e4f22";
+    ctx.fillRect(lx - 1.5, ly + 3, 3, 8);
+    ctx.fillStyle = d.open && d.lit ? "#ffe39a" : d.open ? "#9a7a44" : "#3a2c22";
+    ctx.strokeStyle = "#c6a15a";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    if (!d.open) {
+      // Its carpet isn't down yet: a faint chalk line where it will run, and planks across the doorway.
+      ctx.setLineDash([5, 7]);
+      ctx.strokeStyle = "rgba(230,195,106,0.22)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      traceLine(ctx, world.routes[i].slice(0, s.length), 0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.translate(a.x, a.y);
+      ctx.rotate(Math.atan2(dy, dx) + Math.PI / 2);
+      for (const [off, tilt] of [[-8, 0.25], [8, -0.2]] as const) {
+        ctx.save();
+        ctx.translate(0, off);
+        ctx.rotate(tilt);
+        ctx.fillStyle = "#7a5230";
+        ctx.fillRect(-CELL * 0.48, -5, CELL * 0.96, 10);
+        ctx.strokeStyle = "#3e2614";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-CELL * 0.48, -5, CELL * 0.96, 10);
+        ctx.fillStyle = "#c9b48a";
+        ctx.fillRect(-CELL * 0.4, -1.5, 3, 3);
+        ctx.fillRect(CELL * 0.4 - 3, -1.5, 3, 3);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  });
 }
 
 /**
@@ -1757,8 +1885,8 @@ function drawCarpet(
  * shove (door: the last two, mouth: the first two; sling draws nothing). Gold and still, unlike the
  * blue moving chute chevrons. `strength` 1 is the bright intro hover; play uses less.
  */
-export function drawOathBand(ctx: CanvasRenderingContext2D, points: Array<{ x: number; y: number }>, oath: OathId, strength = 1) {
-  const run = oathStretch(points, oath);
+export function drawOathBand(ctx: CanvasRenderingContext2D, points: Array<{ x: number; y: number }>, oath: OathId, strength = 1, size?: number) {
+  const run = oathStretch(points, oath, size);
   if (run.length < 2) return;
   ctx.save();
   ctx.lineCap = "butt";
@@ -2179,6 +2307,8 @@ function drawReach(
 ) {
   const shape = reachShape(kind, range);
   const points = world.points;
+  // Every open piece of carpet, each tile once (a board with doors has several).
+  const segs = world.segments.length ? world.segments : [points];
   const whole = range >= GLOBAL_RANGE;
   ctx.save();
   // The circle it aims with (the Orrery's reaches past its orbit; the Gourd Gate has none, only its strip).
@@ -2205,15 +2335,17 @@ function drawReach(
   if ((shape.mode === "carpet" || shape.mode === "gate") && points.length > 1) {
     const gate = shape.mode === "gate";
     const reach = gate
-      ? gateStrip(points, x, y, world.hud.map === "overflow")
+      ? gateStrip(segs[nearestSegment(segs, x, y).seg] ?? points, x, y, world.hud.map === "overflow")
       : whole
-        ? { stretches: points.slice(1).map((p, i) => ({ x1: points[i].x, y1: points[i].y, x2: p.x, y2: p.y })), length: 0 }
-        : carpetInReach(points, x, y, shape.outer, shape.inner);
+        ? { stretches: segs.flatMap((s) => s.slice(1).map((p, i) => ({ x1: s[i].x, y1: s[i].y, x2: p.x, y2: p.y }))), length: 0 }
+        : segs.length > 1
+          ? carpetInReachAll(segs, x, y, shape.outer, shape.inner)
+          : carpetInReach(points, x, y, shape.outer, shape.inner);
     // Dim the carpet it can't reach...
     const round = isBand(world) ? CELL / 2 : 0;
     if (!whole) {
       ctx.beginPath();
-      traceLine(ctx, points, round);
+      for (const s of segs) traceLine(ctx, s, round);
       ctx.strokeStyle = "rgba(10,6,8,0.5)";
       ctx.lineWidth = CELL - 8;
       ctx.lineJoin = round ? "round" : "miter";
@@ -2251,7 +2383,8 @@ function drawReach(
           [s.x2, s.y2],
         ]) {
           // Only where coverage starts or stops (not at a carpet bend inside reach).
-          if (points.some((p) => Math.hypot(p.x - px, p.y - py) < 0.5)) continue;
+          if (segs.some((s) => s.some((p) => Math.hypot(p.x - px, p.y - py) < 0.5))) continue;
+
           ctx.beginPath();
           ctx.arc(px, py, 3, 0, Math.PI * 2);
           ctx.fill();
@@ -2326,6 +2459,8 @@ const ROOM_LOOK: Partial<
   // The Courtyard: moonlight over the flagstones (the runner keeps the library's crimson).
   courtyard: { light: { x: 0.75, y: 0.1, r: 0.8, color: "190,205,255", a: 0.16 } },
   // The Bell Tower: cold stone, a deep red runner, moonlight through the louvres.
+  // The Rotunda: warm parquet under a skylight in the middle of the room.
+  rotunda: { floor: ["#7a5636", 0.4], carpet: "#7d1c3a", light: { x: 0.55, y: 0.55, r: 0.55, color: "255,226,170", a: 0.16 } },
   belltower: { floor: ["#6a6a78", 0.45], carpet: "#8a1f2a", light: { x: 0.5, y: 0.45, r: 0.5, color: "230,200,140", a: 0.14 } },
 };
 

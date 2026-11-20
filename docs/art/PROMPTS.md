@@ -196,7 +196,20 @@ The Siege's map is the library's back courtyard at night: flagstones, a hedge ma
 | `prop-statue.png` | A **small weathered stone statue on a square plinth**: a robed scholar reading an open book, lichen on the shoulders, a chipped nose, seen from slightly above. Grey stone, moonlit. Transparent background, 512 × 512. |
 | `prop-fountain.png` | A **round dry stone fountain** seen from above at a slight angle: a wide basin with a carved rim, **dry inside with dead leaves and a few coins**, a central pedestal with a smaller upper bowl, cracks and moss, no water. It covers a 2 × 2 block of tiles, so fill a square frame. Transparent background, 1024 × 1024. |
 
+### 2a2. The Rotunda (not yet painted; drawn by code in `drawDoors` until then)
+
+The round reading room with doors on every side. The floor follows the rules above; the props are PNGs with transparent backgrounds, seen from slightly above, sized to their cells. Warm candlelight as usual. The game adds the lamp's glow when a door is next, so draw the lamp unlit.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `tile-floor-rotunda.png` | **Warm honey-coloured parquet laid in a radial fan pattern**, as under a domed reading room, polished but scuffed, a faint brass inlay line now and then, warm light from above. Seamless, tileable, no single object in the middle. |
+| `prop-rotunda-desk.png` | A **small round librarian's desk** seen from above at a slight angle: dark polished wood with a gold-leaf rim, an open ledger, an inkwell and a short candle on it, a brass bell. One tile; it sits on the carpet where the carpets meet. Transparent background, 512 × 512. |
+| `prop-door-lamp.png` | A **small brass wall lamp on a short bracket** with a round frosted glass globe, unlit, seen from slightly above. Tiny on the board: keep the shape bold and simple. Transparent background, 256 × 256. |
+| `prop-boarded-stairs.png` | A **doorway to narrow back stairs, boarded across with two rough planks** nailed in an X, a rolled-up red carpet runner leaning beside it, dust on the steps. One tile. Transparent background, 512 × 512. |
+| `cat-room-rotunda.png` / `cat-room-rotunda-ruined.png` | The Grand Catalogue's room painting, wide (3:1): **a round domed reading room with doors on every side** and a desk in the middle where carpets meet. Restored: candlelit, polished, books in order. Ruined: dust sheets, doors hanging open, scattered returns, one carpet half rolled up. |
+
 ### 2b. The Overflow's returns chute (not yet drawn)
+
 
 **Done:** the Overflow now shows a painted returns chute (`prop-returns-chute.webp`) beside the door, glowing blue on chute waves; the code-drawn "CHUTE" plate is only a fallback. The game adds the glow when the chute is active, so draw it unlit.
 

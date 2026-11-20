@@ -100,6 +100,7 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "sorting" },
   { night: "midnight", map: "greenhouse" },
   { night: "midnight", map: "belltower" },
+  { night: "midnight", map: "rotunda" },
   { night: "overflow", map: "overflow" },
   { night: "siege", map: "courtyard" },
 ];

@@ -18,7 +18,7 @@ import {
   TARGET_LABEL,
   TARGET_HINT,
   buildCost,
-  carpetLegs,
+  boardLegs,
   groupOf,
   legsTouching,
   groupsFor,
@@ -808,7 +808,7 @@ function TowerInspector({
             </button>
           </span>
         ) : null}
-        {tower.kind === "pamphlet" && legsTouching(carpetLegs(api.world.points), tower.c, tower.r).length > 1 ? (
+        {tower.kind === "pamphlet" && legsTouching(boardLegs(api.world), tower.c, tower.r).length > 1 ? (
           <button
             type="button"
             title="Watch the other straight beside this tile (between waves)"

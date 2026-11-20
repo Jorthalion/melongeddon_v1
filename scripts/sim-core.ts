@@ -26,7 +26,8 @@ import {
   isSignature,
   bindLeg,
   besideCarpet,
-  carpetLegs,
+  boardLegs,
+  PASSIVE,
 } from "../src/game/engine.ts";
 
 /** lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves. */
@@ -176,14 +177,28 @@ function play(config: RunConfig, rng: () => number): RunResult {
   if (config.hero === "michael") api.pickOath(config.oath ?? "sling");
   else api.beginNight();
 
-  // Sample points along the carpet, used to score tower spots by coverage.
-  const samples: Array<{ x: number; y: number }> = [];
-  for (let i = 0; i < world.points.length - 1; i++) {
-    const a = world.points[i];
-    const b = world.points[i + 1];
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    for (let d = 0; d < len; d += 6) samples.push({ x: a.x + ((b.x - a.x) * d) / len, y: a.y + ((b.y - a.y) * d) / len });
-  }
+  // Sample points along the carpet, used to score tower spots by coverage. A board with doors: every open piece
+  // of carpet, each once (worked out again when a door opens), with each door's own samples kept apart.
+  const sampleLine = (pts: Array<{ x: number; y: number }>) => {
+    const out: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      for (let d = 0; d < len; d += 6) out.push({ x: a.x + ((b.x - a.x) * d) / len, y: a.y + ((b.y - a.y) * d) / len });
+    }
+    return out;
+  };
+  let samples: Array<{ x: number; y: number }> = [];
+  let doorSamples: Array<Array<{ x: number; y: number }>> = [];
+  let sampledFor: unknown = null;
+  const resample = () => {
+    if (sampledFor === world.segments) return;
+    sampledFor = world.segments;
+    samples = world.segments.flatMap(sampleLine);
+    doorSamples = world.doors.filter((d) => d.open).map((d) => sampleLine(d.seg));
+  };
+  resample();
 
   let placed = 0;
   let builds = 0; // every tower the bot has put down, for the opener
@@ -235,7 +250,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     if (kind === "copycat") return copySpot();
     if (kind === "pamphlet" || kind === "driver") {
       // Pamphlet: beside the longest straight (the later one on a tie, so nearer the door). Driver: the open tile nearest the door.
-      const legs = carpetLegs(world.points);
+      const legs = boardLegs(world);
       let want = 0;
       legs.forEach((l, i) => {
         if (l.tiles.length >= legs[want].tiles.length) want = i;
@@ -255,6 +270,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
         }
       return pick;
     }
+    resample();
     // Whole-board cannons score spots like a normal cannon would; anywhere works for them.
     if (range >= GLOBAL_RANGE) range = 132;
     let best: { c: number; r: number } | null = null;
@@ -282,6 +298,12 @@ function play(config: RunConfig, rng: () => number): RunResult {
       // A lamp with no cannons to light yet just goes on the best shooting spot.
       if (kind === "compost" || score > 0) return pick;
     }
+    // A board with doors: open where the carpets meet (the best spot, as a player would), then cover each open
+    // door before stacking it. While a door's own carpet has no shooting tower in reach, spots are scored on that
+    // door's carpet only.
+    const shooters = world.towers.filter((t) => !PASSIVE.includes(t.kind));
+    const bare = shooters.length < 2 ? undefined : doorSamples.find((line) => !line.some((p) => shooters.some((t) => (t.x - p.x) ** 2 + (t.y - p.y) ** 2 <= 132 * 132)));
+    const pool = bare ?? samples;
     for (let c = 0; c < world.cols; c++) {
       for (let r = 0; r < world.rows; r++) {
         if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`)) continue;
@@ -290,7 +312,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
         const x = c * CELL + CELL / 2;
         const y = r * CELL + CELL / 2;
         let score = 0;
-        for (const s of samples) if ((s.x - x) ** 2 + (s.y - y) ** 2 <= range * range) score++;
+        for (const s of pool) if ((s.x - x) ** 2 + (s.y - y) ** 2 <= range * range) score++;
         if (score > bestScore) {
           bestScore = score;
           best = { c, r };

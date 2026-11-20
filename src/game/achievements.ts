@@ -4,7 +4,7 @@
  * Checked when a night ends (see finishNight in the engine). Saved under its own key, apart from
  * MetaStats, and never by dev mode, tests or the simulator.
  */
-import { DIFFICULTIES, HEROES, KEEPER_TOWERS, OATHS, type Difficulty, type HeroId, type MapId, type NightId, type OathId, type TowerKind } from "./rules.ts";
+import { DIFFICULTIES, HEROES, KEEPER_TOWERS, OATHS, type Difficulty, type DoorId, type HeroId, type MapId, type NightId, type OathId, type TowerKind } from "./rules.ts";
 import { PICKABLE_MAPS, type MetaStats } from "./meta.ts";
 import { SLIPS, type SlipId } from "./slips.ts";
 import { DEFAULT_COSMETICS, ROOM_IDS, START_ROOMS, legacyRooms, type Cosmetics, type RoomId } from "./catalogue.ts";
@@ -27,6 +27,8 @@ export interface RunLog {
   stacksLost: number;
   /** Stacks lost to fruit that came up the Overflow's chute. */
   chuteStacksLost: number;
+  /** A board with doors: leaks (fruit that reached the stacks) by the door they came in by. */
+  leaksByDoor: Partial<Record<DoorId, number>>;
   /** Leaks Ooze absorbed. */
   absorbed: number;
   /** Lowest stacks reached (Infinity until the first leak). */
@@ -86,6 +88,7 @@ export function emptyRunLog(): RunLog {
     backRoomBuys: 0,
     stacksLost: 0,
     chuteStacksLost: 0,
+    leaksByDoor: {},
     absorbed: 0,
     minStacks: Infinity,
     karlStacksLost: 0,
@@ -432,8 +435,16 @@ const LIST: Array<Omit<Achievement, "tier">> = [
   },
   { id: "parcel", name: "Opened by Mistake", blurb: "Kill a Parcel before its wrapping comes off.", shelf: "workshop", check: (c) => c.log.parcelWrappedKills > 0 },
   {
+    id: "every-door",
+    name: "Every Door Watched",
+    blurb: "Win a story night on the Rotunda with nothing getting through the west door.",
+    shelf: "workshop",
+    check: (c) => c.won && c.night !== "endless" && c.map === "rotunda" && !(c.log.leaksByDoor.west ?? 0),
+  },
+  {
     id: "sprout",
     name: "Weeded",
+
     blurb: "Win the Greenhouse without a single Sprout growing into a melon.",
     shelf: "workshop",
     check: (c) => c.won && c.map === "greenhouse" && c.log.sproutsGrown === 0,
