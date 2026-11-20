@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CANNON, CELL, EMPTY_META, KEEPER_TOWERS, TOWERS, carpetAlong, createWorld, stepWorld, type OathId } from "../src/game/engine.ts";
+import { CANNON, CELL, DRAGON, EMPTY_META, KEEPER_TOWERS, TOWERS, carpetAlong, createWorld, stepWorld, type ArmourId } from "../src/game/engine.ts";
 
-function start(oath: OathId = "sling") {
-  const api = createWorld(() => {}, { meta: EMPTY_META });
+function start(armour: ArmourId = "azure") {
+  const api = createWorld(() => {}, { meta: EMPTY_META, allTricks: true });
   api.openSetup();
   api.chooseHero("michael");
-  api.pickOath(oath);
+  api.pickArmour(armour);
   api.world.hud.seeds = 99999;
   api.world.hud.lives = 999;
   return api;
@@ -34,7 +34,7 @@ function build(api: Api, kind: "gourdgate" | "bombard", beside = true, from = 0)
   return null;
 }
 
-/** Build the Gourd Gate on the carpet-side tile nearest a point. */
+/** Build the Dragon Gate on the carpet-side tile nearest a point. */
 function gateNear(api: Api, p: { x: number; y: number }) {
   const w = api.world;
   const cells: Array<[number, number]> = [];
@@ -81,10 +81,13 @@ const seconds = (api: Api, s: number) => {
   for (let i = 0; i < Math.round(s * 60); i++) stepWorld(api.world, 1 / 60);
 };
 
-test("Sir Michael's three towers: Trebuchet, Gourd Gate (300), Harvest Bombard (400), his alone", () => {
+test("Sir Michael's three towers: Dragonfire Trebuchet, Dragon Gate (300), Dragon's Roost (200), his alone", () => {
   assert.deepEqual(KEEPER_TOWERS.michael, ["trebuchet", "gourdgate", "bombard"]);
+  assert.equal(TOWERS.trebuchet.name, "Dragonfire Trebuchet");
+  assert.equal(TOWERS.gourdgate.name, "The Dragon Gate");
+  assert.equal(TOWERS.bombard.name, "The Dragon's Roost");
   assert.equal(TOWERS.gourdgate.cost, 300);
-  assert.equal(TOWERS.bombard.cost, 400);
+  assert.equal(TOWERS.bombard.cost, 200);
   const other = createWorld(() => {}, { meta: EMPTY_META });
   other.openSetup();
   other.chooseHero("mynxi");
@@ -93,23 +96,15 @@ test("Sir Michael's three towers: Trebuchet, Gourd Gate (300), Harvest Bombard (
   assert.notEqual(other.world.hud.build, "bombard");
 });
 
-test("the Bombard is 50 less under the pumpkin oath", () => {
-  const sling = start("sling");
-  sling.chooseBuild("bombard");
-  const door = start("door");
-  door.chooseBuild("bombard");
-  assert.equal(sling.world.hud.towerCost, door.world.hud.towerCost - CANNON.bombardSlingDiscount);
-});
-
-test("the Gourd Gate must touch the carpet", () => {
+test("the Dragon Gate must touch the carpet", () => {
   const api = start();
   assert.equal(build(api, "gourdgate", false), null, "not off the carpet");
   assert.ok(build(api, "gourdgate", true), "beside it is fine");
 });
 
 /** A Gate and a fruit walking up to its portcullis; returns how far the fruit got in `s` seconds. */
-function heldFor(oath: OathId, s: number, boss = false, near = 0.5) {
-  const api = start(oath);
+function heldFor(s: number, boss = false, near = 0.5) {
+  const api = start();
   const total = carpetAlong(api.world.points, 0, 0, 0, false).total;
   const gate = gateNear(api, spotAt(api, Math.max(CELL, total * near)));
   const [e] = fruit(api, 1);
@@ -123,31 +118,30 @@ function heldFor(oath: OathId, s: number, boss = false, near = 0.5) {
 }
 
 test("the portcullis holds a fruit for 3 s and its crossbows hit it; then it walks on", () => {
-  const held = heldFor("sling", 2.5);
+  const held = heldFor(2.5);
   assert.ok(held.moved < 1, `held (moved ${held.moved})`);
   assert.ok(held.lost > 2 * held.api.statsOf(held.gate.id)!.dmg * 0.9, `shot while held (${held.lost})`);
-  const later = heldFor("sling", CANNON.gateHold + 1.2);
+  const later = heldFor(CANNON.gateHold + 1.2);
   assert.ok(later.moved > 10, `walked on after (moved ${later.moved})`);
 });
 
 test("Karl is only held for 1 s", () => {
-  const karl = heldFor("sling", 2.2, true);
+  const karl = heldFor(2.2, true);
   assert.ok(karl.moved > 10, `Karl got going (moved ${karl.moved})`);
 });
 
-test("inside his oath's zone the portcullis holds 4 s", () => {
-  // The gate tile nearest the start of the carpet sits in the mouth zone.
-  const zone = heldFor("mouth", CANNON.gateHold + 0.6, false, 0);
-  const outside = heldFor("sling", CANNON.gateHold + 0.6, false, 0);
-  assert.ok(zone.moved < 1, `held longer in the zone (moved ${zone.moved})`);
-  assert.ok(outside.moved > 1, `outside the zone it let go (moved ${outside.moved})`);
+test("the portcullis holds 3 s wherever it stands (no zones any more)", () => {
+  const nearStart = heldFor(CANNON.gateHold + 0.6, false, 0);
+  assert.ok(nearStart.moved > 1, `it let go after 3 s (moved ${nearStart.moved})`);
 });
 
-test("the Bombard lands on the biggest crowd: full hit there, 60% around it, a one-tile shove (not Karl), and fire", () => {
+test("the Great Dragon lands on the biggest crowd: full hit there, 60% around it, a one-tile shove (not Karl), and fire", () => {
   const api = start();
   const w = api.world;
   const bomb = build(api, "bombard", false)!;
   const [a, b, c, lone] = fruit(api, 4);
+  bomb.grown = DRAGON.roostGrow[2];
+  assert.equal(api.roostOf(bomb.id)!.stage, 3);
   const total = carpetAlong(w.points, 0, 0, 0, false).total;
   const mid = spotAt(api, total * 0.5);
   for (const e of [a, b, c, lone]) e.freeze = 999;
@@ -178,4 +172,25 @@ test("the Bombard lands on the biggest crowd: full hit there, 60% around it, a o
   assert.ok(Math.abs(shoved(c)) < 0.5, "Karl isn't shoved");
   assert.ok(w.pools.length > pools && w.pools.some((p) => p.hot), "a burning patch");
   void mid;
+});
+
+test("the Roost's egg doesn't fire; a Whelp breathes only on fruit close by", () => {
+  const api = start();
+  const w = api.world;
+  const roost = build(api, "bombard", false)!;
+  assert.equal(api.roostOf(roost.id)!.stage, 0);
+  assert.equal(api.statsOf(roost.id)!.dmg, 0, "an egg");
+  const [e] = fruit(api, 1);
+  e.freeze = 999;
+  Object.assign(e, { x: roost.x + CELL * 3, y: roost.y });
+  roost.cd = 0;
+  seconds(api, 2);
+  assert.ok(!w.shots.some((s) => s.bombard) && e.hp === 99999, "the egg just sits there");
+  roost.grown = DRAGON.roostGrow[0];
+  const whelp = api.statsOf(roost.id)!;
+  assert.equal(api.roostOf(roost.id)!.stage, 1);
+  assert.ok(whelp.dmg > 0 && whelp.range < CELL * 3, `a Whelp's breath is short (${whelp.range})`);
+  roost.cd = 0;
+  seconds(api, 1);
+  assert.equal(e.hp, 99999, "out of a Whelp's reach");
 });

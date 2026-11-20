@@ -390,12 +390,15 @@ export function MelonGame() {
               gesture();
               api.backToSetup();
             }}
-            oaths={
+            armours={
               hud.hero === "michael"
-                ? (oath) => {
-                    gesture();
-                    tone(260, 0.08, "triangle", 0.04);
-                    api.pickOath(oath);
+                ? {
+                    isOpen: (armour) => api.armourOpen(armour),
+                    onWear: (armour) => {
+                      gesture();
+                      tone(260, 0.08, "triangle", 0.04);
+                      api.pickArmour(armour);
+                    },
                   }
                 : undefined
             }

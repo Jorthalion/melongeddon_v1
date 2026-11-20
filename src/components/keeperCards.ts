@@ -36,9 +36,9 @@ export const KEEPERS: Array<{
   {
     id: "michael",
     name: "Sir Michael",
-    role: "Pumpkin Knight",
+    role: "Dragon Knight",
     flavor: "“I'll tell you where I stand. Then I'll stand there.”",
-    line: "Before the night starts he swears one of three oaths and lives with it. His own shots are ordinary.",
+    line: "Chooses his armour, then builds big: a Hoard for giant towers, Great merges, and a dragon that grows all night.",
     toneHz: 220,
     portrait: asset("sprites/portrait-michael.webp"),
   },

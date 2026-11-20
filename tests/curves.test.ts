@@ -5,7 +5,6 @@ import {
   CANNON,
   CELL,
   EMPTY_META,
-  OATH_ZONE,
   VERGE_NOTE,
   besideCarpet,
   bindLeg,
@@ -15,7 +14,6 @@ import {
   createWorld,
   emptyProgress,
   floorTiles,
-  oathStretch,
   roundedSpot,
   stepWorld,
   towerReadout,
@@ -220,18 +218,6 @@ test("the Pamphlet binds to a diagonal and fires when the front fruit reaches it
   const hit = towerReadout(api.world.hud.hero, "pamphlet", [], api.world.hud.upgrades).dmg;
   assert.equal(9999 - front.hp, hit);
   assert.equal(9999 - back.hp, hit);
-});
-
-test("Sir Michael's oath zones are measured along the carpet on the new layouts", () => {
-  for (const map of ["greenhouse", "belltower"] as const) {
-    const points = buildBoard(BOARDS[map].corners).points;
-    for (const oath of ["door", "mouth"] as const) {
-      const run = oathStretch(points, oath);
-      let len = 0;
-      for (let k = 1; k < run.length; k++) len += Math.hypot(run[k].x - run[k - 1].x, run[k].y - run[k - 1].y);
-      assert.ok(Math.abs(len - OATH_ZONE) < 1e-6, `${map} ${oath}: ${len}`);
-    }
-  }
 });
 
 test("furthest along works on a diagonal: carpetAlong grows by the distance walked", () => {

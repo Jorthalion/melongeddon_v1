@@ -30,6 +30,9 @@ import {
   type World,
   COPY_STEP_KINDS,
   COPY_HEAVY_KINDS,
+  DRAGON,
+  GLOBAL_RANGE,
+  ROOST_STAGES,
 } from "@/game/engine";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { tone } from "@/game/audio";
@@ -112,6 +115,22 @@ export function GameHeader({
               {hud.sisu > 0 ? (
                 <span className="text-[0.8125rem] font-semibold whitespace-nowrap text-[#8fbcf2]" title="Sisu: Asser's towers hit harder for every stack he is missing">
                   Sisu +{hud.sisu}%
+                </span>
+              ) : null}
+              {hud.hero === "michael" ? (
+                <span
+                  className="text-[0.8125rem] font-semibold whitespace-nowrap text-[#8fc0ff]"
+                  title="The Dragon's Hoard: part of what he spends on ordinary towers is saved here, and pays first for the Dragon Gate, the Roost, feeding it and Great towers"
+                >
+                  Hoard {Math.floor(hud.hoard)}
+                </span>
+              ) : null}
+              {hud.hero === "michael" && hud.zone > 0 ? (
+                <span
+                  className="text-[0.8125rem] font-semibold whitespace-nowrap text-[#a9d0ff]"
+                  title="In the Zone: every wave with no stack lost adds damage to his Great towers, Gate and Roost. A lost stack resets it."
+                >
+                  Zone +{Math.round(hud.zone * 100)}%
                 </span>
               ) : null}
             </span>
@@ -434,8 +453,8 @@ const SHORT_NAME: Record<TowerKind, string> = {
   quackliber: "Quack-Liber",
   geese: "Anti-Geese",
   lionblade: "Lion Blade",
-  gourdgate: "Gourd Gate",
-  bombard: "Bombard",
+  gourdgate: "Dragon Gate",
+  bombard: "Roost",
   pamphlet: "The Post",
   driver: "Quackmission",
 };
@@ -574,8 +593,11 @@ export function describeStats(kind: TowerKind, read: { dmg: number; range: numbe
   if (kind === "honey") return `No damage · sticky footprint every ${read.interval.toFixed(1)}s: +${Math.round((CANNON.honeyAmp - 1) * 100)}% damage taken for ${CANNON.honeyTime}s · ${tiles}`;
   if (kind === "pamphlet") return `Hit: ${read.dmg} per fruit on the straight · goes off at its corner when 2+ are on it`;
   if (kind === "driver") return `No damage · blinks the furthest fruit back ${CANNON.driverTime}s (Karl ${CANNON.driverKarl}s) · ${tiles} · ${read.interval.toFixed(1)}s`;
-  if (kind === "gourdgate") return `Holds the carpet beside it ${CANNON.gateHold}s (${CANNON.gateHoldOath}s in his oath's zone) every ${read.interval.toFixed(1)}s · ${read.dmg} dmg/s to held fruit${lit}`;
-  if (kind === "bombard") return `DMG ${read.dmg} + ${Math.round(read.dmg * CANNON.bombardSplashRatio)} splash · whole board · shoves 1 tile · burns · ${read.interval.toFixed(1)}s${lit}`;
+  if (kind === "gourdgate") return `Holds the carpet beside it ${CANNON.gateHold}s every ${read.interval.toFixed(1)}s · ${read.dmg} dmg/s to held fruit${lit}`;
+  if (kind === "bombard")
+    return read.dmg <= 0
+      ? `An egg: hatches into a Whelp after ${DRAGON.roostGrow[0]} waves`
+      : `DMG ${read.dmg} + ${Math.round(read.dmg * CANNON.bombardSplashRatio)} splash · ${read.range >= GLOBAL_RANGE ? "whole board" : tiles} · burns · ${read.interval.toFixed(1)}s${lit}`;
   if (kind === "lionblade") return `DMG ${read.dmg} to every fruit in ${tiles} · ${read.interval.toFixed(1)}s · a lost stack: swings now, +${Math.round((CANNON.bladeRally - 1) * 100)}%${lit}`;
   if (kind === "geese") return `One use · throws every fruit in ${tiles} back ${CANNON.geeseShove / CELL} tiles (geese twice as far) · ${CANNON.geeseDamage} dmg`;
   if (kind === "stomp") return `DMG ${read.dmg} + ${CANNON.stompStun}s stop · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
@@ -713,6 +735,61 @@ function InspectorNumbers({
   );
 }
 
+/** Sir Michael's tower buttons: Make it Great (a matching neighbour), and Feed the dragon on the Roost. */
+function DragonButtons({ api, towerId, onGesture }: { api: GameApi; towerId: number; onGesture: () => void }) {
+  const hud = api.world.hud;
+  if (hud.hero !== "michael") return null;
+  const tower = api.world.towers.find((t) => t.id === towerId);
+  if (!tower) return null;
+  const split = (cost: number) => {
+    const fromHoard = Math.min(Math.floor(hud.hoard), cost);
+    return { fromHoard, fromSeeds: cost - fromHoard };
+  };
+  const btn =
+    "h-9 cursor-pointer rounded-lg border border-[#8fc0ff] bg-[#8fc0ff]/10 px-2 text-[0.8125rem] text-parchment disabled:cursor-not-allowed disabled:opacity-40";
+  if (tower.kind === "bombard") {
+    const roost = api.roostOf(towerId);
+    if (!roost || roost.next == null) return null;
+    const { fromHoard, fromSeeds } = split(DRAGON.roostFeed);
+    return (
+      <button
+        type="button"
+        className={btn}
+        disabled={hud.phase !== "prep" || hud.roostFed || hud.seeds < fromSeeds}
+        title={`One more wave of growth (once between waves). ${roost.grown} grown; the next stage at ${roost.next}. Costs ${DRAGON.roostFeed}: ${fromHoard} from the Hoard, ${fromSeeds} seeds.`}
+        onClick={() => {
+          onGesture();
+          api.feedRoost();
+        }}
+      >
+        {hud.roostFed ? "Fed" : `Feed ${DRAGON.roostFeed}`}
+      </button>
+    );
+  }
+  if (tower.great) return null;
+  const offer = api.greatOffer(towerId);
+  if (offer.partner == null && !offer.why) return null;
+  const { fromHoard, fromSeeds } = split(offer.cost);
+  return (
+    <button
+      type="button"
+      className={btn}
+      disabled={offer.partner == null || hud.seeds < fromSeeds}
+      title={
+        offer.partner == null
+          ? offer.why
+          : `Merge with the ${TOWERS[tower.kind].name} beside it into one Great tower (${DRAGON.greatDmg}× damage, +${Math.round((DRAGON.greatRange - 1) * 100)}% reach). Costs ${offer.cost}: ${fromHoard} from the Hoard, ${fromSeeds} seeds.`
+      }
+      onClick={() => {
+        onGesture();
+        api.makeGreat();
+      }}
+    >
+      {offer.partner == null ? "Great: needs a pair" : `Make Great ${offer.cost}`}
+    </button>
+  );
+}
+
 function TowerInspector({
   api,
   onGesture,
@@ -740,12 +817,15 @@ function TowerInspector({
       {/* Name and type, then the numbers: side by side on wider screens, one under the other on phones. */}
       <div className={`min-w-0 flex-1 ${column ? "" : "sm:flex sm:items-center sm:gap-4"}`}>
         <div className={`min-w-0 ${column ? "" : "sm:w-48 sm:shrink-0"}`}>
-        <p className={`font-display text-lg leading-none font-semibold ${column ? "" : "truncate"}`}>{TOWERS[tower.kind].name}</p>
+        <p className={`font-display text-lg leading-none font-semibold ${column ? "" : "truncate"}`}>
+          {tower.great ? `Great ${TOWERS[tower.kind].name}` : TOWERS[tower.kind].name}
+        </p>
         {/* Phones: the aim menu takes the type line's place, so the panel keeps its height. */}
         <p
           className={`mt-1 text-[0.6875rem] tracking-[0.16em] text-gold uppercase ${column ? "" : "truncate"} ${!column && aims ? "hidden sm:block" : ""}`}
         >
           {TYPE_INFO[TOWER_TYPE[tower.kind]].name} · {TOWERS[tower.kind].role}
+          {tower.kind === "bombard" && api.roostOf(tower.id) ? <span className="text-[#8fc0ff]"> · {ROOST_STAGES[api.roostOf(tower.id)!.stage]}</span> : null}
         </p>
         {!column && aims ? (
           <div className="mt-1 w-full max-w-[7.5rem] sm:hidden">
@@ -822,6 +902,7 @@ function TowerInspector({
             Other straight
           </button>
         ) : null}
+        <DragonButtons api={api} towerId={tower.id} onGesture={onGesture} />
         {canFit ? (
           <button
             type="button"

@@ -6,7 +6,7 @@
 import { KEEPER_NAMES, KEEPER_START, type HeroId, type NightId } from "./rules.ts";
 
 interface Voice {
-  /** The night's first log line (Sir Michael's is narration: he hasn't sworn his oath yet). */
+  /** The night's first log line (Sir Michael's is narration: he hasn't put his armour on yet). */
   open: string;
   /** On the Overflow and the Siege, if the usual line doesn't fit. */
   overflow?: string;
@@ -33,7 +33,7 @@ export const KEEPER_VOICE: Record<HeroId, Voice> = {
     lose: "“Interesting. Wrong, but interesting.”",
   },
   michael: {
-    open: "Sir Michael is still deciding which oath to swear.",
+    open: "Sir Michael is still choosing his armour.",
     win: "“Held. Barely. Please don't tell anyone how barely.”",
     lose: "“I stood where I said I'd stand. It wasn't enough tonight.”",
   },

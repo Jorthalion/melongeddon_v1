@@ -14,7 +14,7 @@
  *   npm run sim -- --out sim-results/combos-off   # write the report somewhere else
  *   npm run sim -- --heroes scholar --diffs easy,normal --only stacks   # a quick probe
  *   npm run sim -- --picks smart  # bots choose shelf upgrades by what suits their board (default: random)
- *   npm run sim -- --heroes michael --oaths door,mouth,sling   # Sir Michael once per oath (default: sling)
+ *   npm run sim -- --heroes michael --armours azure,dragonscale,ember,wyrm   # Sir Michael once per armour (default: azure)
  *   npm run sim -- --styles scripts/styles/playstyles.json   # play these named playstyles instead of the four strategies
  *                               # each: {"name", "strategy", "rotation"?: [tower kinds], "withKeeper"?: true}
  *   npm run sim -- --from sim-results/a/runs.json,sim-results/b/runs.json --out sim-results/ab
@@ -29,7 +29,7 @@ import { fileURLToPath } from "node:url";
 import { simulateRun, type RunConfig, type RunResult, type Strategy } from "./sim-core.ts";
 import * as ENGINE from "../src/game/engine.ts";
 import { MIDNIGHT_WAVES } from "../src/game/engine.ts";
-import type { Difficulty, HeroId, MapId, NightId, OathId } from "../src/game/engine.ts";
+import type { ArmourId, Difficulty, HeroId, MapId, NightId } from "../src/game/engine.ts";
 
 const args = process.argv.slice(2);
 const seedArg = args.indexOf("--seeds");
@@ -43,8 +43,8 @@ const OUT = argOf("--out") ?? "sim-results";
 const HERO_ONLY = argOf("--heroes")?.split(",").filter(Boolean) ?? [];
 const DIFF_ONLY = argOf("--diffs")?.split(",").filter(Boolean) ?? [];
 const PICKS = argOf("--picks") === "smart" ? "smart" : "random";
-const OATH_LIST = (argOf("--oaths")?.split(",").filter(Boolean) ?? ["sling"]) as OathId[];
-for (const o of OATH_LIST) if (!ENGINE.OATHS.includes(o)) throw new Error(`--oaths: no oath ${o}`);
+const ARMOUR_LIST = (argOf("--armours")?.split(",").filter(Boolean) ?? ["azure"]) as ArmourId[];
+for (const a of ARMOUR_LIST) if (!ENGINE.ARMOURS.includes(a)) throw new Error(`--armours: no armour ${a}`);
 
 /** --set PATH=VALUE (repeatable): change an exported rules object, e.g. COMBO.on=false. Applied in every worker. */
 const SETS: string[] = [];
@@ -119,7 +119,7 @@ for (const hero of HEROES)
   for (const difficulty of DIFFS)
     for (const st of STYLES)
       for (const sc of SCENARIOS.filter((x) => !ONLY.length || ONLY.includes(x.night === "midnight" ? x.map : x.night)))
-        for (const oath of hero === "michael" ? OATH_LIST : [undefined])
+        for (const armour of hero === "michael" ? ARMOUR_LIST : [undefined])
           for (let seed = 1; seed <= SEEDS; seed++)
             configs.push({
               hero,
@@ -130,7 +130,7 @@ for (const hero of HEROES)
               seed,
               picks: PICKS,
               ...(KEEPERS ? { keepers: KEEPERS } : {}),
-              ...(oath ? { oath } : {}),
+              ...(armour ? { armour } : {}),
               ...(STYLE_FILE ? { style: st.name, ...(st.rotation ? { rotation: st.rotation } : {}), ...(st.withKeeper ? { withKeeper: true } : {}) } : {}),
             });
 
@@ -139,7 +139,7 @@ let results: RunResult[] = [];
 const FROM = argOf("--from")?.split(",").filter(Boolean) ?? [];
 if (FROM.length) {
   const byKey = new Map<string, RunResult>();
-  const key = (c: RunConfig) => [c.hero, c.difficulty, c.strategy, c.night, c.map, c.seed, c.oath ?? "sling", c.picks ?? "random", c.style ?? ""].join("|");
+  const key = (c: RunConfig) => [c.hero, c.difficulty, c.strategy, c.night, c.map, c.seed, c.armour ?? "azure", c.picks ?? "random", c.style ?? ""].join("|");
   for (const file of FROM) for (const r of JSON.parse(readFileSync(file, "utf8")) as RunResult[]) byKey.set(key(r.config), r);
   results = [...byKey.values()];
 } else if (shard) {
@@ -224,12 +224,12 @@ for (const night of ["overflow", "siege"] as const) {
   if (pool.length) lines.push(table(`Hero × difficulty: ${night === "siege" ? "the Siege" : "the Overflow"}`, (r) => r.config.hero, (r) => r.config.difficulty, HEROES, DIFFS, pool), "");
 }
 
-// Sir Michael by oath, when the runs hold more than one.
+// Sir Michael by armour, when the runs hold more than one.
 const michael = results.filter((r) => r.config.hero === "michael");
-const oathsRun = ENGINE.OATHS.filter((o) => michael.some((r) => (r.config.oath ?? "sling") === o));
-if (oathsRun.length > 1) {
-  lines.push(table("Sir Michael by oath × difficulty", (r) => r.config.oath ?? "sling", (r) => r.config.difficulty, oathsRun, DIFFS, michael), "");
-  lines.push(table("Sir Michael by oath × map", (r) => r.config.oath ?? "sling", scenarioOf, oathsRun, scenarioNames, michael), "");
+const armoursRun = ENGINE.ARMOURS.filter((a) => michael.some((r) => (r.config.armour ?? "azure") === a));
+if (armoursRun.length > 1) {
+  lines.push(table("Sir Michael by armour × difficulty", (r) => r.config.armour ?? "azure", (r) => r.config.difficulty, armoursRun, DIFFS, michael), "");
+  lines.push(table("Sir Michael by armour × map", (r) => r.config.armour ?? "azure", scenarioOf, armoursRun, scenarioNames, michael), "");
 }
 
 lines.push("### Towers on the board at the end (average)", "");

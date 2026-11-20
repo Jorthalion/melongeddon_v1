@@ -1,6 +1,6 @@
-import { type MapId, type OathId } from "@/game/engine";
+import { type ArmourId, type MapId } from "@/game/engine";
 import { MapPreview } from "@/components/MapPreview";
-import { OathIntro } from "@/components/OathIntro";
+import { ArmourIntro } from "@/components/ArmourIntro";
 
 /** One line under each room's name on the intro screen. */
 export const ROOM_JOKE: Partial<Record<MapId, string>> = {
@@ -23,8 +23,8 @@ export const SIEGE_JOKE = "The fruit were a distraction. The geese have a plan. 
 
 
 /**
- * The intro: the real board, the room's name, and the button onto the carpet. With `oaths`
- * (Sir Michael), the oath cards replace the whole screen (see OathIntro).
+ * The intro: the real board, the room's name, and the button onto the carpet. With `armours`
+ * (Sir Michael), the armour cards replace the whole screen (see ArmourIntro).
  */
 export function RoomScreen({
   map,
@@ -34,7 +34,7 @@ export function RoomScreen({
   action,
   onAction,
   onBack,
-  oaths,
+  armours,
 }: {
   map: MapId;
   kicker: string;
@@ -43,9 +43,10 @@ export function RoomScreen({
   action: string;
   onAction: () => void;
   onBack: () => void;
-  oaths?: (oath: OathId) => void;
+  armours?: { isOpen: (armour: ArmourId) => boolean; onWear: (armour: ArmourId) => void };
 }) {
-  if (oaths) return <OathIntro map={map} title={title} kicker={kicker} onSwear={oaths} onBack={onBack} />;
+  if (armours)
+    return <ArmourIntro map={map} title={title} kicker={kicker} isOpen={armours.isOpen} onWear={armours.onWear} onBack={onBack} />;
   return (
     <div className="absolute inset-0 z-20">
       {/* The real board, whole, above the title. */}

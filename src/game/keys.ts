@@ -117,7 +117,7 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
 
     case "poster":
       if (key === "Escape") return { type: "backToSetup" };
-      // Sir Michael's oath cards handle 1–3 (pick) and Enter (swear) themselves (components/OathIntro).
+      // Sir Michael's armour cards handle 1–4 (pick) and Enter (wear) themselves (components/ArmourIntro).
       if (hud.hero === "michael") return null;
       if (key === "Enter") return { type: "beginNight" };
       // The Overflow's and the Siege's intros lead straight onto the board: Space does what Enter does.

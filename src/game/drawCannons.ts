@@ -649,7 +649,7 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       break;
     }
     case "trebuchet": {
-      // Sir Michael: a wooden trebuchet with a pumpkin in the sling.
+      // Sir Michael's Dragonfire Trebuchet: a wooden trebuchet with a blue-burning pumpkin in the sling.
       shadow(ctx, x, y, 19);
       ctx.translate(x, y + 4);
       ctx.fillStyle = WOOD_DARK;
@@ -972,53 +972,56 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       break;
     }
     case "gourdgate": {
-      // Sir Michael's Gourd Gate (stand-in while its art loads): a pumpkin dome with a gold-banded arch and a grille.
+      // Sir Michael's Dragon Gate (stand-in until its art exists): a grey stone gatehouse with a dragon's-head arch,
+      // blue banners and a portcullis grille.
       shadow(ctx, x, y, 18);
       ctx.translate(x, y);
-      ctx.fillStyle = "#e8742a";
-      ctx.beginPath();
-      ctx.ellipse(0, 2, 18, 15, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#5d6270";
+      rrect(ctx, -17, -10, 34, 26, 4);
       ctx.fill();
-      ctx.fillStyle = "#6b6560";
-      rrect(ctx, -8, -2, 16, 17, 6);
+      ctx.fillStyle = "#454a57";
+      for (const k of [-17, -7, 3, 13]) ctx.fillRect(k, -14, 5, 5);
+      ctx.fillStyle = "#1c2233";
+      rrect(ctx, -8, -2, 16, 18, 6);
       ctx.fill();
       ctx.strokeStyle = "#c6a15a";
       ctx.lineWidth = 1.5;
       for (const k of [-4, 0, 4]) {
         ctx.beginPath();
         ctx.moveTo(k, 0);
-        ctx.lineTo(k, 13);
+        ctx.lineTo(k, 15);
         ctx.stroke();
       }
-      ctx.fillStyle = "#7a2a2a";
-      ctx.fillRect(-2, -20, 2, 9);
-      ctx.fillStyle = "#b8323a";
-      ctx.fillRect(0, -20, 8, 4);
+      // The dragon's head over the arch: a blue snout and two gold horns.
+      ctx.fillStyle = "#2c4f8f";
+      ctx.beginPath();
+      ctx.moveTo(-6, -4);
+      ctx.lineTo(0, -12);
+      ctx.lineTo(6, -4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#e6c36a";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(-4, -9);
+      ctx.lineTo(-8, -15);
+      ctx.moveTo(4, -9);
+      ctx.lineTo(8, -15);
+      ctx.stroke();
+      ctx.fillStyle = "#8fd0ff";
+      ctx.fillRect(-3, -8, 2, 2);
+      ctx.fillRect(1, -8, 2, 2);
+      // Blue banners either side.
+      ctx.fillStyle = "#2c4f8f";
+      ctx.fillRect(-16, -6, 5, 10);
+      ctx.fillRect(11, -6, 5, 10);
       break;
     }
     case "bombard": {
-      // Sir Michael's Harvest Bombard (stand-in): a fat bronze barrel on a carriage with a pumpkin in its mouth.
-      shadow(ctx, x, y, 19);
+      // The Dragon's Roost as an icon (on the board it draws by stage: drawRoost): a nest with a blue egg.
       ctx.translate(x, y);
-      ctx.fillStyle = "#5a3a22";
-      rrect(ctx, -16, 4, 30, 9, 3);
-      ctx.fill();
-      ctx.fillStyle = "#3a2618";
-      for (const k of [-10, 9]) {
-        ctx.beginPath();
-        ctx.arc(k, 13, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.save();
-      ctx.rotate(-0.45);
-      ctx.fillStyle = "#a8742a";
-      rrect(ctx, -12, -8, 30, 15, 6);
-      ctx.fill();
-      ctx.fillStyle = "#e8742a";
-      ctx.beginPath();
-      ctx.arc(18, -0.5, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      drawNest(ctx);
+      drawEgg(ctx, 0, -2, t);
       break;
     }
     case "lionblade": {
@@ -1407,5 +1410,155 @@ export function drawSpillTile(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.lineTo(9, 5);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+/** The Dragon's Roost's nest: a ring of twigs on a stone, around (0, 0). */
+function drawNest(ctx: CanvasRenderingContext2D) {
+  shadow(ctx, 0, 0, 20);
+  ctx.fillStyle = "#4b4f5a";
+  ctx.beginPath();
+  ctx.ellipse(0, 9, 19, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#6b4a2a";
+  ctx.lineWidth = 2.2;
+  for (let k = 0; k < 9; k++) {
+    const a = (k / 9) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 15, 6 + Math.sin(a) * 6);
+    ctx.lineTo(Math.cos(a + 0.9) * 15, 6 + Math.sin(a + 0.9) * 6);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#2e1d12";
+  ctx.beginPath();
+  ctx.ellipse(0, 5, 12, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** A blue, speckled dragon egg that hums. */
+function drawEgg(ctx: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  const glow = 0.25 + Math.sin(t * 3) * 0.12;
+  ctx.fillStyle = `rgba(111,182,255,${glow})`;
+  ctx.beginPath();
+  ctx.ellipse(x, y, 12, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#3a6fc4";
+  ctx.beginPath();
+  ctx.ellipse(x, y, 8, 10.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#8fc0ff";
+  for (const [a, b] of [[-3, -4], [2, -1], [-1, 4], [4, 5]]) {
+    ctx.beginPath();
+    ctx.arc(x + a, y + b, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = "#e6c36a";
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.ellipse(x, y, 8, 10.5, 0, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/**
+ * The Dragon's Roost on the board, by stage: 0 a humming egg in the nest, 1 a small Whelp with its head up,
+ * 2 a Drake with folded wings, 3 a Great Dragon with its wings spread and a blue glow. Faces `aim`.
+ */
+export function drawRoost(ctx: CanvasRenderingContext2D, x: number, y: number, stage: number, aim: number, t: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (stage >= 3) {
+    const glow = ctx.createRadialGradient(0, -4, 6, 0, -4, 40);
+    glow.addColorStop(0, "rgba(111,182,255,0.35)");
+    glow.addColorStop(1, "rgba(111,182,255,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, -4, 40, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  drawNest(ctx);
+  if (stage <= 0) {
+    drawEgg(ctx, 0, -2, t);
+    ctx.restore();
+    return;
+  }
+  const size = stage === 1 ? 0.7 : stage === 2 ? 0.95 : 1.25;
+  const face = Math.cos(aim) < 0 ? -1 : 1;
+  ctx.scale(size * face, size);
+  // Wings: folded for a Drake, spread wide for the Great Dragon (with a slow beat).
+  if (stage >= 2) {
+    const spread = stage >= 3 ? 1 + Math.sin(t * 2.4) * 0.12 : 0.45;
+    ctx.fillStyle = "#24406e";
+    ctx.strokeStyle = "#8fc0ff";
+    ctx.lineWidth = 1;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 4, -6);
+      ctx.lineTo(side * 26 * spread, -22 * spread);
+      ctx.lineTo(side * 20 * spread, -4);
+      ctx.lineTo(side * 12 * spread, -2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  // Body, neck and head.
+  ctx.fillStyle = "#3a6fc4";
+  ctx.beginPath();
+  ctx.ellipse(0, 1, 10, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(4, -2);
+  ctx.quadraticCurveTo(10, -10, 9, -16);
+  ctx.lineTo(13, -16);
+  ctx.quadraticCurveTo(15, -8, 8, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(13, -17, 6, 4, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  // Horns, eye and belly.
+  ctx.strokeStyle = "#e6c36a";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(10, -20);
+  ctx.lineTo(7, -25);
+  ctx.moveTo(13, -21);
+  ctx.lineTo(12, -26);
+  ctx.stroke();
+  ctx.fillStyle = "#e6f4ff";
+  ctx.beginPath();
+  ctx.arc(14.5, -18, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#8fc0ff";
+  ctx.beginPath();
+  ctx.ellipse(1, 3, 6, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // A wisp of blue fire at the mouth.
+  const lick = 0.5 + Math.sin(t * 8) * 0.3;
+  ctx.fillStyle = `rgba(143,208,255,${lick})`;
+  ctx.beginPath();
+  ctx.ellipse(21, -16, 3 + lick * 2, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** The plinth under a Great tower: a blue-and-gold slab across both tiles it covers. */
+export function drawGreatPlinth(ctx: CanvasRenderingContext2D, ax: number, ay: number, bx: number, by: number, t: number) {
+  const x = Math.min(ax, bx) - 22;
+  const y = Math.min(ay, by) - 18;
+  const w = Math.abs(bx - ax) + 44;
+  const h = Math.abs(by - ay) + 40;
+  ctx.save();
+  ctx.fillStyle = "rgba(20,30,52,0.75)";
+  rrect(ctx, x, y, w, h, 9);
+  ctx.fill();
+  ctx.strokeStyle = `rgba(143,192,255,${0.55 + Math.sin(t * 2) * 0.15})`;
+  ctx.lineWidth = 2;
+  rrect(ctx, x, y, w, h, 9);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(230,195,106,0.7)";
+  ctx.lineWidth = 1;
+  rrect(ctx, x + 3, y + 3, w - 6, h - 6, 7);
+  ctx.stroke();
   ctx.restore();
 }

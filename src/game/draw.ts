@@ -1,6 +1,6 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, oathStretch, reachShape, roundedSpot, type OathId, type TowerKind, type World } from "./engine";
-import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile } from "./drawCannons.ts";
+import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, reachShape, roundedSpot, roostStageFor, type TowerKind, type World } from "./engine";
+import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile, drawRoost, drawGreatPlinth } from "./drawCannons.ts";
 import {
   STATUS_LOOK,
   applyStatusMotion,
@@ -143,10 +143,15 @@ const SPRITE_SRC = {
   driver: asset("sprites/sig-driver.webp"),
   // Asser's Lion Blade (the code-drawn sword is only a fallback while it loads).
   lionblade: asset("sprites/sig-lionblade.webp"),
-  // Sir Michael's second and third: the Gourd Gate (and its portcullis) and the Harvest Bombard (and its pumpkin).
-  gourdgate: asset("sprites/sig-gourdgate.webp"),
-  bombard: asset("sprites/sig-bombard.webp"),
-  flyBombard: asset("sprites/fly-bombard.webp"),
+  // Sir Michael's second and third: the Dragon Gate, and the Dragon's Roost at each stage (egg, Whelp, Drake, Great Dragon).
+  // Until these files exist the code-drawn stand-ins show (the old pumpkin gatehouse and bombard sprites no longer fit).
+  gourdgate: asset("sprites/sig-dragongate.webp"),
+  roost0: asset("sprites/sig-roost-egg.webp"),
+  roost1: asset("sprites/sig-roost-whelp.webp"),
+  roost2: asset("sprites/sig-roost-drake.webp"),
+  roost3: asset("sprites/sig-roost-dragon.webp"),
+  /** The Great Dragon's breath (until its art exists, a blue fireball is drawn). */
+  flyBombard: asset("sprites/fly-dragonfire.webp"),
   portcullis: asset("sprites/fly-portcullis.webp"),
   flyQuack: asset("sprites/fly-quack.webp"),
   // Trick cannons, and what they throw.
@@ -1021,6 +1026,29 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.restore();
       continue;
     }
+    // Sir Michael's Great tower: a plinth across both its tiles, and the tower drawn half again as big.
+    if (t.great) {
+      const a = { x: t.c * CELL + CELL / 2, y: t.r * CELL + CELL / 2 };
+      const b = { x: t.great.c * CELL + CELL / 2, y: t.great.r * CELL + CELL / 2 };
+      drawGreatPlinth(ctx, a.x, a.y, b.x, b.y, world.anim);
+      ctx.save();
+      ctx.translate(t.x, t.y + 18);
+      ctx.scale(1.5, 1.5);
+      ctx.translate(-t.x, -(t.y + 18));
+      drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, false, art, world.anim, motionOf(t, world.anim));
+      ctx.restore();
+      if (t.id === world.hud.selected) ring(ctx, t.x, t.y);
+      continue;
+    }
+    // The Dragon's Roost: drawn by its stage, egg to Great Dragon.
+    if (t.kind === "bombard") {
+      const stage = roostStageFor(t.grown ?? 0);
+      const img = art[`roost${stage}` as SpriteName];
+      if (ready(img)) blitFit(ctx, img, t.x, t.y - 4 - stage * 3, 52 + stage * 10, 52 + stage * 10);
+      else drawRoost(ctx, t.x, t.y, stage, t.aim, world.anim);
+      if (t.id === world.hud.selected) ring(ctx, t.x, t.y);
+      continue;
+    }
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim, motionOf(t, world.anim));
     // The Post: a lit "typing" dot while armed; a speech-bubble shockwave down its straight when it goes off.
     if (t.kind === "pamphlet") {
@@ -1254,13 +1282,17 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       } else drawShot(ctx, s.x, s.y, s.element, world.anim);
       continue;
     }
-    // Harvest Bombard: the flaming giant pumpkin, pointing where it flies.
+    // The Dragon's Roost: a ball of blue dragonfire, pointing where it flies.
     if (s.bombard) {
       if (ready(art.flyBombard)) blitFit(ctx, art.flyBombard, s.x, s.y, 44, 24, Math.atan2(s.ty - s.y, s.tx - s.x));
       else {
-        ctx.fillStyle = "#e8742a";
+        const fire = ctx.createRadialGradient(s.x, s.y, 2, s.x, s.y, 13);
+        fire.addColorStop(0, "#e6f4ff");
+        fire.addColorStop(0.45, "#6fb6ff");
+        fire.addColorStop(1, "rgba(44,79,143,0)");
+        ctx.fillStyle = fire;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 10, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, 13, 0, Math.PI * 2);
         ctx.fill();
       }
       continue;
@@ -1748,46 +1780,8 @@ function drawCarpet(
   }
 
   if (world.hud.map === "overflow" && world.points.length >= 2) drawChute(ctx, world, end, getSprites().chuteProp);
-  const oath = world.hud.oath;
-  if (oath && (world.hud.phase === "prep" || world.hud.phase === "combat")) drawOathBand(ctx, world.points, oath, 0.6);
 }
 
-/**
- * Sir Michael's oath zone: a faint gold band over the two tiles of carpet where his Trebuchet may
- * shove (door: the last two, mouth: the first two; sling draws nothing). Gold and still, unlike the
- * blue moving chute chevrons. `strength` 1 is the bright intro hover; play uses less.
- */
-export function drawOathBand(ctx: CanvasRenderingContext2D, points: Array<{ x: number; y: number }>, oath: OathId, strength = 1) {
-  const run = oathStretch(points, oath);
-  if (run.length < 2) return;
-  ctx.save();
-  ctx.lineCap = "butt";
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  ctx.moveTo(run[0].x, run[0].y);
-  for (const p of run.slice(1)) ctx.lineTo(p.x, p.y);
-  ctx.strokeStyle = `rgba(240,205,120,${0.42 * strength})`;
-  ctx.lineWidth = CELL - 6;
-  ctx.stroke();
-  ctx.setLineDash([6, 6]);
-  ctx.strokeStyle = `rgba(255,228,150,${0.95 * strength})`;
-  ctx.lineWidth = 2;
-  for (const side of [-1, 1]) {
-    ctx.beginPath();
-    for (let k = 0; k < run.length; k++) {
-      // Edge lines either side of the band, offset along each segment's normal.
-      const a = run[Math.max(0, k - 1)];
-      const b = run[Math.min(run.length - 1, k === 0 ? 1 : k)];
-      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-      const nx = (-(b.y - a.y) / len) * side * (CELL / 2 - 4);
-      const ny = ((b.x - a.x) / len) * side * (CELL / 2 - 4);
-      if (k === 0) ctx.moveTo(run[k].x + nx, run[k].y + ny);
-      else ctx.lineTo(run[k].x + nx, run[k].y + ny);
-    }
-    ctx.stroke();
-  }
-  ctx.restore();
-}
 
 /**
  * The Overflow's returns chute: fruit marked `chute` come in past the end of the carpet and walk it

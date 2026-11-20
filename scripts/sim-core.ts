@@ -13,7 +13,7 @@ import {
   type BookmarkId,
   type Difficulty,
   type HeroId,
-  type OathId,
+  type ArmourId,
   type MapId,
   type NightId,
   type TowerKind,
@@ -27,6 +27,8 @@ import {
   bindLeg,
   besideCarpet,
   carpetLegs,
+  canBeGreat,
+  DRAGON,
 } from "../src/game/engine.ts";
 
 /** lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves. */
@@ -39,8 +41,8 @@ export interface RunConfig {
   night: NightId;
   map: MapId;
   seed: number;
-  /** Sir Michael's oath on the intro (default "sling"). Ignored for other keepers. */
-  oath?: OathId;
+  /** Sir Michael's armour on the intro (default "azure"). Ignored for other keepers. */
+  armour?: ArmourId;
   /** Optional build order to cycle through instead of the strategy's (any cannon types). */
   rotation?: TowerKind[];
   /** With a `rotation`, still build the keeper's own towers the way the default bots do (default false). */
@@ -173,7 +175,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
   }
   if (config.bookmark) api.setBookmark(config.bookmark);
   api.chooseHero(config.hero);
-  if (config.hero === "michael") api.pickOath(config.oath ?? "sling");
+  // The bots may wear any armour (they play with every tower open, so the level check is skipped too).
+  if (config.hero === "michael") api.pickOath(config.armour ?? "azure");
   else api.beginNight();
 
   // Sample points along the carpet, used to score tower spots by coverage.
@@ -195,11 +198,11 @@ function play(config: RunConfig, rng: () => number): RunResult {
     if (config.opener && builds < config.opener.length) return config.opener[builds];
     const own = signature && keeperOn && placed >= 2 && !world.towers.some((t) => t.kind === signature);
     if (own) return signature!;
-    // Sir Michael's big siege towers: once eight cannons are down, the bot saves up for the Bombard,
-    // then the Gourd Gate (one each), like a player would, instead of buying more small cannons.
-    if (config.hero === "michael" && keeperOn && placed >= 8) {
-      const big = (["bombard", "gourdgate"] as TowerKind[]).find((k) => !world.towers.some((t) => t.kind === k));
-      if (big) return big;
+    // Sir Michael builds big: the Dragon's Roost early (it grows all night), then the Dragon Gate once
+    // eight cannons are down. His Hoard pays for most of both.
+    if (config.hero === "michael" && keeperOn) {
+      if (placed >= 3 && !world.towers.some((t) => t.kind === "bombard")) return "bombard";
+      if (placed >= 8 && !world.towers.some((t) => t.kind === "gourdgate")) return "gourdgate";
     }
     // Quackarot: once eight cannons are down, a Pamphlet beside the longest straight near the door, then a Driver near the door.
     if (config.hero === "quack" && config.quackTowers !== false && keeperOn && placed >= (config.quackFrom ?? 8)) {
@@ -225,7 +228,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
         const c = s.c + a;
         const r = s.r + b;
         if (c < 0 || r < 0 || c >= world.cols || r >= world.rows) continue;
-        if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+        if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || taken(c, r)) continue;
         return { c, r };
       }
     return null;
@@ -245,7 +248,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       let near = Infinity;
       for (let c = 0; c < world.cols; c++)
         for (let r = 0; r < world.rows; r++) {
-          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || taken(c, r)) continue;
           if (kind === "pamphlet" && bindLeg(legs, c, r) !== want) continue;
           const d = Math.hypot(c * CELL + CELL / 2 - door.x, r * CELL + CELL / 2 - door.y);
           if (d < near) {
@@ -265,7 +268,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       let score = -Infinity;
       for (let c = 0; c < world.cols; c++)
         for (let r = 0; r < world.rows; r++) {
-          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.towers.some((t) => t.c === c && t.r === r)) continue;
+          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || taken(c, r)) continue;
           const x = c * CELL + CELL / 2;
           const y = r * CELL + CELL / 2;
           let v = 0;
@@ -282,22 +285,65 @@ function play(config: RunConfig, rng: () => number): RunResult {
       // A lamp with no cannons to light yet just goes on the best shooting spot.
       if (kind === "compost" || score > 0) return pick;
     }
+    const scores = new Map<string, number>();
     for (let c = 0; c < world.cols; c++) {
       for (let r = 0; r < world.rows; r++) {
         if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`)) continue;
-        if (world.towers.some((t) => t.c === c && t.r === r)) continue;
+        if (taken(c, r)) continue;
         if ((kind === "gourdgate" || kind === "desk") && !besideCarpet(world, c, r)) continue;
         const x = c * CELL + CELL / 2;
         const y = r * CELL + CELL / 2;
         let score = 0;
         for (const s of samples) if ((s.x - x) ** 2 + (s.y - y) ** 2 <= range * range) score++;
+        scores.set(`${c},${r}`, score);
         if (score > bestScore) {
           bestScore = score;
           best = { c, r };
         }
       }
     }
+    // Sir Michael: a second tower of a kind goes right beside the first if the spot is nearly as good, so it can be made Great.
+    if (config.hero === "michael" && canBeGreat(kind)) {
+      let pair: { c: number; r: number } | null = null;
+      let pairScore = bestScore * 0.75;
+      for (const t of world.towers) {
+        if (t.kind !== kind || t.great) continue;
+        for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const s = scores.get(`${t.c + a},${t.r + b}`) ?? -1;
+          if (s >= pairScore) {
+            pairScore = s;
+            pair = { c: t.c + a, r: t.r + b };
+          }
+        }
+      }
+      if (pair) return pair;
+    }
     return best;
+  };
+
+  /** A tile with a tower on it (a Great tower covers two). */
+  const taken = (c: number, r: number) => world.towers.some((t) => (t.c === c && t.r === r) || (t.great?.c === c && t.great?.r === r));
+
+  /** Sir Michael between builds: merge a matching pair into a Great tower, and feed the Roost, when he can afford it. */
+  const dragonChores = () => {
+    if (config.hero !== "michael" || !keeperOn) return;
+    for (const t of world.towers) {
+      if (t.great || !canBeGreat(t.kind)) continue;
+      const offer = api.greatOffer(t.id);
+      if (offer.partner == null) continue;
+      const fromSeeds = offer.cost - Math.min(Math.floor(world.hud.hoard), offer.cost);
+      if (world.hud.seeds - fromSeeds < world.hud.towerCost * 0.5) continue;
+      world.hud.selected = t.id;
+      api.makeGreat();
+      api.dismissSelection();
+      break;
+    }
+    const roost = world.towers.find((t) => t.kind === "bombard");
+    if (roost && world.hud.phase === "prep" && !world.hud.roostFed && Math.floor(world.hud.hoard) >= DRAGON.roostFeed && api.roostOf(roost.id)?.next != null) {
+      world.hud.selected = roost.id;
+      api.feedRoost();
+      api.dismissSelection();
+    }
   };
 
   const click = (c: number, r: number) => api.pointer(c * CELL + CELL / 2, r * CELL + CELL / 2, "down");
@@ -328,6 +374,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     const lean = config.strategy === "lean";
     if (lean && world.hud.phase !== "prep") return;
     const limit = lean ? 2 : 40;
+    dragonChores();
     for (let guard = 0; guard < limit; guard++) {
       if (tryMod()) continue;
       const kind = nextKind();

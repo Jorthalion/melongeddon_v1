@@ -4,7 +4,7 @@ import {
   BOOKMARK,
   CANNON,
   EMPTY_META,
-  OATH_TEXT,
+  ARMOUR_TEXT,
   PERKS,
   PERK_LEVELS,
   SLIP,
@@ -132,14 +132,15 @@ test("the Doctor's pick shows on the card, marked as his", () => {
 });
 
 
-test("Sir Michael's oath and Asser's Sisu show under Keeper", () => {
+test("Sir Michael's armour and Hoard and Asser's Sisu show under Keeper", () => {
   const api = createWorld(() => {}, { meta: EMPTY_META, keepers: emptyProgress() });
   api.openSetup();
   api.pickKeeper("michael");
   api.chooseHero("michael");
-  assert.equal(group(api as Api, "keeper")!.entries[0].name, "No oath yet");
-  api.pickOath("door");
-  assert.equal(group(api as Api, "keeper")!.entries[0].name, OATH_TEXT.door.title);
+  assert.equal(group(api as Api, "keeper")!.entries[0].name, "No armour yet");
+  api.pickArmour("azure");
+  assert.equal(group(api as Api, "keeper")!.entries[0].name, ARMOUR_TEXT.azure.name);
+  assert.equal(group(api as Api, "keeper")!.entries[1].name, "Dragon's Hoard: 0");
 
   const asser = start("asser");
   asser.world.hud.maxLives = 25;

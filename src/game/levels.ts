@@ -174,8 +174,8 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
       { name: "Requisition", blurb: "The Trebuchet costs 30 seeds less.", fx: { sigCost: 30 } },
     ],
     [
-      { name: "Second Trebuchet", blurb: "You can build two Pumpkin Trebuchets.", fx: { sigExtra: 1 } },
-      { name: "Harvest Oath", blurb: "Every kill pays 1 more seed.", fx: { killSeeds: 1 } },
+      { name: "Second Trebuchet", blurb: "You can build two Dragonfire Trebuchets.", fx: { sigExtra: 1 } },
+      { name: "Dragon's Tithe", blurb: "Every kill pays 1 more seed.", fx: { killSeeds: 1 } },
     ],
   ],
   elf: [

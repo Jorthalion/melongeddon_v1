@@ -21,7 +21,7 @@ function start(hero: HeroId) {
   api.openSetup();
   api.pickKeeper(hero);
   api.chooseHero(hero);
-  // Sir Michael starts only once he has said an oath; sling shoves anywhere, like before.
+  // Sir Michael starts only once he has put on an armour (an old oath name still works for scripts).
   if (hero === "michael") api.pickOath("sling");
   else api.beginNight();
   return api;

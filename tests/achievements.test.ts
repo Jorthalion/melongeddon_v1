@@ -355,7 +355,8 @@ test("saving: survives a reload, corrupt saves load empty, the backfill proves o
   assert.deepEqual(parsed.earned, { "first-night": 5 });
   assert.equal(parsed.ledger.kills, 0);
   assert.equal(parsed.ledger.killsBy.quackliber, 12);
-  assert.deepEqual(parsed.ledger.oathsWon, ["door"]);
+  // A save from the oath days: oathsWon is mapped to armours (Hold the door → Azure Plate).
+  assert.deepEqual(parsed.ledger.armoursWon, ["azure"]);
   // Hard wins prove Librarian and Melongeddon Survivor; Karl's Nightmare can't be proved.
   const hard = backfill({ ...EMPTY_META, wins: 2, hardWins: 1, karls: 3 }, 1);
   assert.deepEqual(Object.keys(hard.earned).sort(), ["first-night", "librarian", "melongeddon"]);

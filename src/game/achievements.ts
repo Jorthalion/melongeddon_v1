@@ -4,7 +4,7 @@
  * Checked when a night ends (see finishNight in the engine). Saved under its own key, apart from
  * MetaStats, and never by dev mode, tests or the simulator.
  */
-import { DIFFICULTIES, HEROES, KEEPER_TOWERS, OATHS, type Difficulty, type HeroId, type MapId, type NightId, type OathId, type TowerKind } from "./rules.ts";
+import { ARMOURS, DIFFICULTIES, HEROES, KEEPER_TOWERS, armourFrom, type ArmourId, type Difficulty, type HeroId, type MapId, type NightId, type TowerKind } from "./rules.ts";
 import { PICKABLE_MAPS, type MetaStats } from "./meta.ts";
 import { SLIPS, type SlipId } from "./slips.ts";
 import { DEFAULT_COSMETICS, ROOM_IDS, START_ROOMS, legacyRooms, type Cosmetics, type RoomId } from "./catalogue.ts";
@@ -62,7 +62,13 @@ export interface RunLog {
   squashKills: number;
   chimerEarly: number;
   gargoyleQuietKills: number;
-  oath: OathId | null;
+  /** Sir Michael's armour tonight (null for other keepers). */
+  armour: ArmourId | null;
+  /** Sir Michael: the best In the Zone bonus, the Roost's highest stage, Hoard seeds spent and Great towers made. */
+  zonePeak: number;
+  roostPeak: number;
+  hoardSpent: number;
+  greats: number;
   /** Asser: highest Sisu in percent, and whether it reached its cap. */
   sisuPeak: number;
   sisuCapped: boolean;
@@ -115,7 +121,11 @@ export function emptyRunLog(): RunLog {
     squashKills: 0,
     chimerEarly: 0,
     gargoyleQuietKills: 0,
-    oath: null,
+    armour: null,
+    zonePeak: 0,
+    roostPeak: 0,
+    hoardSpent: 0,
+    greats: 0,
     sisuPeak: 0,
     sisuCapped: false,
     wentGolden: false,
@@ -141,7 +151,8 @@ export interface Ledger {
   winsByDifficulty: Partial<Record<Difficulty, number>>;
   /** Story nights won, by night (an Overflow win opens the Siege). */
   winsByNight: Partial<Record<StoryNight, number>>;
-  oathsWon: OathId[];
+  /** Sir Michael's armours he has won a night in (old saves' oaths are mapped to armours). */
+  armoursWon: ArmourId[];
 }
 
 /** The nights with a last wave. */
@@ -159,7 +170,7 @@ export function emptyLedger(): Ledger {
     winsByMap: {},
     winsByDifficulty: {},
     winsByNight: {},
-    oathsWon: [],
+    armoursWon: [],
   };
 }
 
@@ -308,12 +319,13 @@ const LIST: Array<Omit<Achievement, "tier">> = [
     progress: (l) => [Math.max(0, ...HEROES.map((h) => l.winsByKeeper[h] ?? 0)), 10],
   },
   {
+    // Kept as "oaths" so it stays earned for anyone who won it as Three Oaths.
     id: "oaths",
-    name: "Three Oaths",
-    blurb: "Win as Sir Michael once with each oath.",
+    name: "Full Armoury",
+    blurb: "Win as Sir Michael once in each armour.",
     shelf: "staff",
-    check: (c) => OATHS.every((o) => c.ledger.oathsWon.includes(o)),
-    progress: (l) => [l.oathsWon.length, OATHS.length],
+    check: (c) => ARMOURS.every((a) => c.ledger.armoursWon.includes(a)),
+    progress: (l) => [l.armoursWon.length, ARMOURS.length],
   },
   {
     id: "well-read",
@@ -403,7 +415,7 @@ const LIST: Array<Omit<Achievement, "tier">> = [
   { id: "cocktail", name: "House Special", blurb: "One fruit carries four different afflictions at once.", shelf: "workshop", check: (c) => c.log.maxAfflictions >= 4 },
   { id: "contagion", name: "Outbreak", blurb: "Contagion spreads 50 stacks in one night.", shelf: "workshop", check: (c) => c.log.contagion >= 50 },
   { id: "chain", name: "Chain Reaction", blurb: "One Card Catalogue shot kills 3 fruit.", shelf: "workshop", check: (c) => c.log.chainBest >= 3 },
-  { id: "knockback", name: "Knockback King", blurb: "The Pumpkin Trebuchet moves 30 fruit in one night.", shelf: "workshop", check: (c) => c.log.knocks >= 30 },
+  { id: "knockback", name: "Knockback King", blurb: "The Dragonfire Trebuchet moves 30 fruit in one night.", shelf: "workshop", check: (c) => c.log.knocks >= 30 },
   { id: "slow-cooker", name: "Slow Cooker", blurb: "Have 10 fruit slowed at the same moment.", shelf: "workshop", check: (c) => c.log.maxSlowedAtOnce >= 10 },
   { id: "justice", name: "Justice Served", blurb: "The Scales of Justice land the kill on Karl.", shelf: "workshop", check: (c) => c.log.karlKilledBy.includes("scales") },
   { id: "mimic", name: "Mimic Feast", blurb: "The Mimic Chest swallows 30 fruit in one night.", shelf: "workshop", check: (c) => c.log.swallows >= 30 },
@@ -565,14 +577,14 @@ export function addNight(ledger: Ledger, c: Omit<NightContext, "ledger" | "endle
     winsByMap: { ...ledger.winsByMap },
     winsByDifficulty: { ...ledger.winsByDifficulty },
     winsByNight: { ...ledger.winsByNight },
-    oathsWon: [...ledger.oathsWon],
+    armoursWon: [...ledger.armoursWon],
   };
   if (c.won && c.night !== "endless") {
     out.winsByNight[c.night] = (out.winsByNight[c.night] ?? 0) + 1;
     if (c.hero) out.winsByKeeper[c.hero] = (out.winsByKeeper[c.hero] ?? 0) + 1;
     out.winsByMap[c.map] = (out.winsByMap[c.map] ?? 0) + 1;
     out.winsByDifficulty[c.difficulty] = (out.winsByDifficulty[c.difficulty] ?? 0) + 1;
-    if (c.hero === "michael" && c.log.oath && !out.oathsWon.includes(c.log.oath)) out.oathsWon.push(c.log.oath);
+    if (c.hero === "michael" && c.log.armour && !out.armoursWon.includes(c.log.armour)) out.armoursWon.push(c.log.armour);
   }
   return out;
 }
@@ -616,7 +628,10 @@ export function parseSave(raw: unknown): AchievementSave {
     out.ledger.winsByDifficulty = counts(l.winsByDifficulty, DIFFICULTIES.map((d) => d.id));
     out.ledger.winsByNight = counts(l.winsByNight, STORY_NIGHTS);
 
-    out.ledger.oathsWon = Array.isArray(l.oathsWon) ? OATHS.filter((o) => (l.oathsWon as unknown[]).includes(o)) : [];
+    // Armours won; a save from the oath days has oathsWon instead, mapped across (Hold the door → Azure Plate,
+    // Meet them first → Emberforged, Bring one pumpkin → Wyrmrider).
+    const won = [...(Array.isArray(l.armoursWon) ? l.armoursWon : []), ...(Array.isArray(l.oathsWon) ? l.oathsWon : [])].map(armourFrom);
+    out.ledger.armoursWon = ARMOURS.filter((a) => won.includes(a));
   }
   // Saves from before the ledger counted nights: an Overflow win shows as a win on its map, or as its achievements.
   if (!out.ledger.winsByNight.overflow) {

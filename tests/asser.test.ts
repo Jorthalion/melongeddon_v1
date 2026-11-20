@@ -105,7 +105,7 @@ function clearWave(api: Api) {
   }
 }
 
-test("Asser starts with 20 stacks and 100 seeds, no towers, his line, and no oath", () => {
+test("Asser starts with 20 stacks and 100 seeds, no towers, his line, and no armour", () => {
   const api = start();
   const w = api.world;
   assert.equal(w.hud.phase, "prep");
@@ -113,7 +113,7 @@ test("Asser starts with 20 stacks and 100 seeds, no towers, his line, and no oat
   assert.equal(w.hud.maxLives, 20);
   assert.equal(w.hud.seeds, 100);
   assert.equal(w.towers.length, 0);
-  assert.equal(w.hud.oath, null);
+  assert.equal(w.hud.armour, null);
   assert.match(w.hud.log, /^“I start with 20 stacks\. I'll lose some\./);
   assert.equal(w.hud.sisu, 0);
 });

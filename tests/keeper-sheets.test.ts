@@ -11,7 +11,7 @@ test("every keeper has a sheet, and its stacks and seeds match a real night's st
     const api = createWorld(() => {}, { meta: EMPTY_META, keepers: emptyProgress(), setup: { night: "midnight", map: "stacks", hero } });
     api.openSetup();
     api.chooseHero(hero);
-    // Sir Michael chooses his oath on the intro; his sheet shows the numbers before any oath.
+    // Sir Michael chooses his armour on the intro; his sheet shows the numbers before any armour.
     assert.equal(api.world.hud.lives, sheet.stacks, `${hero}: stacks`);
     assert.equal(api.world.hud.seeds, sheet.seeds, `${hero}: seeds`);
   }

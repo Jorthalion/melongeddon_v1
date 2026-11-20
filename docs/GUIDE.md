@@ -288,7 +288,7 @@ Perks that name a keeper's signature tower ("The Scales fire 25% faster") don't 
 |---|---|---|---|
 | **Mynxi**, Head librarian | 12 stacks, 150 seeds | Her first cannon costs 40; her cannons reach farther | **Card Catalogue** (90): long reach; every shot chains into two more fruit. Also **Reserve Desk** (30): see below |
 | **Vaelithra**, Potions division | 11 stacks, 120 seeds | Her shots make fruit **drowsy** (see [Slows](#slows-ice-drowsy-daze-and-puddles)). **New kinds cost more, the back room costs less:** the first tower of each kind she places in a night costs 20 seeds more (the second is the normal price, and selling the first doesn't bring the extra back), and her back-room upgrades cost 25, then 15 more per upgrade that kind has | **Bubbling Cauldron** (85, so 105 the first time): a potion puddle that slows and poisons. Also **Unstoppered** (150): see below |
-| **Sir Michael**, Pumpkin Knight | 11 stacks, 145 seeds, no cannon | Ordinary shots. On the intro, with the board in view, he picks one oath; the other two are refused for the night. **Hold the last tiles**: towers that reach the last three tiles of carpet fire 20% faster, but he starts with 2 fewer stacks. **Meet them coming in**: fruit on the first three tiles take 30% more damage from everything, but he starts with 10 fewer seeds. **Bring one pumpkin**: the Trebuchet costs 30 seeds less, with no zone | **Pumpkin Trebuchet** (110): a huge, slow splash that knocks non-boss fruit back one tile (more with Heavier Pumpkins). Also **The Gourd Gate** (300): a pumpkin gatehouse built right beside the carpet. Every few seconds it slams a portcullis on the carpet next to it: nothing gets past for 3 seconds (Karl for 1; husks too), and its crossbows shoot everything held there. Inside his oath's zone it holds for 4. And **The Harvest Bombard** (400, or 350 under "Bring one pumpkin"): anywhere on the board, a flaming giant pumpkin lands on the biggest crowd every 3 seconds, hits hard, shoves everything but Karl back a tile and sets the carpet burning |
+| **Sir Michael**, Dragon Knight | 11 stacks, 145 seeds, no cannon | Ordinary shots, and he builds big. On the intro, with the board in view, he chooses his **armour** for the night: **Azure Plate** (+3 stacks, 10 fewer seeds), **Dragonscale Mail** (his Hoard starts with 60 and saves 30%, but 2 fewer stacks), **Emberforged Armour** (from level 3: Great towers and the Roost hit 20% harder and leave blue fire, but merging costs 25% more) or **Wyrmrider Harness** (from level 5: the Roost starts as a Whelp, but In the Zone stops at +10%). **The Dragon's Hoard**: a quarter of every seed he spends on ordinary towers and the back room is saved, and pays first for his big things. **Great towers**: tap a tower with another of the same kind right beside it and press **Make Great**: they merge into one Great tower across both tiles, with two and a half times the damage and a quarter more reach. **In the Zone**: every wave he clears without losing a stack, his Great towers, Gate and Roost hit 5% harder, up to 20%. Losing a stack resets it | **Dragonfire Trebuchet** (110): a huge, slow splash that knocks non-boss fruit back one tile (more with Heavier Pumpkins). Also **The Dragon Gate** (300, the Hoard pays first): a gatehouse with a dragon's-head arch, built right beside the carpet. Every few seconds it slams a portcullis on the carpet next to it: nothing gets past for 3 seconds (Karl for 1; husks too), and its crossbows shoot everything held there. And **The Dragon's Roost** (200, the Hoard pays first): a nest with an egg that grows with every wave it stands through: a **Whelp** after 2 (short blue breath), a **Drake** after 5 (a longer burst), and a **Great Dragon** after 9 that strikes the biggest crowd anywhere on the board for 500, shoves everything but Karl back a tile and sets the carpet burning. Between waves, **Feed** it (50) once to grow it a wave faster |
 | **Legal Elf**, Legal advisor | 12 stacks, 150 seeds | The back room costs 30% less | **Scales of Justice** (95): hits the heaviest fruit in reach for a share of its health; kills pay a fee. Also **Foot of the Law** (85): a giant foot stamps the busiest stretch of carpet in reach every few seconds, for a little damage and a short stop on everything under it, husks included. And **Honeyed Heel** (75): sticky footprints that slow everything, husks included |
 | **Ooze Clues**, Astral adventurer | 13 stacks, 140 seeds | The first fruit that leaks each wave is absorbed | **Mimic Chest (Memec)** (100): swallows a nearby fruit whole every few seconds; Karl only loses a big bite. Also **The Copycat** (free): see below |
 | **Dr. Samodovol**, The Scholar | 12 stacks, 150 seeds | **The Doctor's pick.** Each shelf shows four cards: the usual three, plus one more marked "Doctor's pick", a real upgrade from further along the shelves (one you'd normally see later) | **History Lectern** (50): no shot, and it helps no cannon. After each wave it looks at how far the fruit got: if any got three-quarters of the way along the carpet (or leaked), the kind that got furthest walks 25% slower next wave, and the Doctor says so ("The corn got furthest. They will be slower."). If none did: "Nothing reached the stacks. I have nothing to add." One kind, one wave, one Lectern |
@@ -346,7 +346,7 @@ At levels **2, 4, 6, 8 and 10** a new row of two perks opens on the setup screen
 | 4 | **Heavier Pumpkins**: Trebuchet knockback is 50% stronger. | **Wide Splat**: Trebuchet splash is 25% wider. |
 | 6 | **Patrol Pay**: +6 seeds after every wave. | **Steady Arm**: All your cannons hit 5% harder. |
 | 8 | **Siege Crew**: The Trebuchet fires 20% faster. | **Requisition**: The Trebuchet costs 30 seeds less. |
-| 10 | **Second Trebuchet**: You can build two Pumpkin Trebuchets. | **Harvest Oath**: Every kill pays 1 more seed. |
+| 10 | **Second Trebuchet**: You can build two Dragonfire Trebuchets. | **Dragon's Tithe**: Every kill pays 1 more seed. |
 
 **Legal Elf**
 
@@ -486,7 +486,7 @@ Status effects build on each other. Small coloured dots under a fruit show what 
 **Ice and fire**
 
 - **Frost (0–3).** Only ice adds frost: a Freeze cannon hit adds two and holds the fruit as before, and a Cold rind hit adds one. Other slows aren't ice and add none (see [Slows](#slows-ice-drowsy-daze-and-puddles)). One frost slows to 80%, two to 55%, three freezes it solid (then it drops back to two). The meter drops one 1.2 seconds after the last was added (damp fruit: twice as long). Bosses stop at two; husks never take frost. Three frost also tints the fruit pale blue.
-- **Shatter.** The first **splash** on a fruit with two or more frost (a Mortar, Juicy Explosions, Splatter, the Trebuchet, a Quack-Liber ki blast, the Bombard) shatters it: that hit does **half again**, its frost goes to zero, and **ice shards** hit every other fruit within a tile for 25% of the hit (40% at three frost). Shards are splash, so pits shrug them off. Any stings, poison or fire on it go off at once. Aimed shots (Melon, Spitter, Ballista, Long Reader, Telescope) never shatter.
+- **Shatter.** The first **splash** on a fruit with two or more frost (a Mortar, Juicy Explosions, Splatter, the Trebuchet, a Quack-Liber ki blast, the Roost's dragonfire) shatters it: that hit does **half again**, its frost goes to zero, and **ice shards** hit every other fruit within a tile for 25% of the hit (40% at three frost). Shards are splash, so pits shrug them off. Any stings, poison or fire on it go off at once. Aimed shots (Melon, Spitter, Ballista, Long Reader, Telescope) never shatter.
 - **Thermal shock.** **Ice, then fire:** a Fire cannon shot, or walking into a fire patch, on a frosted fruit thaws it at once and bursts for 60% more ("HISS"). It doesn't bake a raw pumpkin. **Fire, then ice:** a Freeze hit on a burning fruit puts the fire out for 1.5 seconds, even standing in the patch. It's still steaming for those seconds, so a growth bed doesn't heal it either. So put the Freeze cannon earlier on the carpet than the Fire cannon.
 - **Wildfire.** A burning fruit that's slowed but not frozen (frost, a daze, drowsy or a slowing puddle) sets a neighbour within about a tile alight every second, for two seconds. Damp fruit, damp rooms and wet carpet halve it; husks catch it first.
 - **Explosions** spread a puddle by half (once), make a fire patch burn twice as hard for a second, and Electrified Rounds' spark reaches twice as far to a fruit with frost.
@@ -497,7 +497,7 @@ Status effects build on each other. Small coloured dots under a fruit show what 
 |---|---|---|---|---|
 | Stung | Fly Hive hits | 3 a second | 5 | 3 s |
 | Poisoned | each second in a Cauldron puddle | a third of the puddle's damage | 3 | 3 s |
-| Burning | fire patches, the Bombard, wildfire | as before | 1 | as before |
+| Burning | fire patches, the Roost's dragonfire, Emberforged blue fire, wildfire | as before | 1 | as before |
 | Burrowed | Bookworm | as before | 1 | as before |
 
 Different afflictions add together; the same one adds a stack and refreshes. All of them together do at most 60 a second to one fruit (Ink and Honey still multiply that). Husks and pits take stings in full; damp takes poison in full; a shell keeps stingers out until it cracks.
@@ -542,7 +542,7 @@ Every tower also has a **type**. The type decides which shared upgrades affect i
 
 | Type | Towers |
 |---|---|
-| **Cannon** | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Pumpkin Trebuchet, Printing Press |
+| **Cannon** | Melon cannon, Pumpkin mortar, Fire cannon, Freeze cannon, Dragonfire Trebuchet, Printing Press |
 | **Precision** | Seed Spitter, Shelf Ballista, Long Reader, Peeler, Boomerang Bookend, Orrery, Paper Plane, Serpent Quill, Rolling Globe, Brass Telescope, Card Catalogue, Scales of Justice |
 | **Alchemy** | Still, Ink Well, Bubbling Cauldron, Unstoppered |
 | **Creature** | Fly Hive, Bookworm, Mimic Chest, Copycat |
@@ -618,7 +618,7 @@ Everything on a fruit shows on the fruit itself. Its body takes one coating, for
 | Bulges moving under the skin, two little holes, a worm popping out | **Burrowed** by the Bookworm |
 | Ripples at its feet | Slowed by a **puddle** |
 | Stars (the Shush Bell) or music notes (the Organ) circling, rocking in place | **Stunned** |
-| Squashed flat, with a dust ring | **Stomped** by the Foot of the Law, or held by the Gourd Gate |
+| Squashed flat, with a dust ring | **Stomped** by the Foot of the Law, or held by the Dragon Gate |
 | Turned round to face back, sweating; panicking geese drop feathers | **Walked back** (Instant Quackmission, the Anti-Geese Protocol, the General's scatter) |
 | A "!" over its head | **Standing still** (a Gosling leader fell); a fight has its own dust cloud |
 | A soft green glow and rising "+" | **Healing** on a bed, a vine, or from a gall |
@@ -650,7 +650,7 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | Kind | Comes from |
 |---|---|
 | **Direct hit** | Melon, Seed Spitter, Ballista, Long Reader, Fly Hive, Ink Well, Peeler, the Printing Press's sheet, every trick cannon, the keepers' own towers, the hit itself from Mortars, Fire and Freeze cannons, and Electrified Rounds' zap |
-| **Splash** | The blast around a Mortar or Pumpkin Trebuchet hit, the Foot of the Law's stomp, the Pipe Organ's chord, Juicy Explosions, Knight's Splatter, and the burst when Karl pops |
+| **Splash** | The blast around a Mortar or Dragonfire Trebuchet hit, the Foot of the Law's stomp, the Pipe Organ's chord, Juicy Explosions, Knight's Splatter, and the burst when Karl pops |
 | **Fire** | The flames a Fire cannon leaves on the carpet |
 | **Puddle** | Puddles that hurt: the Still's with Distilled, and the Cauldron's poison |
 | **Bookworm** | The Bookworm burrowing into pumpkins and Karl |
@@ -896,7 +896,7 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 - **Sisu**: Win a story night as Asser Mälkki.
 - **Full Staff**: Win with every keeper.
 - **The Librarian's Pet**: Win 10 nights as the same keeper.
-- **Three Oaths**: Win as Sir Michael once with each oath.
+- **Full Armoury**: Win as Sir Michael once in each armour.
 - **Well Read**: As Dr. Samodovol, win a night taking the Doctor's pick at least 3 times.
 - **Off the Shelf**: As Dr. Samodovol, win a night without taking a single Doctor's pick.
 - **Power Level: Absurd**: As Quackarot, win a night after going golden (Over Nine Thousand Quacks).
@@ -920,7 +920,7 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 
 - **Ki-mail**: The Quack-Liber's ki blasts get 100 kills, across all nights.
 - **Chain Reaction**: One Card Catalogue shot kills 3 fruit.
-- **Knockback King**: The Pumpkin Trebuchet moves 30 fruit in one night.
+- **Knockback King**: The Dragonfire Trebuchet moves 30 fruit in one night.
 - **Slow Cooker**: Have 10 fruit slowed at the same moment.
 - **Justice Served**: The Scales of Justice land the kill on Karl.
 - **Mimic Feast**: The Mimic Chest swallows 30 fruit in one night.

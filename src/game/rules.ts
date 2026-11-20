@@ -27,7 +27,7 @@ export const HEROES: HeroId[] = ["mynxi", "vael", "michael", "elf", "ooze", "sch
 export const KEEPER_NAMES: Record<HeroId, { name: string; short: string; role: string }> = {
   mynxi: { name: "Mynxi", short: "Mynxi", role: "Head librarian" },
   vael: { name: "Vaelithra", short: "Vael", role: "Potions division" },
-  michael: { name: "Sir Michael", short: "Sir Michael", role: "Pumpkin Knight" },
+  michael: { name: "Sir Michael", short: "Sir Michael", role: "Dragon Knight" },
   elf: { name: "Legal Elf", short: "The Legal Elf", role: "Legal advisor" },
   ooze: { name: "Ooze Clues", short: "Ooze", role: "Astral adventurer" },
   scholar: { name: "Dr. Samodovol", short: "The Doctor", role: "The Scholar" },
@@ -735,8 +735,8 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     role: "Poison",
   },
   trebuchet: {
-    name: "Pumpkin Trebuchet",
-    blurb: "Sir Michael's own. A huge, slow lob that knocks fruit back down the carpet.",
+    name: "Dragonfire Trebuchet",
+    blurb: "Sir Michael's own. A huge, slow lob of a pumpkin wrapped in blue dragonfire that knocks fruit back down the carpet.",
     cost: 110,
     role: "Knockback",
   },
@@ -802,16 +802,16 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     role: "One shot",
   },
   gourdgate: {
-    name: "The Gourd Gate",
-    blurb: "Sir Michael's second. A gatehouse in a giant pumpkin, built right beside the carpet. Every 4 s it slams its portcullis on the carpet next to it: nothing gets past for 3 s (Karl, 1 s; husks too), and its crossbows hit everything held there. Holds 4 s inside his oath's zone.",
+    name: "The Dragon Gate",
+    blurb: "Sir Michael's second, paid from his Hoard first. A gatehouse with a dragon's-head arch, built right beside the carpet. Every 4 s it slams its portcullis on the carpet next to it: nothing gets past for 3 s (Karl, 1 s; husks too), and its crossbows hit everything held there.",
     cost: 300,
     role: "Portcullis",
   },
   bombard: {
-    name: "The Harvest Bombard",
-    blurb: "Sir Michael's third. The biggest gun in the library: anywhere on the board, every 3 s, a flaming giant pumpkin lands on the biggest crowd. A 500 hit, 60% of that to everything near it, a one-tile shove (not Karl), and a burning patch. 50 less under his pumpkin oath.",
-    cost: 400,
-    role: "Siege",
+    name: "The Dragon's Roost",
+    blurb: "Sir Michael's third, paid from his Hoard first. A great nest with a dragon egg in it. It grows with every wave it stands through: a Whelp after 2 (short blue breath), a Drake after 5 (a long burst), and a Great Dragon after 9 that strikes the biggest crowd anywhere on the board for 500, with 60% to everything near it, a one-tile shove (not Karl) and a burning patch. Feed it between waves to grow it faster.",
+    cost: 200,
+    role: "Dragon",
   },
   lionblade: {
     name: "Lion Blade",
@@ -857,9 +857,9 @@ const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: num
   geese: { dmg: 0, pace: 1, range: 0.9 },
   // Lion Blade: a full-circle cleave about 1.5 tiles out (132 × 0.55 = 73 px), so it only works right by the carpet.
   lionblade: { dmg: 0.9, pace: 1.7, range: 0.55 },
-  // Gourd Gate: dmg is its crossbows' damage per second to held fruit (140); pace sets a drop every 4 s; range just reaches the carpet beside it.
+  // Dragon Gate: dmg is its crossbows' damage per second to held fruit (140); pace sets a drop every 4 s; range just reaches the carpet beside it.
   gourdgate: { dmg: 10, pace: 4.45, range: 0.5 },
-  // Harvest Bombard: 500 a pumpkin, every 3 s, whole board.
+  // Dragon's Roost: the Great Dragon's numbers (500 a strike, every 3.34 s, whole board); younger stages take a share (DRAGON.roostStage).
   bombard: { dmg: 35.72, pace: 3.34, range: 0 },
   // Instant Quackmission: no damage, a plain melon's reach; its pace is CANNON.driverEvery.
   driver: { dmg: 0, pace: 1, range: 1 },
@@ -980,17 +980,15 @@ export const CANNON = {
   /** Lion Blade: a rally swing (after a lost stack) hits this much harder; with Battle Scar, bladeScar. */
   bladeRally: 1.5,
   bladeScar: 2,
-  /** Gourd Gate: how long the portcullis holds (inside his oath's zone, gateHoldOath; Karl only gateBossHold), and how near it a fruit is held. */
+  /** Dragon Gate: how long the portcullis holds (Karl only gateBossHold), and how near it a fruit is held. */
   gateHold: 3,
-  gateHoldOath: 4,
   gateBossHold: 1,
   gateBand: 36,
-  /** Harvest Bombard: splash radius and share, the burning patch it leaves, and the seeds off under the pumpkin oath. */
+  /** Dragon's Roost: splash radius and share of a breath, and the burning patch it leaves (see DRAGON.roostStage for each stage). */
   bombardRadius: 72,
   bombardSplashRatio: 0.6,
   bombardFireLife: 3,
   bombardFireBurn: 25,
-  bombardSlingDiscount: 50,
   /** Instant Quackmission: seconds between buzzes, how long a fruit walks back, and Karl's (shorter) turn. */
   driverEvery: 4,
   driverTime: 2.5,
@@ -2486,48 +2484,136 @@ function within(p0: { x: number; y: number }, p1: { x: number; y: number }, cx: 
  * whole answer, not a guess. `inner` cuts out a hole (the Orrery's planets only hit near their orbit).
  * `length` is in px; divide by CELL for tiles.
  */
-/** Sir Michael's oaths. He says one on the intro; the other two are refused for the night. */
-export type OathId = "door" | "mouth" | "sling";
-export const OATHS: OathId[] = ["door", "mouth", "sling"];
-/** How far each end's zone runs along the carpet: three tiles. */
-export const OATH_ZONE = 3 * CELL;
 /**
- * What each oath gives and costs. door: towers whose reach touches the last three tiles fire
- * `doorHaste` faster; he starts `doorStacks` stacks down. mouth: fruit on the first three tiles take
- * `mouthAmp` damage from everything; he starts `mouthSeeds` seeds down. sling: the Trebuchet costs
- * `slingDiscount` less; no zone. The Trebuchet shoves anywhere under every oath.
+ * Sir Michael the Dragon Knight's armours. He puts one on before the night (on the intro, where the
+ * oaths used to be): each gives a starting boost and has a cost. Two are open from the start; the
+ * other two open with his keeper level (`ARMOUR_LEVEL`).
  */
+export type ArmourId = "azure" | "dragonscale" | "ember" | "wyrm";
+export const ARMOURS: ArmourId[] = ["azure", "dragonscale", "ember", "wyrm"];
+/** The keeper level each armour opens at (1 = from the start). */
+export const ARMOUR_LEVEL: Record<ArmourId, number> = { azure: 1, dragonscale: 1, ember: 3, wyrm: 5 };
+/**
+ * @deprecated The oaths are gone; old saves and scripts that still name one are mapped to an armour
+ * (`ARMOUR_FOR_OATH`). Hold the door → Azure Plate, Meet them first → Emberforged, Bring one pumpkin → Wyrmrider.
+ */
+export type OathId = "door" | "mouth" | "sling";
+/** @deprecated See `OathId`. */
+export const OATHS: OathId[] = ["door", "mouth", "sling"];
+export const ARMOUR_FOR_OATH: Record<OathId, ArmourId> = { door: "azure", mouth: "ember", sling: "wyrm" };
+/** An armour id from anything a save or script might hold: an armour, an old oath, or junk (null). */
+export function armourFrom(v: unknown): ArmourId | null {
+  if (typeof v !== "string") return null;
+  if ((ARMOURS as string[]).includes(v)) return v as ArmourId;
+  if ((OATHS as string[]).includes(v)) return ARMOUR_FOR_OATH[v as OathId];
+  return null;
+}
+
+/**
+ * Sir Michael's numbers. All the Dragon Knight's rules read from here.
+ * - The Dragon's Hoard: `hoardShare` of every seed he spends on ordinary towers and back-room
+ *   upgrades also goes into the Hoard. The Hoard pays first for big things (the Dragon Gate, the
+ *   Dragon's Roost, feeding the dragon, Great towers); seeds pay the rest.
+ * - Great towers: two of the same shared tower side by side merge into one that covers both tiles,
+ *   with `greatDmg` damage and `greatRange` reach. Merging costs `greatCost` of the tower's price.
+ * - The Dragon's Roost: an egg that grows with the waves it stands through (`roostGrow`: waves to
+ *   whelp, drake, Great Dragon). Feeding it (`roostFeed` seeds, once a break) counts as one more wave.
+ *   Each stage's share of the full hit, reach in tiles (0 = the whole board) and seconds per breath.
+ * - In the Zone: every wave cleared with no stack lost adds `zoneStep` damage to his big towers,
+ *   up to `zoneCap`. A lost stack resets it.
+ */
+export const DRAGON = {
+  hoardShare: 0.25,
+  greatDmg: 2.5,
+  greatRange: 1.25,
+  greatCost: 0.6,
+  roostGrow: [2, 5, 9] as const,
+  roostFeed: 50,
+  roostStage: [
+    { dmg: 0, range: 0, pace: 1 },
+    { dmg: 0.2, range: 2.2, pace: 1.5 },
+    { dmg: 0.42, range: 4, pace: 2.1 },
+    { dmg: 1, range: 0, pace: 3.34 },
+  ] as const,
+  zoneStep: 0.05,
+  zoneCap: 0.2,
+};
+/** What each armour changes (see ARMOUR_TEXT for the words). */
+export const ARMOUR_VALUES = {
+  /** Azure Plate: more stacks, fewer seeds. */
+  azureLives: 3,
+  azureSeeds: 10,
+  /** Dragonscale Mail: the Hoard starts full and takes a bigger share; two stacks down. */
+  scaleHoard: 60,
+  scaleShare: 0.3,
+  scaleLives: 2,
+  /** Emberforged Armour: Great towers and the Roost hit harder and leave blue fire; merging costs more. */
+  emberDmg: 1.2,
+  emberMerge: 1.25,
+  emberBurn: 18,
+  /** Wyrmrider Harness: the Roost starts a stage on; In the Zone stops lower. */
+  wyrmStage: 1,
+  wyrmZoneCap: 0.1,
+};
+/** Sir Michael's big towers: the Hoard pays for them first, and In the Zone and Emberforged boost them (with Great towers). */
+export const BIG_KINDS: TowerKind[] = ["gourdgate", "bombard"];
+/** The armour cards on Sir Michael's intro: name, what it looks like, what he says, the gain and the cost, and the log line. */
+export const ARMOUR_TEXT: Record<ArmourId, { name: string; look: string; said: string; gain: string; cost: string; log: string }> = {
+  azure: {
+    name: "Azure Plate",
+    look: "Heavy blue plate with a dragon-head helm.",
+    said: "Plate today. I'm not moving.",
+    gain: `+${ARMOUR_VALUES.azureLives} stacks`,
+    cost: `−${ARMOUR_VALUES.azureSeeds} seeds`,
+    log: "Sir Michael buckles on the Azure Plate. “Plate today. I'm not moving.”",
+  },
+  dragonscale: {
+    name: "Dragonscale Mail",
+    look: "Overlapping gold-edged scales.",
+    said: "The hoard comes with me.",
+    gain: `Hoard starts at ${ARMOUR_VALUES.scaleHoard} and takes ${Math.round(ARMOUR_VALUES.scaleShare * 100)}%`,
+    cost: `−${ARMOUR_VALUES.scaleLives} stacks`,
+    log: "Sir Michael shrugs into the Dragonscale Mail. “The hoard comes with me.”",
+  },
+  ember: {
+    name: "Emberforged Armour",
+    look: "Blackened steel, glowing blue at the seams.",
+    said: "Fewer towers. Bigger fires.",
+    gain: `Great towers and the Roost +${Math.round((ARMOUR_VALUES.emberDmg - 1) * 100)}% and blue fire`,
+    cost: `Merging costs ${Math.round((ARMOUR_VALUES.emberMerge - 1) * 100)}% more`,
+    log: "Sir Michael seals the Emberforged Armour. “Fewer towers. Bigger fires.”",
+  },
+  wyrm: {
+    name: "Wyrmrider Harness",
+    look: "Light riding leathers with a dragon saddle-cloak.",
+    said: "The egg's already cracking.",
+    gain: "The Roost starts as a Whelp",
+    cost: `In the Zone tops out at +${Math.round(ARMOUR_VALUES.wyrmZoneCap * 100)}%`,
+    log: "Sir Michael pulls on the Wyrmrider Harness. “The egg's already cracking.”",
+  },
+};
+/** Roost stage names, egg to Great Dragon. */
+export const ROOST_STAGES = ["Egg", "Whelp", "Drake", "Great Dragon"] as const;
+/**
+ * Which towers can be merged into a Great tower: the shared ones that shoot. Helpers (lamp, heap)
+ * and every keeper tower can't.
+ */
+export function canBeGreat(kind: TowerKind) {
+  return !isSignature(kind) && kind !== "lantern" && kind !== "compost" && kind !== "copycat";
+}
+/** How many waves' growth reach each Roost stage: 0 egg, 1 whelp, 2 drake, 3 Great Dragon. */
+export function roostStageFor(grown: number) {
+  let stage = 0;
+  for (const need of DRAGON.roostGrow) if (grown >= need) stage++;
+  return stage;
+}
+
 /**
  * Asser Mälkki. Material: every stack he loses pays `materialSeeds` seeds. Sisu: all his towers hit
  * `sisuPerStack` harder for every stack he is missing, up to `sisuCap` stacks. Lion Blade: each one
  * standing through a wave puts `bladeMend` stacks back when it's cleared.
  */
 export const ASSER_VALUES = { materialSeeds: 4, sisuPerStack: 0.02, sisuCap: 15, bladeMend: 2 };
-export const OATH_VALUES = { doorHaste: 1.2, doorStacks: 2, mouthAmp: 1.3, mouthSeeds: 10, slingDiscount: 30 };
-/** The oath cards on Sir Michael's intro: what he says, a short title, the gain and the cost, and the log line. */
-export const OATH_TEXT: Record<OathId, { said: string; title: string; gain: string; cost: string; log: string }> = {
-  door: {
-    said: "I hold the last tiles.",
-    title: "Hold the door",
-    gain: `+${Math.round((OATH_VALUES.doorHaste - 1) * 100)}% fire rate, last 3 tiles`,
-    cost: `−${OATH_VALUES.doorStacks} stacks`,
-    log: "Sir Michael: “I hold the last tiles.” The other two oaths can wait for another night.",
-  },
-  mouth: {
-    said: "I meet them coming in.",
-    title: "Meet them first",
-    gain: `+${Math.round((OATH_VALUES.mouthAmp - 1) * 100)}% damage, first 3 tiles`,
-    cost: `−${OATH_VALUES.mouthSeeds} seeds`,
-    log: "Sir Michael: “I meet them coming in.” The other two oaths can wait for another night.",
-  },
-  sling: {
-    said: "I brought one pumpkin.",
-    title: "Bring one pumpkin",
-    gain: `Trebuchet −${OATH_VALUES.slingDiscount} seeds`,
-    cost: "No zone",
-    log: "Sir Michael: “I brought one pumpkin.” The other two oaths can wait for another night.",
-  },
-};
 
 /**
  * How far along the carpet polyline a fruit is, in px from the first point. Negative before the
@@ -2669,40 +2755,6 @@ export function bindLeg(legs: ReturnType<typeof carpetLegs>, c: number, r: numbe
     }
   }
   return best;
-}
-
-/** The carpet stretch an oath's zone covers (door: the last three tiles; mouth: the first three; sling: none). */
-export function oathStretch(points: Array<{ x: number; y: number }>, oath: OathId): Array<{ x: number; y: number }> {
-  if (oath === "sling" || points.length < 2) return [];
-  const pts = oath === "door" ? [...points].reverse() : points;
-  const out = [pts[0]];
-  let left = OATH_ZONE;
-  for (let k = 1; k < pts.length && left > 0; k++) {
-    const a = pts[k - 1];
-    const b = pts[k];
-    const d = Math.hypot(b.x - a.x, b.y - a.y);
-    if (d <= left) {
-      out.push(b);
-      left -= d;
-    } else {
-      out.push({ x: a.x + ((b.x - a.x) / d) * left, y: a.y + ((b.y - a.y) / d) * left });
-      left = 0;
-    }
-  }
-  return out;
-}
-
-/**
- * Whether a fruit stands in an end zone, measured along the carpet: door counts a chute spawn past
- * the last point, mouth counts fruit still walking in before the first.
- */
-export function inOathZone(
-  points: Array<{ x: number; y: number }>,
-  zone: "door" | "mouth",
-  e: { x: number; y: number; wp: number; reverse: boolean },
-) {
-  const { along, total } = carpetAlong(points, e.x, e.y, e.wp, e.reverse);
-  return zone === "door" ? total - along <= OATH_ZONE : along <= OATH_ZONE;
 }
 
 export function carpetInReach(points: Array<{ x: number; y: number }>, x: number, y: number, outer: number, inner = 0) {

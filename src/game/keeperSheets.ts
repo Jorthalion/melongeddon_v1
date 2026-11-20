@@ -36,11 +36,12 @@ export const KEEPER_SHEETS: Record<
     seeds: 145,
     difficulty: "Medium",
     rules: [
-      "Before each night he swears one oath: faster towers at the door, harder hits at the entrance, or a cheaper Trebuchet.",
-      "His own shots are ordinary. The oath is the plan.",
-      "Pumpkin Trebuchet knocks fruit back; later, the Gourd Gate (300) holds the carpet and the Harvest Bombard (400) shells the biggest crowd.",
+      "Before each night he chooses his armour: more stacks, a fuller Hoard, fiercer Great towers, or a Roost that starts hatched.",
+      "The Dragon's Hoard: a quarter of what he spends on ordinary towers is saved, and pays first for his big things.",
+      "Two of the same tower side by side can merge into one Great tower: two and a half times the damage, farther reach.",
+      "The Dragon's Roost (200) grows from an egg into a Great Dragon over the night; the Dragon Gate (300) holds the carpet. Waves with no stack lost put him In the Zone.",
     ],
-    suits: "Players who like to commit to a plan and save for big towers.",
+    suits: "Players who like to save up and build big.",
   },
   elf: {
     stacks: 12,

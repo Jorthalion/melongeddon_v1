@@ -3,7 +3,7 @@
  * bookmark, the keeper's own rules, late slips, fittings), as plain data for the panel and tests.
  * A view only: every total comes from the numbers the engine reads, never from blurb text.
  */
-import { ASSER_VALUES, BALANCE, KEEPER_NAMES, OATH_TEXT, SIGNATURE, TOWERS, UPGRADES } from "./rules.ts";
+import { ARMOUR_TEXT, ARMOUR_VALUES, ASSER_VALUES, BALANCE, DRAGON, KEEPER_NAMES, SIGNATURE, TOWERS, UPGRADES } from "./rules.ts";
 import { activePerks, levelFor, perkFx } from "./levels.ts";
 import { BOOKMARK, BOOKMARK_VALUES } from "./meta.ts";
 import { SLIP, SLIP_VALUES } from "./slips.ts";
@@ -64,12 +64,24 @@ export function checkoutCard(hud: Hud, keeperLine?: string): CheckoutCard {
   const keeper: CheckoutEntry[] = [];
   let sisuMul = 1;
   if (hero === "michael") {
-    const oath = hud.oath ? OATH_TEXT[hud.oath] : null;
+    const armour = hud.armour ? ARMOUR_TEXT[hud.armour] : null;
     keeper.push(
-      oath
-        ? { name: oath.title, blurb: `“${oath.said}” ${oath.gain}. ${oath.cost}.`, tone: "buff" }
-        : { name: "No oath yet", blurb: "He says where he stands before the night starts.", tone: "info" },
+      armour
+        ? { name: armour.name, blurb: `“${armour.said}” ${armour.gain}. ${armour.cost}.`, tone: "buff" }
+        : { name: "No armour yet", blurb: "He chooses his armour before the night starts.", tone: "info" },
     );
+    const share = hud.armour === "dragonscale" ? ARMOUR_VALUES.scaleShare : DRAGON.hoardShare;
+    keeper.push({
+      name: `Dragon's Hoard: ${Math.floor(hud.hoard)}`,
+      blurb: `${Math.round(share * 100)}% of the seeds he spends on ordinary towers and the back room is saved here, and pays first for the Dragon Gate, the Roost, feeding it and Great towers.`,
+      tone: "info",
+    });
+    if (hud.zone > 0)
+      keeper.push({
+        name: `In the Zone +${Math.round(hud.zone * 100)}%`,
+        blurb: "Every wave with no stack lost adds damage to his Great towers, Gate and Roost. A lost stack resets it.",
+        tone: "buff",
+      });
   } else if (hero === "asser") {
     const cap = ASSER_VALUES.sisuCap + fx.sisuCap;
     const per = ASSER_VALUES.sisuPerStack + fx.sisuPerStack;

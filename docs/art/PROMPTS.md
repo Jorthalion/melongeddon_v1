@@ -79,7 +79,9 @@ In the game; the code-drawn turret is only a fallback while it loads. Match **Qu
 | `sig-quackliber.png` | A compact **twin-barrel rocket launcher turret** built on a squat **padded backpack-style base in Quackarot's colours**: **bright orange canvas** like a hoodie, with **black straps, black drawstring cords** and brass buckles, and a **black crowned-duck emblem** stitched on the front. On top, a small round **brass turret** holding **two short, stubby black rocket tubes side by side**, rims painted orange, angled up and slightly forward, with **two little orange-and-cream rockets** peeking out of the muzzles, each with a tiny duck-bill nose cone. A **rubber-duck figurine** in a tiny gold crown rides on the turret beside the tubes like a hood ornament, and a short **crimson pennant with gold trim** flies from a thin antenna at the back. The base sits on a small round **dark walnut platform with brass rivets**. Playful and a bit cocky, but well made. 3/4 top-down view, transparent background. |
 | `fly-quack.png` (optional) | One of its rockets in flight: a **small orange-and-cream rocket with a little duck-bill nose cone**, two stubby black fins and an orange stripe, a short puff of flame and grey smoke behind it. **Side view, nose pointing right.** Transparent background, no shadow. |
 
-#### Sir Michael's second and third towers (done: `sig-gourdgate.webp`, `fly-portcullis.webp`, `sig-bombard.webp`, `fly-bombard.webp`)
+#### Sir Michael's old pumpkin towers (retired: `sig-gourdgate.webp` and `sig-bombard.webp` no longer show; `fly-portcullis.webp` still does)
+
+Kept for the record. He is the **Dragon Knight** now: see the next section for the art that replaces these.
 
 Two big siege towers to sit beside his **Pumpkin Trebuchet**. **Attach `public/sprites/sig-trebuchet.webp`** with every prompt so they read as the same knight's kit: dark walnut, **crimson cloth with gold fleur-de-lis**, gold trim, **orange pumpkins**, candles at the base. Paste the style line above first, unchanged (his colours are the crimson in it). They cost 300 and 400, so make them look **bigger and grander than the trebuchet**, but keep the same round walnut base and 3/4 view so they sit on one tile.
 
@@ -89,6 +91,26 @@ Two big siege towers to sit beside his **Pumpkin Trebuchet**. **Attach `public/s
 | `fly-portcullis.png` | Just the **portcullis**: a square **iron grille with gold-capped spikes along the bottom edge**, two crossbars riveted in gold, a short length of chain at the top. **Seen from straight above**, flat, as if it has just slammed down across a carpet. Transparent background, no shadow. |
 | `sig-bombard.png` | **The Harvest Bombard**, a colossal **bronze siege bombard cannon** whose barrel is **cast in the shape of a giant pumpkin's ribs**, mouth angled up toward the sky, a **huge orange pumpkin loaded in the muzzle** with its curly green stalk sticking out. The barrel rests on a heavy **carved walnut gun carriage with iron-rimmed wheels**, gold fleur-de-lis medallions on its sides, and a **lit slow-match fuse** smoking at the touch-hole. Beside it, a little pyramid of **three spare pumpkins** and a **crimson powder sack with a gold pumpkin emblem**. A crimson banner with gold trim flies from a tall pole at the back. All on a round dark walnut base with a gold band, gold studs and **two lit candles**, matching the attached trebuchet. It should look like the biggest gun in the library. 3/4 top-down view, transparent background. |
 | `fly-bombard.png` | The Bombard's shot in flight: **a huge glowing orange pumpkin wrapped in flame**, a trail of fire and sparks behind it, a few green leaves torn loose. **Side view, flying to the right.** Transparent background, no shadow. |
+
+#### Sir Michael the Dragon Knight (to do; code-drawn versions ship meanwhile)
+
+Sir Michael is a **Dragon Knight** now: **deep azure-blue armour, gold trim, blue dragonfire**. His old crimson-and-pumpkin look is retired. His blue is a **deep royal azure with gold**, darker and warmer than Asser's pale blue-and-white, so the two never read as the same keeper. **Don't paste the crimson style line**; use this one instead:
+
+> Painterly hand-painted game asset, dark gothic library fantasy, rich dark walnut wood, polished antique gold trim, deep royal azure-blue steel and cloth, glowing blue dragonfire, warm candlelight, soft rim light, crisp readable silhouette, highly detailed, no text, no watermark.
+
+The game looks for these files in `public/sprites/` (as `.webp`). Until each exists, a code drawing shows. Tower sprites are **3/4 top-down on a round dark walnut base**, transparent background, like every other tower.
+
+| File name | Prompt (after the line above) |
+|---|---|
+| `portrait-michael.png` (replaces the crimson one) | Bust portrait of **Sir Michael the Dragon Knight**: a young man with **dark, slightly messy hair** and a calm, confident look, in **ornate deep-blue plate armour with gold edging** and a **dragon's-head pauldron**, **blue flames curling up around his shoulders**. Square, the same framing and painted style as the other keeper portraits (attach one, e.g. `portrait-elf.webp`). |
+| `sig-dragongate.png` | **The Dragon Gate**: a small fortified **grey-stone gatehouse** whose arch is carved as a **dragon's open jaws**, gold horns over the top, **blue banners** either side, a heavy **iron-and-gold portcullis half raised**, two arrow slits glowing **blue**. On the walnut base, two lit candles. Grand and defensive; bigger-looking than the trebuchet but on one tile. |
+| `sig-roost-egg.png` | **The Dragon's Roost, egg**: a big **nest of dark twigs on a low stone**, holding one **glowing blue speckled dragon egg** with fine gold veins, a faint blue glow around it. |
+| `sig-roost-whelp.png` | The same nest, the egg **cracked open**, a **small blue baby dragon** sitting up in it, head raised, a tiny wisp of blue flame at its mouth. Cute but fierce. |
+| `sig-roost-drake.png` | The same nest, now holding a **young blue dragon** about twice the whelp's size, **wings folded**, gold horns, looking down the carpet, blue fire flickering in its jaws. |
+| `sig-roost-dragon.png` | The **Great Dragon**: a **large royal-blue dragon with gold horns and belly scales**, **wings spread wide**, rearing over the nest, blue fire in its jaws and a blue glow around it. It should look like the biggest thing in the library while still sitting on one round base. |
+| `fly-dragonfire.png` | The Roost's breath in flight: **a ball of blue-white dragonfire** with a short trail of flame and sparks. **Side view, flying to the right.** Transparent background, no shadow. |
+
+The **Dragonfire Trebuchet** keeps the old `sig-trebuchet.webp` for now (crimson cloth, orange pumpkin). A blue-and-gold repaint is wanted: the same trebuchet with **blue cloth instead of crimson** and its pumpkin **wrapped in blue flame**.
 
 #### Asser Mälkki, the Author-Knight (done: `public/sprites/portrait-asser.webp` and `sig-lionblade.webp`)
 

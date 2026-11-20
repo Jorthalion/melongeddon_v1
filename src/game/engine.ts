@@ -4,7 +4,8 @@ import {
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
-  OATHS, OATH_TEXT, OATH_VALUES, OATH_ZONE, ASSER_VALUES, carpetAlong, inOathZone, oathStretch, type OathId,
+  ARMOURS, ARMOUR_TEXT, ARMOUR_VALUES, ARMOUR_LEVEL, ARMOUR_FOR_OATH, DRAGON, BIG_KINDS, ROOST_STAGES, canBeGreat, roostStageFor, type ArmourId, type OathId,
+  ASSER_VALUES, carpetAlong,
   nearestOnCarpet, gateStrip,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, fittingName, ballistaPierce,
@@ -378,6 +379,11 @@ interface Tower {
   trigger?: "auto" | "manual";
   /** A Honker honked close by: this tower skips its next shot. */
   honked?: boolean;
+  /** Sir Michael's Great tower: the second tile it covers (it stands between the two). */
+  great?: { c: number; r: number };
+  /** The Dragon's Roost: waves of growth so far (DRAGON.roostGrow), and whether it stood through the whole of this wave. */
+  grown?: number;
+  roostReady?: boolean;
 }
 
 /** A trick shot on a curved path that passes through fruit (Boomerang Bookend, Paper Plane, Serpent Quill, Rolling Globe). */
@@ -585,8 +591,14 @@ export interface Hud {
   maps: MapId[];
   newMaps: MapId[];
   hero: HeroId | null;
-  /** Sir Michael's oath for this night (null until he says it on the intro; always null for other keepers). */
-  oath: OathId | null;
+  /** Sir Michael's armour for this night (null until he puts one on at the intro; always null for other keepers). */
+  armour: ArmourId | null;
+  /** Sir Michael's Dragon's Hoard: seeds saved for big things (Gate, Roost, feeding it, Great towers). 0 for everyone else. */
+  hoard: number;
+  /** Sir Michael's In the Zone: extra damage on his big towers right now (0.1 = +10%). */
+  zone: number;
+  /** The Dragon's Roost was fed this break (once between waves). */
+  roostFed: boolean;
   branch: UpgradeId | null;
   map: MapId;
   build: TowerKind;
@@ -1014,8 +1026,20 @@ export function createWorld(
   startTutorial: () => void;
   openSetup: () => void;
   beginNight: () => void;
-  /** Intro, Sir Michael only: say one oath (door, mouth or sling) and start the night. */
-  pickOath: (oath: OathId) => void;
+  /** Intro, Sir Michael only: put on an armour and start the night (a locked one does nothing). */
+  pickArmour: (armour: ArmourId) => void;
+  /** @deprecated The oaths are gone: an old oath (or an armour) is mapped to an armour (ARMOUR_FOR_OATH) and put on. */
+  pickOath: (oath: OathId | ArmourId) => void;
+  /** Whether an armour is open for the playing keeper (keeper level, dev mode, or every tower open). */
+  armourOpen: (armour: ArmourId) => boolean;
+  /** Sir Michael: merge the selected tower with a matching neighbour into a Great tower. */
+  makeGreat: () => void;
+  /** Sir Michael: what merging this tower costs, and the neighbour it would take (null if it can't). */
+  greatOffer: (towerId: number) => { cost: number; partner: number; why: string } | { cost: 0; partner: null; why: string };
+  /** Sir Michael: feed the Dragon's Roost (once between waves): one more wave of growth. */
+  feedRoost: () => void;
+  /** The Dragon's Roost's stage (0 egg … 3 Great Dragon) and waves grown, for a tower id. */
+  roostOf: (towerId: number) => { stage: number; grown: number; next: number | null } | null;
   /** Setup: pick the keeper (kept in the HUD so it survives a return to Setup). */
   pickKeeper: (hero: HeroId) => void;
   /** Setup: go to the keeper page or (with a keeper picked) the night page. */
@@ -1111,7 +1135,10 @@ export function createWorld(
       newMaps: [],
       hero: null,
       branch: null,
-      oath: null,
+      armour: null,
+      hoard: 0,
+      zone: 0,
+      roostFed: false,
       map: "stacks",
       build: "melon",
       shopVisits: 0,
@@ -1204,6 +1231,8 @@ export function createWorld(
   };
 
   let cleared = 0;
+  /** A stack was lost this wave (Sir Michael's In the Zone only grows on clean waves). */
+  let waveLost = false;
   /** Seconds of combat so far (trick-shot hit timing). */
   let clock = 0;
   let queue: QueueItem[] = [];
@@ -1572,7 +1601,9 @@ export function createWorld(
 
   /** The tower on a tile: its own tile, or one an Unstoppered has spilled onto. */
   const towerAt = (c: number, r: number) =>
-    world.towers.find((t) => (t.c === c && t.r === r) || (t.spill?.some((s) => s.c === c && s.r === r) ?? false));
+    world.towers.find(
+      (t) => (t.c === c && t.r === r) || (t.great != null && t.great.c === c && t.great.r === r) || (t.spill?.some((s) => s.c === c && s.r === r) ?? false),
+    );
   const occupied = (c: number, r: number) => towerAt(c, r) != null;
 
   const inMap = (c: number, r: number) => c >= 0 && r >= 0 && c < world.cols && r < world.rows;
@@ -2030,11 +2061,27 @@ export function createWorld(
     }
     return best;
   };
-  /** Sir Michael's door oath: a tower whose reach touches the last three tiles of carpet fires faster. */
-  const doorHaste = (tower: Tower, range: number) => {
-    if (world.hud.oath !== "door") return 1;
-    if (range >= GLOBAL_RANGE) return OATH_VALUES.doorHaste;
-    return carpetInReach(oathStretch(world.points, "door"), tower.x, tower.y, range).length > 0 ? OATH_VALUES.doorHaste : 1;
+  /** Sir Michael's big things: a Great tower, the Dragon Gate or the Dragon's Roost (In the Zone and Emberforged boost these). */
+  const isBig = (tower: Tower) => world.hud.hero === "michael" && (tower.great != null || BIG_KINDS.includes(tower.kind));
+  /** The Dragon's Roost: its stage now (0 egg … 3 Great Dragon). A tower that isn't standing yet starts where its armour says. */
+  const roostStage = (tower: Tower) => roostStageFor(roostStageGrowth(tower));
+  /** The Roost's growth so far (a placing ghost starts where its armour says). */
+  const roostStageGrowth = (tower: Tower) => tower.grown ?? (world.hud.armour === "wyrm" ? DRAGON.roostGrow[ARMOUR_VALUES.wyrmStage - 1] : 0);
+  /** What a big thing costs Sir Michael from his Hoard and from his seeds (the Hoard pays first). */
+  const hoardSplit = (price: number) => {
+    const fromHoard = world.hud.hero === "michael" ? Math.min(Math.floor(world.hud.hoard), price) : 0;
+    return { fromHoard, fromSeeds: price - fromHoard };
+  };
+  /** Sir Michael's Hoard takes its share of seeds spent on ordinary things (towers that aren't big, back-room upgrades). */
+  const feedHoard = (spent: number) => {
+    if (world.hud.hero !== "michael" || spent <= 0) return;
+    const share = world.hud.armour === "dragonscale" ? ARMOUR_VALUES.scaleShare : DRAGON.hoardShare;
+    world.hud.hoard += spent * share;
+  };
+  /** Sir Michael: the last three tiles before the door (the Anti-Geese Protocol's Auto trigger uses the same stretch). */
+  const nearDoor = (e: Enemy) => {
+    const { along, total } = carpetAlong(world.points, e.x, e.y, e.wp, e.reverse);
+    return total - along <= 3 * CELL;
   };
   /** Tag Team: with two Quack-Libers standing, fruit near the line between them walk slower. */
   const perimeterAt = (e: Enemy) => {
@@ -2088,6 +2135,30 @@ export function createWorld(
     world.hud.log = "The clock strikes. Every tower stops to listen.";
   };
 
+  /**
+   * Sir Michael's towers on top of their plain numbers: a Great tower hits DRAGON.greatDmg harder and reaches
+   * DRAGON.greatRange farther; the Dragon's Roost takes its stage's share, reach and pace; In the Zone and the
+   * Emberforged Armour add damage to big things.
+   */
+  const dragonStats = <T extends { dmg: number; range: number; interval: number }>(tower: Tower, read: T): T => {
+    if (world.hud.hero !== "michael") return read;
+    let out = read;
+    if (tower.kind === "bombard") {
+      const st = DRAGON.roostStage[roostStage(tower)];
+      out = {
+        ...out,
+        dmg: Math.round(out.dmg * st.dmg),
+        range: st.range === 0 ? GLOBAL_RANGE : Math.round(CELL * st.range),
+        interval: st.pace,
+      };
+    }
+    if (tower.great) out = { ...out, dmg: Math.max(1, Math.round(out.dmg * DRAGON.greatDmg)), range: out.range >= GLOBAL_RANGE ? out.range : Math.round(out.range * DRAGON.greatRange) };
+    if (isBig(tower) && out.dmg > 0) {
+      const mul = (1 + world.hud.zone) * (world.hud.armour === "ember" ? ARMOUR_VALUES.emberDmg : 1);
+      if (mul !== 1) out = { ...out, dmg: Math.max(1, Math.round(out.dmg * mul)) };
+    }
+    return out;
+  };
   /** A tower's numbers: statsCore, plus how many fruit a Ballista's spear goes through. */
   const statsFor = (tower: Tower) => {
     const s = statsCore(tower);
@@ -2102,8 +2173,9 @@ export function createWorld(
     const read2 = fx.closeReading ? Math.min(3, world.runLog.doctorTaken) * fx.closeReading : 0;
     const studied = read2 > 0 ? { ...read, interval: read.interval / (1 + read2) } : read;
     const aura = quackHaste(tower) * (world.hud.golden > 0 ? CANNON.overQuackHaste : 1);
-    const haste = aura * doorHaste(tower, studied.range);
-    const base = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true, powered: aura > 1 } : studied;
+    const haste = aura;
+    const hasted = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true, powered: aura > 1 } : studied;
+    const base = dragonStats(tower, hasted);
     if (base.range >= GLOBAL_RANGE) return base;
     // Reading Lamp: the best lamp in reach boosts this cannon (lamps do not stack).
     let boost: { range: number; pace: number } | null = null;
@@ -2148,7 +2220,7 @@ export function createWorld(
     if (perked.interval !== fitted.interval) why.interval.push(`keeper perks ${pace(fitted.interval, perked.interval)}`);
     if (now.range !== perked.range) why.range.push(`${now.lit ? "Reading Lamp nearby" : "the dark"} ${pct(perked.range, now.range)}`);
     if (now.interval !== perked.interval) {
-      const from = [now.lit ? "Reading Lamp nearby" : "", now.powered ? (world.hud.golden > 0 ? "Quackarot golden" : "Quack-Liber aura") : now.quick ? "an oath" : "", fx.closeReading && world.runLog.doctorTaken ? "Close Reading" : ""].filter(Boolean).join(", ");
+      const from = [now.lit ? "Reading Lamp nearby" : "", now.powered ? (world.hud.golden > 0 ? "Quackarot golden" : "Quack-Liber aura") : "", fx.closeReading && world.runLog.doctorTaken ? "Close Reading" : ""].filter(Boolean).join(", ");
       why.interval.push(`${from || "nearby towers"} ${pace(perked.interval, now.interval)}`);
     }
     return { ...now, base, why };
@@ -2158,10 +2230,13 @@ export function createWorld(
       0,
       buildCost(world.hud.hero, placedCount(), world.hud.build, world.hud.builtKinds) -
         (bm("discount") ? BOOKMARK_VALUES.discount : 0) -
-        (ownSignature(world.hud.build) ? fx.sigCost : 0) -
-        (world.hud.oath === "sling" && world.hud.build === "trebuchet" ? OATH_VALUES.slingDiscount : 0) -
-        (world.hud.oath === "sling" && world.hud.build === "bombard" ? CANNON.bombardSlingDiscount : 0),
+        (ownSignature(world.hud.build) ? fx.sigCost : 0),
     );
+  /** What the tower being placed costs in seeds: Sir Michael's Hoard pays first for his big towers. */
+  const seedPrice = () => {
+    const full = priceNext();
+    return world.hud.hero === "michael" && BIG_KINDS.includes(world.hud.build) ? hoardSplit(full).fromSeeds : full;
+  };
   /** A keeper tower can be built only by its keeper, and only one of each at a time. */
   const signatureBlocked = (kind: TowerKind) =>
     (kind === "geese" && world.hud.geeseSpent) ||
@@ -2187,7 +2262,7 @@ export function createWorld(
     else if (world.hover) world.hud.range = world.hud.placeRange = rangeAt(world.hud.build, world.hover.c, world.hover.r);
   };
   const syncPrice = () => {
-    world.hud.towerCost = priceNext();
+    world.hud.towerCost = seedPrice();
     world.hud.placeRange = rangeFor(world.hud.build);
     if (world.hud.selected == null) world.hud.range = world.hud.placeRange;
   };
@@ -2768,7 +2843,10 @@ export function createWorld(
       left: 0,
       waveSize: 0,
       branch: null,
-      oath: null,
+      armour: null,
+      hoard: 0,
+      zone: 0,
+      roostFed: false,
       build: "melon",
       shopVisits: 0,
       fitted: {},
@@ -2830,6 +2908,12 @@ export function createWorld(
     }
     const lost = Math.min(n, world.hud.lives);
     world.hud.lives = Math.max(0, world.hud.lives - n);
+    // Sir Michael's In the Zone: a lost stack ends the run of clean waves.
+    if (lost > 0 && world.hud.zone > 0) {
+      world.hud.zone = 0;
+      float(x, y - 14, "out of the zone", "#6fa8ef");
+    }
+    if (lost > 0) waveLost = true;
     const log = world.runLog;
     log.stacksLost += lost;
     if (from?.reverse) log.chuteStacksLost += lost;
@@ -2971,8 +3055,7 @@ export function createWorld(
     tower.gateAge = (tower.gateAge ?? 0) + dt;
     const held = atGate(tower);
     if (tower.gateDown <= 0 && tower.cd <= 0 && held.length) {
-      const zone = world.hud.oath === "door" ? g.total - g.along <= OATH_ZONE : world.hud.oath === "mouth" ? g.along <= OATH_ZONE : false;
-      tower.gateDown = zone ? CANNON.gateHoldOath : CANNON.gateHold;
+      tower.gateDown = CANNON.gateHold;
       tower.gateAge = 0;
       tower.cd = statsFor(tower).interval;
       cue("fire", "gourdgate");
@@ -3046,7 +3129,7 @@ export function createWorld(
   /** Anti-Geese Protocol on Auto: a crowd in the ring, or a fruit in the last three tiles before the door. */
   const geeseShouldFire = (inRange: Enemy[]) =>
     inRange.filter((e) => !e.boss).length >= CANNON.geeseCrowd ||
-    inRange.some((e) => !e.boss && inOathZone(world.points, "door", e));
+    inRange.some((e) => !e.boss && nearDoor(e));
   /** Anti-Geese Protocol: shove every non-boss fruit in the ring back down the carpet, then the tower is gone. */
   const fireGeese = (tower: Tower, inRange: Enemy[]) => {
     credit = tower.id;
@@ -3460,8 +3543,15 @@ export function createWorld(
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
     // Black Ice (a Freeze cannon fitting): frozen fruit take more from everything.
     if (COMBO.on && (e.frost ?? 0) >= COMBO.frostMax && fitted("freeze", "blackice")) amount *= COMBO.blackIce;
-    // Sir Michael's mouth oath: fruit on the first three tiles take more from everything.
-    if (world.hud.oath === "mouth" && inOathZone(world.points, "mouth", e)) amount *= OATH_VALUES.mouthAmp;
+    // Emberforged Armour: Sir Michael's Great towers and Roost leave blue fire on what they hit.
+    if (world.hud.armour === "ember" && credit != null && (via === "shot" || via === "splash") && amount > 0) {
+      const by = world.towers.find((t) => t.id === credit);
+      if (by && isBig(by)) {
+        e.burnT = Math.max(e.burnT ?? 0, 2);
+        e.burnDps = Math.max(e.burnDps ?? 0, ARMOUR_VALUES.emberBurn);
+        e.burnBy = by.id;
+      }
+    }
     }
     const before = e.hp;
     e.hp -= amount;
@@ -3786,6 +3876,28 @@ export function createWorld(
       world.rings.push({ x: heap.x, y: heap.y, r: 30, life: 0.6, max: 0.6, color: "120,170,90" });
     }
     if (fx.waveSeeds) world.hud.seeds += fx.waveSeeds;
+    if (world.hud.hero === "michael") {
+      // In the Zone: a wave cleared without losing a stack adds damage to his big towers, up to the cap.
+      const cap = world.hud.armour === "wyrm" ? ARMOUR_VALUES.wyrmZoneCap : DRAGON.zoneCap;
+      if (!waveLost && world.hud.zone < cap - 1e-9) {
+        world.hud.zone = Math.min(cap, Math.round((world.hud.zone + DRAGON.zoneStep) * 100) / 100);
+        world.runLog.zonePeak = Math.max(world.runLog.zonePeak, world.hud.zone);
+      }
+      // The Dragon's Roost grows with every wave it stood through.
+      for (const roost of world.towers) {
+        if (roost.kind !== "bombard" || !roost.roostReady) continue;
+        const was = roostStage(roost);
+        roost.grown = roostStageGrowth(roost) + 1;
+        const now = roostStage(roost);
+        world.runLog.roostPeak = Math.max(world.runLog.roostPeak, now);
+        if (now > was) {
+          float(roost.x, roost.y - 32, `${ROOST_STAGES[now]}!`, "#8fc0ff");
+          world.rings.push({ x: roost.x, y: roost.y, r: 40, life: 0.8, max: 0.8, color: "111,168,239" });
+          world.hud.log = now === 3 ? "The Great Dragon spreads its wings over the library." : `The egg in the Roost is a ${ROOST_STAGES[now]} now.`;
+        }
+      }
+      world.hud.roostFed = false;
+    }
     // Asser's Lion Blade: every blade that stood through the wave puts stacks back.
     let mended = 0;
     if (world.hud.hero === "asser") {
@@ -4351,6 +4463,8 @@ export function createWorld(
         continue;
       }
       if (tower.kind === "bombard") {
+        // The Dragon's Roost: an egg just sits there.
+        if (stats.dmg <= 0) continue;
         const aim = densest(inRange);
         tower.cd = stats.interval;
         tower.aim = Math.atan2(aim.y - tower.y, aim.x - tower.x);
@@ -4861,6 +4975,17 @@ export function createWorld(
       if (buildKind === "still") stillBuilt = true;
       cue("build", buildKind);
       world.hud.seeds -= world.hud.towerCost;
+      if (world.hud.hero === "michael") {
+        if (BIG_KINDS.includes(buildKind)) {
+          // The Hoard paid first; the tower is worth its whole price when sold.
+          const { fromHoard } = hoardSplit(priceNext());
+          world.hud.hoard -= fromHoard;
+          tower.paid += fromHoard;
+          world.runLog.hoardSpent += fromHoard;
+          if (fromHoard > 0) float(tower.x, tower.y - 30, `−${fromHoard} hoard`, "#8fc0ff");
+        } else feedHoard(world.hud.towerCost);
+        if (buildKind === "bombard") tower.grown = world.hud.armour === "wyrm" ? DRAGON.roostGrow[ARMOUR_VALUES.wyrmStage - 1] : 0;
+      }
       if (!world.hud.builtKinds.includes(buildKind)) world.hud.builtKinds = [...world.hud.builtKinds, buildKind];
       // Stay in build mode with the same kind picked, so the next tap places another.
       // (Tap a built tower to open its stats.)
@@ -4892,6 +5017,9 @@ export function createWorld(
       world.marks = [];
       // Lion Blades standing now will mend when this wave is cleared; ones built mid-wave won't.
       for (const blade of world.towers) if (blade.kind === "lionblade") blade.mendReady = true;
+      // The same for the Dragon's Roost: one standing now grows when this wave is cleared.
+      for (const roost of world.towers) if (roost.kind === "bombard") roost.roostReady = true;
+      waveLost = false;
       lectureNow = lecture && lecture.waves > 0 ? lecture.kind : null;
       reached.clear();
       syncMimics(true);
@@ -5049,7 +5177,10 @@ export function createWorld(
       world.towers = [];
       world.enemies = [];
       world.hud.hero = hero;
-      world.hud.oath = null;
+      world.hud.armour = null;
+      world.hud.hoard = 0;
+      world.hud.zone = 0;
+      world.hud.roostFed = false;
       world.hud.phase = "poster";
       world.hud.tutorial = false;
       fx = perkFx(hero, world.hud.keepers[hero]);
@@ -5099,7 +5230,7 @@ export function createWorld(
         world.hud.seeds = BALANCE.michaelSeeds;
         world.hud.lives = BALANCE.michaelLives;
         world.hud.maxLives = BALANCE.michaelLives;
-        // No free cannon: he picks an oath on the intro instead (pickOath).
+        // No free cannon: he puts on an armour on the intro instead (pickArmour).
       }
       // The keeper's own first line, in their voice (keeperVoice.ts).
       world.hud.log = openingLine(hero, world.hud.night);
@@ -5198,6 +5329,7 @@ export function createWorld(
         return;
       }
       world.hud.seeds -= price;
+      feedHoard(price);
       world.hud.shopVisits += 1;
       world.hud.fitted = { ...world.hud.fitted, [kind]: [...owned, modId] };
       // Every tower of this kind gets it, and so does a Copycat copying one.
@@ -5311,23 +5443,123 @@ export function createWorld(
     },
     beginNight() {
       if (world.hud.phase !== "poster") return;
-      // Sir Michael does not start until he has said his oath.
-      if (world.hud.hero === "michael" && world.hud.oath == null) return;
+      // Sir Michael does not start until he has put on his armour.
+      if (world.hud.hero === "michael" && world.hud.armour == null) return;
       world.hud.phase = "prep";
       notify();
     },
-    pickOath(oath: OathId) {
-      if (world.hud.phase !== "poster" || world.hud.hero !== "michael" || !OATHS.includes(oath)) return;
-      world.hud.oath = oath;
-      world.runLog.oath = oath;
-      world.hud.log = OATH_TEXT[oath].log;
-      if (oath === "door") {
-        world.hud.lives = Math.max(1, world.hud.lives - OATH_VALUES.doorStacks);
-        world.hud.maxLives = Math.max(1, world.hud.maxLives - OATH_VALUES.doorStacks);
+    pickArmour(armour: ArmourId) {
+      wearArmour(armour, false);
+    },
+    pickOath(oath: OathId | ArmourId) {
+      // Scripts from the oath days (the simulator, old tests) skip the level check: no player reaches this.
+      const armour = (ARMOURS as string[]).includes(oath) ? (oath as ArmourId) : ARMOUR_FOR_OATH[oath as OathId];
+      if (armour) wearArmour(armour, true);
+    },
+    armourOpen(armour: ArmourId) {
+      return options.allTricks === true || world.hud.dev || world.hud.runLevel >= ARMOUR_LEVEL[armour];
+    },
+    greatOffer(towerId: number) {
+      const no = (why: string) => ({ cost: 0 as const, partner: null, why });
+      const t = world.towers.find((x) => x.id === towerId);
+      if (!t || world.hud.hero !== "michael") return no("");
+      if (t.great) return no("Already Great.");
+      if (!canBeGreat(t.kind)) return no("Only shared towers that shoot can be made Great.");
+      const partner = [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1],
+      ]
+        .map(([a, b]) => world.towers.find((o) => o !== t && o.kind === t.kind && !o.great && o.c === t.c + a && o.r === t.r + b))
+        .find(Boolean);
+      if (!partner) return no(`Build another ${TOWERS[t.kind].name} right beside it to merge them.`);
+      const cost = Math.round(TOWERS[t.kind].cost * DRAGON.greatCost * (world.hud.armour === "ember" ? ARMOUR_VALUES.emberMerge : 1));
+      return { cost, partner: partner.id, why: "" };
+    },
+    makeGreat() {
+      if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
+      const t = world.towers.find((x) => x.id === world.hud.selected);
+      if (!t) return;
+      const offer = api.greatOffer(t.id);
+      if (offer.partner == null) {
+        if (offer.why) world.hud.log = offer.why;
+        notify();
+        return;
       }
-      if (oath === "mouth") world.hud.seeds = Math.max(0, world.hud.seeds - OATH_VALUES.mouthSeeds);
+      const { fromHoard, fromSeeds } = hoardSplit(offer.cost);
+      if (world.hud.seeds < fromSeeds) {
+        world.hud.log = `Not enough: a Great ${TOWERS[t.kind].name} costs ${offer.cost} (${fromHoard} from the Hoard, ${fromSeeds} seeds).`;
+        notify();
+        return;
+      }
+      const p = world.towers.find((x) => x.id === offer.partner)!;
+      world.hud.hoard -= fromHoard;
+      world.hud.seeds -= fromSeeds;
+      world.runLog.hoardSpent += fromHoard;
+      world.runLog.greats += 1;
+      world.towers = world.towers.filter((x) => x !== p);
+      t.great = { c: p.c, r: p.r };
+      t.x = (t.x + p.x) / 2;
+      t.y = (t.y + p.y) / 2;
+      t.paid += p.paid + offer.cost;
+      if (t.kind === "orrery") t.orbit = statsFor(t).range;
+      syncMimics(true);
+      cue("build", t.kind);
+      world.shake = Math.max(world.shake, world.reduced ? 0 : 3);
+      world.rings.push({ x: t.x, y: t.y, r: 46, life: 0.7, max: 0.7, color: "111,168,239" });
+      float(t.x, t.y - 34, "Great!", "#8fc0ff");
+      world.hud.log = `Great ${TOWERS[t.kind].name}: two became one, twice the size.${fromHoard ? ` The Hoard paid ${fromHoard}.` : ""}`;
+      world.hud.range = towerRange(t);
       syncPrice();
-      api.beginNight();
+      notify();
+    },
+    feedRoost() {
+      if (world.hud.hero !== "michael") return;
+      const roost =
+        world.towers.find((x) => x.id === world.hud.selected && x.kind === "bombard") ?? world.towers.find((x) => x.kind === "bombard");
+      if (!roost) return;
+      if (world.hud.phase !== "prep") {
+        world.hud.log = "The dragon only eats between waves.";
+        notify();
+        return;
+      }
+      if (world.hud.roostFed) {
+        world.hud.log = "It's had its dinner. Again after the next wave.";
+        notify();
+        return;
+      }
+      if (roostStage(roost) >= 3) {
+        world.hud.log = "The Great Dragon is fully grown.";
+        notify();
+        return;
+      }
+      const { fromHoard, fromSeeds } = hoardSplit(DRAGON.roostFeed);
+      if (world.hud.seeds < fromSeeds) {
+        world.hud.log = `Not enough: feeding the dragon costs ${DRAGON.roostFeed} (${fromHoard} from the Hoard, ${fromSeeds} seeds).`;
+        notify();
+        return;
+      }
+      world.hud.hoard -= fromHoard;
+      world.hud.seeds -= fromSeeds;
+      world.runLog.hoardSpent += fromHoard;
+      roost.paid += DRAGON.roostFeed;
+      world.hud.roostFed = true;
+      const was = roostStage(roost);
+      roost.grown = roostStageGrowth(roost) + 1;
+      const now = roostStage(roost);
+      world.runLog.roostPeak = Math.max(world.runLog.roostPeak, now);
+      float(roost.x, roost.y - 30, now > was ? `${ROOST_STAGES[now]}!` : "fed", "#8fc0ff");
+      world.hud.log = now > was ? `Fed and grown: the Roost holds a ${ROOST_STAGES[now]} now.` : "The dragon eats. It'll grow sooner.";
+      syncPrice();
+      notify();
+    },
+    roostOf(towerId: number) {
+      const t = world.towers.find((x) => x.id === towerId && x.kind === "bombard");
+      if (!t) return null;
+      const grown = roostStageGrowth(t);
+      const stage = roostStageFor(grown);
+      return { stage, grown, next: stage < 3 ? DRAGON.roostGrow[stage] : null };
     },
     setupPage(page: "who" | "night") {
       if (world.hud.phase !== "select") return;
@@ -5592,6 +5824,30 @@ export function createWorld(
     },
   };
 
+  /** Sir Michael puts on an armour on the intro and the night starts (`force`: skip the level check). */
+  const wearArmour = (armour: ArmourId, force: boolean) => {
+    if (world.hud.phase !== "poster" || world.hud.hero !== "michael" || !ARMOURS.includes(armour)) return;
+    if (!force && !api.armourOpen(armour)) {
+      world.hud.log = `The ${ARMOUR_TEXT[armour].name} opens when Sir Michael reaches level ${ARMOUR_LEVEL[armour]}.`;
+      notify();
+      return;
+    }
+    world.hud.armour = armour;
+    world.runLog.armour = armour;
+    world.hud.log = ARMOUR_TEXT[armour].log;
+    if (armour === "azure") {
+      world.hud.lives += ARMOUR_VALUES.azureLives;
+      world.hud.maxLives += ARMOUR_VALUES.azureLives;
+      world.hud.seeds = Math.max(0, world.hud.seeds - ARMOUR_VALUES.azureSeeds);
+    }
+    if (armour === "dragonscale") {
+      world.hud.hoard = ARMOUR_VALUES.scaleHoard;
+      world.hud.lives = Math.max(1, world.hud.lives - ARMOUR_VALUES.scaleLives);
+      world.hud.maxLives = Math.max(1, world.hud.maxLives - ARMOUR_VALUES.scaleLives);
+    }
+    syncPrice();
+    api.beginNight();
+  };
   const loopTick = (dt: number) => {
     if (!world.hud.heavyOpen && (world.hud.phase === "prep" || world.hud.phase === "combat")) {
       syncHeavy();

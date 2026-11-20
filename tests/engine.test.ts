@@ -32,7 +32,7 @@ function startGame(hero: HeroId = "vael") {
   const api = createWorld(() => {}, { allTricks: true });
   api.openSetup();
   api.chooseHero(hero);
-  // Sir Michael starts only once he has said an oath; sling shoves anywhere, like before.
+  // Sir Michael starts only once he has put on an armour (an old oath name still works for scripts).
   if (hero === "michael") api.pickOath("sling");
   else api.beginNight();
   return api;
@@ -67,15 +67,15 @@ test("selling a tower refunds 70% of its build cost (back-room upgrades belong t
   assert.equal(world.towers.length, 0);
 });
 
-test("Sir Michael has no free cannon, ordinary shots, and waits on the intro for an oath", () => {
+test("Sir Michael has no free cannon, ordinary shots, and waits on the intro for his armour", () => {
   const api = createWorld(() => {}, { allTricks: true });
   api.openSetup();
   api.chooseHero("michael");
   const { world } = api;
   assert.equal(world.towers.length, 0, "no free cannon");
   assert.equal(world.hud.phase, "poster");
-  assert.equal(world.hud.oath, null);
-  assert.equal(world.hud.log, "Sir Michael is still deciding which oath to swear.");
+  assert.equal(world.hud.armour, null);
+  assert.equal(world.hud.log, "Sir Michael is still choosing his armour.");
   api.beginNight();
   assert.equal(world.hud.phase, "poster", "beginNight does not start him");
   api.pickOath("sling");
@@ -533,7 +533,7 @@ test("the smart sim bot picks by its board: Juicy first, Sticky once it has pudd
   assert.equal(smartPick(["sticky", "electric", "lamp"], ["vial"], ["mortar"], 2), "sticky");
   assert.equal(smartPick(["sticky", "electric", "lamp"], ["rapid"], ["mortar"], 2), "electric");
   assert.equal(smartPick(["sticky", "stinging", "lamp"], ["rapid"], ["hive", "hive", "hive", "hive"], 3), "stinging");
-  const cfg = { hero: "michael", difficulty: "normal", strategy: "mixed", night: "midnight", map: "stacks", seed: 2, picks: "smart", oath: "door" } as const;
+  const cfg = { hero: "michael", difficulty: "normal", strategy: "mixed", night: "midnight", map: "stacks", seed: 2, picks: "smart", armour: "azure" } as const;
   const r = simulateRun(cfg);
   assert.equal(r.upgrades[0], "juicy");
   assert.deepEqual(r, simulateRun(cfg));

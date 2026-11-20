@@ -5,7 +5,7 @@ import { keyAction, keyGoesToButton, runKeyAction } from "@/game/keys";
 /**
  * Keyboard shortcuts (the rules live in `game/keys.ts`):
  *   1–5      pick a cannon in the open tab, or choice 1–3 on a pick card / Setup's keepers
- *            (on Sir Michael's intro, 1–3 pick an oath card and Enter swears it)
+ *            (on Sir Michael's intro, 1–4 pick an armour card and Enter puts it on)
  *   Q W E R T Y  Damage / Control / Support / Keeper / Trick / Heavy tab
  *   Space    start the next wave from anywhere on the board (whatever is selected, open or focused);
  *            pause / resume during a wave

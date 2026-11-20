@@ -71,7 +71,7 @@ test("toTitle clears the run, and Continue starts the same setup", () => {
   assert.deepEqual(setupOf(api), SAME);
 });
 
-test("Back from the Intro returns to Setup, with no cannon and no oath left behind", () => {
+test("Back from the Intro returns to Setup, with no cannon and no armour left behind", () => {
   const api = createWorld(() => {});
   api.openSetup();
   api.pickKeeper("michael");
