@@ -1410,7 +1410,20 @@ export type MapId =
   | "greenhouse"
   | "belltower"
   | "overflow"
-  | "courtyard";
+  | "courtyard"
+  | "rotunda";
+
+/** A board with more than one way in: each door's carpet runs to where it joins the board's own carpet (the trunk). */
+export type DoorId = "north" | "west" | "stairs";
+export interface Door {
+  id: DoorId;
+  /** From the door to the trunk corner it joins (that corner is the last point). */
+  corners: Array<[number, number]>;
+  /** The first wave (1-based) the door is open; open from the start if unset. */
+  from?: number;
+}
+export const DOOR_NAME: Record<DoorId, string> = { north: "North door", west: "West door", stairs: "Back stairs" };
+export const DOOR_LETTER: Record<DoorId, string> = { north: "N", west: "W", stairs: "S" };
 
 /**
  * Floors that change the carpet: a belt carries fruit faster the way the carpet runs (and holds
@@ -1507,6 +1520,14 @@ export interface Board {
   fountain?: [number, number];
   /** The Courtyard's statues (shelf cells drawn as statues; its other shelf cells are hedges). */
   statues?: Array<[number, number]>;
+  /**
+   * More than one way in (the Rotunda): each door's carpet joins `corners` (the trunk) at one of its corners.
+   * Each door is a route of its own: its carpet, then the trunk from the join on. The first door is the one
+   * bosses use. Without doors the board has one route, `corners`.
+   */
+  doors?: Door[];
+  /** The Rotunda's desk, drawn where the first doors' carpets meet (a cell on the carpet; decoration only). */
+  desk?: [number, number];
 }
 
 /** The classic bookshelf layout, used by boards that don't list their own. */
@@ -1858,6 +1879,38 @@ export const BOARDS: Record<MapId, Board> = {
       [10, 7], [11, 7], [10, 8], [11, 8],
     ],
   },
+  rotunda: {
+    id: "rotunda",
+    name: "The Rotunda",
+    blurb: "A round room with doors on every side. Two carpets meet at the desk; later, the back stairs open.",
+    cols: 18,
+    rows: 12,
+    // Splitting a wave over two doors makes it harder than one carpet (tuned with the simulator).
+    hp: 0.9,
+    // The trunk: from the desk down, along, up the right-hand side and out of the east door.
+    corners: [
+      [10, 8],
+      [10, 10],
+      [14, 10],
+      [14, 3],
+      [17, 3],
+    ],
+    doors: [
+      { id: "north", corners: [[5, 0], [5, 4], [10, 4], [10, 8]] },
+      { id: "west", corners: [[0, 8], [10, 8]] },
+      { id: "stairs", corners: [[2, 11], [2, 10], [10, 10]], from: 11 },
+    ],
+    desk: [10, 8],
+    michaelCannon: [7, 2],
+    // Shelves round the walls and a reading table or two: about 13% of the floor. Kept clear: the pocket
+    // (cols 11-13, rows 4-9), row 9 between the west carpet and the stairs, and a tile beside each door.
+    shelves: [
+      [0, 0], [1, 0], [2, 0], [3, 0], [8, 0], [9, 0], [12, 0], [13, 0], [16, 0], [17, 0],
+      [6, 11], [7, 11], [8, 11], [9, 11], [12, 11], [13, 11], [16, 11], [17, 11],
+      [17, 6], [17, 7], [17, 8], [0, 2], [0, 3], [0, 4],
+      [7, 6], [8, 6], [2, 6], [3, 6], [16, 1],
+    ],
+  },
 };
 
 export function cornerRot(prev: [number, number], corner: [number, number], next: [number, number]) {
@@ -2062,6 +2115,8 @@ export interface QueueItem {
   drop: number;
   line: number;
   leader: boolean;
+  /** A board with doors: the route (door) it walks in by. Unset on one-door boards. */
+  route?: number;
 }
 
 /** A wave's spawns as one queue, in spawn order. */
@@ -2072,18 +2127,24 @@ export function trimSpawns(spawns: SpawnSpec[], trim: Board["trim"], difficulty:
   return spawns.map((g) => (g.count >= 2 ? { ...g, count: Math.max(1, Math.round(g.count * t.count)) } : g));
 }
 
-export function waveQueue(spawns: SpawnSpec[]): QueueItem[] {
+export function waveQueue(spawns: SpawnSpec[], routes?: number[][]): QueueItem[] {
   const items: QueueItem[] = [];
   let t = 0.35;
   let lines = 0;
-  for (const group of spawns) {
+  // A board with doors: each door keeps its own spacing, so groups at different doors walk in together. A lone
+  // group alternates doors fruit by fruit and keeps one clock, so it isn't twice as dense.
+  const byDoor = new Map<number, number>();
+  const lone = spawns.length === 1;
+  spawns.forEach((group, gi) => {
     const siege = SIEGE_VARIANTS.find((v) => group[v]) ?? null;
     const first = lines;
     if (siege === "gosling") lines += Math.ceil(group.count / SIEGE.goslingLine);
     for (let i = 0; i < group.count; i++) {
+      const route = routes?.[gi]?.[i];
+      const at = route == null || lone ? t : (byDoor.get(route) ?? 0.35);
       items.push({
         kind: group.kind,
-        t,
+        t: at,
         tough: group.tough ?? 1,
         guard: group.guard ?? "none",
         split: Boolean(group.split),
@@ -2097,12 +2158,107 @@ export function waveQueue(spawns: SpawnSpec[]): QueueItem[] {
         drop: group.drop ?? 0,
         line: siege === "gosling" ? first + Math.floor(i / SIEGE.goslingLine) : -1,
         leader: siege === "gosling" && i % SIEGE.goslingLine === 0,
+        ...(route != null ? { route } : {}),
       });
+      if (route != null && !lone) byDoor.set(route, at + group.every);
       t += group.every;
     }
-  }
+  });
   return items.sort((a, b) => a.t - b.t);
 }
+
+/** The doors open on wave `wave` (1-based), as indexes into `board.doors`. */
+export function openDoors(board: Board, wave: number): number[] {
+  return (board.doors ?? []).flatMap((d, i) => ((d.from ?? 1) <= wave ? [i] : []));
+}
+
+/**
+ * Which door each fruit of a wave walks in by (route indexes, per group and per fruit), on a board with doors;
+ * undefined on a one-door board. Groups take the open doors in turn, in spawn order (north, west, then the
+ * stairs once they're open), so the first door is always the first one listed and the stairs never open a
+ * wave. Bosses always use the first door, the longest walk. A wave of one group alternates its fruit instead.
+ */
+export function assignDoors(spawns: SpawnSpec[], board: Board, wave: number): number[][] | undefined {
+  if (!board.doors?.length) return undefined;
+  const open = openDoors(board, wave);
+  const boss = (g: SpawnSpec) => Boolean(STATS[g.kind].boss) || Boolean(g.matriarch) || Boolean(g.general);
+  if (spawns.length === 1 && !boss(spawns[0])) return [Array.from({ length: spawns[0].count }, (_, i) => open[i % open.length])];
+  let turn = 0;
+  return spawns.map((g) => {
+    if (boss(g)) return Array(g.count).fill(open[0]);
+    const door = open[turn % open.length];
+    turn += 1;
+    return Array(g.count).fill(door);
+  });
+}
+
+/**
+ * A board's routes: one per door (its carpet, then the trunk from where it joins), or just the board's own
+ * carpet. `segments` are the carpet pieces with nothing counted twice (each door's own carpet, then the
+ * trunk): use them for anything about where carpet is. `doorOf[i]` is route i's door (null: no doors).
+ * `doorCells[i]` are door i's own tiles (not the trunk's), for a door that isn't open yet.
+ */
+export function buildRoutes(board: Board) {
+  const base = buildBoard(board.corners);
+  if (!board.doors?.length) {
+    return {
+      ...base,
+      turns: base.turns.map((t) => ({ ...t, door: undefined as DoorId | undefined })),
+      routes: [base.points],
+      segments: [base.points],
+      doorOf: [null] as Array<DoorId | null>,
+      doorCells: [] as Array<Set<string>>,
+    };
+  }
+  const cells = new Set(base.cells);
+  const verge = new Set(base.verge);
+  const turns = base.turns.map((t) => ({ ...t, door: undefined as DoorId | undefined }));
+  const routes: Array<Array<{ x: number; y: number }>> = [];
+  const segments: Array<Array<{ x: number; y: number }>> = [];
+  const doorCells: Array<Set<string>> = [];
+  for (const door of board.doors) {
+    const last = door.corners[door.corners.length - 1];
+    const join = board.corners.findIndex(([c, r]) => c === last[0] && r === last[1]);
+    if (join < 0) throw new Error(`The ${door.id} door's carpet has to end on a corner of the board's carpet`);
+    const own = buildBoard(door.corners);
+    doorCells.push(new Set([...own.cells].filter((k) => !base.cells.has(k))));
+    for (const k of own.cells) cells.add(k);
+    for (const k of own.verge) verge.add(k);
+    for (const t of own.turns) turns.push({ ...t, door: undefined });
+    // A trunk corner where this door comes in is a junction while the door is open: no corner piece there.
+    const tj = turns.findIndex((t) => t.c === last[0] && t.r === last[1]);
+    if (tj >= 0) turns[tj] = { ...turns[tj], door: door.id };
+    segments.push(own.points);
+    routes.push([...own.points, ...base.points.slice(join + 1)]);
+  }
+  segments.push(base.points);
+  for (const k of cells) verge.delete(k);
+  return { cells, verge, points: routes[0], turns, routes, segments, doorOf: board.doors.map((d) => d.id) as Array<DoorId | null>, doorCells };
+}
+
+/** `carpetInReach` over several pieces of carpet (a board's segments): each tile counted once. */
+export function carpetInReachAll(segments: Array<Array<{ x: number; y: number }>>, x: number, y: number, outer: number, inner = 0) {
+  const stretches: Stretch[] = [];
+  let length = 0;
+  for (const seg of segments) {
+    const r = carpetInReach(seg, x, y, outer, inner);
+    stretches.push(...r.stretches);
+    length += r.length;
+  }
+  return { stretches, length };
+}
+
+/** The segment (index) whose centre line passes nearest (x, y), with `nearestOnCarpet` on it. */
+export function nearestSegment(segments: Array<Array<{ x: number; y: number }>>, x: number, y: number) {
+  let best = { seg: 0, spot: nearestOnCarpet(segments[0], x, y), d: Infinity };
+  segments.forEach((seg, i) => {
+    const spot = nearestOnCarpet(seg, x, y);
+    const d = Math.hypot(spot.x - x, spot.y - y);
+    if (d < best.d) best = { seg: i, spot, d };
+  });
+  return best;
+}
+
 
 /** A plain fruit of this kind: no Karl, no flag or guard, not up the chute. Only those become room fruit. */
 const plainFruit = (q: QueueItem, kind: EnemyKind) =>

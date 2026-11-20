@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Crown, TriangleAlert } from "lucide-react";
-import { BOARDS, NATIVE_INFO, type WaveGroup } from "@/game/engine";
+import { BOARDS, DOOR_LETTER, DOOR_NAME, NATIVE_INFO, type WaveGroup } from "@/game/engine";
 import { describeEnemy, fruitFromGroup } from "@/game/enemyInfo";
 import { COUNTERS, countersFor, unanswered, type BuildInfo } from "@/game/counters";
 import { enemySpriteSrc } from "@/game/draw";
@@ -130,7 +130,7 @@ export function ComingUpBar({ api }: { api: GameApi }) {
                 <button
                   type="button"
                   aria-expanded={open === i}
-                  title={`${describeEnemy(fruitFromGroup(g), api.world).name} ×${g.count}${marks.length ? ` · ${marks.map((m) => m.text).join(", ")}` : ""}`}
+                  title={`${describeEnemy(fruitFromGroup(g), api.world).name} ×${g.count}${g.door ? ` · ${DOOR_NAME[g.door]}` : ""}${marks.length ? ` · ${marks.map((m) => m.text).join(", ")}` : ""}`}
                   className={`flex items-center gap-1 rounded-md border px-1 py-0.5 ${g.boss ? "border-gold bg-[#3a242c]" : open === i ? "border-[#c6a15a] bg-[#2c1b21]" : "border-line/70 bg-panel/70"} hover:border-[#c6a15a]`}
                   onClick={() => setOpen(open === i ? null : i)}
                   onPointerEnter={(e) => {
@@ -145,6 +145,12 @@ export function ComingUpBar({ api }: { api: GameApi }) {
                     {g.boss ? <Crown className="absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 text-gold" aria-hidden="true" /> : null}
                   </span>
                   <span className="font-semibold text-parchment">×{g.count}</span>
+                  {/* A board with doors: which door this group comes in by. */}
+                  {g.door ? (
+                    <span className="rounded-sm border border-gold/60 px-0.5 text-[0.625rem] leading-tight font-semibold text-gold" aria-label={DOOR_NAME[g.door]}>
+                      {DOOR_LETTER[g.door]}
+                    </span>
+                  ) : null}
                   {marks.length ? (
                     <span className="flex gap-0.5">
                       {marks.map((m) => (
