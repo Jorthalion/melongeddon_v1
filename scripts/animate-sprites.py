@@ -84,6 +84,10 @@ TOWER_PAINTINGS = {
 ENEMY_PAINTINGS = {
     "melon": "melon.webp", "corn": "corn.webp", "pumpkin": "pumpkin.webp", "karl": "karl.webp",
     "pit": "enemy-pit.webp", "gall": "enemy-gall.webp", "borrower": "enemy-borrower.webp",
+    # The Siege's geese and cats.
+    "honker": "enemy-honker.webp", "gosling": "enemy-gosling.webp", "matriarch": "enemy-matriarch.webp",
+    "whiskers": "enemy-whiskers.webp", "boxcat": "enemy-boxcat.webp", "para": "enemy-para.webp",
+    "tank": "enemy-tank.webp", "general": "enemy-general.webp",
 }
 
 

@@ -5,4 +5,4 @@ export const POP_FRAME = { px: 112, foot: 0.03 };
 /** A fruit's pop: frame count and speed (frames a second). */
 export const POP_ANIM = { pop: 6, popFps: 24 };
 /** Name -> its strip's frame size (px). Strips are public/sprites/anim/pop-<name>.webp. */
-export const POP_SHEETS: Record<string, { w: number; h: number }> = /*SHEETS*/{"borrower":{"w":223,"h":186},"corn":{"w":173,"h":186},"gall":{"w":268,"h":186},"karl":{"w":251,"h":186},"melon":{"w":198,"h":186},"pit":{"w":206,"h":186},"pumpkin":{"w":236,"h":186}}/*END*/;
+export const POP_SHEETS: Record<string, { w: number; h: number }> = /*SHEETS*/{"borrower":{"w":223,"h":186},"boxcat":{"w":233,"h":186},"corn":{"w":173,"h":186},"gall":{"w":268,"h":186},"general":{"w":239,"h":186},"gosling":{"w":201,"h":186},"honker":{"w":227,"h":186},"karl":{"w":251,"h":186},"matriarch":{"w":227,"h":186},"melon":{"w":198,"h":186},"para":{"w":236,"h":186},"pit":{"w":206,"h":186},"pumpkin":{"w":236,"h":186},"tank":{"w":237,"h":186},"whiskers":{"w":242,"h":186}}/*END*/;
