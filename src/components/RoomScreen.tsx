@@ -14,6 +14,7 @@ export const ROOM_JOKE: Partial<Record<MapId, string>> = {
   sorting: "Everything returned tonight goes on the belt. Everything.",
   greenhouse: "The fruit are home. They feel much better here.",
   rotunda: "Every door in the room is a way in. The fruit have noticed.",
+  halldoors: "Three ways out of the hall, and the fruit want all of them.",
   belltower: "The clock strikes on the hour. The hour is whenever it likes.",
   overflow: "The chute is open. The returns have opinions.",
   courtyard: "The geese want the courtyard. The cats want the geese out of it.",

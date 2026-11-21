@@ -276,6 +276,11 @@ export function playSfx(cue: Sfx) {
     case "clear":
       [392, 494, 587].forEach((f, i) => voice({ freq: f, dur: 0.22, gain: 0.045, at: i * 0.08 }));
       break;
+    case "creak":
+      // The signpost swings round: a low wooden creak and a knock.
+      voice({ freq: 140, to: 95, dur: 0.32, type: "sawtooth", gain: 0.03, attack: 0.02 });
+      voice({ freq: 70, dur: 0.12, type: "triangle", gain: 0.05, at: 0.3 });
+      break;
     case "golden":
       // Powering up: a long rising roar under a bright chord.
       voice({ freq: 110, to: 440, dur: 1.1, type: "sawtooth", gain: 0.04, attack: 0.05 });

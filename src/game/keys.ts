@@ -4,7 +4,7 @@
  * applies it. The React hook in `components/hotkeys.ts` only adds DOM concerns
  * (typing in inputs, focused buttons, preventDefault).
  */
-import { HEROES, fittingsFor, groupOf, groupsFor, type Hud, type UpgradeId, type createWorld } from "./engine.ts";
+import { BOARDS, HEROES, fittingsFor, groupOf, groupsFor, type Hud, type UpgradeId, type createWorld } from "./engine.ts";
 
 type Api = ReturnType<typeof createWorld>;
 
@@ -56,6 +56,7 @@ export type KeyAction =
   | { type: "tab"; index: number }
   | { type: "togglePause" }
   | { type: "sell" }
+  | { type: "turnSign" }
   | { type: "aim" }
   | { type: "openShop" }
   | { type: "deselect" }
@@ -154,6 +155,8 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       if (key === " ") return phase === "prep" ? { type: "startWave" } : { type: "togglePause" };
       if (key === "p") return { type: "togglePause" };
       if (key === "s" && hud.selected != null) return { type: "sell" };
+      // X: the Hall of Doors' signpost (between waves): shut the next exit for the next wave.
+      if (key === "x" && phase === "prep" && BOARDS[hud.map]?.exits?.length) return { type: "turnSign" };
       // A: the selected tower's next targeting mode (nothing on towers that don't aim).
       if (key === "a" && hud.selected != null) return { type: "aim" };
       if (key === "b") return { type: "openShop" };
@@ -251,6 +254,9 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       return false;
     case "sell":
       api.sellSelected();
+      return true;
+    case "turnSign":
+      api.turnSign();
       return true;
     case "openShop":
       api.openShop();

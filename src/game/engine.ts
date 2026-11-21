@@ -7,6 +7,7 @@ import {
   ARMOURS, ARMOUR_TEXT, ARMOUR_VALUES, ARMOUR_LEVEL, ARMOUR_FOR_OATH, DRAGON, BIG_KINDS, ROOST_STAGES, canBeGreat, roostStageFor, type ArmourId, type OathId,
   ASSER_VALUES, carpetAlong,
   nearestOnCarpet, gateStrip, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
+  assignExits, combineRoutes, EXIT_NAME, HALL, type Exit, type ExitId,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
@@ -240,6 +241,8 @@ export interface WaveGroup {
   speed: number;
   /** A board with doors: the door this group walks in by. */
   door?: DoorId;
+  /** A board with exits (the Hall of Doors): the exit this group leaves by. */
+  exit?: ExitId;
 }
 
 /** What a wave brings (api.wavePreview / api.comingUp). */
@@ -643,6 +646,8 @@ export interface Hud {
   quackAura: number;
   /** Quackarot is golden (Over Nine Thousand Quacks): seconds left; every tower fires faster meanwhile. */
   golden: number;
+  /** The Hall of Doors: the exit the signpost shuts for the next wave (null: none). Turned in prep, reset each wave. */
+  shutExit: ExitId | null;
   /** Tag Team (Quackarot's perk): the line between two Quack-Libers slows fruit, so it's drawn crackling. */
   tagTeam: boolean;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
@@ -903,7 +908,7 @@ function writeBest(n: number, key = BEST_KEY) {
 }
 
 /** Sound cues the engine raises; the UI drains and plays them. Ignored headless. */
-export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden";
+export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak";
 export interface Sfx {
   kind: SfxKind;
   tower?: TowerKind;
@@ -956,6 +961,13 @@ export interface World {
   segments: Waypoint[][];
   /** A board with doors: each door, whether it's open yet, its own tiles, and whether its lamp is lit. */
   doors: Array<{ id: DoorId; open: boolean; cells: Set<string>; lit: boolean; seg: Waypoint[] }>;
+  /** A board with exits (the Hall of Doors): each exit, its cost, its own tiles and carpet, and whether its lamp is lit. */
+  exits: Array<{ id: ExitId; cost: Exit["cost"]; bossOnly: boolean; cells: Set<string>; lit: boolean; seg: Waypoint[] }>;
+  /** Route i's door and exit (indexes into doors and exits). One-route boards: [0] and []. */
+  routeDoor: number[];
+  routeExit: number[];
+  /** The trunk: the carpet every door joins and every exit leaves (a one-door board: its carpet). */
+  trunk: Waypoint[];
   /** Board size in cells and world pixels (set with the map). */
   cols: number;
   rows: number;
@@ -1041,6 +1053,8 @@ export function createWorld(
   beginNight: () => void;
   /** Intro, Sir Michael only: put on an armour and start the night (a locked one does nothing). */
   pickArmour: (armour: ArmourId) => void;
+  /** The Hall of Doors, between waves: turn the signpost to shut the next exit for the next wave (none, then each in turn). */
+  turnSign: () => void;
   /** @deprecated The oaths are gone: an old oath (or an armour) is mapped to an armour (ARMOUR_FOR_OATH) and put on. */
   pickOath: (oath: OathId | ArmourId) => void;
   /** Whether an armour is open for the playing keeper (keeper level, dev mode, or every tower open). */
@@ -1174,6 +1188,7 @@ export function createWorld(
       dropSeen: false,
       quackAura: CANNON.quackAura,
       golden: 0,
+      shutExit: null,
       tagTeam: false,
       geeseSpent: false,
       copycatPlaced: false,
@@ -1236,6 +1251,10 @@ export function createWorld(
     routes: [STACKS.points],
     segments: [STACKS.points],
     doors: [],
+    exits: [],
+    routeDoor: [0],
+    routeExit: [],
+    trunk: STACKS.points,
     ...boardSize("stacks"),
     reduced: false,
     sfx: [],
@@ -2528,9 +2547,27 @@ export function createWorld(
     world.landings = [];
     world.brawls = [];
   };
-  /** Stacks a leak costs: 2 for a tank, 3 for a boss, 1 for anything else. */
+  /** Stacks a leak costs: 2 for a tank, 3 for a boss, 1 for anything else (twice that at a "double" exit). */
   const leakOf = (e: Enemy) =>
-    e.tank ? SIEGE.tank.leak : e.matriarch ? SIEGE.matriarch.leak : e.general ? SIEGE.general.leak : e.boss ? 3 : 1;
+    (e.tank ? SIEGE.tank.leak : e.matriarch ? SIEGE.matriarch.leak : e.general ? SIEGE.general.leak : e.boss ? 3 : 1) *
+    (exitOfRoute(e.route)?.cost === "double" ? 2 : 1);
+  /** A route's door and exit (a board with exits); one-route boards: door 0, no exit. */
+  const doorIdx = (route?: number) => world.routeDoor[route ?? 0] ?? route ?? 0;
+  const exitOfRoute = (route?: number) => world.exits[world.routeExit[route ?? 0] ?? -1];
+  /** A fruit gets out: what its exit costs (the Kitchens take seeds while the purse can pay; else stacks). */
+  const leakAt = (e: Enemy) => {
+    const exit = exitOfRoute(e.route);
+    if (exit) world.runLog.leaksByExit[exit.id] = (world.runLog.leaksByExit[exit.id] ?? 0) + 1;
+    if (exit?.cost === "seeds" && world.hud.seeds >= HALL.kitchenSeeds) {
+      world.hud.seeds -= HALL.kitchenSeeds;
+      waveLost = true;
+      float(e.x, e.y - 16, `−${HALL.kitchenSeeds} seeds, pantry raided`, "#e6c36a");
+      world.hud.log = `A fruit got out through the Kitchens and raided the pantry: −${HALL.kitchenSeeds} seeds.`;
+      cue("leak");
+      return;
+    }
+    loseLife(leakOf(e), e.x, e.y, e);
+  };
   /** A Box Cat loses its box (splash, burn, a puddle, or a Reading Lamp's light): from now on it's an ordinary cat. */
   const unbox = (e: Enemy) => {
     if (!e.boxed) return;
@@ -2689,8 +2726,13 @@ export function createWorld(
     // The room's own fruit take the place of some ordinary ones.
     const spawns = trimSpawns(spec.spawns, BOARDS[world.hud.map].trim, world.hud.difficulty, index + 1);
     const all = [...spawns, ...extra];
-    // A board with doors: which door each fruit walks in by (each door keeps its own spacing).
-    return assignNatives(waveQueue(all, assignDoors(all, BOARDS[world.hud.map], index + 1)), BOARDS[world.hud.map].natives, index + 1, world.hud.difficulty);
+    // A board with doors: which door each fruit walks in by (each door keeps its own spacing). A board with exits:
+    // which exit it leaves by too (the signpost's shut exit counts for the next wave only).
+    const board = BOARDS[world.hud.map];
+    const exitCount = board.exits?.length ?? 0;
+    const routes = combineRoutes(assignDoors(all, board, index + 1), assignExits(all, board, index === cleared ? world.hud.shutExit : null), exitCount);
+    const doorOfRoute = exitCount ? (r: number) => Math.floor(r / exitCount) : undefined;
+    return assignNatives(waveQueue(all, routes, doorOfRoute), board.natives, index + 1, world.hud.difficulty);
   };
   const buildQueue = () => {
     queue = queueFor(cleared);
@@ -2747,7 +2789,8 @@ export function createWorld(
         count: 1,
         hp: n.hp,
         speed: n.speed,
-        ...(q.route != null && world.doors[q.route] ? { door: world.doors[q.route].id } : {}),
+        ...(q.route != null && world.doors[doorIdx(q.route)] ? { door: world.doors[doorIdx(q.route)].id } : {}),
+        ...(q.route != null && exitOfRoute(q.route) ? { exit: exitOfRoute(q.route)!.id } : {}),
       };
       const last = out[out.length - 1];
       const same = last && (Object.keys(g) as Array<keyof WaveGroup>).every((k) => k === "count" || last[k] === g[k]);
@@ -2823,6 +2866,25 @@ export function createWorld(
   };
 
   /**
+   * The Hall of Doors' signpost, between waves: shut the next exit for the next wave (none, then each exit in turn;
+   * the boss-only exit is skipped when the wave brings a boss). The lamps and the Coming up bar follow.
+   */
+  const turnSign = () => {
+    const board = BOARDS[world.hud.map];
+    if (!board.exits?.length || world.hud.phase !== "prep") return;
+    const boss = queueFor(cleared).some((q) => Boolean(STATS[q.kind].boss) || q.siege === "matriarch" || q.siege === "general");
+    const cycle: Array<ExitId | null> = [null, ...board.exits.filter((x) => !(x.bossOnly && boss)).map((x) => x.id)];
+    const at = cycle.indexOf(world.hud.shutExit);
+    world.hud.shutExit = cycle[(at + 1) % cycle.length];
+    const shut = world.hud.shutExit;
+    world.hud.log = shut
+      ? `The ${EXIT_NAME[shut]}${shut === "restricted" ? " is" : shut === "kitchens" ? " are" : " is"} closed for the next wave.${shut === "kitchens" ? " Mind your stacks." : shut === "reading" ? " Mind the pantry." : ""}`
+      : "Every exit is open for the next wave.";
+    cue("creak");
+    syncDoors();
+    notify();
+  };
+  /**
    * A board with doors: which doors are open for wave `cleared + 1` (the open carpet follows), and the lamps
    * between waves (the next wave's first door). Called with the board and after every wave.
    */
@@ -2831,10 +2893,11 @@ export function createWorld(
     const board = BOARDS[world.hud.map];
     const wave = cleared + 1;
     world.doors.forEach((d, i) => (d.open = (board.doors?.[i]?.from ?? 1) <= wave));
-    world.segments = [...world.doors.filter((d) => d.open).map((d) => d.seg), world.segments[world.segments.length - 1]];
+    world.segments = [...world.doors.filter((d) => d.open).map((d) => d.seg), world.trunk, ...world.exits.map((x) => x.seg)];
     legCache = null;
     const first = queueFor(cleared)[0]?.route ?? 0;
-    world.doors.forEach((d, i) => (d.lit = i === first));
+    world.doors.forEach((d, i) => (d.lit = i === doorIdx(first)));
+    world.exits.forEach((x, i) => (x.lit = i === (world.routeExit[first] ?? -1)));
   };
   const applyBoard = (map: MapId) => {
     const built = buildRoutes(BOARDS[map]);
@@ -2846,7 +2909,18 @@ export function createWorld(
     world.routes = built.routes;
     world.segments = built.segments;
     world.doors = (BOARDS[map].doors ?? []).map((d, i) => ({ id: d.id, open: true, cells: built.doorCells[i], lit: false, seg: built.segments[i] }));
-    // The trunk stays the last segment (syncDoors keeps it there).
+    world.routeDoor = built.routeDoor;
+    world.routeExit = built.routeExit;
+    world.trunk = built.segments[world.doors.length] ?? built.points;
+    world.exits = (BOARDS[map].exits ?? []).map((x, i) => ({
+      id: x.id,
+      cost: x.cost,
+      bossOnly: Boolean(x.bossOnly),
+      cells: built.exitCells[i],
+      lit: false,
+      seg: built.segments[world.doors.length + 1 + i],
+    }));
+    world.hud.shutExit = null;
     if (world.doors.length) world.segments = [...built.segments];
     legCache = null;
     world.floors = floorTiles(map);
@@ -2954,6 +3028,7 @@ export function createWorld(
       dropSeen: false,
       quackAura: CANNON.quackAura,
       golden: 0,
+      shutExit: null,
       tagTeam: false,
       geeseSpent: false,
       copycatPlaced: false,
@@ -2998,7 +3073,7 @@ export function createWorld(
     log.stacksLost += lost;
     if (from?.reverse) log.chuteStacksLost += lost;
     if (from && world.doors.length) {
-      const door = world.doors[from.route ?? 0]?.id;
+      const door = world.doors[doorIdx(from.route)]?.id;
       if (door) log.leaksByDoor[door] = (log.leaksByDoor[door] ?? 0) + 1;
     }
 
@@ -3962,6 +4037,7 @@ export function createWorld(
 
   const endWave = () => {
     cleared += 1;
+    world.hud.shutExit = null;
     world.hud.geeseSpent = false;
     world.hud.copycatPlaced = false;
     world.hud.chuteWave = usesChute(cleared);
@@ -4175,9 +4251,12 @@ export function createWorld(
     // Door lamps: a door glows for a moment before its next fruit walks in.
     if (world.doors.length) {
       world.doors.forEach((d) => (d.lit = false));
+      world.exits.forEach((x) => (x.lit = false));
       for (let k = queueCursor; k < queue.length && queue[k].t - spawnClock <= 1.5; k++) {
-        const d = world.doors[queue[k].route ?? 0];
+        const d = world.doors[doorIdx(queue[k].route)];
         if (d) d.lit = true;
+        const x = exitOfRoute(queue[k].route);
+        if (x) x.lit = true;
       }
     }
     if (drops.length) {
@@ -4466,7 +4545,7 @@ export function createWorld(
           if (e.wp < 0) {
             noteReach(e, 1);
             if (e.borrower) borrow(e);
-            else loseLife(leakOf(e), e.x, e.y, e);
+            else leakAt(e);
             e.hp = 0;
           }
         } else {
@@ -4474,7 +4553,7 @@ export function createWorld(
           if (e.wp >= route.length) {
             noteReach(e, 1);
             if (e.borrower) borrow(e);
-            else loseLife(leakOf(e), e.x, e.y, e);
+            else leakAt(e);
             e.hp = 0;
           }
         }
@@ -4994,6 +5073,11 @@ export function createWorld(
         (world.hud.phase === "prep" || world.hud.phase === "combat");
       if (kind !== "down") return;
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
+      const sign = BOARDS[world.hud.map].signpost;
+      if (sign && sign[0] === c && sign[1] === r && world.hud.selected == null) {
+        turnSign();
+        return;
+      }
       if (taken) {
         const tower = towerAt(c, r);
         if (tower && world.hud.selected === tower.id) {
@@ -5578,6 +5662,9 @@ export function createWorld(
     pickArmour(armour: ArmourId) {
       wearArmour(armour, false);
     },
+    turnSign() {
+      turnSign();
+    },
     pickOath(oath: OathId | ArmourId) {
       // Scripts from the oath days (the simulator, old tests) skip the level check: no player reaches this.
       const armour = (ARMOURS as string[]).includes(oath) ? (oath as ArmourId) : ARMOUR_FOR_OATH[oath as OathId];
@@ -5998,9 +6085,10 @@ export function createWorld(
  * The board's straights, each once: every door's own carpet (open or not, so the numbering never shifts), then
  * the trunk; a one-door board's are its carpet's. A Post binds one of these by its number.
  */
-export function boardLegs(world: Pick<World, "doors" | "segments" | "points">) {
+export function boardLegs(world: Pick<World, "doors" | "segments" | "points"> & Partial<Pick<World, "trunk" | "exits">>) {
   if (!world.doors.length) return carpetLegs(world.points);
-  return [...world.doors.map((d) => d.seg), world.segments[world.segments.length - 1]].flatMap((s) => carpetLegs(s));
+  const trunk = world.trunk ?? world.segments[world.segments.length - 1];
+  return [...world.doors.map((d) => d.seg), trunk, ...(world.exits ?? []).map((x) => x.seg)].flatMap((s) => carpetLegs(s));
 }
 
 export function stepWorld(world: World, dt: number) {

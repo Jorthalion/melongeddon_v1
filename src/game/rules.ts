@@ -1426,10 +1426,11 @@ export type MapId =
   | "belltower"
   | "overflow"
   | "courtyard"
-  | "rotunda";
+  | "rotunda"
+  | "halldoors";
 
 /** A board with more than one way in: each door's carpet runs to where it joins the board's own carpet (the trunk). */
-export type DoorId = "north" | "west" | "stairs";
+export type DoorId = "north" | "west" | "stairs" | "lift";
 export interface Door {
   id: DoorId;
   /** From the door to the trunk corner it joins (that corner is the last point). */
@@ -1437,8 +1438,37 @@ export interface Door {
   /** The first wave (1-based) the door is open; open from the start if unset. */
   from?: number;
 }
-export const DOOR_NAME: Record<DoorId, string> = { north: "North door", west: "West door", stairs: "Back stairs" };
-export const DOOR_LETTER: Record<DoorId, string> = { north: "N", west: "W", stairs: "S" };
+export const DOOR_NAME: Record<DoorId, string> = { north: "North door", west: "West door", stairs: "Back stairs", lift: "Service lift" };
+export const DOOR_LETTER: Record<DoorId, string> = { north: "N", west: "W", stairs: "S", lift: "L" };
+
+/**
+ * More than one way out (the Hall of Doors): each exit's carpet starts on a corner of the trunk and runs to the
+ * board's edge. Every entrance and exit pair is a route of its own. What a fruit costs when it gets out depends
+ * on its exit: a stack, seeds (`HALL.kitchenSeeds`, or a stack when the purse is short), or double stacks.
+ */
+export type ExitId = "reading" | "kitchens" | "restricted";
+export interface Exit {
+  id: ExitId;
+  /** From the trunk corner it starts at (the first point) to the board's edge. */
+  corners: Array<[number, number]>;
+  cost: "stack" | "seeds" | "double";
+  /** Only bosses leave this way (and every boss does). */
+  bossOnly?: boolean;
+}
+export const EXIT_NAME: Record<ExitId, string> = { reading: "Reading Room", kitchens: "Kitchens", restricted: "Restricted Section" };
+/** Each exit's colour: its door mark on the Coming up chips, its lamp and its door. */
+export const EXIT_COLOR: Record<ExitId, string> = { reading: "#5fae6e", kitchens: "#9aa3ad", restricted: "#b4453c" };
+/** The Hall of Doors' numbers (tune with the simulator). */
+export const HALL = {
+  /** Seeds a fruit takes when it gets out through the Kitchens (a stack instead if the purse is shorter). */
+  kitchenSeeds: 10,
+};
+/** What a leak at an exit costs, in player words ("Kitchens: 10 seeds each"). */
+export function exitCostText(exit: Exit) {
+  if (exit.cost === "seeds") return `${HALL.kitchenSeeds} seeds each`;
+  if (exit.cost === "double") return "double stacks";
+  return "a stack each";
+}
 
 /**
  * Floors that change the carpet: a belt carries fruit faster the way the carpet runs (and holds
@@ -1543,6 +1573,13 @@ export interface Board {
   doors?: Door[];
   /** The Rotunda's desk, drawn where the first doors' carpets meet (a cell on the carpet; decoration only). */
   desk?: [number, number];
+  /**
+   * More than one way out (the Hall of Doors): each exit's carpet starts on a corner of the trunk. With exits, a
+   * route is an entrance's carpet, the trunk up to where its exit starts, then that exit (one per pair).
+   */
+  exits?: Exit[];
+  /** The Hall of Doors' signpost: the carpet cell where the exits start. Turn it between waves to shut an exit. */
+  signpost?: [number, number];
 }
 
 /** The classic bookshelf layout, used by boards that don't list their own. */
@@ -1926,6 +1963,41 @@ export const BOARDS: Record<MapId, Board> = {
       [7, 6], [8, 6], [2, 6], [3, 6], [16, 1],
     ],
   },
+  halldoors: {
+    id: "halldoors",
+    name: "The Hall of Doors",
+    blurb: "A long entrance hall with a signpost in the middle. The fruit come in one way and leave by three.",
+    cols: 20,
+    rows: 12,
+    // Three branches split the player's cover, so fruit are softer (tuned with the simulator: 0.85 won 89/80/59/20%
+    // on easy/normal/hard/overdue against the Rotunda's 100/89/66/45; 0.75 98/83/56/34; 0.68 97/84/70/53; 0.7 with
+    // 5 seeds 96/83/71/53 against 100/91/68/44).
+    hp: 0.7,
+    // The trunk: from where the lift comes in to the signpost, where the three exits start.
+    corners: [
+      [7, 6],
+      [9, 6],
+    ],
+    doors: [
+      { id: "west", corners: [[0, 6], [7, 6]] },
+      { id: "lift", corners: [[2, 11], [2, 8], [7, 8], [7, 6]], from: 8 },
+    ],
+    exits: [
+      { id: "reading", corners: [[9, 6], [9, 3], [12, 3], [12, 0]], cost: "stack" },
+      { id: "kitchens", corners: [[9, 6], [9, 9], [6, 9], [6, 11]], cost: "seeds" },
+      { id: "restricted", corners: [[9, 6], [15, 6], [15, 2], [19, 2]], cost: "double", bossOnly: true },
+    ],
+    signpost: [9, 6],
+    michaelCannon: [5, 4],
+    // Shelves round the walls and two reading tables: about 13% of the floor. Kept clear: a tile beside each door
+    // and exit, and the ring round the signpost.
+    shelves: [
+      [0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [6, 0], [7, 0], [15, 0], [16, 0], [17, 0], [18, 0], [19, 0],
+      [0, 11], [9, 11], [10, 11], [11, 11], [12, 11], [16, 11], [17, 11], [18, 11], [19, 11],
+      [0, 2], [0, 3], [0, 9], [19, 6], [19, 7], [19, 8], [19, 9],
+      [4, 3], [5, 3], [16, 9], [17, 9],
+    ],
+  },
 };
 
 export function cornerRot(prev: [number, number], corner: [number, number], next: [number, number]) {
@@ -2142,7 +2214,7 @@ export function trimSpawns(spawns: SpawnSpec[], trim: Board["trim"], difficulty:
   return spawns.map((g) => (g.count >= 2 ? { ...g, count: Math.max(1, Math.round(g.count * t.count)) } : g));
 }
 
-export function waveQueue(spawns: SpawnSpec[], routes?: number[][]): QueueItem[] {
+export function waveQueue(spawns: SpawnSpec[], routes?: number[][], doorOf: (route: number) => number = (r) => r): QueueItem[] {
   const items: QueueItem[] = [];
   let t = 0.35;
   let lines = 0;
@@ -2156,7 +2228,7 @@ export function waveQueue(spawns: SpawnSpec[], routes?: number[][]): QueueItem[]
     if (siege === "gosling") lines += Math.ceil(group.count / SIEGE.goslingLine);
     for (let i = 0; i < group.count; i++) {
       const route = routes?.[gi]?.[i];
-      const at = route == null || lone ? t : (byDoor.get(route) ?? 0.35);
+      const at = route == null || lone ? t : (byDoor.get(doorOf(route)) ?? 0.35);
       items.push({
         kind: group.kind,
         t: at,
@@ -2175,7 +2247,7 @@ export function waveQueue(spawns: SpawnSpec[], routes?: number[][]): QueueItem[]
         leader: siege === "gosling" && i % SIEGE.goslingLine === 0,
         ...(route != null ? { route } : {}),
       });
-      if (route != null && !lone) byDoor.set(route, at + group.every);
+      if (route != null && !lone) byDoor.set(doorOf(route), at + group.every);
       t += group.every;
     }
   });
@@ -2207,6 +2279,43 @@ export function assignDoors(spawns: SpawnSpec[], board: Board, wave: number): nu
   });
 }
 
+/** A boss: Karl, the Matriarch or General Mittens (bosses take the first door, and the boss-only exit). */
+const isBossGroup = (g: SpawnSpec) => Boolean(STATS[g.kind].boss) || Boolean(g.matriarch) || Boolean(g.general);
+
+/** Does a wave bring a boss? (The signpost can't shut the boss-only exit then.) */
+export function waveHasBoss(spawns: SpawnSpec[]) {
+  return spawns.some(isBossGroup);
+}
+
+/**
+ * Which exit each fruit of a wave leaves by (exit indexes, per group and per fruit), on a board with exits;
+ * undefined otherwise. Bosses take the boss-only exit. Every other group takes the open exits in turn (the
+ * boss-only one never, a shut one is skipped); a wave of one group alternates its fruit instead.
+ */
+export function assignExits(spawns: SpawnSpec[], board: Board, shut: ExitId | null): number[][] | undefined {
+  const exits = board.exits;
+  if (!exits?.length) return undefined;
+  const common = exits.flatMap((x, i) => (!x.bossOnly ? [i] : []));
+  let open = common.filter((i) => exits[i].id !== shut);
+  if (!open.length) open = common.length ? common : [0];
+  const bossAt = exits.findIndex((x) => x.bossOnly);
+  const bossExit = bossAt >= 0 ? bossAt : open[0];
+  if (spawns.length === 1 && !isBossGroup(spawns[0])) return [Array.from({ length: spawns[0].count }, (_, i) => open[i % open.length])];
+  let turn = 0;
+  return spawns.map((g) => {
+    if (isBossGroup(g)) return Array(g.count).fill(bossExit);
+    const exit = open[turn % open.length];
+    turn += 1;
+    return Array(g.count).fill(exit);
+  });
+}
+
+/** Doors and exits to route indexes: route = door x (number of exits) + exit. Without exits, the doors as they are. */
+export function combineRoutes(doors: number[][] | undefined, exits: number[][] | undefined, exitCount: number): number[][] | undefined {
+  if (!exits) return doors;
+  return exits.map((g, gi) => g.map((x, i) => (doors?.[gi]?.[i] ?? 0) * exitCount + x));
+}
+
 /**
  * A board's routes: one per door (its carpet, then the trunk from where it joins), or just the board's own
  * carpet. `segments` are the carpet pieces with nothing counted twice (each door's own carpet, then the
@@ -2222,7 +2331,11 @@ export function buildRoutes(board: Board) {
       routes: [base.points],
       segments: [base.points],
       doorOf: [null] as Array<DoorId | null>,
+      exitOf: [] as ExitId[],
+      routeDoor: [0],
+      routeExit: [] as number[],
       doorCells: [] as Array<Set<string>>,
+      exitCells: [] as Array<Set<string>>,
     };
   }
   const cells = new Set(base.cells);
@@ -2231,7 +2344,22 @@ export function buildRoutes(board: Board) {
   const routes: Array<Array<{ x: number; y: number }>> = [];
   const segments: Array<Array<{ x: number; y: number }>> = [];
   const doorCells: Array<Set<string>> = [];
-  for (const door of board.doors) {
+  const routeDoor: number[] = [];
+  const routeExit: number[] = [];
+  // Exits (the Hall of Doors): each starts on a trunk corner; their tiles join the carpet.
+  const exitBuilt = (board.exits ?? []).map((x) => {
+    const first = x.corners[0];
+    const at = board.corners.findIndex(([c, r]) => c === first[0] && r === first[1]);
+    if (at < 0) throw new Error(`The ${x.id} exit's carpet has to start on a corner of the board's carpet`);
+    const own = buildBoard(x.corners);
+    return { at, own, cells: new Set([...own.cells].filter((k) => !base.cells.has(k))) };
+  });
+  for (const x of exitBuilt) {
+    for (const k of x.own.cells) cells.add(k);
+    for (const k of x.own.verge) verge.add(k);
+    for (const t of x.own.turns) turns.push({ ...t, door: undefined });
+  }
+  board.doors.forEach((door, di) => {
     const last = door.corners[door.corners.length - 1];
     const join = board.corners.findIndex(([c, r]) => c === last[0] && r === last[1]);
     if (join < 0) throw new Error(`The ${door.id} door's carpet has to end on a corner of the board's carpet`);
@@ -2244,11 +2372,37 @@ export function buildRoutes(board: Board) {
     const tj = turns.findIndex((t) => t.c === last[0] && t.r === last[1]);
     if (tj >= 0) turns[tj] = { ...turns[tj], door: door.id };
     segments.push(own.points);
-    routes.push([...own.points, ...base.points.slice(join + 1)]);
-  }
+    if (!exitBuilt.length) {
+      routes.push([...own.points, ...base.points.slice(join + 1)]);
+      routeDoor.push(di);
+      return;
+    }
+    exitBuilt.forEach((x, xi) => {
+      if (x.at < join) throw new Error(`The ${board.exits![xi].id} exit starts before the ${door.id} door joins the trunk`);
+      routes.push([...own.points, ...base.points.slice(join + 1, x.at + 1), ...x.own.points.slice(1)]);
+      routeDoor.push(di);
+      routeExit.push(xi);
+    });
+  });
   segments.push(base.points);
+  for (const x of exitBuilt) segments.push(x.own.points);
   for (const k of cells) verge.delete(k);
-  return { cells, verge, points: routes[0], turns, routes, segments, doorOf: board.doors.map((d) => d.id) as Array<DoorId | null>, doorCells };
+  const doorIds = board.doors.map((d) => d.id);
+  return {
+    cells,
+    verge,
+    points: routes[0],
+    turns,
+    routes,
+    segments,
+    /** Route i's door, and (a board with exits) its exit. */
+    doorOf: routeDoor.map((d) => doorIds[d]) as Array<DoorId | null>,
+    exitOf: routeExit.map((x) => board.exits![x].id) as ExitId[],
+    routeDoor,
+    routeExit,
+    doorCells,
+    exitCells: exitBuilt.map((x) => x.cells),
+  };
 }
 
 /** `carpetInReach` over several pieces of carpet (a board's segments): each tile counted once. */

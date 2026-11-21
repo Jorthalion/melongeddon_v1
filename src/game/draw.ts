@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, reachShape, roundedSpot, roostStageFor, boardLegs, carpetInReachAll, nearestSegment, type TowerKind, type World } from "./engine";
+import { BOARDS, EXIT_COLOR, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, reachShape, roundedSpot, roostStageFor, boardLegs, carpetInReachAll, nearestSegment, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile, drawRoost, drawGreatPlinth } from "./drawCannons.ts";
 import {
   STATUS_LOOK,
@@ -94,6 +94,13 @@ const SPRITE_SRC = {
   floorCourtyard: asset("sprites/tile-floor-courtyard.webp"),
   // The Rotunda: its parquet, the desk where the carpets meet, a lamp by each door, a door not open yet.
   floorRotunda: asset("sprites/tile-floor-rotunda.webp"),
+  // The Hall of Doors: drawn by code until these exist (checkered marble, the signpost, three exit doors, a CLOSED sign).
+  floorHalldoors: asset("sprites/tile-floor-halldoors.webp"),
+  signpost: asset("sprites/prop-signpost.webp"),
+  closedSign: asset("sprites/prop-closed-sign.webp"),
+  doorReading: asset("sprites/door-reading.webp"),
+  doorKitchens: asset("sprites/door-kitchens.webp"),
+  doorRestricted: asset("sprites/door-restricted.webp"),
   rotundaDesk: asset("sprites/prop-rotunda-desk.webp"),
   doorLamp: asset("sprites/prop-door-lamp.webp"),
   boardedStairs: asset("sprites/prop-boarded-stairs.webp"),
@@ -418,9 +425,16 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     readingroom: art.floorReadingroom,
     courtyard: art.floorCourtyard,
     rotunda: art.floorRotunda,
+    halldoors: art.floorHalldoors,
   } as Partial<Record<string, HTMLImageElement>>)[world.hud.map];
   const floor = ready(ownFloor) ? ownFloor : art.floor;
-  if (world.hud.map === "courtyard" && !ready(ownFloor)) {
+  if (world.hud.map === "halldoors" && !ready(ownFloor)) {
+    // Checkered marble by code until the painted tile exists.
+    ctx.fillStyle = marble(ctx);
+    ctx.fillRect(0, 0, world.w, world.h);
+    ctx.fillStyle = "rgba(16,12,14,0.42)";
+    ctx.fillRect(0, 0, world.w, world.h);
+  } else if (world.hud.map === "courtyard" && !ready(ownFloor)) {
     // Flagstones by code while the painted tile loads.
     ctx.fillStyle = flagstones(ctx);
     ctx.fillRect(0, 0, world.w, world.h);
@@ -1767,6 +1781,19 @@ function drawCarpet(
   }
 
   const end = world.points[world.points.length - 1];
+  if (world.exits.length) {
+    // A board with exits: no Stacks door; each exit has its own (with its lamp), and the signpost.
+    const breath = 0.18 + Math.sin(world.anim * 2.2) * 0.08;
+    ctx.fillStyle = `rgba(160,36,48,${breath})`;
+    for (const m of mouths(world)) {
+      ctx.beginPath();
+      ctx.ellipse(m.x - m.dx * 18, m.y - m.dy * 18, 22, 12, Math.atan2(m.dy, m.dx), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    drawDoors(ctx, world);
+    drawExits(ctx, world);
+    return;
+  }
   const doorLight = ctx.createRadialGradient(end.x, end.y, 6, end.x, end.y, 78);
   doorLight.addColorStop(0, "rgba(230,195,106,0.22)");
   doorLight.addColorStop(1, "rgba(230,195,106,0)");
@@ -1803,6 +1830,224 @@ function drawCarpet(
 
   if (world.hud.map === "overflow" && world.points.length >= 2) drawChute(ctx, world, end, getSprites().chuteProp);
   drawDoors(ctx, world);
+}
+
+let marbleTile: HTMLCanvasElement | null = null;
+/** The Hall of Doors' floor by code: two tones of grey-white marble in a checker, with faint veins. */
+function marble(ctx: CanvasRenderingContext2D): CanvasPattern | string {
+  if (typeof document === "undefined") return "#8a8784";
+  if (!marbleTile) {
+    marbleTile = document.createElement("canvas");
+    marbleTile.width = CELL * 2;
+    marbleTile.height = CELL * 2;
+    const g = marbleTile.getContext("2d");
+    if (g) {
+      for (let r = 0; r < 2; r++)
+        for (let c = 0; c < 2; c++) {
+          g.fillStyle = (r + c) % 2 ? "#6f6b67" : "#a9a49c";
+          g.fillRect(c * CELL, r * CELL, CELL, CELL);
+        }
+      g.strokeStyle = "rgba(255,255,255,0.12)";
+      g.lineWidth = 1;
+      for (let i = 0; i < 6; i++) {
+        g.beginPath();
+        const y = (i * CELL) / 3 + 4;
+        g.moveTo(0, y);
+        g.bezierCurveTo(CELL * 0.6, y + 10, CELL * 1.2, y - 8, CELL * 2, y + 6);
+        g.stroke();
+      }
+      g.strokeStyle = "rgba(20,16,14,0.35)";
+      g.strokeRect(0.5, 0.5, CELL * 2 - 1, CELL * 2 - 1);
+      g.beginPath();
+      g.moveTo(CELL, 0);
+      g.lineTo(CELL, CELL * 2);
+      g.moveTo(0, CELL);
+      g.lineTo(CELL * 2, CELL);
+      g.stroke();
+    }
+  }
+  return ctx.createPattern(marbleTile, "repeat") ?? "#8a8784";
+}
+
+/**
+ * A board with exits (the Hall of Doors): each exit's door at the board's edge (a green leather door for the
+ * Reading Room, a swinging steel one for the Kitchens, an iron-banded one with a chain for the Restricted
+ * Section), a lamp lit for the exit the next fruit take, the shut exit dimmed with a CLOSED sign, and the
+ * signpost where the exits start, its arms pointing down each branch.
+ */
+function drawExits(ctx: CanvasRenderingContext2D, world: World) {
+  const art = getSprites();
+  const board = BOARDS[world.hud.map];
+  const shut = world.hud.shutExit;
+  const own = { reading: art.doorReading, kitchens: art.doorKitchens, restricted: art.doorRestricted };
+  for (const x of world.exits) {
+    const seg = x.seg;
+    const end = seg[seg.length - 1];
+    const prev = seg[seg.length - 2] ?? end;
+    const len = Math.hypot(end.x - prev.x, end.y - prev.y) || 1;
+    const dx = (end.x - prev.x) / len;
+    const dy = (end.y - prev.y) / len;
+    const color = EXIT_COLOR[x.id];
+    ctx.save();
+    if (shut === x.id) {
+      // Its carpet dims while it's shut.
+      ctx.fillStyle = "rgba(8,6,10,0.5)";
+      for (const k of x.cells) {
+        const [c, r] = k.split(",").map(Number);
+        ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+      }
+    }
+    // The door sits on the edge, a little inside the board.
+    const dxp = Math.max(18, Math.min(world.w - 18, end.x - dx * 6));
+    const dyp = Math.max(22, Math.min(world.h - 22, end.y - dy * 6));
+    const img = own[x.id];
+    if (ready(img)) blitFit(ctx, img, dxp, dyp, 40, 50);
+    else {
+      ctx.translate(dxp, dyp);
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillRect(-15, -19, 32, 42);
+      if (x.id === "reading") {
+        ctx.fillStyle = "#2f6b3d";
+        roundRect(ctx, -15, -21, 30, 42, 6);
+        ctx.fill();
+        ctx.fillStyle = "#d9b25a";
+        for (let i = 0; i < 4; i++) for (const sx of [-11, 11]) ctx.fillRect(sx - 1, -16 + i * 10, 2, 2);
+        ctx.beginPath();
+        ctx.arc(9, 2, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (x.id === "kitchens") {
+        ctx.fillStyle = "#8d969f";
+        ctx.fillRect(-15, -21, 30, 42);
+        ctx.strokeStyle = "#5b636b";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -21);
+        ctx.lineTo(0, 21);
+        ctx.stroke();
+        ctx.fillStyle = "#cfe3ef";
+        for (const sx of [-7, 7]) {
+          ctx.beginPath();
+          ctx.arc(sx, -8, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      } else {
+        ctx.fillStyle = "#3b2a26";
+        roundRect(ctx, -15, -21, 30, 42, 3);
+        ctx.fill();
+        ctx.fillStyle = "#6b6460";
+        for (const by of [-13, 0, 13]) ctx.fillRect(-15, by - 2, 30, 4);
+        ctx.strokeStyle = "#a8a29c";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.moveTo(-13, -16);
+        ctx.lineTo(13, 14);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-15, -21, 30, 42);
+    }
+    ctx.restore();
+    // The lamp beside the door, lit for the exit the next fruit take.
+    const lx = dxp + (Math.abs(dy) > 0.5 ? 22 : 0);
+    const ly = dyp + (Math.abs(dx) > 0.5 ? -26 : 0);
+    ctx.save();
+    if (x.lit && shut !== x.id) {
+      const pulse = 0.55 + Math.sin(world.anim * 5) * 0.2;
+      const glow = ctx.createRadialGradient(lx, ly, 1, lx, ly, 24);
+      glow.addColorStop(0, hexA(color, pulse));
+      glow.addColorStop(1, hexA(color, 0));
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(lx, ly, 24, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = x.lit && shut !== x.id ? color : "#3a2c22";
+    ctx.strokeStyle = "#c6a15a";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    if (shut === x.id) {
+      // CLOSED: a hanging card over the door.
+      if (ready(art.closedSign)) blitFit(ctx, art.closedSign, dxp, dyp, 46, 30);
+      else {
+        ctx.save();
+        ctx.translate(dxp, dyp);
+        ctx.rotate(-0.12);
+        ctx.fillStyle = "#efe0bd";
+        roundRect(ctx, -22, -9, 44, 18, 3);
+        ctx.fill();
+        ctx.strokeStyle = "#7a1f22";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#9a1f24";
+        ctx.font = "800 10px 'Outfit Variable', Outfit, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("CLOSED", 0, 1);
+        ctx.restore();
+      }
+    }
+  }
+  const sign = board.signpost;
+  if (!sign) return;
+  const sx = sign[0] * CELL + CELL / 2;
+  const sy = sign[1] * CELL + CELL / 2;
+  ctx.save();
+  // Between waves it can be turned: a soft ring says so.
+  if (world.hud.phase === "prep") {
+    ctx.strokeStyle = `rgba(230,195,106,${0.35 + Math.sin(world.anim * 3) * 0.2})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, CELL * 0.48, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(sx + 2, sy + 6, CELL * 0.3, CELL * 0.16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (ready(art.signpost)) blitFit(ctx, art.signpost, sx, sy - 6, CELL * 1.05, CELL * 1.05);
+  else {
+    // Three arms, each pointing down its exit's carpet; the shut one hangs dark.
+    for (const x of world.exits) {
+      const to = x.seg[1] ?? x.seg[0];
+      const a = Math.atan2(to.y - sy, to.x - sx);
+      ctx.save();
+      ctx.translate(sx, sy - 8);
+      ctx.rotate(a);
+      ctx.fillStyle = shut === x.id ? "#3a2c22" : EXIT_COLOR[x.id];
+      ctx.strokeStyle = "#2a1c16";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(2, -4);
+      ctx.lineTo(17, -4);
+      ctx.lineTo(22, 0);
+      ctx.lineTo(17, 4);
+      ctx.lineTo(2, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.fillStyle = "#c6a15a";
+    ctx.fillRect(sx - 2, sy - 16, 4, 22);
+    ctx.beginPath();
+    ctx.arc(sx, sy - 17, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** "#rrggbb" with an alpha, as rgba(). */
+function hexA(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
 /** Where fruit walk in: each open door's start (a board with doors), else the carpet's, with the way in. */
@@ -2494,6 +2739,8 @@ const ROOM_LOOK: Partial<
   // The Bell Tower: cold stone, a deep red runner, moonlight through the louvres.
   // The Rotunda: warm parquet under a skylight in the middle of the room.
   rotunda: { floor: ["#7a5636", 0.4], carpet: "#7d1c3a", light: { x: 0.55, y: 0.55, r: 0.55, color: "255,226,170", a: 0.16 } },
+  // The Hall of Doors: cold marble, a plum runner, light pooled round the signpost.
+  halldoors: { carpet: "#6a2346", light: { x: 0.47, y: 0.5, r: 0.5, color: "255,230,190", a: 0.14 } },
   belltower: { floor: ["#6a6a78", 0.45], carpet: "#8a1f2a", light: { x: 0.5, y: 0.45, r: 0.5, color: "230,200,140", a: 0.14 } },
 };
 

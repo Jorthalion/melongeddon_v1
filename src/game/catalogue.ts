@@ -16,6 +16,7 @@ export type RoomId =
   | "readingroom"
   | "sorting"
   | "rotunda"
+  | "halldoors"
   | "greenhouse"
   | "belltower"
   | "bindery"
@@ -124,6 +125,13 @@ export const ROOMS: Room[] = [
     blurb: "Unlock every door of the round reading room. The fruit will use all of them.",
     cost: 16,
     rewards: [{ kind: "map", id: "rotunda" }],
+  },
+  {
+    id: "halldoors",
+    name: "The Hall of Doors",
+    blurb: "Rehang every door in the hall. The fruit are spoilt for choice.",
+    cost: 18,
+    rewards: [{ kind: "map", id: "halldoors" }],
   },
 
   {

@@ -126,6 +126,7 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "greenhouse" },
   { night: "midnight", map: "belltower" },
   { night: "midnight", map: "rotunda" },
+  { night: "midnight", map: "halldoors" },
   { night: "overflow", map: "overflow" },
   { night: "siege", map: "courtyard" },
 ];
@@ -329,6 +330,23 @@ for (const r of results) if (!r.won) deaths.set(r.reachedWave, (deaths.get(r.rea
 lines.push("| wave | losses |", "|---|---|");
 for (let w = 1; w <= MIDNIGHT_WAVES; w++) lines.push(`| ${w} | ${deaths.get(w) ?? 0} |`);
 lines.push("");
+
+{
+  // The Hall of Doors: where fruit got out, so the exits' costs can be judged.
+  const hall = results.filter((r) => r.config.map === "halldoors");
+  if (hall.length) {
+    lines.push("## The Hall of Doors: leaks by exit", "");
+    lines.push("Fruit that got out by each exit, per run (Reading Room: a stack; Kitchens: seeds, or a stack when short; Restricted Section: double stacks, bosses only).", "");
+    lines.push(`| difficulty | runs | Reading Room | Kitchens | Restricted Section |`, `|---|---|---|---|---|`);
+    for (const d of DIFFS) {
+      const rs = hall.filter((r) => r.config.difficulty === d);
+      if (!rs.length) continue;
+      const per = (k: string) => avg(rs.map((r) => r.leaksByExit?.[k] ?? 0)).toFixed(2);
+      lines.push(`| ${d} | ${rs.length} | ${per("reading")} | ${per("kitchens")} | ${per("restricted")} |`);
+    }
+    lines.push("");
+  }
+}
 
 lines.push("## Leaks per wave (Normal difficulty)", "");
 lines.push("Average stacks lost on each wave, counting only runs that reached it.", "");

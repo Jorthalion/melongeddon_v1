@@ -101,6 +101,8 @@ export interface RunResult {
   upgrades: UpgradeId[];
   /** How often the status combos went off (from the run log), and the most stings / afflictions on one fruit. */
   combos: { shatters: number; thermals: number; wildfires: number; contagion: number; maxStung: number; maxAfflictions: number };
+  /** The Hall of Doors: fruit that got out by each exit. */
+  leaksByExit?: Partial<Record<string, number>>;
   /** Damage dealt by each tower kind still standing at the end. */
   damageBy: Partial<Record<TowerKind, number>>;
   /** Fruit popped by each tower kind still standing at the end. */
@@ -495,6 +497,12 @@ function play(config: RunConfig, rng: () => number): RunResult {
     if (phase === "prep") {
       build();
       config.onPrep?.(world, api);
+      // The Hall of Doors' signpost: shut the Kitchens while seeds are short (a leak there costs seeds), else the
+      // Reading Room. The sign itself skips the Restricted Section on a boss wave.
+      if (world.exits.length) {
+        const want = world.hud.seeds < 100 ? "kitchens" : "reading";
+        for (let i = 0; i < 4 && world.hud.shutExit !== want; i++) api.turnSign();
+      }
       api.startWave();
     } else if (phase === "consequence") {
       api.startWave();
@@ -548,6 +556,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       maxStung: world.runLog.maxStung,
       maxAfflictions: world.runLog.maxAfflictions,
     },
+    leaksByExit: { ...world.runLog.leaksByExit },
     damageBy: world.towers.reduce<Partial<Record<TowerKind, number>>>((acc, x) => {
       acc[x.kind] = Math.round((acc[x.kind] ?? 0) + (api.tallyOf(x.id)?.dmg ?? 0));
       return acc;

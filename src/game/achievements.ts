@@ -4,7 +4,7 @@
  * Checked when a night ends (see finishNight in the engine). Saved under its own key, apart from
  * MetaStats, and never by dev mode, tests or the simulator.
  */
-import { ARMOURS, DIFFICULTIES, HEROES, KEEPER_TOWERS, armourFrom, type ArmourId, type Difficulty, type DoorId, type HeroId, type MapId, type NightId, type TowerKind } from "./rules.ts";
+import { ARMOURS, DIFFICULTIES, HEROES, KEEPER_TOWERS, armourFrom, type ArmourId, type Difficulty, type DoorId, type ExitId, type HeroId, type MapId, type NightId, type TowerKind } from "./rules.ts";
 import { PICKABLE_MAPS, type MetaStats } from "./meta.ts";
 import { SLIPS, type SlipId } from "./slips.ts";
 import { DEFAULT_COSMETICS, ROOM_IDS, START_ROOMS, legacyRooms, type Cosmetics, type RoomId } from "./catalogue.ts";
@@ -29,6 +29,8 @@ export interface RunLog {
   chuteStacksLost: number;
   /** A board with doors: leaks (fruit that reached the stacks) by the door they came in by. */
   leaksByDoor: Partial<Record<DoorId, number>>;
+  /** The Hall of Doors: fruit that got out by each exit. */
+  leaksByExit: Partial<Record<ExitId, number>>;
   /** Leaks Ooze absorbed. */
   absorbed: number;
   /** Lowest stacks reached (Infinity until the first leak). */
@@ -95,6 +97,7 @@ export function emptyRunLog(): RunLog {
     stacksLost: 0,
     chuteStacksLost: 0,
     leaksByDoor: {},
+    leaksByExit: {},
     absorbed: 0,
     minStacks: Infinity,
     karlStacksLost: 0,

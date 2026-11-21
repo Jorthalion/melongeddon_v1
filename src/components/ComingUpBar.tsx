@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Crown, TriangleAlert } from "lucide-react";
-import { BOARDS, DOOR_LETTER, DOOR_NAME, NATIVE_INFO, type WaveGroup } from "@/game/engine";
+import { BOARDS, DOOR_LETTER, DOOR_NAME, EXIT_COLOR, EXIT_NAME, NATIVE_INFO, exitCostText, type WaveGroup } from "@/game/engine";
 import { describeEnemy, fruitFromGroup } from "@/game/enemyInfo";
 import { COUNTERS, countersFor, unanswered, type BuildInfo } from "@/game/counters";
 import { enemySpriteSrc } from "@/game/draw";
@@ -130,7 +130,7 @@ export function ComingUpBar({ api }: { api: GameApi }) {
                 <button
                   type="button"
                   aria-expanded={open === i}
-                  title={`${describeEnemy(fruitFromGroup(g), api.world).name} ×${g.count}${g.door ? ` · ${DOOR_NAME[g.door]}` : ""}${marks.length ? ` · ${marks.map((m) => m.text).join(", ")}` : ""}`}
+                  title={`${describeEnemy(fruitFromGroup(g), api.world).name} ×${g.count}${g.door ? ` · ${DOOR_NAME[g.door]}` : ""}${g.exit ? ` · out by the ${EXIT_NAME[g.exit]}` : ""}${marks.length ? ` · ${marks.map((m) => m.text).join(", ")}` : ""}`}
                   className={`flex items-center gap-1 rounded-md border px-1 py-0.5 ${g.boss ? "border-gold bg-[#3a242c]" : open === i ? "border-[#c6a15a] bg-[#2c1b21]" : "border-line/70 bg-panel/70"} hover:border-[#c6a15a]`}
                   onClick={() => setOpen(open === i ? null : i)}
                   onPointerEnter={(e) => {
@@ -150,6 +150,14 @@ export function ComingUpBar({ api }: { api: GameApi }) {
                     <span className="rounded-sm border border-gold/60 px-0.5 text-[0.625rem] leading-tight font-semibold text-gold" aria-label={DOOR_NAME[g.door]}>
                       {DOOR_LETTER[g.door]}
                     </span>
+                  ) : null}
+                  {/* A board with exits: a small door in the colour of the exit this group leaves by. */}
+                  {g.exit ? (
+                    <span
+                      className="inline-block h-3 w-2 rounded-t-sm border"
+                      style={{ backgroundColor: EXIT_COLOR[g.exit], borderColor: `${EXIT_COLOR[g.exit]}` }}
+                      aria-label={`Out by the ${EXIT_NAME[g.exit]}`}
+                    />
                   ) : null}
                   {marks.length ? (
                     <span className="flex gap-0.5">
@@ -207,6 +215,16 @@ export function ComingUpBar({ api }: { api: GameApi }) {
             ×{preview.groups[open].count} {between ? "next wave" : "still to come"}
             {BOARDS[hud.map].hp && BOARDS[hud.map].hp !== 1 ? " · this room's health included" : ""}
           </p>
+          {(() => {
+            const exitId = preview.groups[open].exit;
+            const exit = exitId ? BOARDS[hud.map].exits?.find((x) => x.id === exitId) : undefined;
+            return exit ? (
+              <p className="mt-1 flex items-center gap-1.5 text-[0.8125rem] text-parchment">
+                <span className="inline-block h-3 w-2 rounded-t-sm" style={{ backgroundColor: EXIT_COLOR[exit.id] }} aria-hidden="true" />
+                {EXIT_NAME[exit.id]}: {exitCostText(exit)}
+              </p>
+            ) : null;
+          })()}
         </div>
       ) : null}
     </div>
