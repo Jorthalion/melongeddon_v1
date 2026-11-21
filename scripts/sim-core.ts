@@ -92,6 +92,12 @@ export interface RunResult {
   combos: { shatters: number; thermals: number; wildfires: number; contagion: number; maxStung: number; maxAfflictions: number };
   /** Damage dealt by each tower kind still standing at the end. */
   damageBy: Partial<Record<TowerKind, number>>;
+  /** Fruit popped by each tower kind still standing at the end. */
+  popsBy: Partial<Record<TowerKind, number>>;
+  /** Seeds (and Sir Michael's Hoard) spent on each kind: building it, its back-room mods, Great merges, Roost feeding. */
+  spentBy: Partial<Record<TowerKind, number>>;
+  /** How many of each kind the bot built. */
+  builtBy: Partial<Record<TowerKind, number>>;
 }
 
 const DT = 1 / 60;
@@ -205,6 +211,13 @@ function play(config: RunConfig, rng: () => number): RunResult {
   resample();
 
   let placed = 0;
+  const spentBy: Partial<Record<TowerKind, number>> = {};
+  const builtBy: Partial<Record<TowerKind, number>> = {};
+  const purse = () => world.hud.seeds + Math.floor(world.hud.hoard ?? 0);
+  const spend = (kind: TowerKind, before: number) => {
+    const d = before - purse();
+    if (d > 0) spentBy[kind] = (spentBy[kind] ?? 0) + d;
+  };
   let builds = 0; // every tower the bot has put down, for the opener
   const order = config.rotation ?? (config.strategy === "melon" ? ["melon" as TowerKind] : ROTATION);
   // Bots that mix cannons build the keeper's signature tower as their third cannon (once).
@@ -357,14 +370,18 @@ function play(config: RunConfig, rng: () => number): RunResult {
       const fromSeeds = offer.cost - Math.min(Math.floor(world.hud.hoard), offer.cost);
       if (world.hud.seeds - fromSeeds < world.hud.towerCost * 0.5) continue;
       world.hud.selected = t.id;
+      const before = purse();
       api.makeGreat();
+      spend(t.kind, before);
       api.dismissSelection();
       break;
     }
     const roost = world.towers.find((t) => t.kind === "bombard");
     if (roost && world.hud.phase === "prep" && !world.hud.roostFed && Math.floor(world.hud.hoard) >= DRAGON.roostFeed && api.roostOf(roost.id)?.next != null) {
       world.hud.selected = roost.id;
+      const before = purse();
       api.feedRoost();
+      spend("bombard", before);
       api.dismissSelection();
     }
   };
@@ -386,10 +403,12 @@ function play(config: RunConfig, rng: () => number): RunResult {
       if (!best || price / count < best.price / best.count) best = { kind, price, count };
     }
     if (!best || world.hud.seeds < best.price || best.price / best.count > world.hud.towerCost * 0.6) return false;
+    const before = purse();
     api.openShop(best.kind);
     const left = fittingsFor(best.kind).filter((m) => !(world.hud.fitted[best.kind] ?? []).includes(m.id));
     api.pickMod(left[Math.floor(rng() * left.length)].id);
     api.closeShop();
+    spend(best.kind, before);
     return true;
   };
 
@@ -409,8 +428,11 @@ function play(config: RunConfig, rng: () => number): RunResult {
       if (!spot) break;
       const before = world.towers.length;
       api.dismissSelection(); // a click with a tower selected only closes it
+      const paid = purse();
       click(spot.c, spot.r);
       if (world.towers.length === before) break;
+      spend(kind, paid);
+      builtBy[kind] = (builtBy[kind] ?? 0) + 1;
       builds++;
       if (kind !== signature && kind !== "copycat" && kind !== "bombard" && kind !== "gourdgate" && kind !== "pamphlet" && kind !== "driver") placed++;
     }
@@ -484,5 +506,11 @@ function play(config: RunConfig, rng: () => number): RunResult {
       acc[x.kind] = Math.round((acc[x.kind] ?? 0) + (api.tallyOf(x.id)?.dmg ?? 0));
       return acc;
     }, {}),
+    popsBy: world.towers.reduce<Partial<Record<TowerKind, number>>>((acc, x) => {
+      acc[x.kind] = (acc[x.kind] ?? 0) + (api.tallyOf(x.id)?.pops ?? 0);
+      return acc;
+    }, {}),
+    spentBy,
+    builtBy,
   };
 }

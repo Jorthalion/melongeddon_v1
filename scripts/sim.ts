@@ -241,6 +241,34 @@ for (const s of STRATEGIES) {
 }
 lines.push("");
 
+// Per-tower breakdown: what each kind did for what was spent on it, and how runs went with it built.
+{
+  const kinds = [...new Set(results.flatMap((r) => Object.keys(r.builtBy ?? {}) as ENGINE.TowerKind[]))];
+  const row = (k: ENGINE.TowerKind) => {
+    const withK = results.filter((r) => (r.builtBy?.[k] ?? 0) > 0);
+    const without = results.filter((r) => !((r.builtBy?.[k] ?? 0) > 0));
+    const spent = withK.reduce((a, r) => a + (r.spentBy?.[k] ?? 0), 0);
+    const dmg = withK.reduce((a, r) => a + (r.damageBy?.[k] ?? 0), 0);
+    const pops = withK.reduce((a, r) => a + (r.popsBy?.[k] ?? 0), 0);
+    const all = withK.reduce((a, r) => a + Object.values(r.damageBy ?? {}).reduce((x, y) => x + (y ?? 0), 0), 0);
+    const built = withK.reduce((a, r) => a + (r.builtBy?.[k] ?? 0), 0);
+    const per = (n: number) => (spent ? ((n / spent) * 100).toFixed(n / spent >= 1 ? 0 : 1) : "–");
+    const wins = DIFFS.map((d) => `${winRate(withK.filter((r) => r.config.difficulty === d))} / ${winRate(without.filter((r) => r.config.difficulty === d))}`);
+    return { k, withK: withK.length, spent, line: `| ${k} | ${withK.length} | ${(built / Math.max(1, withK.length)).toFixed(1)} | ${Math.round(spent / Math.max(1, withK.length))} | ${per(dmg)} | ${per(pops)} | ${pct(dmg, all)} | ${wins.join(" | ")} |` };
+  };
+  const head = [`| tower | runs built | built per run | seeds per run | damage per 100 seeds | pops per 100 seeds | damage share | ${DIFFS.map((d) => `${d} with / without`).join(" | ")} |`, `|---|---|---|---|---|---|---|${DIFFS.map(() => "---").join("|")}|`];
+  const shared = kinds.filter((k) => !ENGINE.isSignature(k)).map(row).sort((a, b) => b.withK - a.withK);
+  const keeper = kinds.filter((k) => ENGINE.isSignature(k)).map(row).sort((a, b) => b.withK - a.withK);
+  lines.push("## Towers", "");
+  lines.push(
+    "Per tower kind, over the runs that built at least one. Seeds spent counts building it, its back-room mods, Great merges and feeding the Roost. " +
+      "Damage and pops count only towers still standing at the end. Win rates: runs that built it / runs that didn't (they also differ in strategy and keeper, so read them alongside the playstyle table).",
+    "",
+  );
+  lines.push("### Shared towers", "", ...head, ...shared.map((x) => x.line), "");
+  if (keeper.length) lines.push("### Keeper-only towers", "", ...head, ...keeper.map((x) => x.line), "");
+}
+
 lines.push("## Where runs end", "");
 lines.push("Wave each losing run died on (all difficulties).", "");
 const deaths = new Map<number, number>();
