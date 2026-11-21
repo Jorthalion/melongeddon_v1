@@ -12,6 +12,42 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 
 ---
 
+## Where the art stands (checked 2026-11-21)
+
+**In the game now:** 184 paintings in `public/sprites/` and 90 animation strips in `public/sprites/anim/`. Every image asked for in this file, `TRICK_PROMPTS.md`, `MAP_PROMPTS.md` and `MYNXI_PROMPTS.md` is in, along with the first eight Siege enemies and the three act-three fruit from `ENEMY_PROMPTS.md`.
+
+| Group | What's painted |
+|---|---|
+| Shared towers (barrel on a base) | melon, mortar (pumpkin), fire, freeze, spitter, ballista, reader, ink, peeler, bookworm, plus whole-tower art for the Still, Fly Hive, Compost Heap, Shush Bell and Reading Lamp |
+| Keeper towers (24) | catalogue, desk, cauldron, flask, trebuchet, dragon gate, roost (egg, whelp, drake, dragon), scales, stomp, honey, mimic, copycat, lectern, Quack-Liber, The Post (pamphlet), Quackmission (driver), Anti-Geese, Lion Blade; retired but kept: gourd gate, bombard, signpost |
+| Heavy and trick cannons (8) | press, organ, scope; boomerang, orrery, plane, quill, globe |
+| Shots and thrown things (24) | the ten `shot-*` shots, plus bombard, boomerang, dragonfire, globe, ki, plane, three planets, portcullis, quack, quill, sheet, stomp |
+| Fruit and enemies (15) | melon, corn, pumpkin, Karl; pit, gall, borrower; honker, gosling, Matriarch, Whiskers, Box Cat, Paratrooper, Cardboard Tank, General Mittens |
+| Keeper portraits (9) | all eight keepers, plus Quackarot golden; Mynxi's four tutorial faces |
+| Floors, carpet and tiles (17) | the shared floor, carpet and corner; own floors for Rare Books, the Archive, the Overflow, the Sorting Room, the Greenhouse, the Bell Tower, the Great Hall, the Reading Room, the Courtyard and the Rotunda; beds, belt, stairs, shelf |
+| Map props (21) | every room's doors and furniture, the Courtyard's hedge, statue and fountain, the Rotunda's desk, lamps and stairs, the returns chute |
+| Grand Catalogue (40) | header, shelf, spines, lamps, plaque, seal, fragment; restored and ruined paintings for 12 rooms (the Mezzanine has no ruined one) |
+| Status overlays (2) | ice block, flame tongues |
+| Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
+
+**Still needed** (the game draws a code stand-in for each until it arrives):
+
+| File | What | Prompt |
+|---|---|---|
+| `enemy-express.png` | Express Corn, the Sorting Room | `ENEMY_PROMPTS.md` §4 |
+| `enemy-parcel.png` | Parcel, the Sorting Room | `ENEMY_PROMPTS.md` §5 |
+| `enemy-sprout.png` | Sprout, the Greenhouse | `ENEMY_PROMPTS.md` §6 |
+| `enemy-squash.png` | Creeping Squash, the Greenhouse | `ENEMY_PROMPTS.md` §7 |
+| `enemy-chimer.png` | Chimer, the Bell Tower | `ENEMY_PROMPTS.md` §8 |
+| `enemy-gargoyle.png` | Gargoyle Gourd, the Bell Tower | `ENEMY_PROMPTS.md` §9 |
+| `tile-vine.png` | Creeping Squash vine on the carpet | `ENEMY_PROMPTS.md` §10 |
+| `tile-floor-halldoors.png`, `prop-signpost.png`, `prop-lift.png`, `prop-exit-reading.png`, `prop-exit-kitchens.png`, `prop-exit-restricted.png` | The Hall of Doors (new map) | §2a3 below; the game needs wiring for these once they arrive |
+| `cat-room-mezzanine-ruined.png` | The Mezzanine's ruined Grand Catalogue painting (optional) | §2a4 below |
+
+The seven fruit images are also in `art-for-chatgpt/room-fruit-art-prompts.md`, with the reference pictures to attach. After the six fruit arrive, add them to `GROUPS` in `scripts/animate-sprites.py` and run `npm run animate` so they walk, flinch and pop like the others.
+
+---
+
 ## 1. Keeper signature towers (done: in the game as `public/sprites/sig-*.webp`)
 
 These six are the only towers still drawn with simple code shapes. Match the existing towers (Still, Hive, Compost, Bell): a single standalone object, **3/4 top-down view** (camera about 45° above, looking slightly down), sitting on a small round base, transparent background.
@@ -230,7 +266,28 @@ The round reading room with doors on every side. The floor follows the rules abo
 | `prop-boarded-stairs.png` | A **doorway to narrow back stairs, boarded across with two rough planks** nailed in an X, a rolled-up red carpet runner leaning beside it, dust on the steps. One tile. Transparent background, 512 × 512. |
 | `cat-room-rotunda.png` / `cat-room-rotunda-ruined.png` | The Grand Catalogue's room painting, wide (3:1): **a round domed reading room with doors on every side** and a desk in the middle where carpets meet. Restored: candlelit, polished, books in order. Ruined: dust sheets, doors hanging open, scattered returns, one carpet half rolled up. |
 
-### 2b. The Overflow's returns chute (not yet drawn)
+### 2a3. The Hall of Doors (not yet drawn)
+
+A long entrance hall: fruit come in from the west door and up the lift, meet at a **signpost** in the middle, and leave by one of **three exits**. Between waves the player turns the signpost to shut one exit for the next wave. The map uses the shared floor and code drawings today; each image below needs a little wiring once it arrives. The floor follows the rules above (seamless, top-down, 1024 × 1024, no transparency); the props are PNGs with transparent backgrounds, seen from slightly above, one tile each unless noted.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `tile-floor-halldoors.png` | A grand entrance-hall floor of **black and cream marble checkerboard squares**, worn and polished, thin brass lines between some squares, faint scuffs where crowds walked, warm candlelight. Seamless, tileable, no single object in the middle. |
+| `prop-signpost.png` | A **carved wooden library signpost** on a round iron base: a turned dark-walnut post with a brass cap and **three arrow-shaped boards** pointing different ways, each painted a different colour (deep green, warm brown, crimson) with **no letters or words**, small brass tacks, a crimson ribbon tied round the post. Bold and simple: it is tiny on the board. Transparent background, 512 × 512. |
+| `prop-lift.png` | A **brass cage lift door** set in a dark wood wall: a folding lattice gate half open, a semicircular floor dial above it with a brass pointer (no numbers), a small call button. Transparent background, 512 × 512. |
+| `prop-exit-reading.png` | The way to the Reading Room: a **tall arched oak door** with a small green-shaded reading lamp glowing beside it and a stack of books on the step. Costs a stack when a fruit leaves this way. Transparent background, 512 × 512. |
+| `prop-exit-kitchens.png` | The way to the kitchens: a **swinging double kitchen door** with two round porthole windows, a brass kick plate, a dropped wooden spoon and a few spilt seeds on the floor. Costs seeds when a fruit leaves this way. Transparent background, 512 × 512. |
+| `prop-exit-restricted.png` | The way to the Restricted Section: a **heavy iron-banded door wrapped in chains with a big brass padlock**, a crimson rope barrier on brass posts in front, a faint purple glow under the door. Only bosses use it, and it costs double. Transparent background, 512 × 512. |
+
+### 2a4. The Mezzanine's ruined painting (optional)
+
+Every other Grand Catalogue room has a ruined painting for before it's restored; the Mezzanine shows its restored one either way.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `cat-room-mezzanine-ruined.png` | The Grand Catalogue's room painting, wide (3:1), matching `cat-room-mezzanine.webp`: **a library balcony level with a brass railing and a short staircase**, ruined: dust sheets over the shelves, a broken railing section, books spilled down the stairs, a fallen candle stand, cold grey light. |
+
+### 2b. The Overflow's returns chute (done: `prop-returns-chute.webp`)
 
 
 **Done:** the Overflow now shows a painted returns chute (`prop-returns-chute.webp`) beside the door, glowing blue on chute waves; the code-drawn "CHUTE" plate is only a fallback. The game adds the glow when the chute is active, so draw it unlit.
