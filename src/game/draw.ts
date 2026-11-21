@@ -144,8 +144,8 @@ const SPRITE_SRC = {
   quackliber: asset("sprites/sig-quackliber.webp"),
   // Quackarot's Anti-Geese Protocol, Pamphlet and Instant Quackmission.
   geese: asset("sprites/sig-geese.webp"),
-  // The Post: the speech-bubble signpost (the older megaphone painting, sig-pamphlet.webp, is kept but not drawn).
-  pamphlet: asset("sprites/sig-post.webp"),
+  // The Post: the megaphone launcher (the speech-bubble signpost, sig-post.webp, is kept but not drawn).
+  pamphlet: asset("sprites/sig-pamphlet.webp"),
   /** A Quack-Liber ki blast in flight (drawn by code while it loads). */
   ki: asset("sprites/fly-ki.webp"),
   driver: asset("sprites/sig-driver.webp"),
