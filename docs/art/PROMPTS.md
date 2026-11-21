@@ -157,7 +157,7 @@ Attach **Quackarot's portrait** (`portrait-quack.webp`) and the **Quack-Liber ar
 | `sig-pamphlet.png` | A **stubby orange megaphone-shaped launcher** lying at a low angle on a **small round dark walnut base with brass rivets**, its wide mouth facing forward. The body is wrapped in **orange canvas with black drawstring cords** and a stitched **black crowned-duck emblem**. A **rolled-up paper pamphlet tied with string** sticks out of the mouth, ready to burst out. A **short twisted fuse** on top with a tiny glowing orange spark. Small brass fittings and a brass sight on the side. Playful and a bit absurd, but well made. 3/4 top-down view, transparent background, no text. |
 | `sig-driver.png` | A **chunky hand-held tool**, an original design (not a copy of any film or TV prop): a fat **orange-and-black grip with black rubber bands** and a stitched **black crowned-duck emblem**, a short **brushed-steel shaft**, and a **glowing green-white crystal tip** with a soft halo, standing **upright in a little dark walnut stand** with brass clips on a **small round base**. A few faint green-white sparks around the tip, as if it just buzzed. Neat and clever-looking, a field strategist's gadget. 3/4 top-down view, transparent background, no text. |
 
-#### Quackarot as an anime-hero duck (to do; code-drawn versions ship meanwhile)
+#### Quackarot as an anime-hero duck (done: `portrait-quack-golden.webp` in the GOLDEN badge, `fly-ki.webp` for ki blasts, `sig-post.webp` as The Post; the older megaphone `sig-pamphlet.webp` is kept but not drawn)
 
 He's a duck with **spiky, gravity-defying anime-hero hair** who posts first and plans later. Keep it an original design: puns and the general shape of a shouting, powering-up anime hero only, **no real anime characters, logos, symbols or costumes**. Attach his portrait (`portrait-quack.webp`) and the Quack-Liber art so the colours match: **orange hoodie, black drawstrings, black crowned-duck emblem**.
 
@@ -239,7 +239,7 @@ The round reading room with doors on every side. The floor follows the rules abo
 |---|---|
 | `prop-chute.png` | A square **iron-and-brass book-returns chute hatch set into the floor**, seen from straight above at a slight angle, its hinged lid propped half open with darkness and a little water inside, a brass plate on the lid with a **downward arrow** (no readable text), rivets around the frame, a few wet returned books stacked beside it. Transparent background, 512 × 512. |
 
-### 2c. Status effects (optional; drawn by code)
+### 2c. Status effects (done: `fx-ice-block.webp` and `fx-flame-tongues.webp`; the code drawings show only while they load)
 
 The game draws every status look in code (`src/game/drawStatus.ts`), and these would only replace two of them. Both are overlays laid over any fruit, so they must be centred, symmetrical and read at about 40 px. Transparent background, no fruit inside.
 

@@ -36,7 +36,7 @@ const PAINTED: Partial<Record<TowerKind, string>> = {
   quackliber: asset("sprites/sig-quackliber.webp"),
   lionblade: asset("sprites/sig-lionblade.webp"),
   geese: asset("sprites/sig-geese.webp"),
-  pamphlet: asset("sprites/sig-pamphlet.webp"),
+  pamphlet: asset("sprites/sig-post.webp"),
   driver: asset("sprites/sig-driver.webp"),
   boomerang: asset("sprites/trick-boomerang.webp"),
   orrery: asset("sprites/trick-orrery.webp"),

@@ -12,6 +12,20 @@
  */
 import { COMBO } from "./rules.ts";
 import type { World } from "./engine.ts";
+import { asset } from "../lib/asset.ts";
+
+/** Painted overlays: the ice block and the flame tongues. Until one loads (or with no DOM, in tests) the code drawing shows. */
+const FX: { ice?: HTMLImageElement; flames?: HTMLImageElement } = {};
+function fxImg(name: keyof typeof FX, file: string): HTMLImageElement | undefined {
+  if (typeof Image === "undefined") return undefined;
+  if (!FX[name]) {
+    const img = new Image();
+    img.src = asset(file);
+    FX[name] = img;
+  }
+  const img = FX[name]!;
+  return img.complete && img.naturalWidth > 0 ? img : undefined;
+}
 
 type Enemy = World["enemies"][number];
 
@@ -549,6 +563,15 @@ export function drawStatusBody(ctx: CanvasRenderingContext2D, e: Enemy, look: St
     const h = r * 2.4;
     const left = x - w / 2;
     const top = y - h * 0.55;
+    const block = fxImg("ice", "sprites/fx-ice-block.webp");
+    if (block) {
+      // The painted block (its icicles hang below the box), then the cracks over it.
+      const bw = r * 2.6;
+      const bh = bw * (block.naturalHeight / block.naturalWidth);
+      ctx.globalAlpha = 0.92;
+      ctx.drawImage(block, x - bw / 2, top - r * 0.12, bw, bh);
+      ctx.globalAlpha = 1;
+    } else {
     ctx.fillStyle = "rgba(186,226,245,0.38)";
     ctx.strokeStyle = "rgba(240,250,255,0.85)";
     ctx.lineWidth = 1.5;
@@ -572,6 +595,7 @@ export function drawStatusBody(ctx: CanvasRenderingContext2D, e: Enemy, look: St
       ctx.lineTo(left + w * at, top + h + r * 0.4);
       ctx.closePath();
       ctx.fill();
+    }
     }
     if (look.extras.cracks) {
       ctx.strokeStyle = "rgba(255,255,255,0.95)";
@@ -746,6 +770,15 @@ export function drawStatusAbove(ctx: CanvasRenderingContext2D, e: Enemy, look: S
       const ph = (t * 0.8 + s + i / n) % 1;
       switch (p.kind) {
         case "flame": {
+          const tongues = fxImg("flames", "sprites/fx-flame-tongues.webp");
+          if (tongues) {
+            // The painted three tongues, once, flickering in height.
+            if (i > 0) break;
+            const fw = r * (n > 2 ? 1.9 : 1.6);
+            const fh = fw * (tongues.naturalHeight / tongues.naturalWidth) * (0.9 + 0.12 * Math.sin(t * 14 + e.id));
+            ctx.drawImage(tongues, x - fw / 2, y - r * 0.5 - fh, fw, fh);
+            break;
+          }
           const fx = x + (i - (n - 1) / 2) * r * 0.5;
           const base = y - r * 0.55;
           const h = r * (0.55 + 0.25 * Math.sin(t * 14 + i * 2.3 + e.id));

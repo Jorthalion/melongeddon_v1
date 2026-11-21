@@ -40,6 +40,10 @@ import { TowerIcon } from "@/components/TowerIcon";
 import { checkoutCount } from "@/components/CheckoutCard";
 import { openCatalogue } from "@/components/catalogueLink";
 import type { GameApi } from "@/components/ui";
+import { asset } from "@/lib/asset";
+
+/** Quackarot powered up, shown in the GOLDEN badge while Over Nine Thousand Quacks lasts. */
+const GOLDEN_PORTRAIT = asset("sprites/portrait-quack-golden.webp");
 
 /** Top bar: name (or keeper and room), seeds, stacks, absurdity, speed, pause, menu and sound. */
 export function GameHeader({
@@ -106,9 +110,10 @@ export function GameHeader({
               </span>
               {hud.golden > 0 ? (
                 <span
-                  className="rounded-full border border-[#ffd65a] bg-[#ffd65a]/15 px-1.5 text-[0.75rem] font-bold whitespace-nowrap text-[#ffd65a] shadow-[0_0_10px_rgba(255,214,90,0.6)]"
+                  className="inline-flex items-center gap-1 rounded-full border border-[#ffd65a] bg-[#ffd65a]/15 py-px pr-1.5 pl-px text-[0.75rem] font-bold whitespace-nowrap text-[#ffd65a] shadow-[0_0_10px_rgba(255,214,90,0.6)]"
                   title={`Quackarot is golden: every tower fires ${Math.round((CANNON.overQuackHaste - 1) * 100)}% faster`}
                 >
+                  <img src={GOLDEN_PORTRAIT} alt="" className="h-5 w-5 rounded-full object-cover object-[center_25%]" />
                   GOLDEN {Math.ceil(hud.golden)}s
                 </span>
               ) : null}

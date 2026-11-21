@@ -144,7 +144,10 @@ const SPRITE_SRC = {
   quackliber: asset("sprites/sig-quackliber.webp"),
   // Quackarot's Anti-Geese Protocol, Pamphlet and Instant Quackmission.
   geese: asset("sprites/sig-geese.webp"),
-  pamphlet: asset("sprites/sig-pamphlet.webp"),
+  // The Post: the speech-bubble signpost (the older megaphone painting, sig-pamphlet.webp, is kept but not drawn).
+  pamphlet: asset("sprites/sig-post.webp"),
+  /** A Quack-Liber ki blast in flight (drawn by code while it loads). */
+  ki: asset("sprites/fly-ki.webp"),
   driver: asset("sprites/sig-driver.webp"),
   // Asser's Lion Blade (the code-drawn sword is only a fallback while it loads).
   lionblade: asset("sprites/sig-lionblade.webp"),
@@ -1272,7 +1275,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   }
 
   for (const s of world.shots) {
-    shotTrail(ctx, s.x, s.y, s.tx, s.ty, shotColor(s.element, s.orange));
+    // A ki blast's painting carries its own trail and glow.
+    if (!(s.splashChill && ready(art.ki))) shotTrail(ctx, s.x, s.y, s.tx, s.ty, shotColor(s.element, s.orange));
     if (s.element === "potion") {
       drawShot(ctx, s.x, s.y, s.element, world.anim);
       continue;
@@ -1306,7 +1310,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
     // Quack-Liber ki blasts: a glowing orange-gold energy ball with a short trail.
     if (s.splashChill) {
-      drawKiBlast(ctx, s.x, s.y, Math.atan2(s.ty - s.y, s.tx - s.x), world.anim + s.id);
+      if (ready(art.ki)) blitFit(ctx, art.ki, s.x, s.y, 30, 16, Math.atan2(s.ty - s.y, s.tx - s.x));
+      else drawKiBlast(ctx, s.x, s.y, Math.atan2(s.ty - s.y, s.tx - s.x), world.anim + s.id);
       continue;
     }
     const img =
