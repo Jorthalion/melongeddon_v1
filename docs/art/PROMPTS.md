@@ -41,7 +41,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | `enemy-chimer.png` | Chimer, the Bell Tower | `ENEMY_PROMPTS.md` §8 |
 | `enemy-gargoyle.png` | Gargoyle Gourd, the Bell Tower | `ENEMY_PROMPTS.md` §9 |
 | `tile-vine.png` | Creeping Squash vine on the carpet | `ENEMY_PROMPTS.md` §10 |
-| `tile-floor-halldoors.png`, `prop-signpost.png`, `prop-lift.png`, `prop-exit-reading.png`, `prop-exit-kitchens.png`, `prop-exit-restricted.png` | The Hall of Doors (new map) | §2a3 below; the game needs wiring for these once they arrive |
+| `tile-floor-halldoors.png`, `prop-signpost.png`, `door-reading.png`, `door-kitchens.png`, `door-restricted.png`, `prop-closed-sign.png` | The Hall of Doors (new map) | §2a3 below; the game already looks for these and draws code stand-ins until they arrive |
 | `cat-room-mezzanine-ruined.png` | The Mezzanine's ruined Grand Catalogue painting (optional) | §2a4 below |
 
 The seven fruit images are also in `art-for-chatgpt/room-fruit-art-prompts.md`, with the reference pictures to attach. After the six fruit arrive, add them to `GROUPS` in `scripts/animate-sprites.py` and run `npm run animate` so they walk, flinch and pop like the others.
@@ -266,18 +266,18 @@ The round reading room with doors on every side. The floor follows the rules abo
 | `prop-boarded-stairs.png` | A **doorway to narrow back stairs, boarded across with two rough planks** nailed in an X, a rolled-up red carpet runner leaning beside it, dust on the steps. One tile. Transparent background, 512 × 512. |
 | `cat-room-rotunda.png` / `cat-room-rotunda-ruined.png` | The Grand Catalogue's room painting, wide (3:1): **a round domed reading room with doors on every side** and a desk in the middle where carpets meet. Restored: candlelit, polished, books in order. Ruined: dust sheets, doors hanging open, scattered returns, one carpet half rolled up. |
 
-### 2a3. The Hall of Doors (not yet drawn)
+### 2a3. The Hall of Doors (not yet drawn; the game already looks for these files)
 
-A long entrance hall: fruit come in from the west door and up the lift, meet at a **signpost** in the middle, and leave by one of **three exits**. Between waves the player turns the signpost to shut one exit for the next wave. The map uses the shared floor and code drawings today; each image below needs a little wiring once it arrives. The floor follows the rules above (seamless, top-down, 1024 × 1024, no transparency); the props are PNGs with transparent backgrounds, seen from slightly above, one tile each unless noted.
+A long entrance hall: fruit come in from the west door and up the lift, meet at a **signpost** in the middle, and leave by one of **three exits**. Between waves the player turns the signpost to shut one exit for the next wave; the shut exit's door dims and gets a CLOSED card. The game loads these six files by these names (`floorHalldoors`, `signpost`, `closedSign`, `doorReading`, `doorKitchens`, `doorRestricted` in `draw.ts`) and draws them by code until they exist, so a finished file only needs converting to `.webp` and dropping into `public/sprites/`. The floor follows the rules above (seamless, top-down, 1024 × 1024, no transparency); the rest are PNGs with transparent backgrounds, seen from slightly above.
 
 | File name | Prompt (after the style line) |
 |---|---|
-| `tile-floor-halldoors.png` | A grand entrance-hall floor of **black and cream marble checkerboard squares**, worn and polished, thin brass lines between some squares, faint scuffs where crowds walked, warm candlelight. Seamless, tileable, no single object in the middle. |
-| `prop-signpost.png` | A **carved wooden library signpost** on a round iron base: a turned dark-walnut post with a brass cap and **three arrow-shaped boards** pointing different ways, each painted a different colour (deep green, warm brown, crimson) with **no letters or words**, small brass tacks, a crimson ribbon tied round the post. Bold and simple: it is tiny on the board. Transparent background, 512 × 512. |
-| `prop-lift.png` | A **brass cage lift door** set in a dark wood wall: a folding lattice gate half open, a semicircular floor dial above it with a brass pointer (no numbers), a small call button. Transparent background, 512 × 512. |
-| `prop-exit-reading.png` | The way to the Reading Room: a **tall arched oak door** with a small green-shaded reading lamp glowing beside it and a stack of books on the step. Costs a stack when a fruit leaves this way. Transparent background, 512 × 512. |
-| `prop-exit-kitchens.png` | The way to the kitchens: a **swinging double kitchen door** with two round porthole windows, a brass kick plate, a dropped wooden spoon and a few spilt seeds on the floor. Costs seeds when a fruit leaves this way. Transparent background, 512 × 512. |
-| `prop-exit-restricted.png` | The way to the Restricted Section: a **heavy iron-banded door wrapped in chains with a big brass padlock**, a crimson rope barrier on brass posts in front, a faint purple glow under the door. Only bosses use it, and it costs double. Transparent background, 512 × 512. |
+| `tile-floor-halldoors.png` | A grand entrance-hall floor of **cold black and cream marble checkerboard squares**, worn and polished, thin brass lines between some squares, faint scuffs where crowds walked, cool light with a little warm candle glow. Seamless, tileable, no single object in the middle. |
+| `prop-signpost.png` | A **carved wooden library signpost** on a round iron base: a turned dark-walnut post with a brass cap and **three arrow-shaped boards** pointing different ways, painted deep green, steel grey and crimson to match the three doors, with **no letters or words**, small brass tacks, a crimson ribbon tied round the post. Bold and simple: it is about one tile on the board. Transparent background, 512 × 512. |
+| `door-reading.png` | The way to the Reading Room: a **tall arched door padded in deep green leather** with rows of brass studs, a round brass handle and a small brass reading-lamp bracket above the frame. Seen straight on, filling the frame top to bottom. Costs a stack when a fruit leaves this way. Transparent background, 512 × 512. |
+| `door-kitchens.png` | The way to the kitchens: a **swinging steel double door** with two round porthole windows, a dented brass kick plate and a faint warm glow through the portholes. Seen straight on, filling the frame. Costs seeds when a fruit leaves this way. Transparent background, 512 × 512. |
+| `door-restricted.png` | The way to the Restricted Section: a **heavy dark oak door banded with black iron**, a **thick chain** across it with a big brass padlock, a faint purple glow under the door. Seen straight on, filling the frame. Only bosses use it, and it costs double. Transparent background, 512 × 512. |
+| `prop-closed-sign.png` | A **small wooden card hanging from a short loop of crimson cord**, cream painted face with a thin red border and the single word **CLOSED** in bold red capitals (the one image that should have a word on it). Slightly tilted, as if it has just been hung. Transparent background, 256 × 256. |
 
 ### 2a4. The Mezzanine's ruined painting (optional)
 
