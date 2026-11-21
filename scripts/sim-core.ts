@@ -32,9 +32,13 @@ import {
   boardLegs,
   PASSIVE,
 } from "../src/game/engine.ts";
+import { makeHuman } from "./sim-human.ts";
 
-/** lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves. */
-export type Strategy = "melon" | "mixed" | "mixed+mods" | "lean";
+/**
+ * lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves.
+ * human = a decent regular player (sim-human.ts): reads the next waves, builds counters and combos, saves, uses the keeper's tools.
+ */
+export type Strategy = "melon" | "mixed" | "mixed+mods" | "lean" | "human";
 
 export interface RunConfig {
   hero: HeroId;
@@ -71,6 +75,8 @@ export interface RunConfig {
   quackFrom?: number;
   /** Ooze's bots place the free Copycat beside their most expensive copyable tower (default true). */
   oozeCopycat?: boolean;
+  /** Tests: called between waves, after the bot has built and just before the wave starts. */
+  onPrep?: (world: ReturnType<typeof createWorld>["world"], api: ReturnType<typeof createWorld>) => void;
 }
 
 export interface RunResult {
@@ -98,6 +104,8 @@ export interface RunResult {
   spentBy: Partial<Record<TowerKind, number>>;
   /** How many of each kind the bot built. */
   builtBy: Partial<Record<TowerKind, number>>;
+  /** The human bot only: why it built what it built ("core", "lamp", "shells ahead", "keeper", "back room"...), counted. */
+  tactics?: Record<string, number>;
 }
 
 const DT = 1 / 60;
@@ -413,7 +421,33 @@ function play(config: RunConfig, rng: () => number): RunResult {
     return true;
   };
 
+  // The human bot decides for itself (sim-human.ts); this file still drives the phases and counts the results.
+  const human =
+    config.strategy === "human"
+      ? makeHuman({
+          api,
+          world,
+          rng,
+          taken,
+          spend,
+          purse,
+          kitCell: (range, kind) => bestCell(range, kind),
+          dragonChores,
+          place: (kind, spot) => {
+            const before = world.towers.length;
+            const paid = purse();
+            click(spot.c, spot.r);
+            if (world.towers.length === before) return false;
+            spend(kind, paid);
+            builtBy[kind] = (builtBy[kind] ?? 0) + 1;
+            builds++;
+            return true;
+          },
+        })
+      : null;
+
   const build = () => {
+    if (human) return human.build();
     const lean = config.strategy === "lean";
     if (lean && world.hud.phase !== "prep") return;
     const limit = lean ? 2 : 40;
@@ -450,6 +484,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     if (phase === "victory" || phase === "defeat") break;
     if (phase === "prep") {
       build();
+      config.onPrep?.(world, api);
       api.startWave();
     } else if (phase === "consequence") {
       api.startWave();
@@ -458,7 +493,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       api.pickUpgrade(
         config.pickUpgrade
           ? config.pickUpgrade(ids)
-          : config.picks === "smart"
+          : config.picks === "smart" || human
           ? smartPick(ids, world.hud.upgrades, world.towers.map((x) => x.kind), world.hud.wave)
           : ids[Math.floor(rng() * ids.length)],
       );
@@ -513,5 +548,6 @@ function play(config: RunConfig, rng: () => number): RunResult {
     }, {}),
     spentBy,
     builtBy,
+    ...(human ? { tactics: human.why } : {}),
   };
 }

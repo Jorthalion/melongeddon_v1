@@ -13,6 +13,11 @@
  *                               # change any exported rules object for this run only (JSON values)
  *   npm run sim -- --out sim-results/combos-off   # write the report somewhere else
  *   npm run sim -- --heroes scholar --diffs easy,normal --only stacks   # a quick probe
+ *   npm run sim -- --strategies human,mixed+mods   # only these bots (default: melon,mixed,mixed+mods,lean)
+ *                               # human = a decent regular player (scripts/sim-human.ts): looks two waves ahead and builds
+ *                               # answers (Peeler for shells, a Box Cat seer, chute and paratrooper cover, a Mortar for crowds),
+ *                               # lamps and ink beside its cannons, saves for what's next, buys fittings when they beat a
+ *                               # cannon, and uses each keeper's own towers. It always picks shelf upgrades the smart way.
  *   npm run sim -- --picks smart  # bots choose shelf upgrades by what suits their board (default: random)
  *   npm run sim -- --heroes michael --armours azure,dragonscale,ember,wyrm   # Sir Michael once per armour (default: azure)
  *   npm run sim -- --styles scripts/styles/playstyles.json   # play these named playstyles instead of the four strategies
@@ -81,7 +86,9 @@ const WORKERS = Math.max(1, Number(argOf("--workers") ?? Math.max(1, availablePa
 
 const HEROES = (["mynxi", "michael", "vael", "elf", "ooze", "scholar", "quack", "asser"] as HeroId[]).filter((h) => !HERO_ONLY.length || HERO_ONLY.includes(h));
 const DIFFS = (["easy", "normal", "hard", "overdue"] as Difficulty[]).filter((d) => !DIFF_ONLY.length || DIFF_ONLY.includes(d));
-const STRATEGIES: Strategy[] = ["melon", "mixed", "mixed+mods", "lean"];
+const ALL_STRATEGIES: Strategy[] = ["melon", "mixed", "mixed+mods", "lean", "human"];
+const STRATEGIES: Strategy[] = (argOf("--strategies")?.split(",").filter(Boolean) as Strategy[] | undefined) ?? ["melon", "mixed", "mixed+mods", "lean"];
+for (const s of STRATEGIES) if (!ALL_STRATEGIES.includes(s)) throw new Error(`--strategies: no bot ${s} (${ALL_STRATEGIES.join(", ")})`);
 interface Style {
   name: string;
   strategy: Strategy;
@@ -207,7 +214,8 @@ lines.push(
   "",
   "**Strategies:** `melon` = only melon cannons. `mixed` = rotates melon, mortar, freeze, fire, still. " +
     "`mixed+mods` = mixed, and buys back-room mods when they are cheaper than a new tower. " +
-    "`lean` = a cautious player: mixed, at most 2 new towers per wave, only between waves.",
+    "`lean` = a cautious player: mixed, at most 2 new towers per wave, only between waves. " +
+    "`human` = a decent regular player: reads the next two waves and builds answers, puts lamps and ink beside its cannons, saves for what's next, buys fittings when they beat a cannon, uses the keeper's own towers, and picks upgrades the smart way.",
   "",
 );
 lines.push("## Win rates", "");
@@ -217,7 +225,11 @@ if (styleNames.length) {
   lines.push(table("Playstyle × difficulty", (r) => r.config.style ?? "", (r) => r.config.difficulty, styleNames, DIFFS), "");
   const hard = results.filter((r) => r.config.difficulty === "normal" || r.config.difficulty === "hard");
   if (hard.length) lines.push(table("Playstyle × keeper (Normal and Hard)", (r) => r.config.style ?? "", (r) => r.config.hero, styleNames, HEROES, hard), "");
-} else lines.push(table("Strategy × difficulty", (r) => r.config.strategy, (r) => r.config.difficulty, STRATEGIES, DIFFS), "");
+} else {
+  lines.push(table("Strategy × difficulty", (r) => r.config.strategy, (r) => r.config.difficulty, STRATEGIES, DIFFS), "");
+  const hard = results.filter((r) => r.config.difficulty === "normal" || r.config.difficulty === "hard");
+  if (STRATEGIES.length > 1 && HEROES.length > 1 && hard.length) lines.push(table("Strategy × keeper (Normal and Hard)", (r) => r.config.strategy, (r) => r.config.hero, STRATEGIES, HEROES, hard), "");
+}
 lines.push(table("Map × difficulty", scenarioOf, (r) => r.config.difficulty, scenarioNames, DIFFS), "");
 // Night two and three each get their own keeper table (they are tuned against each other).
 for (const night of ["overflow", "siege"] as const) {
@@ -267,6 +279,22 @@ lines.push("");
   );
   lines.push("### Shared towers", "", ...head, ...shared.map((x) => x.line), "");
   if (keeper.length) lines.push("### Keeper-only towers", "", ...head, ...keeper.map((x) => x.line), "");
+}
+
+// The human bot: why it built what it built.
+{
+  const humans = results.filter((r) => r.tactics);
+  if (humans.length) {
+    const whys = [...new Set(humans.flatMap((r) => Object.keys(r.tactics!)))].sort();
+    lines.push("## The human bot's reasons", "");
+    lines.push("Average builds (and back-room fittings) per run, by why it made them, per keeper.", "");
+    lines.push(`| keeper | ${whys.join(" | ")} |`, `|---|${whys.map(() => "---").join("|")}|`);
+    for (const hero of HEROES) {
+      const rs = humans.filter((r) => r.config.hero === hero);
+      if (rs.length) lines.push(`| ${hero} | ${whys.map((w) => avg(rs.map((r) => r.tactics![w] ?? 0)).toFixed(1)).join(" | ")} |`);
+    }
+    lines.push("");
+  }
 }
 
 lines.push("## Where runs end", "");
