@@ -80,6 +80,10 @@ export interface HumanKit {
   kitCell: (range: number, kind: TowerKind) => Spot | null;
   /** Sir Michael's merges and Roost feeding (the old bots' chores). */
   dragonChores: () => void;
+  /** Tests: kinds it never builds, keeper extras' cannon thresholds instead of KEEPER_PLAN's, and no Great pairing. */
+  avoid?: TowerKind[];
+  keeperAt?: Partial<Record<TowerKind, number>>;
+  noGreat?: boolean;
 }
 
 /** Towers that shoot fruit (and so count as a cannon to light, cover or overlap). */
@@ -267,7 +271,7 @@ export function makeHuman(kit: HumanKit) {
     scored.sort((a, b) => b.v - a.v);
     const best = scored[0].v;
     // Sir Michael: a second of a kind goes beside the first, when that's nearly as good, so the pair can be made Great.
-    if (hero === "michael" && canBeGreat(kind)) {
+    if (hero === "michael" && !kit.noGreat && canBeGreat(kind)) {
       const pair = scored.find((x) => x.v >= best * 0.75 && world.towers.some((t) => t.kind === kind && !t.great && Math.abs(t.c - x.s.c) + Math.abs(t.r - x.s.r) === 1));
       if (pair) return pair.s;
     }
@@ -329,7 +333,7 @@ export function makeHuman(kit: HumanKit) {
       if (w) return w;
     }
     for (const step of KEEPER_PLAN[hero] ?? []) {
-      if (n < step.at || has(step.kind) || (step.waveMax && world.hud.wave > step.waveMax)) continue;
+      if (n < (kit.keeperAt?.[step.kind] ?? step.at) || has(step.kind) || (step.waveMax && world.hud.wave > step.waveMax)) continue;
       if (step.kind === "copycat" && !has("mimic")) continue;
       if (step.kind === "flask" && has("fire")) continue;
       const w = ok({ kind: step.kind, place: step.place, why: "keeper" });
@@ -445,7 +449,7 @@ export function makeHuman(kit: HumanKit) {
     lastPhase = phase;
     // Sir Michael merges pairs into Great towers once the floor has enough cannons (merging early leaves carpet bare).
     if (shooters().length >= 5) kit.dragonChores();
-    const skip = new Set<TowerKind>();
+    const skip = new Set<TowerKind>(kit.avoid ?? []);
     let mods = 0;
     for (let guard = 0; guard < (phase === "prep" ? 12 : 2); guard++) {
       const want = nextWant(skip);

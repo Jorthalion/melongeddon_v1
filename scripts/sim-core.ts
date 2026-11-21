@@ -75,6 +75,11 @@ export interface RunConfig {
   quackFrom?: number;
   /** Ooze's bots place the free Copycat beside their most expensive copyable tower (default true). */
   oozeCopycat?: boolean;
+  /** The human bot: kinds it never builds (--avoid), and cannons down before each keeper extra (--keeper-at, e.g. bombard: 8). */
+  avoid?: TowerKind[];
+  keeperAt?: Partial<Record<TowerKind, number>>;
+  /** Sir Michael's bots never merge Great towers (--no-great). */
+  noGreat?: boolean;
   /** Tests: called between waves, after the bot has built and just before the wave starts. */
   onPrep?: (world: ReturnType<typeof createWorld>["world"], api: ReturnType<typeof createWorld>) => void;
 }
@@ -372,7 +377,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
   /** Sir Michael between builds: merge a matching pair into a Great tower, and feed the Roost, when he can afford it. */
   const dragonChores = () => {
     if (config.hero !== "michael" || !keeperOn) return;
-    for (const t of world.towers) {
+    for (const t of config.noGreat ? [] : world.towers) {
       if (t.great || !canBeGreat(t.kind)) continue;
       const offer = api.greatOffer(t.id);
       if (offer.partner == null) continue;
@@ -433,6 +438,9 @@ function play(config: RunConfig, rng: () => number): RunResult {
           purse,
           kitCell: (range, kind) => bestCell(range, kind),
           dragonChores,
+          avoid: config.avoid,
+          keeperAt: config.keeperAt,
+          noGreat: config.noGreat,
           place: (kind, spot) => {
             const before = world.towers.length;
             const paid = purse();

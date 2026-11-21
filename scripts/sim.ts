@@ -18,6 +18,9 @@
  *                               # answers (Peeler for shells, a Box Cat seer, chute and paratrooper cover, a Mortar for crowds),
  *                               # lamps and ink beside its cannons, saves for what's next, buys fittings when they beat a
  *                               # cannon, and uses each keeper's own towers. It always picks shelf upgrades the smart way.
+ *   npm run sim -- --strategies human --heroes michael --avoid bombard --no-great --keeper-at gourdgate=10
+ *                               # human bot probes: never build these kinds; Sir Michael makes no Great towers;
+ *                               # build a keeper extra only once this many cannons are down
  *   npm run sim -- --picks smart  # bots choose shelf upgrades by what suits their board (default: random)
  *   npm run sim -- --heroes michael --armours azure,dragonscale,ember,wyrm   # Sir Michael once per armour (default: azure)
  *   npm run sim -- --styles scripts/styles/playstyles.json   # play these named playstyles instead of the four strategies
@@ -48,6 +51,15 @@ const OUT = argOf("--out") ?? "sim-results";
 const HERO_ONLY = argOf("--heroes")?.split(",").filter(Boolean) ?? [];
 const DIFF_ONLY = argOf("--diffs")?.split(",").filter(Boolean) ?? [];
 const PICKS = argOf("--picks") === "smart" ? "smart" : "random";
+const AVOID = (argOf("--avoid")?.split(",").filter(Boolean) ?? []) as ENGINE.TowerKind[];
+for (const k of AVOID) if (!(k in ENGINE.TOWERS)) throw new Error(`--avoid: no tower ${k}`);
+const NO_GREAT = args.includes("--no-great");
+const KEEPER_AT: Partial<Record<ENGINE.TowerKind, number>> = {};
+for (const pair of argOf("--keeper-at")?.split(",").filter(Boolean) ?? []) {
+  const [k, n] = pair.split("=");
+  if (!(k in ENGINE.TOWERS) || !Number.isFinite(Number(n))) throw new Error(`--keeper-at: want kind=cannons, got ${pair}`);
+  KEEPER_AT[k as ENGINE.TowerKind] = Number(n);
+}
 const ARMOUR_LIST = (argOf("--armours")?.split(",").filter(Boolean) ?? ["azure"]) as ArmourId[];
 for (const a of ARMOUR_LIST) if (!ENGINE.ARMOURS.includes(a)) throw new Error(`--armours: no armour ${a}`);
 
@@ -137,6 +149,9 @@ for (const hero of HEROES)
               map: sc.map,
               seed,
               picks: PICKS,
+              ...(AVOID.length ? { avoid: AVOID } : {}),
+              ...(NO_GREAT ? { noGreat: true } : {}),
+              ...(Object.keys(KEEPER_AT).length ? { keeperAt: KEEPER_AT } : {}),
               ...(KEEPERS ? { keepers: KEEPERS } : {}),
               ...(armour ? { armour } : {}),
               ...(STYLE_FILE ? { style: st.name, ...(st.rotation ? { rotation: st.rotation } : {}), ...(st.withKeeper ? { withKeeper: true } : {}) } : {}),
@@ -201,6 +216,8 @@ const scenarioNames = SCENARIOS.filter((x) => !ONLY.length || ONLY.includes(x.ni
 const lines: string[] = [];
 lines.push("# Melongeddon balance report", "");
 if (SETS.length) lines.push(`Rules changed for this run: ${SETS.map((x) => "`" + x + "`").join(", ")}.`, "");
+if (AVOID.length || NO_GREAT || Object.keys(KEEPER_AT).length)
+  lines.push(`Bot probes: ${[AVOID.length ? `never builds ${AVOID.join(", ")}` : "", NO_GREAT ? "no Great towers" : "", ...Object.entries(KEEPER_AT).map(([k, n]) => `${k} from ${n} cannons`)].filter(Boolean).join("; ")}.`, "");
 lines.push(
   (FROM.length
     ? `${results.length} simulated runs, read from ${FROM.map((f) => "`" + f + "`").join(", ")}. `

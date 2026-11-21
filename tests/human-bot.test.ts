@@ -105,3 +105,20 @@ test("the human bot uses the keepers' own towers", () => {
   const michael = simulateRun(human("michael", "midnight", "stacks", { armour: "azure" }));
   assert.ok((michael.builtBy.bombard ?? 0) >= 1 && (michael.builtBy.gourdgate ?? 0) >= 1, "Sir Michael builds the Roost and the Gate");
 });
+
+test("the human bot's probe switches: --avoid keeps a kind off the board, --no-great stops Great merges", () => {
+  let great = false;
+  const r = simulateRun(
+    human("michael", "midnight", "stacks", {
+      armour: "azure",
+      avoid: ["bombard", "peeler"],
+      noGreat: true,
+      onPrep: (world) => {
+        if (world.towers.some((t) => t.great)) great = true;
+      },
+    }),
+  );
+  assert.equal(r.builtBy.bombard ?? 0, 0);
+  assert.equal(r.builtBy.peeler ?? 0, 0);
+  assert.ok(!great, "no Great tower with noGreat");
+});
