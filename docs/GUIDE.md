@@ -440,7 +440,7 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | Fire cannon | 70 | Leaves fire on the carpet that burns whoever stands in it. Prefers the front fruit that isn't burning yet |
 | Freeze cannon | 65 | Stops fruit cold for a moment. Prefers the front fruit that isn't frozen yet |
 | Shush Bell | 70 | Every few seconds, stuns everything nearby (husked corn can't hear it) |
-| Fly Hive | 65 | Fruit flies that find targets anywhere on the board |
+| Fly Hive | 65 | Fruit flies that find targets anywhere on the board. Past seven hives, every hive flies 5% less often for each extra one (at most 70% slower) |
 | Reading Lamp | 60 | No shot; cannons next to it reach farther and fire faster |
 | Ink Well | 55 | Marks fruit so they take 25% more damage from everything |
 | Peeler | 60 | Strips shells, husks and damp so other cannons hit normally |
@@ -489,7 +489,7 @@ Status effects build on each other. Small coloured dots under a fruit show what 
 - **Shatter.** The first **splash** on a fruit with two or more frost (a Mortar, Juicy Explosions, Splatter, the Trebuchet, a Quack-Liber ki blast, the Roost's dragonfire) shatters it: that hit does **half again**, its frost goes to zero, and **ice shards** hit every other fruit within a tile for 25% of the hit (40% at three frost). Shards are splash, so pits shrug them off. Any stings, poison or fire on it go off at once. Aimed shots (Melon, Spitter, Ballista, Long Reader, Telescope) never shatter.
 - **Thermal shock.** **Ice, then fire:** a Fire cannon shot, or walking into a fire patch, on a frosted fruit thaws it at once and bursts for 60% more ("HISS"). It doesn't bake a raw pumpkin. **Fire, then ice:** a Freeze hit on a burning fruit puts the fire out for 1.5 seconds, even standing in the patch. It's still steaming for those seconds, so a growth bed doesn't heal it either. So put the Freeze cannon earlier on the carpet than the Fire cannon.
 - **Wildfire.** A burning fruit that's slowed but not frozen (frost, a daze, drowsy or a slowing puddle) sets a neighbour within about a tile alight every second, for two seconds. Damp fruit, damp rooms and wet carpet halve it; husks catch it first.
-- **Explosions** spread a puddle by half (once), make a fire patch burn twice as hard for a second, and Electrified Rounds' spark reaches twice as far to a fruit with frost.
+- **Explosions** spread a puddle by half (once), make a fire patch burn half again as hard for a second, and Electrified Rounds' spark reaches twice as far to a fruit with frost.
 
 **Afflictions** (damage over time that stacks)
 

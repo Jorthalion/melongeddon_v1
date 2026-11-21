@@ -571,6 +571,10 @@ export const DEFAULT_TARGET: Record<TowerKind, { default: TargetMode; modes: Tar
 /** Whole-board range: more than the diagonal of the largest board (22 x 14 cells is about 1250 px). */
 export const GLOBAL_RANGE = 1400;
 
+/** How fast every Fly Hive flies (1 = full pace) with this many hives on the board: see `CANNON.hiveCrowdFrom`. */
+export const hiveCrowd = (hives: number) =>
+  Math.max(CANNON.hiveCrowdFloor, 1 - CANNON.hiveCrowdSlow * Math.max(0, hives - CANNON.hiveCrowdFrom));
+
 export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: number; role: string }> = {
   melon: {
     name: "Melon cannon",
@@ -628,7 +632,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   hive: {
     name: "Fly Hive",
-    blurb: "Fruit flies that find anything, anywhere on the board. Small bites, never miss. Each fly leaves a stinger that keeps biting.",
+    blurb: "Fruit flies that find anything, anywhere on the board. Small bites, never miss. Each fly leaves a stinger that keeps biting. Past seven hives, they all fly a little less often.",
     cost: 65,
     role: "Homing",
   },
@@ -887,6 +891,14 @@ export const DROWSY = {
 };
 
 export const CANNON = {
+  /**
+   * A crowded board: past this many Fly Hives, every hive sends its flies `hiveCrowdSlow` less often per extra
+   * hive, down to `hiveCrowdFloor` of its pace. Tuned in the simulator (Overdue, smart picks): a hive swarm won 87%
+   * against 43–59% for the other builds; from the 8th hive at 5% it wins 64% and fire + hive barely moves.
+   */
+  hiveCrowdFrom: 7,
+  hiveCrowdSlow: 0.05,
+  hiveCrowdFloor: 0.3,
   /** Melon cannon: its damage over the shared cannon base (14). It has no element, pulp or status, so it simply hits harder.
    * 2.9: tuned in the simulator to win what it did when its pulp slowed and burned (Normal + Hard: 61% before; 1.3 gave 28%, 2.6 53%, 3.0 63%). */
   melonDmg: 2.9,
@@ -3389,9 +3401,10 @@ export const COMBO = {
   // ── Explosions.
   /** A splash in a puddle grows it ×, once. */
   puddleGrow: 1.5,
-  /** A splash in a fire patch: burn × `flare` for `flareTime` s. */
+  /** A splash in a fire patch: burn × `flare` for `flareTime` s. Splashes keep it topped up, so only `flare` matters:
+   * 2 made it the strongest combo by far (60% of Overdue runs won, 39% without it); 1.5 is half of that. */
   flareTime: 1,
-  flare: 2,
+  flare: 1.5,
   /** Electrified Rounds: the spark reaches × as far to a fruit with frost. */
   sparkFrost: 2,
 };

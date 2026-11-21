@@ -53,3 +53,40 @@ for (const map of ["stacks", "greathall"] as const) {
     assert.equal(timedOut, 0, `${timedOut} of ${fired} flies ran out of time`);
   });
 }
+
+test("a crowded board: past seven Fly Hives, every hive flies 5% less often per extra one, to a floor", async () => {
+  const { CANNON, hiveCrowd } = await import("../src/game/rules.ts");
+  assert.equal(hiveCrowd(1), 1);
+  assert.equal(hiveCrowd(CANNON.hiveCrowdFrom), 1);
+  assert.ok(Math.abs(hiveCrowd(CANNON.hiveCrowdFrom + 1) - 0.95) < 1e-9);
+  assert.ok(Math.abs(hiveCrowd(CANNON.hiveCrowdFrom + 4) - 0.8) < 1e-9);
+  assert.equal(hiveCrowd(100), CANNON.hiveCrowdFloor);
+
+  // In play: the same hive waits longer between flies with eight hives down than with one.
+  const gap = (hives: number) => {
+    const api = createWorld(() => {}, { meta: ALL_UNLOCKED, keepers: emptyProgress(), setup: { night: "midnight", map: "stacks", hero: "vael" } });
+    api.openSetup();
+    api.chooseMap("stacks");
+    api.chooseHero("vael");
+    api.beginNight();
+    const w = api.world;
+    w.hud.seeds = 99999;
+    w.hud.lives = 999;
+    api.chooseBuild("hive");
+    for (let r = 0; r < w.rows && w.towers.filter((t) => t.kind === "hive").length < hives; r++)
+      for (let c = 0; c < w.cols && w.towers.filter((t) => t.kind === "hive").length < hives; c++)
+        if (!w.pathCells.has(`${c},${r}`) && !w.shelfCells.has(`${c},${r}`)) api.pointer(center(c), center(r), "down");
+    assert.equal(w.towers.filter((t) => t.kind === "hive").length, hives);
+    const hive = w.towers.find((t) => t.kind === "hive")!;
+    api.startWave();
+    for (let i = 0; i < 60 * 30 && w.hud.phase === "combat"; i++) {
+      const before = hive.cd;
+      stepWorld(w, 1 / 60);
+      if (hive.cd > before + 0.05) return hive.cd;
+    }
+    throw new Error("the hive never fired");
+  };
+  const one = gap(1);
+  const eight = gap(8);
+  assert.ok(Math.abs(eight / one - 1 / 0.95) < 0.02, `one hive waits ${one.toFixed(3)} s, eight wait ${eight.toFixed(3)} s`);
+});

@@ -8,7 +8,7 @@ import {
   ASSER_VALUES, carpetAlong,
   nearestOnCarpet, gateStrip, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
-  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, fittingName, ballistaPierce,
+  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
   SIEGE, type SiegeVariant,
 } from "./rules.ts";
@@ -4813,7 +4813,8 @@ export function createWorld(
         launchFlyer(tower, target, stats);
         continue;
       }
-      tower.cd = stats.interval;
+      // A crowded board: past seven Fly Hives, every hive sends its flies a little less often.
+      tower.cd = tower.kind === "hive" ? stats.interval / hiveCrowd(world.towers.filter((x) => x.kind === "hive").length) : stats.interval;
       const dmg = stats.dmg;
       cue("fire", tower.kind);
       const element: Shot["element"] =
