@@ -172,7 +172,7 @@ Each tower's stats come from a base cannon and a `PROFILE` row (damage, fire rat
 There are seven keepers. Each has a starting kit, a perk and a signature tower that only they can build. Four have more keeper towers on the same tab (`KEEPER_TOWERS`):
 
 - **Mynxi:** Reserve Desk (30; banks 8 seeds a wave, a passing melon eats the bank; unlocks after a night ending with 200+ seeds).
-- **Vaelithra:** Unstoppered (150; a tipped flask that drips a slow puddle; its spills soak the carpet for the night, so fire there is weaker and shorter and other puddles last longer; unlocks after a win with a Still and a puddle pick). She also pays 20 more for the first tower of each kind each night, and her back-room upgrades are cheaper (25, +15).
+- **Vaelithra:** Unstoppered (110; a tipped flask that drips a slow puddle; its spills soak the carpet for the night, so fire there is weaker and shorter and other puddles last longer; unlocks after a win with a Still and a puddle pick). She also pays 20 more for the first tower of each kind each night, and her back-room upgrades are cheaper (25, +15).
 - **Legal Elf:** Foot of the Law (85; stamps the carpet, pinning everything under it, husks included) and Honeyed Heel (75; sticky footprints: fruit that step in take +25% damage for 4 s; no slow).
 - **Ooze Clues:** the Copycat (160; copies the cannon right beside it, one step harder). Not Memec's Mimic Chest.
 

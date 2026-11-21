@@ -729,7 +729,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   flask: {
     name: "Unstoppered",
     blurb: "Vael's second. A tipped flask that drips a slow puddle from where it stands. After each wave it may spill onto a neighbouring floor tile (1 in 3, up to four tiles), and every stretch of carpet a spill can reach is wet for the rest of the night: fire there burns 40% weaker and shorter, and every other puddle lasts half again as long. Selling it doesn't dry the carpet. Sells for a flat 35.",
-    cost: 150,
+    cost: 110,
     role: "Spill",
   },
   cauldron: {
@@ -902,6 +902,9 @@ export const CANNON = {
   /** Melon cannon: its damage over the shared cannon base (14). It has no element, pulp or status, so it simply hits harder.
    * 2.9: tuned in the simulator to win what it did when its pulp slowed and burned (Normal + Hard: 61% before; 1.3 gave 28%, 2.6 53%, 3.0 63%). */
   melonDmg: 2.9,
+  /** Pumpkin mortar: its damage over the shared cannon base (14), 34 a lob.
+   * 2.4: tuned in the simulator after the melon cannon went to 2.9 (melons + mortars, Normal + Hard: 0.8 won 39%, 1.6 56%, 2.0 61%, 2.4 72%; melons alone 80%). */
+  mortarDmg: 2.4,
   /** Prize Melons (card): melon cannon damage ×. Ripe core (back room): melon cannon damage ×. */
   prizeMelon: 1.3,
   ripeMelon: 1.2,
@@ -1146,7 +1149,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   let dmg = 14;
   if (upgrades.includes("caliber")) dmg += 8;
   if (kind === "melon") dmg = Math.round(dmg * CANNON.melonDmg * (upgrades.includes("bounce") ? CANNON.prizeMelon : 1) * (mods.includes("ripe") ? CANNON.ripeMelon : 1));
-  if (kind === "mortar") dmg = Math.round(dmg * 0.8);
+  if (kind === "mortar") dmg = Math.round(dmg * CANNON.mortarDmg);
   if (kind === "fire") dmg = Math.round(dmg * 0.65);
   if (kind === "freeze") dmg = Math.round(dmg * (mods.includes("brittle") ? 0.7 : 0.45));
   if (kind === "still") dmg = 0;

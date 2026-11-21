@@ -357,8 +357,9 @@ function play(config: RunConfig, rng: () => number): RunResult {
     return best;
   };
 
-  /** A tile with a tower on it (a Great tower covers two). */
-  const taken = (c: number, r: number) => world.towers.some((t) => (t.c === c && t.r === r) || (t.great?.c === c && t.great?.r === r));
+  /** A tile with a tower on it (a Great tower covers two; an Unstoppered's spills count too). */
+  const taken = (c: number, r: number) =>
+    world.towers.some((t) => (t.c === c && t.r === r) || (t.great?.c === c && t.great?.r === r) || (t.spill?.some((x) => x.c === c && x.r === r) ?? false));
 
   /** Sir Michael between builds: merge a matching pair into a Great tower, and feed the Roost, when he can afford it. */
   const dragonChores = () => {
