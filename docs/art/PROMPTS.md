@@ -92,7 +92,7 @@ Two big siege towers to sit beside his **Pumpkin Trebuchet**. **Attach `public/s
 | `sig-bombard.png` | **The Harvest Bombard**, a colossal **bronze siege bombard cannon** whose barrel is **cast in the shape of a giant pumpkin's ribs**, mouth angled up toward the sky, a **huge orange pumpkin loaded in the muzzle** with its curly green stalk sticking out. The barrel rests on a heavy **carved walnut gun carriage with iron-rimmed wheels**, gold fleur-de-lis medallions on its sides, and a **lit slow-match fuse** smoking at the touch-hole. Beside it, a little pyramid of **three spare pumpkins** and a **crimson powder sack with a gold pumpkin emblem**. A crimson banner with gold trim flies from a tall pole at the back. All on a round dark walnut base with a gold band, gold studs and **two lit candles**, matching the attached trebuchet. It should look like the biggest gun in the library. 3/4 top-down view, transparent background. |
 | `fly-bombard.png` | The Bombard's shot in flight: **a huge glowing orange pumpkin wrapped in flame**, a trail of fire and sparks behind it, a few green leaves torn loose. **Side view, flying to the right.** Transparent background, no shadow. |
 
-#### Sir Michael the Dragon Knight (to do; code-drawn versions ship meanwhile)
+#### Sir Michael the Dragon Knight (done: all in `public/sprites/`, with the trebuchet, gate and egg animations rebuilt by `npm run animate`)
 
 Sir Michael is a **Dragon Knight** now: **deep azure-blue armour, gold trim, blue dragonfire**. His old crimson-and-pumpkin look is retired. His blue is a **deep royal azure with gold**, darker and warmer than Asser's pale blue-and-white, so the two never read as the same keeper. **Don't paste the crimson style line**; use this one instead:
 

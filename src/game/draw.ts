@@ -144,13 +144,13 @@ const SPRITE_SRC = {
   // Asser's Lion Blade (the code-drawn sword is only a fallback while it loads).
   lionblade: asset("sprites/sig-lionblade.webp"),
   // Sir Michael's second and third: the Dragon Gate, and the Dragon's Roost at each stage (egg, Whelp, Drake, Great Dragon).
-  // Until these files exist the code-drawn stand-ins show (the old pumpkin gatehouse and bombard sprites no longer fit).
+  // Painted; the code-drawn stand-ins only show while a file loads.
   gourdgate: asset("sprites/sig-dragongate.webp"),
   roost0: asset("sprites/sig-roost-egg.webp"),
   roost1: asset("sprites/sig-roost-whelp.webp"),
   roost2: asset("sprites/sig-roost-drake.webp"),
   roost3: asset("sprites/sig-roost-dragon.webp"),
-  /** The Great Dragon's breath (until its art exists, a blue fireball is drawn). */
+  /** The Great Dragon's breath (a drawn blue fireball while it loads). */
   flyBombard: asset("sprites/fly-dragonfire.webp"),
   portcullis: asset("sprites/fly-portcullis.webp"),
   flyQuack: asset("sprites/fly-quack.webp"),

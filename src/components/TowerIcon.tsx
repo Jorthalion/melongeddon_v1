@@ -23,6 +23,8 @@ const PAINTED: Partial<Record<TowerKind, string>> = {
   catalogue: asset("sprites/sig-catalogue.webp"),
   cauldron: asset("sprites/sig-cauldron.webp"),
   trebuchet: asset("sprites/sig-trebuchet.webp"),
+  gourdgate: asset("sprites/sig-dragongate.webp"),
+  bombard: asset("sprites/sig-roost-egg.webp"),
   scales: asset("sprites/sig-scales.webp"),
   desk: asset("sprites/sig-desk.webp"),
   flask: asset("sprites/sig-flask.webp"),

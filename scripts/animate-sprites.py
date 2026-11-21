@@ -76,7 +76,7 @@ TOWER_PAINTINGS = {
     "flask": "sig-flask.webp", "copycat": "sig-copycat.webp", "stomp": "sig-stomp.webp", "honey": "sig-honey.webp",
     "mimic": "sig-mimic.webp", "lectern": "sig-lectern.webp", "quackliber": "sig-quackliber.webp",
     "geese": "sig-geese.webp", "pamphlet": "sig-pamphlet.webp", "driver": "sig-driver.webp",
-    "lionblade": "sig-lionblade.webp", "gourdgate": "sig-gourdgate.webp", "bombard": "sig-bombard.webp",
+    "lionblade": "sig-lionblade.webp", "gourdgate": "sig-dragongate.webp", "bombard": "sig-roost-egg.webp",
     "boomerang": "trick-boomerang.webp", "orrery": "trick-orrery.webp", "plane": "trick-plane.webp",
     "quill": "trick-quill.webp", "globe": "trick-globe.webp",
 }
