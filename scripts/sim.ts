@@ -21,6 +21,8 @@
  *   npm run sim -- --strategies human --heroes michael --avoid bombard --no-great --keeper-at gourdgate=10
  *                               # human bot probes: never build these kinds; Sir Michael makes no Great towers;
  *                               # build a keeper extra only once this many cannons are down
+ *   npm run sim -- --opener melon,melon,melon,lantern --max-towers 4   # build these first (any bot); stop at 4 towers
+ *   npm run sim:scenario -- scripts/scenarios/lamp-three-melons.json   # one question, A against B: see sim-scenario.ts
  *   npm run sim -- --picks smart  # bots choose shelf upgrades by what suits their board (default: random)
  *   npm run sim -- --heroes michael --armours azure,dragonscale,ember,wyrm   # Sir Michael once per armour (default: azure)
  *   npm run sim -- --styles scripts/styles/playstyles.json   # play these named playstyles instead of the four strategies
@@ -54,6 +56,10 @@ const PICKS = argOf("--picks") === "smart" ? "smart" : "random";
 const AVOID = (argOf("--avoid")?.split(",").filter(Boolean) ?? []) as ENGINE.TowerKind[];
 for (const k of AVOID) if (!(k in ENGINE.TOWERS)) throw new Error(`--avoid: no tower ${k}`);
 const NO_GREAT = args.includes("--no-great");
+// --opener melon,melon,lantern: every bot builds these first, in order. --max-towers N: and stops at N towers.
+const OPENER = (argOf("--opener")?.split(",").filter(Boolean) ?? []) as ENGINE.TowerKind[];
+for (const k of OPENER) if (!(k in ENGINE.TOWERS)) throw new Error(`--opener: no tower ${k}`);
+const MAX_TOWERS = argOf("--max-towers") != null ? Number(argOf("--max-towers")) : undefined;
 const KEEPER_AT: Partial<Record<ENGINE.TowerKind, number>> = {};
 for (const pair of argOf("--keeper-at")?.split(",").filter(Boolean) ?? []) {
   const [k, n] = pair.split("=");
@@ -151,6 +157,8 @@ for (const hero of HEROES)
               picks: PICKS,
               ...(AVOID.length ? { avoid: AVOID } : {}),
               ...(NO_GREAT ? { noGreat: true } : {}),
+              ...(OPENER.length ? { opener: OPENER } : {}),
+              ...(MAX_TOWERS != null ? { maxTowers: MAX_TOWERS } : {}),
               ...(Object.keys(KEEPER_AT).length ? { keeperAt: KEEPER_AT } : {}),
               ...(KEEPERS ? { keepers: KEEPERS } : {}),
               ...(armour ? { armour } : {}),

@@ -1,0 +1,9 @@
+{
+  "question": "How much does a Reading Lamp beside three melon cannons add on the Stacks, Hard and Overdue?",
+  "base": "--strategies human --only stacks --diffs hard,overdue --seeds 10",
+  "variants": {
+    "three melons, no lamp": "--opener melon,melon,melon --avoid lantern",
+    "three melons and a lamp": "--opener melon,melon,melon,lantern --avoid lantern"
+  },
+  "focus": "lantern"
+}

@@ -84,6 +84,10 @@ export interface HumanKit {
   avoid?: TowerKind[];
   keeperAt?: Partial<Record<TowerKind, number>>;
   noGreat?: boolean;
+  /** Scenarios: towers to build first, in this order, each where it belongs (a lamp by the cannons...); --avoid doesn't stop them. */
+  opener?: TowerKind[];
+  /** Scenarios: never more towers than this on the board. */
+  maxTowers?: number;
 }
 
 /** Towers that shoot fruit (and so count as a cannon to light, cover or overlap). */
@@ -113,12 +117,27 @@ const KEEPER_PLAN: Partial<Record<string, Array<{ kind: TowerKind; at: number; p
   ],
 };
 const SIGNATURE_PLACE: Partial<Record<TowerKind, Place>> = { lectern: "useless", quackliber: "aura" };
+/** Where any kind goes when it's on the list for its own sake (an opener). */
+export const PLACE_OF: Partial<Record<TowerKind, Place>> = {
+  ...SIGNATURE_PLACE,
+  lantern: "lamp",
+  ink: "overlap",
+  honey: "overlap",
+  peeler: "early",
+  desk: "door",
+  flask: "flask",
+  geese: "late",
+  copycat: "kit",
+  pamphlet: "kit",
+  driver: "kit",
+};
 
 export function makeHuman(kit: HumanKit) {
   const { api, world, rng } = kit;
   const hero = world.hud.hero ?? "mynxi"; // chosen before the first build
   const why: Record<string, number> = {};
   let coreBuilt = 0;
+  let openerAt = 0;
   let livesAtWave = world.hud.lives;
   let lastPhase = world.hud.phase;
 
@@ -432,6 +451,7 @@ export function makeHuman(kit: HumanKit) {
 
   // ---------- each check ----------
   const tryBuild = (want: Want) => {
+    if (kit.maxTowers != null && world.towers.length >= kit.maxTowers) return "poor" as const;
     if (world.hud.seeds < priceOf(want.kind)) return "poor" as const;
     const spot = spotFor(want);
     if (!spot) return "nowhere" as const;
@@ -440,6 +460,7 @@ export function makeHuman(kit: HumanKit) {
     if (!kit.place(want.kind, spot)) return "nowhere" as const;
     why[want.why] = (why[want.why] ?? 0) + 1;
     if (want.why === "core") coreBuilt++;
+    if (want.why === "opener") openerAt++;
     return "built" as const;
   };
 
@@ -452,7 +473,8 @@ export function makeHuman(kit: HumanKit) {
     const skip = new Set<TowerKind>(kit.avoid ?? []);
     let mods = 0;
     for (let guard = 0; guard < (phase === "prep" ? 12 : 2); guard++) {
-      const want = nextWant(skip);
+      const opening = kit.opener && openerAt < kit.opener.length ? kit.opener[openerAt] : null;
+      const want: Want | null = opening ? { kind: opening, place: PLACE_OF[opening] ?? "cover", why: "opener" } : nextWant(skip);
       if (!want) break;
       // During a wave: urgent answers, or a cannon near the door once fruit have got through; otherwise keep saving.
       if (phase === "combat" && !want.urgent) {
@@ -480,7 +502,10 @@ export function makeHuman(kit: HumanKit) {
         if (core && tryBuild(core) === "built") continue;
         break;
       }
-      if (r === "nowhere") skip.add(want.kind);
+      if (r === "nowhere") {
+        if (want.why === "opener") openerAt++; // no tile for it: the plan moves on
+        else skip.add(want.kind);
+      }
     }
     api.dismissSelection();
   };

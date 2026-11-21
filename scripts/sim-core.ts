@@ -441,6 +441,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
           avoid: config.avoid,
           keeperAt: config.keeperAt,
           noGreat: config.noGreat,
+          opener: config.opener,
+          maxTowers: config.maxTowers,
           place: (kind, spot) => {
             const before = world.towers.length;
             const paid = purse();

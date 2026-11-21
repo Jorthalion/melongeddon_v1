@@ -1,0 +1,9 @@
+{
+  "question": "Would a good player feel the Mortar going from x2.4 back to x2.0 damage?",
+  "base": "--strategies human --only stacks,annex,sorting --diffs normal,hard --seeds 4",
+  "variants": {
+    "Mortar x2.4 (now)": "",
+    "Mortar x2.0": "--set CANNON.mortarDmg=2.0"
+  },
+  "focus": "mortar"
+}

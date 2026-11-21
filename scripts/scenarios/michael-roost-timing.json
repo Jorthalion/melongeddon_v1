@@ -1,0 +1,9 @@
+{
+  "question": "Should Sir Michael build his Roost at five cannons or wait until ten?",
+  "base": "--strategies human --heroes michael --diffs hard,overdue --seeds 3",
+  "variants": {
+    "Roost at 5 cannons": "",
+    "Roost at 10 cannons": "--keeper-at bombard=10"
+  },
+  "focus": "bombard"
+}
