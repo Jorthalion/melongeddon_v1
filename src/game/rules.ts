@@ -829,7 +829,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
  * Stat shape for the newer cannons, relative to a plain melon cannon:
  * dmg and pace multiply damage and time between shots; range multiplies reach (0 = whole board).
  */
-const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: number }>> = {
+export const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; range: number }>> = {
   spitter: { dmg: 0.35, pace: 0.3, range: 0.8 },
   ballista: { dmg: 1.6, pace: 2.1, range: 1.25 },
   reader: { dmg: 8, pace: 2.4, range: 0 },
@@ -2063,11 +2063,18 @@ export function buildBoard(corners: Array<[number, number]>) {
 export type Difficulty = "easy" | "normal" | "hard" | "overdue";
 export type Guard = "none" | "rind" | "husk" | "damp";
 
-export const DIFFICULTIES: Array<{ id: Difficulty; name: string; blurb: string; hp: number; speed: number }> = [
+/**
+ * Each difficulty's fruit health and speed (× the night's own climb). `hp` is the health on the first wave; with
+ * `hpLate`, health climbs from `hp` on the first wave to `hpLate` on the night's last (difficultyHp), so a hard
+ * night starts gentler and ends harder. `hpBend` shapes the climb: 1 = evenly, 2 = slow early and steep late.
+ * Melongeddon and Overdue: tuned with the human bot (--strategies human, 2 seeds, every map) to about 65% and 33%
+ * wins, against 96% and 89% when they were a flat 1.2× and 1.45×; losses by wave 8 stayed where they were.
+ */
+export const DIFFICULTIES: Array<{ id: Difficulty; name: string; blurb: string; hp: number; hpLate?: number; hpBend?: number; speed: number }> = [
   { id: "easy", name: "Story", blurb: "Thinner rinds. They walk a little slower.", hp: 0.75, speed: 0.9 },
   { id: "normal", name: "Normal", blurb: "The library as written.", hp: 1, speed: 1 },
-  { id: "hard", name: "Melongeddon", blurb: "Thicker fruit, and they do not stroll.", hp: 1.2, speed: 1.12 },
-  { id: "overdue", name: "Overdue", blurb: "Thicker still, and in a hurry. For when Melongeddon is too polite.", hp: 1.45, speed: 1.15 },
+  { id: "hard", name: "Melongeddon", blurb: "Thicker fruit, and they do not stroll.", hp: 1, hpLate: 4, hpBend: 2, speed: 1.12 },
+  { id: "overdue", name: "Overdue", blurb: "Thicker still, and in a hurry. For when Melongeddon is too polite.", hp: 1.2, hpLate: 4.5, hpBend: 2, speed: 1.15 },
 ];
 
 export interface SpawnSpec {
@@ -3248,6 +3255,14 @@ export function endlessWave(index: number): { name: string; blurb: string; spawn
 }
 
 /** Enemy health multiplier. Endless follows the original curve to wave 10, then grows by a steady rate. */
+/** A difficulty's health multiplier on a wave (`cleared` = waves already cleared, of `waves` in the night; endless climbs over Midnight's length). */
+export function difficultyHp(d: { hp: number; hpLate?: number; hpBend?: number }, cleared: number, waves: number) {
+  if (d.hpLate == null) return d.hp;
+  const span = Number.isFinite(waves) && waves > 1 ? waves - 1 : MIDNIGHT_WAVES - 1;
+  const t = Math.min(1, Math.max(0, cleared / span));
+  return d.hp + (d.hpLate - d.hp) * t ** (d.hpBend ?? 1);
+}
+
 export function hpScaleFor(night: NightId, cleared: number) {
   if (night === "overflow") return waveHpScale(storyHpStep(cleared)) * BALANCE.overflowHp;
   if (night !== "endless") return waveHpScale(storyHpStep(cleared));

@@ -67,10 +67,10 @@ Four levels on the setup screen. They scale enemy health and speed (`DIFFICULTIE
 |---|---|---|---|
 | Story | 0.75× | 0.9× | ~97% |
 | Normal | 1× | 1× | ~77% |
-| Melongeddon | 1.2× | 1.12× | ~41–49% |
-| Overdue | 1.45× | 1.15× | ~25% |
+| Melongeddon | 1× → 4× | 1.12× | ~65% (human bot) |
+| Overdue | 1.2× → 4.5× | 1.15× | ~33% (human bot) |
 
-Bots are not smart players, so read these as relative. Wins on Melongeddon and Overdue are counted in the saved stats (`hardWins`); the first one unlocks the Reading Room.
+Melongeddon and Overdue health climbs over the night: `hp` on the first wave to `hpLate` on the last, shaped by `hpBend` (2: slow early, steep late), in `difficultyHp`. Tuned with the human bot (2 seeds, every map) from 96% and 89% at the old flat 1.2× and 1.45×; losses by wave 8 stayed the same. Bots are not smart players, so read these as relative. Wins on Melongeddon and Overdue are counted in the saved stats (`hardWins`); the first one unlocks the Reading Room.
 
 ## Endless mode
 

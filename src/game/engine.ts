@@ -1,6 +1,6 @@
 import {
   CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
-  BALANCE, DROWSY, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  BALANCE, DROWSY, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
@@ -1127,7 +1127,7 @@ export function createWorld(
   /** What a placed tower reaches: carpet tiles it can hit (null if it doesn't hit fruit), or "all" for the whole board; and how many towers it helps. */
   reachOf: (towerId: number) => { tiles: number | "all" | null; towers: number } | null;
   /** What a placed tower has done this night: damage dealt, fruit popped, and its share of all the damage. */
-  tallyOf: (towerId: number) => { dmg: number; pops: number; share: number } | null;
+  tallyOf: (towerId: number) => { dmg: number; pops: number; share: number; vs: Record<string, number> } | null;
 } {
   let nextId = 1;
   const id = () => nextId++;
@@ -1283,7 +1283,7 @@ export function createWorld(
    * This night's damage and pops for each tower, by id. `credit` is the tower acting right now: its
    * shots, throws, puddles and burrows carry its id, and set it again when they hit later.
    */
-  const tally = new Map<number, { dmg: number; pops: number }>();
+  const tally = new Map<number, { dmg: number; pops: number; vs?: Record<string, number> }>();
   let credit: number | null = null;
   const tallyFor = (id: number) => {
     let t = tally.get(id);
@@ -2332,10 +2332,11 @@ export function createWorld(
     if (world.hud.selected == null) world.hud.range = world.hud.placeRange;
   };
 
-  const tune = () => {
+  /** The difficulty's health and speed for wave `index` (waves cleared before it; default: the wave being played). */
+  const tune = (index = cleared) => {
     const found = DIFFICULTIES.find((x) => x.id === world.hud.difficulty) ?? DIFFICULTIES[1];
-    // A room may slow its fruit on a difficulty (BOARDS[map].pace).
-    const d = { ...found, speed: found.speed * (BOARDS[world.hud.map].pace?.[found.id] ?? 1) };
+    // A room may slow its fruit on a difficulty (BOARDS[map].pace). Health may climb over the night (difficultyHp).
+    const d = { ...found, hp: difficultyHp(found, index, world.hud.waveCount), speed: found.speed * (BOARDS[world.hud.map].pace?.[found.id] ?? 1) };
     // Mynxi's tutorial night: much softer, slower fruit, whatever the difficulty says.
     return world.hud.tutorial ? { ...d, hp: d.hp * BALANCE.tutorialHp, speed: d.speed * BALANCE.tutorialSpeed } : d;
   };
@@ -2743,7 +2744,7 @@ export function createWorld(
   /** What one queued enemy will have when it spawns on wave `index`: health and speed (as spawnEnemy and siegeSetup work them out). */
   const spawnNumbers = (q: QueueItem, index: number) => {
     const st = STATS[q.kind];
-    const tuned = tune();
+    const tuned = tune(index);
     const mul = hpScaleFor(world.hud.night, index) * q.tough * tuned.hp * (BOARDS[world.hud.map].hp ?? 1);
     let hp = Math.round(st.hp * mul);
     let speed = st.speed * tuned.speed;
@@ -3702,6 +3703,10 @@ export function createWorld(
     if (e.bread && via === "burn") return;
     if ((world.hud.map === "overflow" || BOARDS[world.hud.map].damp) && via === "burn") amount *= 0.55;
     if (e.guard === "rind" && e.shell > 0 && (via === "shot" || via === "splash") && amount >= 1) {
+      if (credit != null) {
+        const vs = (tallyFor(credit).vs ??= {});
+        vs["#cracks"] = (vs["#cracks"] ?? 0) + 1;
+      }
       e.shell = 0;
       float(e.x, e.y - 16, "crack", "#f3e2c4");
       return;
@@ -3748,7 +3753,13 @@ export function createWorld(
     }
     if (credit != null) {
       const t = tallyFor(credit);
-      t.dmg += Math.max(0, Math.min(amount, before));
+      const landed = Math.max(0, Math.min(amount, before));
+      t.dmg += landed;
+      // Who hurts what (the simulator's matchup table): by fruit kind and by the armour it wore when hit.
+      const armour = e.guard === "rind" ? (e.shell > 0 ? "shell" : "cracked") : e.guard !== "none" ? e.guard : e.pit ? "pit" : e.wrapped ? "parcel" : "plain";
+      const vs = (t.vs ??= {});
+      vs[e.kind] = (vs[e.kind] ?? 0) + landed;
+      vs[`~${armour}`] = (vs[`~${armour}`] ?? 0) + landed;
       if (e.hp <= 0 && !e.lives9) t.pops += 1;
     }
     // Private Whiskers' Nine Lives: the first time it would die it gets back up with a little health (what killed it
@@ -5964,7 +5975,7 @@ export function createWorld(
       const mine = tally.get(towerId) ?? { dmg: 0, pops: 0 };
       let all = 0;
       for (const t of tally.values()) all += t.dmg;
-      return { dmg: mine.dmg, pops: mine.pops, share: all > 0 ? mine.dmg / all : 0 };
+      return { dmg: mine.dmg, pops: mine.pops, share: all > 0 ? mine.dmg / all : 0, vs: { ...(mine.vs ?? {}) } };
     },
     reachOf(towerId: number) {
       const tower = world.towers.find((t) => t.id === towerId);

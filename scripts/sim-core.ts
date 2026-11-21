@@ -105,6 +105,8 @@ export interface RunResult {
   leaksByExit?: Partial<Record<string, number>>;
   /** Damage dealt by each tower kind still standing at the end. */
   damageBy: Partial<Record<TowerKind, number>>;
+  /** Who hurts what: each kind's damage by fruit kind ("corn"), by the armour the fruit wore ("~shell"), and shells it cracked ("#cracks"). */
+  vsBy?: Partial<Record<TowerKind, Record<string, number>>>;
   /** Fruit popped by each tower kind still standing at the end. */
   popsBy: Partial<Record<TowerKind, number>>;
   /** Seeds (and Sir Michael's Hoard) spent on each kind: building it, its back-room mods, Great merges, Roost feeding. */
@@ -557,6 +559,12 @@ function play(config: RunConfig, rng: () => number): RunResult {
       maxAfflictions: world.runLog.maxAfflictions,
     },
     leaksByExit: { ...world.runLog.leaksByExit },
+    vsBy: world.towers.reduce<Partial<Record<TowerKind, Record<string, number>>>>((acc, x) => {
+      const vs = api.tallyOf(x.id)?.vs ?? {};
+      const mine = (acc[x.kind] ??= {});
+      for (const [key, v] of Object.entries(vs)) mine[key] = Math.round((mine[key] ?? 0) + v);
+      return acc;
+    }, {}),
     damageBy: world.towers.reduce<Partial<Record<TowerKind, number>>>((acc, x) => {
       acc[x.kind] = Math.round((acc[x.kind] ?? 0) + (api.tallyOf(x.id)?.dmg ?? 0));
       return acc;

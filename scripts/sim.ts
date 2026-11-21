@@ -323,6 +323,51 @@ lines.push("");
   }
 }
 
+// Who hurts what: how good each tower is against each kind of fruit, next to how good it is overall.
+{
+  const total: Record<string, number> = {};
+  const byKind = new Map<string, Record<string, number>>();
+  let all = 0;
+  for (const r of results)
+    for (const [k, vs] of Object.entries(r.vsBy ?? {})) {
+      const mine = byKind.get(k) ?? {};
+      byKind.set(k, mine);
+      for (const [key, v] of Object.entries(vs ?? {})) {
+        mine[key] = (mine[key] ?? 0) + v;
+        total[key] = (total[key] ?? 0) + v;
+      }
+    }
+  for (const [key, v] of Object.entries(total)) if (!key.startsWith("~") && !key.startsWith("#")) all += v;
+  if (all > 0) {
+    const FRUIT = ["melon", "corn", "pumpkin", "karl", "goose", "cat"].filter((f) => (total[f] ?? 0) > all * 0.002);
+    const ARMOUR = ["~plain", "~shell", "~cracked", "~husk", "~damp", "~pit", "~parcel"].filter((f) => (total[f] ?? 0) > all * 0.002);
+    const cols = [...FRUIT, ...ARMOUR];
+    const label = (c: string) => (c.startsWith("~") ? c.slice(1) : c);
+    lines.push("## Who hurts what", "");
+    lines.push(
+      "How good each tower is against each kind of fruit, next to how good it is overall. 1.0 = its usual share of the damage; " +
+        "2.0 = it does twice its usual share against that fruit (a specialist); 0.5 = half (that fruit resists it, or it rarely reaches it). " +
+        "Armour columns are what the fruit wore when hit (cracked = a shell already broken). Shells cracked: this tower's share of all the shells broken (a shell blocks the first hit).",
+      "",
+    );
+    lines.push(`| share of all damage | ${cols.map((c) => `${label(c)} ${pct(total[c] ?? 0, all)}`).join(" | ")} |`, "");
+    lines.push(`| tower | damage share | ${cols.map(label).join(" | ")} | shells cracked |`, `|---|---|${cols.map(() => "---").join("|")}|---|`);
+    const rows = [...byKind.entries()]
+      .map(([k, vs]) => {
+        const mine = FRUIT.reduce((a, f) => a + (vs[f] ?? 0), 0);
+        return { k, vs, mine };
+      })
+      .filter((x) => x.mine > all * 0.001)
+      .sort((a, b) => b.mine - a.mine);
+    for (const { k, vs, mine } of rows) {
+      const share = mine / all;
+      const cells = cols.map((c) => (total[c] ? ((vs[c] ?? 0) / total[c] / share).toFixed(1) : "–"));
+      lines.push(`| ${k} | ${pct(mine, all)} | ${cells.join(" | ")} | ${pct(vs["#cracks"] ?? 0, total["#cracks"] ?? 0)} |`);
+    }
+    lines.push("");
+  }
+}
+
 lines.push("## Where runs end", "");
 lines.push("Wave each losing run died on (all difficulties).", "");
 const deaths = new Map<number, number>();

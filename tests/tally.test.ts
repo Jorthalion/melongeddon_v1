@@ -97,5 +97,5 @@ test("a new night starts every count at zero", () => {
       api.pointer(center(c), center(r), "down");
     }
   const fresh = api.world.towers[api.world.towers.length - 1];
-  assert.deepEqual(api.tallyOf(fresh.id), { dmg: 0, pops: 0, share: 0 });
+  assert.deepEqual(api.tallyOf(fresh.id), { dmg: 0, pops: 0, share: 0, vs: {} });
 });

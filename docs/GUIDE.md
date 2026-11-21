@@ -816,8 +816,10 @@ The Sorting Room, the Greenhouse and the Bell Tower each have two fruit of their
 |---|---|---|
 | Story | 0.75× | 0.9× |
 | Normal | 1× | 1× |
-| Melongeddon | 1.2× | 1.12× |
-| Overdue | 1.45× | 1.15× |
+| Melongeddon | 1× on the first wave, climbing to 4× on the last | 1.12× |
+| Overdue | 1.2× on the first wave, climbing to 4.5× on the last | 1.15× |
+
+On Melongeddon and Overdue the extra health builds slowly at first and piles up late: the first third of a night is about as tough as it used to be, and the last few waves are much tougher. Halfway through a Midnight night, Melongeddon fruit have about 1.75× health and Overdue about 2×.
 
 Harder levels change only the fruit; your towers, seeds and upgrades work the same on every level.
 
