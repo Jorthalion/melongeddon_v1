@@ -92,6 +92,11 @@ const SPRITE_SRC = {
   floorReadingroom: asset("sprites/tile-floor-readingroom.webp"),
   // The Courtyard's flagstones and props (code-drawn fallbacks while they load).
   floorCourtyard: asset("sprites/tile-floor-courtyard.webp"),
+  // The Rotunda: its parquet, the desk where the carpets meet, a lamp by each door, a door not open yet.
+  floorRotunda: asset("sprites/tile-floor-rotunda.webp"),
+  rotundaDesk: asset("sprites/prop-rotunda-desk.webp"),
+  doorLamp: asset("sprites/prop-door-lamp.webp"),
+  boardedStairs: asset("sprites/prop-boarded-stairs.webp"),
   hedge: asset("sprites/prop-hedge.webp"),
   statue: asset("sprites/prop-statue.webp"),
   fountain: asset("sprites/prop-fountain.webp"),
@@ -409,6 +414,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     greathall: art.floorGreathall,
     readingroom: art.floorReadingroom,
     courtyard: art.floorCourtyard,
+    rotunda: art.floorRotunda,
   } as Partial<Record<string, HTMLImageElement>>)[world.hud.map];
   const floor = ready(ownFloor) ? ownFloor : art.floor;
   if (world.hud.map === "courtyard" && !ready(ownFloor)) {
@@ -1816,8 +1822,19 @@ function entryTiles(world: World) {
  */
 function drawDoors(ctx: CanvasRenderingContext2D, world: World) {
   if (!world.doors.length) return;
+  const art = getSprites();
   const desk = BOARDS[world.hud.map].desk;
-  if (desk) {
+  if (desk && ready(art.rotundaDesk)) {
+    const x = desk[0] * CELL + CELL / 2;
+    const y = desk[1] * CELL + CELL / 2;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath();
+    ctx.ellipse(x + 2, y + 8, CELL * 0.42, CELL * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    blitFit(ctx, art.rotundaDesk!, x, y - 2, CELL * 1.05, CELL * 1.05);
+    ctx.restore();
+  } else if (desk) {
     const x = desk[0] * CELL + CELL / 2;
     const y = desk[1] * CELL + CELL / 2;
     ctx.save();
@@ -1866,16 +1883,39 @@ function drawDoors(ctx: CanvasRenderingContext2D, world: World) {
       ctx.arc(lx, ly, 26, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = "#6e4f22";
-    ctx.fillRect(lx - 1.5, ly + 3, 3, 8);
-    ctx.fillStyle = d.open && d.lit ? "#ffe39a" : d.open ? "#9a7a44" : "#3a2c22";
-    ctx.strokeStyle = "#c6a15a";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(lx, ly, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    if (!d.open) {
+    if (ready(art.doorLamp)) {
+      // The painted lamp is unlit: a closed door's sits in shadow, the next door's glows (above) and gets a warm core.
+      ctx.globalAlpha = d.open ? 1 : 0.55;
+      blitFit(ctx, art.doorLamp!, lx, ly, 20, 24);
+      ctx.globalAlpha = 1;
+      if (d.open && d.lit) {
+        ctx.fillStyle = "rgba(255,227,154,0.75)";
+        ctx.beginPath();
+        ctx.arc(lx - 2, ly + 1, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      ctx.fillStyle = "#6e4f22";
+      ctx.fillRect(lx - 1.5, ly + 3, 3, 8);
+      ctx.fillStyle = d.open && d.lit ? "#ffe39a" : d.open ? "#9a7a44" : "#3a2c22";
+      ctx.strokeStyle = "#c6a15a";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(lx, ly, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    if (!d.open && ready(art.boardedStairs)) {
+      // Its carpet isn't down yet: a faint chalk line where it will run, and the boarded-up stairs in the doorway.
+      ctx.setLineDash([5, 7]);
+      ctx.strokeStyle = "rgba(230,195,106,0.22)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      traceLine(ctx, world.routes[i].slice(0, s.length), 0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      blitFit(ctx, art.boardedStairs!, a.x, a.y - 2, CELL * 0.95, CELL * 0.95);
+    } else if (!d.open) {
       // Its carpet isn't down yet: a faint chalk line where it will run, and planks across the doorway.
       ctx.setLineDash([5, 7]);
       ctx.strokeStyle = "rgba(230,195,106,0.22)";

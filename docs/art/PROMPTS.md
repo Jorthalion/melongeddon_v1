@@ -218,7 +218,7 @@ The Siege's map is the library's back courtyard at night: flagstones, a hedge ma
 | `prop-statue.png` | A **small weathered stone statue on a square plinth**: a robed scholar reading an open book, lichen on the shoulders, a chipped nose, seen from slightly above. Grey stone, moonlit. Transparent background, 512 × 512. |
 | `prop-fountain.png` | A **round dry stone fountain** seen from above at a slight angle: a wide basin with a carved rim, **dry inside with dead leaves and a few coins**, a central pedestal with a smaller upper bowl, cracks and moss, no water. It covers a 2 × 2 block of tiles, so fill a square frame. Transparent background, 1024 × 1024. |
 
-### 2a2. The Rotunda (not yet painted; drawn by code in `drawDoors` until then)
+### 2a2. The Rotunda (done: all six are in `public/sprites/`; `drawDoors` draws by code only while they load)
 
 The round reading room with doors on every side. The floor follows the rules above; the props are PNGs with transparent backgrounds, seen from slightly above, sized to their cells. Warm candlelight as usual. The game adds the lamp's glow when a door is next, so draw the lamp unlit.
 
