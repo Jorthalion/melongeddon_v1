@@ -19,7 +19,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Group | What's painted |
 |---|---|
 | Shared towers (barrel on a base) | melon, mortar (pumpkin), fire, freeze, spitter, ballista, reader, ink, peeler, bookworm, plus whole-tower art for the Still, Fly Hive, Compost Heap, Shush Bell and Reading Lamp |
-| Keeper towers (24) | catalogue, desk, cauldron, flask, trebuchet, dragon gate, roost (egg, whelp, drake, dragon), scales, stomp, honey, mimic, copycat, lectern, Quack-Liber, The Post (pamphlet), Quackmission (driver), Anti-Geese, Lion Blade; retired but kept: gourd gate, bombard, signpost |
+| Keeper towers (24) | catalogue, desk, cauldron, flask, trebuchet, dragon gate, roost (egg, whelp, drake, dragon), scales, stomp, honey, mimic, copycat, lectern, Quack-Liber, The Post (pamphlet), Quackmission (driver), Anti-Geese, Lion Blade |
 | Heavy and trick cannons (8) | press, organ, scope; boomerang, orrery, plane, quill, globe |
 | Shots and thrown things (24) | the ten `shot-*` shots, plus bombard, boomerang, dragonfire, globe, ki, plane, three planets, portcullis, quack, quill, sheet, stomp |
 | Fruit and enemies (15) | melon, corn, pumpkin, Karl; pit, gall, borrower; honker, gosling, Matriarch, Whiskers, Box Cat, Paratrooper, Cardboard Tank, General Mittens |
@@ -30,20 +30,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Status overlays (2) | ice block, flame tongues |
 | Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
 
-**Still needed** (the game draws a code stand-in for each until it arrives):
-
-| File | What | Prompt |
-|---|---|---|
-| `enemy-express.png` | Express Corn, the Sorting Room | `ENEMY_PROMPTS.md` §4 |
-| `enemy-parcel.png` | Parcel, the Sorting Room | `ENEMY_PROMPTS.md` §5 |
-| `enemy-sprout.png` | Sprout, the Greenhouse | `ENEMY_PROMPTS.md` §6 |
-| `enemy-squash.png` | Creeping Squash, the Greenhouse | `ENEMY_PROMPTS.md` §7 |
-| `enemy-chimer.png` | Chimer, the Bell Tower | `ENEMY_PROMPTS.md` §8 |
-| `enemy-gargoyle.png` | Gargoyle Gourd, the Bell Tower | `ENEMY_PROMPTS.md` §9 |
-| `tile-vine.png` | Creeping Squash vine on the carpet | `ENEMY_PROMPTS.md` §10 |
-| `tile-floor-compact.png` | The Compact Stacks floor | §2a5 below. A first attempt (22 November) was turned down: it was one tile drawn in perspective with a dark border and a railway track down the middle, so it showed gaps and repeated tracks |
-
-The seven fruit images are also in `art-for-chatgpt/room-fruit-art-prompts.md`, with the reference pictures to attach. After the six fruit arrive, add them to `GROUPS` in `scripts/animate-sprites.py` and run `npm run animate` so they walk, flinch and pop like the others.
+**Still needed:** nothing. Every image asked for in these prompt files is in the game (the last eight arrived on 22 November). Nothing unused is left in `public/sprites/` either.
 
 ---
 
@@ -114,7 +101,7 @@ In the game; the code-drawn turret is only a fallback while it loads. Match **Qu
 | `sig-quackliber.png` | A compact **twin-barrel rocket launcher turret** built on a squat **padded backpack-style base in Quackarot's colours**: **bright orange canvas** like a hoodie, with **black straps, black drawstring cords** and brass buckles, and a **black crowned-duck emblem** stitched on the front. On top, a small round **brass turret** holding **two short, stubby black rocket tubes side by side**, rims painted orange, angled up and slightly forward, with **two little orange-and-cream rockets** peeking out of the muzzles, each with a tiny duck-bill nose cone. A **rubber-duck figurine** in a tiny gold crown rides on the turret beside the tubes like a hood ornament, and a short **crimson pennant with gold trim** flies from a thin antenna at the back. The base sits on a small round **dark walnut platform with brass rivets**. Playful and a bit cocky, but well made. 3/4 top-down view, transparent background. |
 | `fly-quack.png` (optional) | One of its rockets in flight: a **small orange-and-cream rocket with a little duck-bill nose cone**, two stubby black fins and an orange stripe, a short puff of flame and grey smoke behind it. **Side view, nose pointing right.** Transparent background, no shadow. |
 
-#### Sir Michael's old pumpkin towers (retired: `sig-gourdgate.webp` and `sig-bombard.webp` no longer show; `fly-portcullis.webp` still does)
+#### Sir Michael's old pumpkin towers (retired: `sig-gourdgate.webp`, `sig-bombard.webp` and `fly-bombard.webp` were deleted on 22 November and are in git history; `fly-portcullis.webp` is still used)
 
 Kept for the record. He is the **Dragon Knight** now: see the next section for the art that replaces these.
 
@@ -287,7 +274,7 @@ A long entrance hall: fruit come in from the west door and up the lift, meet at 
 | `door-restricted.png` | The way to the Restricted Section: a **heavy dark oak door banded with black iron**, a **thick chain** across it with a big brass padlock, a faint purple glow under the door. Seen straight on, filling the frame. Only bosses use it, and it costs double. Transparent background, 512 × 512. |
 | `prop-closed-sign.png` | A **small wooden card hanging from a short loop of crimson cord**, cream painted face with a thin red border and the single word **CLOSED** in bold red capitals (the one image that should have a word on it). Slightly tilted, as if it has just been hung. Transparent background, 256 × 256. |
 
-### 2a5. The Compact Stacks (done except the floor: the shelf unit, crank, cocoon and both Bookworms are in `public/sprites/`; a Bookworm inside a bay is still drawn by code so it reads as half hidden)
+### 2a5. The Compact Stacks (done: all six are in `public/sprites/`; a Bookworm inside a bay is still drawn by code so it reads as half hidden, and the bays' steel tracks are drawn by code over the floor)
 
 A storeroom of rolling library shelving on steel tracks: two bays of grey-green steel shelf units with one open aisle each, a brass crank wheel under each bay, and its own room fruit. Code drawings show until each file exists.
 
@@ -300,8 +287,8 @@ A storeroom of rolling library shelving on steel tracks: two bays of grey-green 
 | `fruit-wormqueen.png` | The **Bookworm Queen**: the same gourd but bigger and longer, five segments, darker green with gold flecks, **spectacles and a small gold crown**. Side view facing right. Transparent background, 512 × 512. |
 | `prop-cocoon.png` | A **cocoon of shredded book pages** bound in silk, pale cream with faint lines of print showing, a little green glow inside. Seen from slightly above. Transparent background, 256 × 256. |
 
-### 2a6. The Flooded Basement (not yet drawn)
-A library cellar with a burst pipe: three floor heights (damp low flagstones, lighter middle flags, wooden pallets for the high floor), water that rises over them during each wave, a painted water gauge, and its own room fruit and Sump Pump. Everything is drawn by code for now. The game already looks for the two fruit files; the floor tiles, water, props and pump need hooking up once they're painted.
+### 2a6. The Flooded Basement (not yet drawn; the game already looks for these files)
+A library cellar with a burst pipe: three floor heights (damp low flagstones, lighter middle flags, wooden pallets for the high floor), water that rises over them during each wave, a painted water gauge, and its own room fruit and Sump Pump. Everything is drawn by code for now, and each file replaces its code drawing as soon as it's in `public/sprites/` as a `.webp` with the same name: each floor tile fills one board square, the water surface tiles over flooded squares (and drifts slowly), the gauge and pipe fill their own square (the game still lays the water level over the gauge and the spray over the pipe), and the pump is drawn like the other towers (no aim).
 
 | File name | Prompt (after the style line) |
 |---|---|
