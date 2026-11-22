@@ -19,7 +19,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Group | What's painted |
 |---|---|
 | Shared towers (barrel on a base) | melon, mortar (pumpkin), fire, freeze, spitter, ballista, reader, ink, peeler, bookworm, plus whole-tower art for the Still, Fly Hive, Compost Heap, Shush Bell and Reading Lamp |
-| Keeper towers (24) | catalogue, desk, cauldron, flask, trebuchet, dragon gate, roost (egg, whelp, drake, dragon), scales, stomp, honey, mimic, copycat, lectern, Quack-Liber, The Post (pamphlet), Quackmission (driver), Anti-Geese, Lion Blade; retired but kept: gourd gate, bombard, signpost |
+| Keeper towers (24) | catalogue, desk, cauldron, flask, trebuchet, dragon gate, roost (egg, whelp, drake, dragon), scales, stomp, honey, mimic, copycat, lectern, Quack-Liber, The Post (pamphlet), Quackmission (driver), Anti-Geese, Lion Blade |
 | Heavy and trick cannons (8) | press, organ, scope; boomerang, orrery, plane, quill, globe |
 | Shots and thrown things (24) | the ten `shot-*` shots, plus bombard, boomerang, dragonfire, globe, ki, plane, three planets, portcullis, quack, quill, sheet, stomp |
 | Fruit and enemies (15) | melon, corn, pumpkin, Karl; pit, gall, borrower; honker, gosling, Matriarch, Whiskers, Box Cat, Paratrooper, Cardboard Tank, General Mittens |
@@ -30,7 +30,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Status overlays (2) | ice block, flame tongues |
 | Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
 
-**Still needed:** nothing. Every image asked for in these prompt files is in the game (the last eight arrived on 22 November). Three old paintings sit unused in `public/sprites/`: `sig-gourdgate.webp`, `sig-bombard.webp` and `fly-bombard.webp`, from Sir Michael's towers before the Dragon Gate and the Roost replaced them.
+**Still needed:** nothing. Every image asked for in these prompt files is in the game (the last eight arrived on 22 November). Nothing unused is left in `public/sprites/` either.
 
 ---
 
@@ -101,7 +101,7 @@ In the game; the code-drawn turret is only a fallback while it loads. Match **Qu
 | `sig-quackliber.png` | A compact **twin-barrel rocket launcher turret** built on a squat **padded backpack-style base in Quackarot's colours**: **bright orange canvas** like a hoodie, with **black straps, black drawstring cords** and brass buckles, and a **black crowned-duck emblem** stitched on the front. On top, a small round **brass turret** holding **two short, stubby black rocket tubes side by side**, rims painted orange, angled up and slightly forward, with **two little orange-and-cream rockets** peeking out of the muzzles, each with a tiny duck-bill nose cone. A **rubber-duck figurine** in a tiny gold crown rides on the turret beside the tubes like a hood ornament, and a short **crimson pennant with gold trim** flies from a thin antenna at the back. The base sits on a small round **dark walnut platform with brass rivets**. Playful and a bit cocky, but well made. 3/4 top-down view, transparent background. |
 | `fly-quack.png` (optional) | One of its rockets in flight: a **small orange-and-cream rocket with a little duck-bill nose cone**, two stubby black fins and an orange stripe, a short puff of flame and grey smoke behind it. **Side view, nose pointing right.** Transparent background, no shadow. |
 
-#### Sir Michael's old pumpkin towers (retired: `sig-gourdgate.webp` and `sig-bombard.webp` no longer show; `fly-portcullis.webp` still does)
+#### Sir Michael's old pumpkin towers (retired: `sig-gourdgate.webp`, `sig-bombard.webp` and `fly-bombard.webp` were deleted on 22 November and are in git history; `fly-portcullis.webp` is still used)
 
 Kept for the record. He is the **Dragon Knight** now: see the next section for the art that replaces these.
 
