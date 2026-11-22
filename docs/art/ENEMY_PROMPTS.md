@@ -1,6 +1,6 @@
 # ChatGPT image prompts: act three fruit
 
-**Status:** prompts only. None of these fruit are in the game yet.
+**Status:** all done. Every image below is in the game.
 
 Three sprites: the Pit, the Gall and the Borrower. Start with the **Setup message**, then send one prompt per message in the same chat so the style stays consistent. To keep the look matched to the fruit already in the game, attach `public/sprites/melon.webp` and `pumpkin.webp` with the setup message.
 
@@ -36,7 +36,7 @@ Fast and frail. It doesn't cost a stack: if it reaches the door it takes a cut o
 
 ## The rooms' own fruit
 
-Six more sprites, two for each of the three newest rooms, plus one carpet tile. They're in the game already with drawn stand-ins; each image below replaces one. Use the same **Setup message** and attach `corn.webp` and `pumpkin.webp` as well, since four of them are built on corn or a pumpkin. Save them with exactly these names (the game loads them as `.webp` from `public/sprites/`).
+Six more sprites, two for each of the three newest rooms, plus one carpet tile. All seven are in the game (22 November), with walk, flinch and pop strips for the six fruit. Use the same **Setup message** and attach `corn.webp` and `pumpkin.webp` as well, since four of them are built on corn or a pumpkin. Save them with exactly these names (the game loads them as `.webp` from `public/sprites/`).
 
 ### 4. `enemy-express.png`: Express Corn (the Sorting Room)
 
