@@ -1760,10 +1760,10 @@ export interface Board {
   doors?: Door[];
   /** The Rotunda's round desk: furniture on a floor tile beside where the carpets meet (no building on it). */
   desk?: [number, number];
-  /**
-   * More than one way out (the Hall of Doors): each exit's carpet starts on a corner of the trunk. With exits, a
   /** A board with doors: the carpet tile where the doors' carpets meet, marked with a brass compass inlay. */
   compass?: [number, number];
+  /**
+   * More than one way out (the Hall of Doors): each exit's carpet starts on a corner of the trunk. With exits, a
    * route is an entrance's carpet, the trunk up to where its exit starts, then that exit (one per pair).
    */
   exits?: Exit[];
@@ -1885,10 +1885,10 @@ export function shelfCells(map: MapId, path: Set<string>, verge: Set<string> = n
   const out = new Set<string>();
   // The Compact Stacks: every bay tile but its open aisle is shelving.
   if (b.bays) for (const k of bayShelves(b, aisles ?? b.bays.map((x) => x.aisles[1]))) if (!path.has(k)) out.add(k);
-  for (const [c, r] of b.shelves ?? DEFAULT_SHELVES) {
-    const key = `${c},${r}`;
   // The Rotunda's desk is furniture on the floor: no building there (drawn by drawDoors, not as a shelf).
   if (b.desk && !path.has(`${b.desk[0]},${b.desk[1]}`)) out.add(`${b.desk[0]},${b.desk[1]}`);
+  for (const [c, r] of b.shelves ?? DEFAULT_SHELVES) {
+    const key = `${c},${r}`;
     if (c < 0 || r < 0 || c >= cols || r >= rows || path.has(key) || verge.has(key) || fixed.has(key)) continue;
     out.add(key);
   }
@@ -2219,9 +2219,9 @@ export const BOARDS: Record<MapId, Board> = {
       [10, 8],
       [10, 10],
       [14, 10],
+      [14, 7],
       [14, 3],
       [17, 3],
-      [14, 7],
     ],
     doors: [
       { id: "north", corners: [[5, 0], [5, 4], [10, 4], [10, 8]] },
