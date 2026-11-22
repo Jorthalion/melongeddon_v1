@@ -91,6 +91,9 @@ ENEMY_PAINTINGS = {
     "tank": "enemy-tank.webp", "general": "enemy-general.webp",
     # The Compact Stacks.
     "wormgourd": "fruit-wormgourd.webp", "wormqueen": "fruit-wormqueen.webp",
+    # The Sorting Room, the Greenhouse and the Bell Tower.
+    "express": "enemy-express.webp", "parcel": "enemy-parcel.webp", "sprout": "enemy-sprout.webp",
+    "squash": "enemy-squash.webp", "chimer": "enemy-chimer.webp", "gargoyle": "enemy-gargoyle.webp",
 }
 
 

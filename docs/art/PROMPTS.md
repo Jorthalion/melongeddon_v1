@@ -30,20 +30,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Status overlays (2) | ice block, flame tongues |
 | Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
 
-**Still needed** (the game draws a code stand-in for each until it arrives):
-
-| File | What | Prompt |
-|---|---|---|
-| `enemy-express.png` | Express Corn, the Sorting Room | `ENEMY_PROMPTS.md` §4 |
-| `enemy-parcel.png` | Parcel, the Sorting Room | `ENEMY_PROMPTS.md` §5 |
-| `enemy-sprout.png` | Sprout, the Greenhouse | `ENEMY_PROMPTS.md` §6 |
-| `enemy-squash.png` | Creeping Squash, the Greenhouse | `ENEMY_PROMPTS.md` §7 |
-| `enemy-chimer.png` | Chimer, the Bell Tower | `ENEMY_PROMPTS.md` §8 |
-| `enemy-gargoyle.png` | Gargoyle Gourd, the Bell Tower | `ENEMY_PROMPTS.md` §9 |
-| `tile-vine.png` | Creeping Squash vine on the carpet | `ENEMY_PROMPTS.md` §10 |
-| `tile-floor-compact.png` | The Compact Stacks floor | §2a5 below. A first attempt (22 November) was turned down: it was one tile drawn in perspective with a dark border and a railway track down the middle, so it showed gaps and repeated tracks |
-
-The seven fruit images are also in `art-for-chatgpt/room-fruit-art-prompts.md`, with the reference pictures to attach. After the six fruit arrive, add them to `GROUPS` in `scripts/animate-sprites.py` and run `npm run animate` so they walk, flinch and pop like the others.
+**Still needed:** nothing. Every image asked for in these prompt files is in the game (the last eight arrived on 22 November). Three old paintings sit unused in `public/sprites/`: `sig-gourdgate.webp`, `sig-bombard.webp` and `fly-bombard.webp`, from Sir Michael's towers before the Dragon Gate and the Roost replaced them.
 
 ---
 
@@ -287,7 +274,7 @@ A long entrance hall: fruit come in from the west door and up the lift, meet at 
 | `door-restricted.png` | The way to the Restricted Section: a **heavy dark oak door banded with black iron**, a **thick chain** across it with a big brass padlock, a faint purple glow under the door. Seen straight on, filling the frame. Only bosses use it, and it costs double. Transparent background, 512 × 512. |
 | `prop-closed-sign.png` | A **small wooden card hanging from a short loop of crimson cord**, cream painted face with a thin red border and the single word **CLOSED** in bold red capitals (the one image that should have a word on it). Slightly tilted, as if it has just been hung. Transparent background, 256 × 256. |
 
-### 2a5. The Compact Stacks (done except the floor: the shelf unit, crank, cocoon and both Bookworms are in `public/sprites/`; a Bookworm inside a bay is still drawn by code so it reads as half hidden)
+### 2a5. The Compact Stacks (done: all six are in `public/sprites/`; a Bookworm inside a bay is still drawn by code so it reads as half hidden, and the bays' steel tracks are drawn by code over the floor)
 
 A storeroom of rolling library shelving on steel tracks: two bays of grey-green steel shelf units with one open aisle each, a brass crank wheel under each bay, and its own room fruit. Code drawings show until each file exists.
 

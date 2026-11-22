@@ -484,6 +484,19 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.fillStyle = "rgba(16,12,14,0.38)";
       ctx.fillRect(0, 0, world.w, world.h);
     }
+    if (world.hud.map === "compact") {
+      // The painted floor has no rails: steel tracks under each bay, so the shelves still look like they roll.
+      ctx.strokeStyle = "rgba(190,196,200,0.3)";
+      ctx.lineWidth = 2;
+      for (const b of BOARDS.compact.bays ?? [])
+        for (let c = b.cols[0]; c <= b.cols[1]; c++)
+          for (const dx of [0.25, 0.75]) {
+            ctx.beginPath();
+            ctx.moveTo(c * CELL + CELL * dx, b.rows[0] * CELL);
+            ctx.lineTo(c * CELL + CELL * dx, (b.rows[1] + 1) * CELL);
+            ctx.stroke();
+          }
+    }
   }
   const look = ROOM_LOOK[world.hud.map];
   if (look?.floor && floor === art.floor) {
