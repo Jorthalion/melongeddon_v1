@@ -89,6 +89,33 @@ test("the Pipe Organ hits everything in reach and slows it; the third chord stop
   assert.equal(husk.freeze, 0);
 });
 
+test("a crescendo can't stop the same fruit again until its cooldown passes, so many organs can't chain stops", () => {
+  const { api, tower } = withHeavy("organ");
+  const w = api.world;
+  const [a] = fruit(api, 1);
+  a.x = tower.x + 20;
+  a.y = tower.y + 20;
+  a.hp = a.maxHp = 1e6;
+  a.speed = 0;
+  w.enemies = [a];
+  const crescendo = () => {
+    for (let i = 0; i < CANNON.organEvery; i++) {
+      tower.cd = 0;
+      stepWorld(w, 1 / 60);
+    }
+  };
+  crescendo();
+  assert.ok(a.freeze > 0, "the first crescendo stops it");
+  const ready = a.organReady ?? 0;
+  assert.ok(ready >= w.anim + CANNON.organStunImmune, "cooldown set past the stop");
+  a.freeze = 0;
+  crescendo();
+  assert.equal(a.freeze, 0, "a second crescendo inside the cooldown doesn't stop it");
+  w.anim = ready;
+  crescendo();
+  assert.ok(a.freeze > 0, "after the cooldown it can be stopped again");
+});
+
 test("the Brass Telescope aims for armour first and its shots ignore it", () => {
   const { api, tower } = withHeavy("scope");
   const w = api.world;

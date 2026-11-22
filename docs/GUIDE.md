@@ -522,7 +522,7 @@ The **Heavy** tab (`Y`) holds three expensive cannons, open to every keeper. The
 | Tower | Cost | What it does |
 |---|---|---|
 | **Printing Press** | 200 | Every few seconds a pressed sheet lands on the lead fruit and slides back up the carpet, hitting every fruit along a long stretch once. Everything it touches is **inked**: all your cannons hit it 25% harder for a few seconds. |
-| **Pipe Organ** | 220 | Plays a chord that hits **every fruit** in a wide circle and slows them. **Every third chord is a crescendo** that also stops them for a moment (Karl only briefly). Husks take the damage but ignore the slow and the stop. |
+| **Pipe Organ** | 220 | Plays a chord that hits **every fruit** in a wide circle and slows them. **Every third chord is a crescendo** that also stops them for a moment (Karl only briefly). A fruit that has just been stopped can't be stopped by another crescendo for 4 seconds, so building lots of organs won't keep fruit frozen. Husks take the damage but ignore the slow and the stop. |
 | **Brass Telescope** | 250 | Very long reach and a fast, instant shot that **ignores armour**: shells, husks and damp count for nothing. It aims for Karl first, then armoured fruit, then the toughest. |
 
 Their back-room upgrades: **Broadsheet** (the sheet slides half again as far) and **Wet ink** (ink lasts twice as long) for the Press; **Bigger pipes** (wider circle) and **Crescendo stop** (every second chord is a crescendo) for the Organ; **Long lens** (reach) and **Steady hand** (pace) for the Telescope. Shared upgrade picks follow their type: the Press is a Cannon, the Telescope is Precision, the Organ is Utility (no picks).

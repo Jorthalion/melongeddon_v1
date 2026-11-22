@@ -135,6 +135,8 @@ interface Enemy {
   /** Instant Quackmission: seconds left walking back the way it came, and the world time it can be driven again. */
   driven?: number;
   driveReady?: number;
+  /** Pipe Organ: the world time a crescendo can stop this fruit again (so many organs can't chain their stops). */
+  organReady?: number;
   pit?: boolean;
   gall?: boolean;
   mends?: number;
@@ -5103,9 +5105,11 @@ export function createWorld(
           if (e.guard === "husk") continue;
           // The chord dazes (a slow, not ice); a crescendo stops it.
           e.chill = Math.max(e.chill, CANNON.organChill);
-          if (swell) {
-            e.freeze = Math.max(e.freeze, (e.boss ? CANNON.organStunBoss : CANNON.organStun));
+          if (swell && (e.organReady ?? 0) <= world.anim) {
+            const stop = e.boss ? CANNON.organStunBoss : CANNON.organStun;
+            e.freeze = Math.max(e.freeze, stop);
             e.stunBy = "organ";
+            e.organReady = world.anim + stop + CANNON.organStunImmune;
           }
         }
         world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.5, max: 0.5, color: swell ? "230,195,106" : "170,130,210" });

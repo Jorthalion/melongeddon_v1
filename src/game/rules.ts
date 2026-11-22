@@ -968,6 +968,8 @@ export const CANNON = {
   organEvery: 3,
   organStun: 1,
   organStunBoss: 0.35,
+  /** Seconds after a crescendo's stop wears off before any crescendo can stop that fruit again (or a wall of organs keeps it frozen all night). */
+  organStunImmune: 4,
   bellStunBoss: 0.35,
   /** Foot of the Law: how wide the foot lands, and how long what it lands on stays put (Karl: less). */
   stompRadius: 54,
