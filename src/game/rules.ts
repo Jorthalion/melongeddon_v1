@@ -709,7 +709,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   bookworm: {
     name: "Bookworm",
-    blurb: "Burrows into pumpkins and Karl for heavy damage over time. Bored by the rest. Also burrows into anything with three stingers in it.",
+    blurb: "Burrows into fruit for damage over time: heavy in pumpkins, Karl and anything with three stingers in it, lighter in the rest. Goes for pumpkins and Karl first.",
     cost: 75,
     role: "Pumpkins",
   },
@@ -1039,6 +1039,8 @@ export const CANNON = {
   copyHeavyDmg: 0.75,
   deskReach: 60,
   wormDps: 45,
+  /** Bookworm: share of the burrowing damage on fruit that aren't pumpkins, Karl or three-stinger fruit. */
+  wormOther: 0.4,
   wormTime: 4,
   /** Cannon upgrades. */
   /** Interval multiplier for a cannon whose cannon upgrade you own (0.75 = fires a third faster). */

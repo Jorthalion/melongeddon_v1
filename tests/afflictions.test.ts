@@ -125,7 +125,7 @@ test("flammable: fire on a poisoned fruit burns ×1.5, and the poison is spent w
   assert.equal(e.poison, 0, "spent when the fire went out");
 });
 
-test("worms follow stingers: a Bookworm burrows into a melon with 3 stings, not 2", () => {
+test("worms follow stingers: a melon with 3 stings takes the full worm, one with 2 only CANNON.wormOther of it", () => {
   const { api, fruit } = lab(2, 200);
   const [three, two] = fruit;
   Object.assign(three, { sting: 3, stingT: 9 });
@@ -133,7 +133,9 @@ test("worms follow stingers: a Bookworm burrows into a melon with 3 stings, not 
   shoot(api, three, { element: "worm", dmg: 1, wormDps: 26 } as never);
   shoot(api, two, { element: "worm", dmg: 1, wormDps: 26 } as never);
   assert.ok((three.worm ?? 0) > 0);
-  assert.equal(two.worm ?? 0, 0);
+  assert.equal(three.wormDps, 26);
+  assert.ok((two.worm ?? 0) > 0, "the rest still get a smaller worm");
+  assert.ok(Math.abs((two.wormDps ?? 0) - 26 * CANNON.wormOther) < 1e-9);
 });
 
 test("contagion: dying with 3 stacks spreads one of each to a fruit within a tile, not further; worms don't spread", () => {

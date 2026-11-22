@@ -287,6 +287,8 @@ export interface PreviewStats {
   why: { dmg: string[]; range: string[]; interval: string[] };
 }
 
+/** What the Bookworm's worms bite at full strength: pumpkins, Karl and (status combos) anything with three stingers. The rest take `CANNON.wormOther` of it. */
+const wormFavours = (e: Enemy) => e.kind === "pumpkin" || e.kind === "karl" || (COMBO.on && (e.sting ?? 0) >= AFFLICT.wormStings);
 /** Shelled (until cracked), husked or damp. */
 const armoured = (e: Enemy) => (e.guard === "rind" && e.shell > 0) || e.guard === "husk" || e.guard === "damp";
 const standingIn = (e: Enemy, pools: Pool[], is: (p: Pool) => boolean) => pools.some((p) => is(p) && Math.hypot(e.x - p.x, e.y - p.y) < p.r);
@@ -301,7 +303,7 @@ export const FRESH_TEST: Partial<Record<TowerKind, (e: Enemy, pools: Pool[], tow
   still: (e, pools) => !standingIn(e, pools, (p) => !p.hot && !p.toxic && !p.honey),
   ink: (e) => (e.ink ?? 0) <= 0.5,
   // Pumpkins and Karl, and (status combos) anything with three stingers in it.
-  bookworm: (e) => (e.kind === "pumpkin" || e.kind === "karl" || (COMBO.on && (e.sting ?? 0) >= AFFLICT.wormStings)) && (e.worm ?? 0) < 1,
+  bookworm: (e) => wormFavours(e) && (e.worm ?? 0) < 1,
   peeler: (e) => armoured(e),
   honey: (e) => (e.honeyed ?? 0) <= 0,
   cauldron: (e, pools) => !standingIn(e, pools, (p) => Boolean(p.toxic)),
@@ -333,6 +335,8 @@ export function targetScore(mode: TargetMode, tower: Tower, e: Enemy, prog: numb
       return (e.boss ? 1e9 : 0) + e.hp;
     case "fresh": {
       const test = FRESH_TEST[tower.kind];
+      // The Bookworm: an unwormed pumpkin or Karl first, then any unwormed fruit, then the front one.
+      if (tower.kind === "bookworm") return (test?.(e, pools, tower) ? 2e9 : 0) + ((e.worm ?? 0) < 1 ? 1e9 : 0) + prog;
       return (!test || test(e, pools, tower) ? 1e9 : 0) + prog;
     }
   }
@@ -4247,10 +4251,11 @@ export function createWorld(
         other.inkMul = Math.max(other.inkMul ?? 1, shot.inkMul ?? CANNON.inkBonus);
       }
     }
-    if (shot.element === "worm" && (e.kind === "pumpkin" || e.kind === "karl" || (COMBO.on && (e.sting ?? 0) >= AFFLICT.wormStings))) {
+    const wormShare = shot.element === "worm" ? (wormFavours(e) ? 1 : CANNON.wormOther) : 0;
+    if (wormShare > 0) {
       if ((e.worm ?? 0) <= 0) float(e.x, e.y - 18, "burrow", "#e79ab0");
       e.worm = CANNON.wormTime;
-      e.wormDps = Math.max(e.wormDps ?? 0, shot.wormDps ?? CANNON.wormDps);
+      e.wormDps = Math.max(e.wormDps ?? 0, (shot.wormDps ?? CANNON.wormDps) * wormShare);
       e.wormBy = shot.owner;
     }
     const shelled = e.guard === "rind" && e.shell > 0;

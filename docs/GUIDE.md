@@ -449,7 +449,7 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | Reading Lamp | 60 | No shot; cannons next to it reach farther and fire faster |
 | Ink Well | 55 | Marks fruit so they take 25% more damage from everything |
 | Peeler | 60 | Strips shells, husks and damp so other cannons hit normally, and whatever it hits takes 25% more damage for 3 seconds |
-| Bookworm | 75 | Burrows into pumpkins and Karl for heavy damage over time |
+| Bookworm | 75 | Burrows into fruit for damage over time: full in pumpkins and Karl, 40% of that in everything else. Goes for pumpkins and Karl first |
 | Compost Heap | 70 | No shot; pays seeds at the end of every wave |
 | Sump Pump | 90 | The Flooded Basement only. No shot; keeps its own tile and the eight round it dry, however high the water gets |
 | Boomerang Bookend | 70 | Throws a bookend in a wide loop out to the lead fruit and back; hits everything it passes, once each way |
@@ -511,7 +511,7 @@ Different afflictions add together; the same one adds a stack and refreshes. All
 - **Driven in:** a Seed Spitter seed on a stung fruit adds a stinger (one that pings off a shell doesn't).
 - **Stinging Flies** (the Hive's upgrade card) adds two stingers to a fruit that's already stung; a sticky (honeyed) fruit takes two per fly.
 - **Flammable:** fire on a poisoned fruit burns 50% hotter while the poison lasts; the poison is spent when the fire goes out.
-- **Worms follow stingers:** the Bookworm also burrows into any fruit with three stingers.
+- **Worms follow stingers:** a fruit with three stingers takes the Bookworm's full worm, like a pumpkin.
 - **Contagion:** a fruit that dies with three of one affliction passes one of each it carries to every fruit within a tile (fire as a two-second burn; worms don't spread).
 
 **Fittings** in the back room: **Deep Freeze** (Freeze: three frost a hit), **Black Ice** (Freeze: three frost takes 15% more from everything), **Shrapnel** (Freeze: shards fly half as far again), **Wildfire** (Fire: spreads twice as often), **Barbed stingers** (Hive: stingers last 5 s), **Virulent** (Cauldron: poison stacks to five), **Grit** (Spitter: a seed drives in two).
@@ -659,7 +659,7 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | **Splash** | The blast around a Mortar or Dragonfire Trebuchet hit, the Foot of the Law's stomp, the Pipe Organ's chord, Juicy Explosions, Knight's Splatter, and the burst when Karl pops |
 | **Fire** | The flames a Fire cannon leaves on the carpet |
 | **Puddle** | Puddles that hurt: the Still's with Distilled, and the Cauldron's poison |
-| **Bookworm** | The Bookworm burrowing into pumpkins and Karl |
+| **Bookworm** | The Bookworm burrowing (full in pumpkins and Karl, 40% in the rest) |
 
 #### What each armour blocks
 
