@@ -1036,7 +1036,7 @@ export interface World {
   /** Seconds left of the water spreading after it rises (drawing). */
   waterRise: number;
   /** Ice sheets a Freeze hit made on the water: where, how wide, seconds left, and how long each fruit has been held (bosses let go early). */
-  ice: Array<{ x: number; y: number; r: number; left: number; max: number; held: Map<number, number> }>;
+  ice: Array<{ x: number; y: number; r: number; left: number; max: number; held: Map<number, number>; noted?: boolean }>;
   /** The crank under the pointer in prep, and what turning it would do (drawn as a ghost path and a note). */
   crankHint: (CrankPreview & { bay: number }) | null;
   /** Board size in cells and world pixels (set with the map). */
@@ -2305,7 +2305,11 @@ export function createWorld(
         e.stomped = Math.max(e.stomped ?? 0, dt * 1.5);
         if (!e.icedIn) {
           e.icedIn = true;
-          float(e.x, e.y - 22, "iced in", "#cfe8f5");
+          // One note per sheet, so fruit iced in side by side don't stack their notes.
+          if (!ice.noted) {
+            ice.noted = true;
+            float(ice.x, ice.y - ice.r * 0.7, "iced in", "#cfe8f5");
+          }
         }
       }
     }
