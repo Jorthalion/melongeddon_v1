@@ -5101,10 +5101,10 @@ export function createWorld(
         for (const e of inRange) {
           hurt(e, null, stats.dmg, 0, "splash");
           if (e.guard === "husk") continue;
-          // The chord dazes (a slow, not ice); a crescendo stops it, longer if it's drowsy.
+          // The chord dazes (a slow, not ice); a crescendo stops it.
           e.chill = Math.max(e.chill, CANNON.organChill);
           if (swell) {
-            e.freeze = Math.max(e.freeze, (e.boss ? CANNON.organStunBoss : CANNON.organStun) * ((e.drowsy ?? 0) > 0 ? DROWSY.stun : 1));
+            e.freeze = Math.max(e.freeze, (e.boss ? CANNON.organStunBoss : CANNON.organStun));
             e.stunBy = "organ";
           }
         }
@@ -5117,7 +5117,7 @@ export function createWorld(
         cue("fire", "bell");
         for (const e of inRange) {
           if (e.guard === "husk") continue;
-          e.freeze = Math.max(e.freeze, (e.boss ? CANNON.bellStunBoss : CANNON.bellStun) * ((e.drowsy ?? 0) > 0 ? DROWSY.stun : 1));
+          e.freeze = Math.max(e.freeze, (e.boss ? CANNON.bellStunBoss : CANNON.bellStun));
           e.stunBy = "bell";
         }
         world.rings.push({ x: tower.x, y: tower.y, r: range, life: 0.45, max: 0.45, color: "230,195,106" });

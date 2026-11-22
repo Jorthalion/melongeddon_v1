@@ -895,8 +895,8 @@ export const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; ran
 /** Tunable numbers for the newer cannons' special effects. */
 /**
  * Vaelithra's sleeping draught. Her hits make fruit drowsy: a plain slow with no frost, so it never freezes
- * anything solid or sets up an ice combo. Fire wakes a fruit up; a shush or a crescendo keeps a drowsy fruit
- * stopped longer.
+ * anything solid or sets up an ice combo. Fire wakes a fruit up. Only her own
+ * towers cash in on sleep.
  */
 /**
  * Vaelithra's ladder and her keeper towers' sleep payoffs. Her other three towers open during the night as she
@@ -937,8 +937,6 @@ export const DROWSY = {
   rest: 2,
   /** Bosses shake it off sooner: this share of the time. */
   boss: 0.6,
-  /** A Shush Bell or Organ crescendo stops a drowsy fruit this much longer. */
-  stun: 1.5,
 };
 
 export const CANNON = {

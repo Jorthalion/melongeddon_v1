@@ -201,3 +201,20 @@ test("Lights Out puts every drowsy fruit to sleep at once (bosses for less) and 
   assert.ok((w.lightsOut ?? 0) > 0, "the board dims");
   assert.ok(Math.abs(spire.cd - VAEL_VALUES.lightsOutEvery) < 0.05, "next one in 15 s");
 });
+
+test("the Shush Bell stops a drowsy fruit no longer than a wide-awake one: only her own towers cash in on sleep", () => {
+  const api = start();
+  const w = api.world;
+  const bell = build(api, "bell")!;
+  assert.ok(bell, "bell built");
+  const a = fruitAt(api, bell.c + 1, bell.r);
+  const b = fruitAt(api, bell.c - 1, bell.r);
+  w.enemies = [a, b];
+  Object.assign(a, { drowsy: 9, dozeHits: 1 });
+  bell.cd = 0;
+  for (let i = 0; i < 60 && !(a.stunBy === "bell" && b.stunBy === "bell"); i++) stepWorld(w, 1 / 60);
+  assert.equal(a.stunBy, "bell");
+  assert.equal(b.stunBy, "bell");
+  assert.ok(Math.abs(a.freeze - b.freeze) < 1e-9, `drowsy ${a.freeze} vs awake ${b.freeze}`);
+  assert.ok("stun" in DROWSY === false, "no drowsy stun bonus left");
+});
