@@ -7,6 +7,7 @@ import {
   MAP_GOALS,
   PERK_LEVELS,
   PICKABLE_MAPS,
+  TEST_MAPS,
   TOWER_GOALS,
   TOWERS,
   activePerks,
@@ -355,6 +356,38 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
                   );
                 })}
               </div>
+              {/* Developer mode only: test rooms (new versions of rooms) that aren't in the game yet. */}
+              {hud.dev ? (
+                <>
+                  <p className={`${label} mt-4`}>Test rooms (dev only)</p>
+                  <div className="-mx-4 mt-1.5 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
+                    {TEST_MAPS.map((id) => {
+                      const board = BOARDS[id];
+                      const on = hud.map === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-pressed={on}
+                          title={board.blurb}
+                          className={`w-40 shrink-0 snap-start overflow-hidden rounded-lg border border-dashed text-left sm:w-auto ${
+                            on ? "border-[#c6a15a] shadow-[0_0_18px_rgba(198,161,90,0.28)]" : "border-[#6fa8ef]/60"
+                          }`}
+                          onClick={() => {
+                            onGesture();
+                            tone(210, 0.05, "triangle", 0.03);
+                            api.chooseMap(id);
+                          }}
+                        >
+                          <MapPreview map={id} className="block aspect-[22/14] w-full" />
+                          <span className="block px-3 pt-2 font-display text-base font-semibold">{board.name}</span>
+                          <span className="line-clamp-3 block px-3 pb-3 text-xs text-muted sm:line-clamp-none">{board.blurb}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
             </div>
           )}
 

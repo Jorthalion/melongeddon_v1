@@ -441,7 +441,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     rotunda: art.floorRotunda,
     halldoors: art.floorHalldoors,
     compact: art.floorCompact,
-  } as Partial<Record<string, HTMLImageElement>>)[world.hud.map];
+  } as Partial<Record<string, HTMLImageElement>>)[lookOf(world)];
   const floor = ready(ownFloor) ? ownFloor : art.floor;
   if (world.hud.map === "basement") {
     // Low flagstones, middle flags and high pallets, by code until the painted tiles exist.
@@ -485,7 +485,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.fillRect(0, 0, world.w, world.h);
     }
   }
-  const look = ROOM_LOOK[world.hud.map];
+  const look = ROOM_LOOK[lookOf(world)];
   if (look?.floor && floor === art.floor) {
     // A colour wash over the shared floor, so rooms without their own tile still feel like their own room.
     ctx.save();
@@ -1739,7 +1739,7 @@ function drawBand(ctx: CanvasRenderingContext2D, world: World, art: Partial<Reco
     ctx.stroke();
   }
   const chosen = world.hud.cosmetics?.carpet ?? "crimson";
-  const dye = CARPET_DYE[chosen] ?? ROOM_LOOK[world.hud.map]?.carpet;
+  const dye = CARPET_DYE[chosen] ?? ROOM_LOOK[lookOf(world)]?.carpet;
   if (dye && pattern) {
     ctx.globalCompositeOperation = chosen === "black" ? "color" : "hue";
     ctx.strokeStyle = dye;
@@ -1808,7 +1808,7 @@ function drawCarpet(
   // Each room's own carpet colour: the same weave, a different dye.
   // A Bindery carpet colour (a cosmetic) replaces the room's own dye; black needs colour and a darker pass.
   const chosen = world.hud.cosmetics?.carpet ?? "crimson";
-  const dye = CARPET_DYE[chosen] ?? ROOM_LOOK[world.hud.map]?.carpet;
+  const dye = CARPET_DYE[chosen] ?? ROOM_LOOK[lookOf(world)]?.carpet;
   if (dye) {
     ctx.save();
     ctx.globalCompositeOperation = chosen === "black" ? "color" : "hue";
@@ -1894,7 +1894,7 @@ function drawCarpet(
     ctx.fill();
   }
   // The room's own exit if it has one (Archive vault, Rare Books door, Annex hatch), else the stacks.
-  const ownDoor = ROOM_ART[world.hud.map]?.door;
+  const ownDoor = ROOM_ART[lookOf(world)]?.door;
   const roomDoor = ownDoor ? art[ownDoor] : undefined;
   if (ready(roomDoor)) {
     // Wider than the Stacks' door: keep it on the board when the carpet ends at an edge.
@@ -3016,6 +3016,9 @@ function drawReach(
  * (x and y as shares of the board, its reach as a share of the board's width, and its colour).
  * The Stacks keep the original look; the Archive keeps its dark (that's its rule).
  */
+/** The room whose look a board uses: its own, or the room a test room is a version of. */
+const lookOf = (world: World) => BOARDS[world.hud.map].look ?? world.hud.map;
+
 const ROOM_LOOK: Partial<
   Record<string, { floor?: [string, number]; carpet?: string; light?: { x: number; y: number; r: number; color: string; a: number } }>
 > = {
@@ -3093,7 +3096,7 @@ function drawShelves(
 ) {
   // The same cells the engine keeps clear of cannons.
   const spots = [...world.shelfCells].map((k) => k.split(",").map(Number) as [number, number]);
-  const ownShelf = ROOM_ART[world.hud.map]?.shelf;
+  const ownShelf = ROOM_ART[lookOf(world)]?.shelf;
   const furniture = ownShelf ? art[ownShelf] : undefined;
   const shelf = art.shelf;
   // The Bell Tower's bell stands on its own 2×2 block of shelf cells: drawn by drawBell, not here.

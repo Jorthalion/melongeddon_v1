@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ALL_UNLOCKED, createWorld, type MapId, type World } from "@/game/engine";
+import { ALL_UNLOCKED, TEST_MAPS, createWorld, type MapId, type World } from "@/game/engine";
 import { drawWorld, spritesSettled } from "@/game/draw";
 
 /** One empty world per map, drawn with the game's own renderer so previews always match play. */
@@ -8,7 +8,8 @@ function previewWorld(map: MapId): World {
   let w = worlds.get(map);
   if (!w) {
     const night = map === "overflow" ? "overflow" : map === "courtyard" ? "siege" : "midnight";
-    w = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night, map }, siegeOpen: true }).world;
+    // A test room (dev only) needs everything open to load; the preview doesn't play, so that changes nothing else.
+    w = createWorld(() => {}, { meta: ALL_UNLOCKED, setup: { night, map }, siegeOpen: true, allTricks: TEST_MAPS.includes(map) }).world;
 
     w.reduced = true;
     worlds.set(map, w);

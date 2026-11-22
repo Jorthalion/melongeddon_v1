@@ -34,6 +34,7 @@ import {
   savePick,
   unlockedIds,
   unlockedMaps,
+  TEST_MAPS,
   lockedTowers,
   TOWER_GOALS,
   type BookmarkId,
@@ -1528,7 +1529,8 @@ export function createWorld(
     // The bookmark pick is saved whenever it changes, so it is newer than the setup record.
     const saved = persistMeta ? { ...(stored ?? {}), bookmark: loadPick() } : stored;
     const { setup, notes } = validateSetup(saved, {
-      maps: world.hud.maps,
+      // Test rooms load from a setup only in developer mode (or with everything open, for previews and tests).
+      maps: options.allTricks || world.hud.dev ? [...world.hud.maps, ...TEST_MAPS] : world.hud.maps,
       unlocked: world.hud.unlocked,
       keepers: HEROES.filter((h) => !world.hud.lockedKeepers.includes(h)),
       siege: world.hud.siegeOpen,
@@ -6020,7 +6022,9 @@ export function createWorld(
     },
     chooseMap(map: MapId) {
       if (world.hud.phase !== "select" || world.hud.night === "overflow" || world.hud.night === "siege") return;
-      if (map === "overflow" || map === "courtyard" || !world.hud.maps.includes(map)) return;
+      // Test rooms open only in developer mode (and for the simulator, which plays with everything open).
+      const testRoom = TEST_MAPS.includes(map) && (world.hud.dev || options.allTricks === true);
+      if (map === "overflow" || map === "courtyard" || (!world.hud.maps.includes(map) && !testRoom)) return;
       applyBoard(map);
       world.hud.log = BOARDS[map].blurb;
       notify();

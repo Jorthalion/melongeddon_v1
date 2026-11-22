@@ -1516,7 +1516,10 @@ export type MapId =
   | "rotunda"
   | "halldoors"
   | "compact"
-  | "basement";
+  | "basement"
+  // Test rooms (dev only, not in the game yet): bigger versions of the Archive and the Mezzanine.
+  | "archiveB"
+  | "mezzanineB";
 
 /** A board with more than one way in: each door's carpet runs to where it joins the board's own carpet (the trunk). */
 export type DoorId = "north" | "west" | "stairs" | "lift";
@@ -1758,6 +1761,8 @@ export interface Board {
    * bosses use. Without doors the board has one route, `corners`.
    */
   doors?: Door[];
+  /** A test room borrows another room's look (floor, furniture, door, light): the room it's a version of. */
+  look?: MapId;
   /** The Rotunda's round desk: furniture on a floor tile beside where the carpets meet (no building on it). */
   desk?: [number, number];
   /** A board with doors: the carpet tile where the doors' carpets meet, marked with a brass compass inlay. */
@@ -1988,6 +1993,74 @@ export const BOARDS: Record<MapId, Board> = {
     ],
     michaelCannon: [2, 5],
     dark: true,
+  },
+  // Version B of the Archive (a test room, dev only): 22 x 14, about 57 tiles. A loose start, then four tight
+  // switchbacks between rows of filing cabinets before the vault door. In the dark, where the lamps go along the
+  // switchbacks is the puzzle: a lit tower between two runs hits the same fruit again and again.
+  archiveB: {
+    id: "archiveB",
+    name: "The Archive (B)",
+    blurb: "Test room. The Archive, bigger: a long walk in the dark, then switchbacks between the cabinets to the vault.",
+    look: "archive",
+    cols: 22,
+    rows: 14,
+    dark: true,
+    // Twice the carpet of the Archive, but its switchbacks are in the dark: the human bot found 1.3 too hard on
+    // Melongeddon and Overdue (81/50% against the Archive's 100/75%), so a little less.
+    hp: 1.2,
+    corners: [
+      [0, 2],
+      [5, 2],
+      [5, 10],
+      [9, 10],
+      [9, 3],
+      [12, 3],
+      [12, 10],
+      [15, 10],
+      [15, 3],
+      [18, 3],
+      [18, 10],
+      [21, 10],
+    ],
+    michaelCannon: [2, 5],
+    // Filing cabinets along the top and bottom walls and in the dark open space on the left. The gaps between the
+    // switchbacks (cols 10-11, 13-14, 16-17) stay clear: they're the spots that reach two runs at once.
+    shelves: [
+      [0, 0], [1, 0], [2, 0], [3, 0], [7, 0], [8, 0], [9, 0], [13, 0], [14, 0], [19, 0], [20, 0], [21, 0],
+      [0, 13], [1, 13], [2, 13], [6, 13], [7, 13], [8, 13], [13, 13], [14, 13], [20, 13], [21, 13],
+      [1, 7], [2, 7], [1, 8], [2, 8], [7, 5], [7, 6], [7, 7], [20, 5], [20, 6], [21, 6],
+    ],
+  },
+  // Version B of the Mezzanine (a test room, dev only): 22 x 14, about 61 tiles. A long straight balcony, down
+  // the far side, back along the floor, then a spiral that tightens in to a door in the middle of the room.
+  mezzanineB: {
+    id: "mezzanineB",
+    name: "The Mezzanine (B)",
+    blurb: "Test room. The Mezzanine, bigger: along the balcony and down, then the carpet coils in to a door in the middle.",
+    look: "mezzanine",
+    cols: 22,
+    rows: 14,
+    // The coil gives towers a lot of time: at 1.35 the human bot won 100/94% on Melongeddon and Overdue (the
+    // Mezzanine: 94/50%), so tougher fruit.
+    hp: 1.6,
+    corners: [
+      [0, 1],
+      [15, 1],
+      [15, 11],
+      [3, 11],
+      [3, 4],
+      [12, 4],
+      [12, 8],
+      [8, 8],
+    ],
+    michaelCannon: [18, 6],
+    // A few bookcases round the walls; the coil's gaps (rows 2-3, rows 9-10, cols 13-14, cols 4-11 inside) stay
+    // open, and so does the wide strip right of the stairs, which watches the balcony and the stairs both.
+    shelves: [
+      [17, 0], [18, 0], [19, 0], [20, 0], [21, 0],
+      [0, 13], [1, 13], [2, 13], [3, 13], [8, 13], [9, 13], [10, 13], [16, 13], [17, 13],
+      [21, 9], [21, 10], [21, 11], [0, 5], [0, 6], [0, 7], [9, 6], [10, 6],
+    ],
   },
   greathall: {
     id: "greathall",

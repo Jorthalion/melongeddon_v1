@@ -152,6 +152,12 @@ export const MAP_GOALS: Partial<Record<MapId, { goal: string }>> = {
 export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom", "sorting", "rotunda", "halldoors", "compact", "basement", "greenhouse", "belltower"];
 
 
+/**
+ * Test rooms: new versions of existing rooms, playable only in developer mode (Setup shows them in their own row)
+ * and in the simulator (`--only archiveB`). Not in the Catalogue, achievements or the room list until they're confirmed.
+ */
+export const TEST_MAPS: MapId[] = ["archiveB", "mezzanineB"];
+
 /** Maps the restored rooms have opened. */
 export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {
   const open = openMaps(rooms);
