@@ -1,4 +1,4 @@
-import { AFFLICT, BALANCE, NATIVES, NATIVE_INFO, STATS, type WaveGroup, type World } from "./engine.ts";
+import { AFFLICT, BALANCE, CANNON, NATIVES, NATIVE_INFO, STATS, type WaveGroup, type World } from "./engine.ts";
 import { COUNTERS, countersFor } from "./counters.ts";
 
 type Fruit = World["enemies"][number];
@@ -85,7 +85,7 @@ export function describeEnemy(e: Fruit, world: Pick<World, "pools" | "floors" | 
   // What it is.
   if (e.mini) traits.push(`Mini-boss: ${Math.round((BALANCE.miniBossHp - 1) * 100)}% more health than a ${base}. The full boss comes on the last wave.`);
   else if (e.boss) traits.push("Boss: leaking it costs 3 stacks.");
-  if (e.guard === "rind" && e.shell > 0) traits.push("Shell: the first hit only cracks it.");
+  if (e.guard === "rind" && e.shell > 0) traits.push(`Shell: soaks ${e.shell} more hit${e.shell === 1 ? "" : "s"} before it cracks.`);
   if (e.guard === "husk") traits.push("Husk: slows, freezes and stuns don't work; splash and fire hurt it more.");
   if (e.guard === "damp") traits.push("Damp: fire barely hurts it; freezes last longer.");
   if (e.raw && !e.bread) traits.push("Raw: the first burn bakes it into bread instead of hurting it.");

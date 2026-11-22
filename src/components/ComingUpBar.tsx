@@ -44,7 +44,7 @@ function ChipPicture({ src, kind }: { src: string; kind: string }) {
 /** A group's modifier badges: the marks the board draws on fruit, as short labels. */
 function badges(g: WaveGroup): Array<{ text: string; title: string; tone: string }> {
   const out: Array<{ text: string; title: string; tone: string }> = [];
-  if (g.guard === "rind") out.push({ text: "shell", title: "Shell: the first hit only cracks it", tone: "#f3e2c4" });
+  if (g.guard === "rind") out.push({ text: "shell", title: "Shell: soaks the first 3 hits, then cracks", tone: "#f3e2c4" });
   if (g.guard === "husk") out.push({ text: "husk", title: "Husk: freeze, slows and the Bell don't work", tone: "#e6c36a" });
   if (g.guard === "damp") out.push({ text: "damp", title: "Damp: fire barely works", tone: "#8fbcd8" });
   if (g.split) out.push({ text: "split", title: "Split: cracks into four melons", tone: "#f3e2c4" });

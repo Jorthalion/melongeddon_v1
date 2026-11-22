@@ -120,7 +120,7 @@ Fruit can also carry a **guard**, and each guard has a counter:
 
 | Guard | Effect | Counter |
 |---|---|---|
-| Shell | The first hit only cracks it | Hit it twice, or use a Peeler |
+| Shell | Soaks the first 3 hits, then cracks | Fast cannons, splash, or a Peeler |
 | Husk | Resists direct shots and ignores slows; takes extra from splash and fire | Mortars, fire, or a Peeler |
 | Damp | Barely burns | Direct shots, freeze, or a Peeler |
 

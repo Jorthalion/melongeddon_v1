@@ -2466,7 +2466,7 @@ export function createWorld(
       chill: 0,
       freeze: 0,
       guard,
-      shell: guard === "rind" ? 1 : 0,
+      shell: guard === "rind" ? CANNON.shellHits : 0,
       split: Boolean(flags.split),
       raw: Boolean(flags.raw),
       bread: false,
@@ -4006,13 +4006,13 @@ export function createWorld(
         const vs = (tallyFor(credit).vs ??= {});
         vs["#cracks"] = (vs["#cracks"] ?? 0) + 1;
       }
-      e.shell = 0;
-      float(e.x, e.y - 16, "crack", "#f3e2c4");
+      e.shell -= 1;
+      float(e.x, e.y - 16, e.shell > 0 ? "chip" : "crack", "#f3e2c4");
       return;
     }
     if (e.guard === "rind" && e.shell > 0 && (via === "burn" || via === "pulp")) amount *= 0.4;
     if (e.guard === "husk" && (via === "splash" || via === "burn")) amount *= 1.4;
-    if (e.guard === "husk" && via === "shot") amount *= 0.75;
+    if (e.guard === "husk" && via === "shot") amount *= CANNON.huskShot;
     if (e.guard === "damp" && via === "burn") amount *= 0.15;
     if (e.guard === "damp" && via === "shot") amount *= 1.15;
     // A pit is stone: splash, fire and puddles barely touch it. Direct shots, pierce and worms do.
@@ -4113,6 +4113,9 @@ export function createWorld(
         e.guard = "none";
         float(e.x, e.y - 18, "peeled", "#e8a35a");
       }
+      // Bare fruit: takes more damage for a while (it shares the ink's mark, so the two don't stack).
+      e.ink = Math.max(e.ink ?? 0, CANNON.peelExposeTime);
+      e.inkMul = Math.max(e.inkMul ?? 1, CANNON.peelExpose);
     }
     if (shot.element === "ink") {
       for (const other of world.enemies) {

@@ -862,7 +862,7 @@ export const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; ran
   bookworm: { dmg: 0.4, pace: 1.3, range: 1 },
   boomerang: { dmg: 0.8, pace: 1.45, range: 1.15 },
   // Orrery: range is the planets' orbit; pace sets how fast they spin.
-  orrery: { dmg: 1.1, pace: 1, range: 0.62 },
+  orrery: { dmg: 1.5, pace: 1, range: 0.62 },
   plane: { dmg: 0.85, pace: 2.5, range: 1.25 },
   // Serpent Quill: range is how far it aims; the quill itself writes on past the fruit (quillReach).
   quill: { dmg: 0.95, pace: 1.1, range: 1 },
@@ -986,6 +986,13 @@ export const CANNON = {
   lanternPace: 0.85,
   inkTime: 4,
   inkBonus: 1.25,
+  /** Peeler: a peeled fruit takes this much more damage (1.25 = +25%) for this long (s). */
+  peelExpose: 1.25,
+  peelExposeTime: 3,
+  /** Shelled melons: how many shot or splash hits the shell soaks before it cracks. */
+  shellHits: 3,
+  /** Husks: share of a direct shot's damage that gets through. */
+  huskShot: 0.5,
   compostSeeds: 15,
   /** Reserve Desk: seeds banked per wave survived, and how close a melon must come to eat the bank (px). */
   deskBank: 8,
@@ -1009,7 +1016,7 @@ export const CANNON = {
   /** The Copycat: a copy of a heavy cannon (Press, Organ, Telescope) deals this share of the original's damage. */
   copyHeavyDmg: 0.75,
   deskReach: 60,
-  wormDps: 26,
+  wormDps: 45,
   wormTime: 4,
   /** Cannon upgrades. */
   /** Interval multiplier for a cannon whose cannon upgrade you own (0.75 = fires a third faster). */
@@ -2648,7 +2655,7 @@ export const WAVES: Array<{ name: string; blurb: string; spawns: SpawnSpec[] }> 
   },
   {
     name: "Rind rush",
-    blurb: "The first hit only cracks the shell. Hold them, then hit them again.",
+    blurb: "The shell soaks the first three hits, then cracks. Fast cannons and a Peeler get through.",
     spawns: [
       { kind: "melon", count: 5, every: 0.9, guard: "rind" },
       { kind: "corn", count: 4, every: 0.65 },

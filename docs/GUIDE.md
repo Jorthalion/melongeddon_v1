@@ -448,7 +448,7 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | Fly Hive | 65 | Fruit flies that find targets anywhere on the board. Past seven hives, every hive flies 5% less often for each extra one (at most 70% slower) |
 | Reading Lamp | 60 | No shot; cannons next to it reach farther and fire faster |
 | Ink Well | 55 | Marks fruit so they take 25% more damage from everything |
-| Peeler | 60 | Strips shells, husks and damp so other cannons hit normally |
+| Peeler | 60 | Strips shells, husks and damp so other cannons hit normally, and whatever it hits takes 25% more damage for 3 seconds |
 | Bookworm | 75 | Burrows into pumpkins and Karl for heavy damage over time |
 | Compost Heap | 70 | No shot; pays seeds at the end of every wave |
 | Boomerang Bookend | 70 | Throws a bookend in a wide loop out to the lead fruit and back; hits everything it passes, once each way |
@@ -666,12 +666,12 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 
 | Armour | Direct hit | Splash | Fire | Puddle | Bookworm | Slows, freezes, stuns |
 |---|---|---|---|---|---|---|
-| **Shell** (until cracked) | First hit blocked, cracks it ("crack") | First hit blocked, cracks it | 40% | 40% | 100% | Work normally |
-| **Husk** | 75% | 140% | 140% | 100% | 100% | **Immune to all of them**, except the Legal Elf's Foot of the Law |
+| **Shell** (until cracked) | First 3 hits blocked ("chip", "chip", "crack") | First 3 hits blocked | 40% | 40% | 100% | Work normally |
+| **Husk** | 50% | 140% | 140% | 100% | 100% | **Immune to all of them**, except the Legal Elf's Foot of the Law |
 | **Damp** | 115% | 100% | 15% | 100% | 100% | Freezes last 40% longer |
 | **Raw** | 100% | 100% | First burn bakes it into "bread" instead of hurting it | 100% | 100% | Work normally |
 
-- **Shell:** whatever lands first is wasted, however big it is, but the hit after that does full damage. Seed Spitter seeds **bounce off** ("ping") without cracking it, so a spitter on its own never gets through. One Mortar blast cracks every shell it touches at once.
+- **Shell:** the first three hits are wasted, however big they are, but every hit after that does full damage. Many small, fast hits get through sooner than a few big ones. Seed Spitter seeds **bounce off** ("ping") without cracking it, so a spitter on its own never gets through. One Mortar blast chips every shell it touches at once.
 - **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, the Organ's daze, a Quack-Liber ki blast's daze, Vaelithra's drowsy, the Cold rind upgrade and the Cauldron's slow. Three things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
 - **Raw:** once baked, the pumpkin crawls at 55% speed for the rest of its walk, but fire can't hurt it any more. Finish it with anything else.
 - **Split:** not armour. When popped, it breaks into four small melons with about half a melon's health, which have no armour.
@@ -679,7 +679,7 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 #### Ways around armour
 
 - **The Brass Telescope** (Heavy, 250 seeds) ignores all armour on whatever it shoots: no crack, no reduction, and the shell stays on for everyone else.
-- **The Peeler** (Support, 60 seeds) strips shell, husk and damp off whatever it hits, and aims for armoured fruit first. Raw and Split aren't armour, so it leaves those alone.
+- **The Peeler** (Support, 60 seeds) strips shell, husk and damp off whatever it hits, and aims for armoured fruit first. A peeled fruit also takes 25% more damage for 3 seconds (the same mark as the Ink Well's, so the two don't stack). Raw and Split aren't armour, so it leaves those alone.
 - **Ink** makes everything hit the marked fruit harder, armour or not.
 - **On the Overflow,** all fire does 55% damage on top of these numbers, since the room is flooded.
 - **Damp Powder** (a late slip) cuts every kind of damage by 20%, on top of these numbers too.
@@ -688,7 +688,7 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 
 | You see | Bring | Avoid relying on |
 |---|---|---|
-| Shelled melons | Mortar (cracks many at once), Peeler, any fast cannon | Seed Spitter, fire alone |
+| Shelled melons | Peeler (one hit takes the whole shell), Mortar (chips many at once), any fast cannon | Seed Spitter, fire alone |
 | Husked corn | Mortar, Trebuchet, fire, Peeler, the Foot of the Law | Still, Freeze, Shush Bell, Vaelithra's drowsy |
 | Damp pumpkins | Melon, Ballista, Long Reader, Freeze | Fire |
 | Raw pumpkins | One touch of fire, then direct hits | Fire alone |
