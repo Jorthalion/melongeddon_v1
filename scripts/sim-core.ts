@@ -84,8 +84,9 @@ export interface RunConfig {
   keeperAt?: Partial<Record<TowerKind, number>>;
   /** Sir Michael's bots never merge Great towers (--no-great). */
   noGreat?: boolean;
-  /** The abuse bot: spam this kind from the start instead of finding the strongest (--abuse KIND). */
-  abuse?: TowerKind;
+  /** The abuse bot: spam this kind from the start instead of finding the strongest (--abuse KIND), or a combo of kinds
+   * split evenly (--abuse fire,freeze). */
+  abuse?: TowerKind | TowerKind[];
   /** Tests: called between waves, after the bot has built and just before the wave starts. */
   onPrep?: (world: ReturnType<typeof createWorld>["world"], api: ReturnType<typeof createWorld>) => void;
 }
@@ -129,8 +130,8 @@ export interface RunResult {
   builtBy: Partial<Record<TowerKind, number>>;
   /** The human bot only: why it built what it built ("core", "lamp", "shells ahead", "keeper", "back room"...), counted. */
   tactics?: Record<string, number>;
-  /** The abuse bot only: the kind it ended up spamming. */
-  abused?: TowerKind;
+  /** The abuse bot only: the kind it ended up spamming ("fire+freeze" for a combo). */
+  abused?: string;
 }
 
 const DT = 1 / 60;

@@ -97,8 +97,9 @@ export interface HumanKit {
   maxTowers?: number;
   /** "abuse": find the strongest thing and spam it (see ABUSE below). Default: the decent player. */
   mode?: "human" | "abuse";
-  /** The abuse bot: spam this kind from the start instead of finding the strongest (--abuse KIND). */
-  abuseKind?: TowerKind;
+  /** The abuse bot: spam this kind from the start instead of finding the strongest (--abuse KIND). Two or more
+   * (--abuse fire,freeze): a combo, cannons split evenly between them, fittings and upgrades aimed at all of them. */
+  abuseKind?: TowerKind | TowerKind[];
 }
 
 /**
@@ -169,7 +170,11 @@ export function makeHuman(kit: HumanKit) {
   const tried = new Set<TowerKind>();
   const blocked = new Map<TowerKind, number>();
   let candidates: TowerKind[] | null = null;
-  let focus: TowerKind | null = kit.abuseKind ?? null;
+  /** The kinds it was told to spam (one, or a combo), else none: it finds its own. */
+  const pinned: TowerKind[] = kit.abuseKind == null ? [] : Array.isArray(kit.abuseKind) ? kit.abuseKind : [kit.abuseKind];
+  let focus: TowerKind | null = pinned[0] ?? null;
+  /** The kinds fittings and upgrades go to: the pinned ones, else the one it found. */
+  const aimed = (): TowerKind[] => (pinned.length ? pinned : focus ? [focus] : []);
   /** The abuse bot: builds since it last tried a new kind. */
   let sinceTry = ABUSE.every;
   let openerAt = 0;
@@ -465,7 +470,13 @@ export function makeHuman(kit: HumanKit) {
   };
   const measured = (k: TowerKind) => score.get(k) ?? null;
   const abuseWant = (skip: Set<TowerKind>): Want | null => {
-    if (kit.abuseKind) return skip.has(kit.abuseKind) ? null : { kind: kit.abuseKind, place: "cover", why: "abuse" };
+    if (pinned.length) {
+      // A combo: the one it has fewest of (ties: the first named), so the cannons split evenly.
+      const open = pinned.filter((k) => !skip.has(k));
+      if (!open.length) return null;
+      focus = open.reduce((a, b) => (count(b) < count(a) ? b : a));
+      return { kind: focus, place: "cover", why: "abuse" };
+    }
     if (!candidates) {
       const pool = (Object.keys(TOWERS) as TowerKind[]).filter(spammable).sort((a, b) => paper(b) - paper(a));
       const rest = pool.slice(ABUSE.paper);
@@ -501,8 +512,9 @@ export function makeHuman(kit: HumanKit) {
   };
   /** The abuse bot's shelf pick: the cannon's own upgrade, else any that reaches its kind (null: pick as usual). */
   const pick = (offer: UpgradeId[]): UpgradeId | null => {
-    if (!abuser || !focus) return null;
-    return offer.find((id) => CANNON_UPGRADES[focus!] === id) ?? offer.find((id) => upgradeAffects(id, focus!)) ?? null;
+    const ks = abuser ? aimed() : [];
+    if (!ks.length) return null;
+    return offer.find((id) => ks.some((k) => CANNON_UPGRADES[k] === id)) ?? offer.find((id) => ks.some((k) => upgradeAffects(id, k))) ?? null;
   };
 
   /** The next cannon in the cycle (Vael, planning a Flask, keeps Fire off the wet carpet); the abuse bot's pick instead. */
@@ -538,7 +550,7 @@ export function makeHuman(kit: HumanKit) {
     }
     let best: { kind: TowerKind; mod: ModId; price: number; perSeed: number } | null = null;
     for (const kind of new Set(sh.map((t) => t.kind))) {
-      if (abuser && focus && kind !== focus) continue; // every fitting goes to the kind it spams
+      if (abuser && aimed().length && !aimed().includes(kind)) continue; // every fitting goes to the kind(s) it spams
       const left = fittingsFor(kind).filter((m) => !(world.hud.fitted[kind] ?? []).includes(m.id));
       if (!left.length) continue;
       const price = api.shopPriceFor(kind);
@@ -636,5 +648,5 @@ export function makeHuman(kit: HumanKit) {
     api.dismissSelection();
   };
 
-  return { build, why, pick, focus: () => focus };
+  return { build, why, pick, focus: () => (pinned.length > 1 ? pinned.join("+") : focus) };
 }

@@ -43,9 +43,32 @@ test("the abuse bot pinned to a kind spams it, aims every fitting at it, and tak
 
 test("the abuse bot on its own tries several kinds early, then spams one, with no Ink Wells or Organs", () => {
   const r = simulateRun({ hero: "elf", difficulty: "normal", strategy: "abuse", night: "midnight", map: "annex", seed: 2 });
-  assert.ok(r.abused && SPAM_KINDS.includes(r.abused), `it spams ${r.abused}`);
+  assert.ok(r.abused && SPAM_KINDS.includes(r.abused as TowerKind), `it spams ${r.abused}`);
   assert.ok((r.tactics?.explore ?? 0) >= 2, "it tried at least two candidates");
   assert.ok((r.tactics?.abuse ?? 0) >= 1, "it spammed its pick");
   assert.equal(r.builtBy.ink ?? 0, 0);
   assert.equal(r.builtBy.organ ?? 0, r.abused === "organ" ? r.builtBy.organ ?? 0 : 0);
+});
+
+test("the abuse bot pinned to a pair splits its cannons between the two and aims fittings at both", () => {
+  const fitted = new Set<TowerKind>();
+  const r = simulateRun({
+    hero: "elf",
+    difficulty: "hard",
+    strategy: "abuse",
+    abuse: ["freeze", "fire"],
+    night: "midnight",
+    map: "stacks",
+    seed: 3,
+    onPrep: (world) => {
+      for (const [k, mods] of Object.entries(world.hud.fitted)) if ((mods ?? []).length) fitted.add(k as TowerKind);
+    },
+  });
+  assert.equal(r.abused, "freeze+fire");
+  const [ice, fire] = [r.builtBy.freeze ?? 0, r.builtBy.fire ?? 0];
+  assert.ok(ice >= 2 && fire >= 2, `freeze ${ice}, fire ${fire}`);
+  assert.ok(Math.abs(ice - fire) <= 2, `an even split: freeze ${ice}, fire ${fire}`);
+  const others = Object.entries(r.builtBy).filter(([k]) => SPAM_KINDS.includes(k as TowerKind) && k !== "freeze" && k !== "fire").reduce((a, [, n]) => a + (n ?? 0), 0);
+  assert.ok(ice + fire > others, `the pair ${ice + fire} against ${others} other cannons`);
+  for (const k of fitted) assert.ok(k === "freeze" || k === "fire", `a fitting went to ${k}`);
 });
