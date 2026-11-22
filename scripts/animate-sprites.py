@@ -79,6 +79,7 @@ TOWER_PAINTINGS = {
     "lionblade": "sig-lionblade.webp", "gourdgate": "sig-dragongate.webp", "bombard": "sig-roost-egg.webp",
     "boomerang": "trick-boomerang.webp", "orrery": "trick-orrery.webp", "plane": "trick-plane.webp",
     "quill": "trick-quill.webp", "globe": "trick-globe.webp",
+    "underlings": "sig-underlings.webp", "spire": "sig-spire.webp",
 }
 # Enemy look -> its painting (the fruit drawn by code have no painting to animate yet).
 ENEMY_PAINTINGS = {

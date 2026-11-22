@@ -41,9 +41,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | `enemy-chimer.png` | Chimer, the Bell Tower | `ENEMY_PROMPTS.md` §8 |
 | `enemy-gargoyle.png` | Gargoyle Gourd, the Bell Tower | `ENEMY_PROMPTS.md` §9 |
 | `tile-vine.png` | Creeping Squash vine on the carpet | `ENEMY_PROMPTS.md` §10 |
-| `sig-underlings.png`, `sig-spire.png` | Vaelithra's Underlings and Nexus Spire | "Vaelithra's third and fourth" below |
-| `tile-floor-halldoors.png`, `prop-signpost.png`, `door-reading.png`, `door-kitchens.png`, `door-restricted.png`, `prop-closed-sign.png` | The Hall of Doors (new map) | §2a3 below; the game already looks for these and draws code stand-ins until they arrive |
-| `cat-room-mezzanine-ruined.png` | The Mezzanine's ruined Grand Catalogue painting (optional) | §2a4 below |
+| `tile-floor-compact.png`, `prop-shelf-unit.png`, `prop-crank.png`, `fruit-wormgourd.png`, `fruit-wormqueen.png`, `prop-cocoon.png` | The Compact Stacks (new map) | §2a5 below; the game already looks for these and draws code stand-ins until they arrive |
 
 The seven fruit images are also in `art-for-chatgpt/room-fruit-art-prompts.md`, with the reference pictures to attach. After the six fruit arrive, add them to `GROUPS` in `scripts/animate-sprites.py` and run `npm run animate` so they walk, flinch and pop like the others.
 
@@ -149,7 +147,7 @@ The game looks for these files in `public/sprites/` (as `.webp`). Until each exi
 
 The **Dragonfire Trebuchet** keeps the old `sig-trebuchet.webp` for now (crimson cloth, orange pumpkin). A blue-and-gold repaint is wanted: the same trebuchet with **blue cloth instead of crimson** and its pumpkin **wrapped in blue flame**.
 
-#### Vaelithra's third and fourth: the Underlings and the Nexus Spire (not yet painted; drawn by code until then)
+#### Vaelithra's third and fourth: the Underlings and the Nexus Spire (done: `sig-underlings.webp` and `sig-spire.webp`; the code drawings show only while they load)
 
 **Attach:** `public/sprites/sig-cauldron.webp` and `public/sprites/sig-flask.webp` (her two towers already in the game) for the style. **Paste the style line first**, but change "deep crimson cloth with gold embroidery" to **"black, deep violet and neon purple, with silver trim"**: she is a drow executive running the Potions Division of a cyberpunk company.
 
@@ -276,7 +274,7 @@ The round reading room with doors on every side. The floor follows the rules abo
 | `prop-boarded-stairs.png` | A **doorway to narrow back stairs, boarded across with two rough planks** nailed in an X, a rolled-up red carpet runner leaning beside it, dust on the steps. One tile. Transparent background, 512 × 512. |
 | `cat-room-rotunda.png` / `cat-room-rotunda-ruined.png` | The Grand Catalogue's room painting, wide (3:1): **a round domed reading room with doors on every side** and a desk in the middle where carpets meet. Restored: candlelit, polished, books in order. Ruined: dust sheets, doors hanging open, scattered returns, one carpet half rolled up. |
 
-### 2a3. The Hall of Doors (not yet drawn; the game already looks for these files)
+### 2a3. The Hall of Doors (done: all six are in `public/sprites/`; the floor was cropped along its grout lines to six squares a side so it repeats seamlessly)
 
 A long entrance hall: fruit come in from the west door and up the lift, meet at a **signpost** in the middle, and leave by one of **three exits**. Between waves the player turns the signpost to shut one exit for the next wave; the shut exit's door dims and gets a CLOSED card. The game loads these six files by these names (`floorHalldoors`, `signpost`, `closedSign`, `doorReading`, `doorKitchens`, `doorRestricted` in `draw.ts`) and draws them by code until they exist, so a finished file only needs converting to `.webp` and dropping into `public/sprites/`. The floor follows the rules above (seamless, top-down, 1024 × 1024, no transparency); the rest are PNGs with transparent backgrounds, seen from slightly above.
 
@@ -302,9 +300,9 @@ A storeroom of rolling library shelving on steel tracks: two bays of grey-green 
 | `fruit-wormqueen.png` | The **Bookworm Queen**: the same gourd but bigger and longer, five segments, darker green with gold flecks, **spectacles and a small gold crown**. Side view facing right. Transparent background, 512 × 512. |
 | `prop-cocoon.png` | A **cocoon of shredded book pages** bound in silk, pale cream with faint lines of print showing, a little green glow inside. Seen from slightly above. Transparent background, 256 × 256. |
 
-### 2a4. The Mezzanine's ruined painting (optional)
+### 2a4. The Mezzanine's ruined painting (done: `cat-room-mezzanine-ruined.webp`)
 
-Every other Grand Catalogue room has a ruined painting for before it's restored; the Mezzanine shows its restored one either way.
+Every other Grand Catalogue room has a ruined painting for before it's restored; the Mezzanine's now does too (a cobwebbed gallery with a broken railing and a collapsed spiral stair).
 
 | File name | Prompt (after the style line) |
 |---|---|

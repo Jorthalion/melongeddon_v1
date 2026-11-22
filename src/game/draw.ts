@@ -3150,8 +3150,8 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   pamphlet: { aim: false, w: 52, h: 54 },
   driver: { aim: false, w: 38, h: 56 },
   lionblade: { aim: false, w: 40, h: 60 },
-  underlings: { aim: false, w: 50, h: 52 },
-  spire: { aim: false, w: 40, h: 64 },
+  underlings: { aim: false, w: 45, h: 58 },
+  spire: { aim: false, w: 38, h: 64 },
   gourdgate: { aim: false, w: 58, h: 58 },
   bombard: { aim: false, w: 62, h: 60 },
   // Trick cannons.
