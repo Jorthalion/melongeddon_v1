@@ -25,6 +25,7 @@
  *   npm run sim:scenario -- scripts/scenarios/lamp-three-melons.json   # one question, A against B: see sim-scenario.ts
  *   npm run sim -- --strategies abuse,human   # abuse = find the strongest thing and spam it (scripts/sim-human.ts, ABUSE)
  *   npm run sim -- --strategies abuse --abuse fire   # the abuse bot spams one kind from the start
+ *   npm run sim -- --strategies abuse --abuse fire,freeze   # ...or a combo, cannons split evenly between them
  *   npm run sim -- --picks smart  # bots choose shelf upgrades by what suits their board (default: random)
  *   npm run sim -- --heroes michael --armours azure,dragonscale,ember,wyrm   # Sir Michael once per armour (default: azure)
  *   npm run sim -- --styles scripts/styles/playstyles.json   # play these named playstyles instead of the four strategies
@@ -63,8 +64,10 @@ const OPENER = (argOf("--opener")?.split(",").filter(Boolean) ?? []) as ENGINE.T
 for (const k of OPENER) if (!(k in ENGINE.TOWERS)) throw new Error(`--opener: no tower ${k}`);
 const MAX_TOWERS = argOf("--max-towers") != null ? Number(argOf("--max-towers")) : undefined;
 // --abuse KIND: the abuse bot spams this kind from the start instead of finding the strongest.
-const ABUSE_KIND = argOf("--abuse") as ENGINE.TowerKind | undefined;
-if (ABUSE_KIND && !(ABUSE_KIND in ENGINE.TOWERS)) throw new Error(`--abuse: no tower ${ABUSE_KIND}`);
+// --abuse fire,freeze: a combo, its cannons split evenly between the kinds.
+const ABUSE_KINDS = (argOf("--abuse")?.split(",").filter(Boolean) ?? []) as ENGINE.TowerKind[];
+for (const k of ABUSE_KINDS) if (!(k in ENGINE.TOWERS)) throw new Error(`--abuse: no tower ${k}`);
+const ABUSE_KIND = ABUSE_KINDS.length > 1 ? ABUSE_KINDS : ABUSE_KINDS[0];
 const KEEPER_AT: Partial<Record<ENGINE.TowerKind, number>> = {};
 for (const pair of argOf("--keeper-at")?.split(",").filter(Boolean) ?? []) {
   const [k, n] = pair.split("=");
