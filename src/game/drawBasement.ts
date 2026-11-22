@@ -6,9 +6,13 @@
 import { BASEMENT, BOARDS, CELL, floodedTile, type World } from "./engine";
 
 type Tower = World["towers"][number];
+/** The loaded sprites (draw.ts's getSprites): each painted file replaces its code drawing once it has loaded. */
+type Art = Partial<Record<string, HTMLImageElement>>;
+const ready = (img: HTMLImageElement | undefined): img is HTMLImageElement => !!img && img.complete && img.naturalWidth > 0;
 
 /** Low flagstones, middle flags with a step edge, and wooden pallets for the high floor. */
-export function drawBasementFloor(ctx: CanvasRenderingContext2D, world: World) {
+export function drawBasementFloor(ctx: CanvasRenderingContext2D, world: World, art: Art = {}) {
+  const tiles = { low: art.floorBasementLow, mid: art.floorBasementMid, high: art.floorBasementHigh };
   const cols = Math.round(world.w / CELL);
   const rows = Math.round(world.h / CELL);
   for (let c = 0; c < cols; c++)
@@ -16,6 +20,12 @@ export function drawBasementFloor(ctx: CanvasRenderingContext2D, world: World) {
       const h = world.heights.get(`${c},${r}`) ?? "high";
       const x = c * CELL;
       const y = r * CELL;
+      const painted = tiles[h];
+      if (ready(painted)) {
+        ctx.drawImage(painted, x, y, CELL, CELL);
+        if (h === "mid") stepEdges(ctx, world, c, r);
+        continue;
+      }
       if (h === "high") {
         ctx.fillStyle = "#6b4a2c";
         ctx.fillRect(x, y, CELL, CELL);
@@ -36,24 +46,28 @@ export function drawBasementFloor(ctx: CanvasRenderingContext2D, world: World) {
       // A faint tide line where the water reached last time.
       ctx.fillStyle = "rgba(210,220,215,0.06)";
       ctx.fillRect(x, y + CELL * 0.3, CELL, 2);
-      if (h === "mid") {
-        // The step down to the low floor.
-        ctx.fillStyle = "rgba(0,0,0,0.4)";
-        for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-          if (world.heights.get(`${c + dc},${r + dr}`) !== "low") continue;
-          if (dc === 1) ctx.fillRect(x + CELL - 4, y, 4, CELL);
-          if (dc === -1) ctx.fillRect(x, y, 4, CELL);
-          if (dr === 1) ctx.fillRect(x, y + CELL - 4, CELL, 4);
-          if (dr === -1) ctx.fillRect(x, y, CELL, 4);
-        }
-      }
+      if (h === "mid") stepEdges(ctx, world, c, r);
     }
   ctx.fillStyle = "rgba(16,12,14,0.25)";
   ctx.fillRect(0, 0, world.w, world.h);
 }
 
+/** A middle tile's step down to any low tile beside it. */
+function stepEdges(ctx: CanvasRenderingContext2D, world: World, c: number, r: number) {
+  const x = c * CELL;
+  const y = r * CELL;
+  ctx.fillStyle = "rgba(0,0,0,0.4)";
+  for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    if (world.heights.get(`${c + dc},${r + dr}`) !== "low") continue;
+    if (dc === 1) ctx.fillRect(x + CELL - 4, y, 4, CELL);
+    if (dc === -1) ctx.fillRect(x, y, 4, CELL);
+    if (dr === 1) ctx.fillRect(x, y + CELL - 4, CELL, 4);
+    if (dr === -1) ctx.fillRect(x, y, CELL, 4);
+  }
+}
+
 /** Water over every flooded tile (carpet too), ice sheets, the pipe and the gauge, and a pump's dry square. */
-export function drawBasement(ctx: CanvasRenderingContext2D, world: World) {
+export function drawBasement(ctx: CanvasRenderingContext2D, world: World, art: Art = {}) {
   const board = BOARDS[world.hud.map];
   if (!board.heights) return;
   const t = world.anim;
@@ -61,11 +75,21 @@ export function drawBasement(ctx: CanvasRenderingContext2D, world: World) {
     const grow = 1 - Math.min(1, world.waterRise / BASEMENT.riseTime);
     const alpha = (world.water >= 2 ? 0.5 : 0.36) * (0.4 + 0.6 * grow);
     ctx.save();
+    // The painted water surface (it tiles and drifts slowly), or a flat blue by code.
+    const surface = ready(art.waterOverlay) ? ctx.createPattern(art.waterOverlay, "repeat") : null;
+    surface?.setTransform(new DOMMatrix().translateSelf((t * 6) % 256, (t * 3) % 256));
     for (const key of world.heights.keys()) {
       const [c, r] = key.split(",").map(Number);
       if (!floodedTile(world, c, r)) continue;
       const x = c * CELL;
       const y = r * CELL;
+      if (surface) {
+        ctx.globalAlpha = Math.min(1, alpha * 2);
+        ctx.fillStyle = surface;
+        ctx.fillRect(x, y, CELL, CELL);
+        ctx.globalAlpha = 1;
+        continue;
+      }
       ctx.fillStyle = `rgba(46,96,122,${alpha})`;
       ctx.fillRect(x, y, CELL, CELL);
       ctx.strokeStyle = `rgba(190,225,240,${0.18 * grow})`;
@@ -104,10 +128,14 @@ export function drawBasement(ctx: CanvasRenderingContext2D, world: World) {
     const x = c * CELL + CELL / 2;
     const y = r * CELL + CELL / 2;
     ctx.save();
-    ctx.fillStyle = "#5c5f63";
-    ctx.fillRect(x - CELL / 2, y - 6, CELL, 12);
-    ctx.fillStyle = "#7a7e83";
-    ctx.fillRect(x + 6, y - 9, 6, 18);
+    if (ready(art.pipeProp)) {
+      ctx.drawImage(art.pipeProp, x - CELL / 2, y - CELL / 2, CELL, CELL);
+    } else {
+      ctx.fillStyle = "#5c5f63";
+      ctx.fillRect(x - CELL / 2, y - 6, CELL, 12);
+      ctx.fillStyle = "#7a7e83";
+      ctx.fillRect(x + 6, y - 9, 6, 18);
+    }
     // The burst: water spraying out while a wave is on.
     if (world.hud.phase === "combat") {
       ctx.fillStyle = "rgba(170,210,235,0.75)";
@@ -127,18 +155,25 @@ export function drawBasement(ctx: CanvasRenderingContext2D, world: World) {
     const w = CELL - 20;
     const h = CELL - 8;
     ctx.save();
-    ctx.fillStyle = "#d9cfb6";
-    ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = "rgba(46,96,122,0.85)";
     const level = Math.min(3, world.water) / 3;
-    ctx.fillRect(x + 2, y + h - 2 - (h - 4) * level, w - 4, (h - 4) * level);
-    ctx.fillStyle = "#2a1c22";
-    ctx.font = "700 9px 'Outfit Variable', Outfit, sans-serif";
-    ctx.textAlign = "right";
-    for (let i = 1; i <= 3; i++) {
-      const yy = y + h - 2 - ((h - 4) * i) / 3;
-      ctx.fillRect(x, yy, 5, 1.5);
-      ctx.fillText(String(i), x + w - 1, yy + 8);
+    if (ready(art.gaugeProp)) {
+      // The painted board, with the water level laid over it by code.
+      ctx.drawImage(art.gaugeProp, c * CELL, r * CELL, CELL, CELL);
+      ctx.fillStyle = "rgba(46,96,122,0.55)";
+      ctx.fillRect(x + 2, y + h - 2 - (h - 4) * level, w - 4, (h - 4) * level);
+    } else {
+      ctx.fillStyle = "#d9cfb6";
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = "rgba(46,96,122,0.85)";
+      ctx.fillRect(x + 2, y + h - 2 - (h - 4) * level, w - 4, (h - 4) * level);
+      ctx.fillStyle = "#2a1c22";
+      ctx.font = "700 9px 'Outfit Variable', Outfit, sans-serif";
+      ctx.textAlign = "right";
+      for (let i = 1; i <= 3; i++) {
+        const yy = y + h - 2 - ((h - 4) * i) / 3;
+        ctx.fillRect(x, yy, 5, 1.5);
+        ctx.fillText(String(i), x + w - 1, yy + 8);
+      }
     }
     ctx.restore();
   }

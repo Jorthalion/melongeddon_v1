@@ -38,6 +38,7 @@ const PAINTED: Partial<Record<TowerKind, string>> = {
   geese: asset("sprites/sig-geese.webp"),
   pamphlet: asset("sprites/sig-pamphlet.webp"),
   driver: asset("sprites/sig-driver.webp"),
+  pump: asset("sprites/sig-pump.webp"),
   boomerang: asset("sprites/trick-boomerang.webp"),
   orrery: asset("sprites/trick-orrery.webp"),
   plane: asset("sprites/trick-plane.webp"),

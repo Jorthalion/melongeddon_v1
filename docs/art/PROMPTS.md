@@ -287,8 +287,8 @@ A storeroom of rolling library shelving on steel tracks: two bays of grey-green 
 | `fruit-wormqueen.png` | The **Bookworm Queen**: the same gourd but bigger and longer, five segments, darker green with gold flecks, **spectacles and a small gold crown**. Side view facing right. Transparent background, 512 × 512. |
 | `prop-cocoon.png` | A **cocoon of shredded book pages** bound in silk, pale cream with faint lines of print showing, a little green glow inside. Seen from slightly above. Transparent background, 256 × 256. |
 
-### 2a6. The Flooded Basement (not yet drawn)
-A library cellar with a burst pipe: three floor heights (damp low flagstones, lighter middle flags, wooden pallets for the high floor), water that rises over them during each wave, a painted water gauge, and its own room fruit and Sump Pump. Everything is drawn by code for now. The game already looks for the two fruit files; the floor tiles, water, props and pump need hooking up once they're painted.
+### 2a6. The Flooded Basement (not yet drawn; the game already looks for these files)
+A library cellar with a burst pipe: three floor heights (damp low flagstones, lighter middle flags, wooden pallets for the high floor), water that rises over them during each wave, a painted water gauge, and its own room fruit and Sump Pump. Everything is drawn by code for now, and each file replaces its code drawing as soon as it's in `public/sprites/` as a `.webp` with the same name: each floor tile fills one board square, the water surface tiles over flooded squares (and drifts slowly), the gauge and pipe fill their own square (the game still lays the water level over the gauge and the spray over the pipe), and the pump is drawn like the other towers (no aim).
 
 | File name | Prompt (after the style line) |
 |---|---|

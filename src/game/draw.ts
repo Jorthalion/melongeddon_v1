@@ -57,6 +57,14 @@ const SPRITE_SRC = {
   // The Flooded Basement's room fruit (drawn by code over a melon and a pumpkin until the art exists).
   watermelon: asset("sprites/fruit-watermelon.webp"),
   draingourd: asset("sprites/fruit-draingourd.webp"),
+  // The Flooded Basement's floor, water, props and Sump Pump (each drawn by code until its file exists).
+  floorBasementLow: asset("sprites/tile-floor-basement-low.webp"),
+  floorBasementMid: asset("sprites/tile-floor-basement-mid.webp"),
+  floorBasementHigh: asset("sprites/tile-floor-basement-high.webp"),
+  waterOverlay: asset("sprites/water-overlay.webp"),
+  gaugeProp: asset("sprites/prop-gauge.webp"),
+  pipeProp: asset("sprites/prop-pipe.webp"),
+  pump: asset("sprites/sig-pump.webp"),
   cocoon: asset("sprites/prop-cocoon.webp"),
   floorCompact: asset("sprites/tile-floor-compact.webp"),
   shelfUnit: asset("sprites/prop-shelf-unit.webp"),
@@ -445,7 +453,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   const floor = ready(ownFloor) ? ownFloor : art.floor;
   if (world.hud.map === "basement") {
     // Low flagstones, middle flags and high pallets, by code until the painted tiles exist.
-    drawBasementFloor(ctx, world);
+    drawBasementFloor(ctx, world, art);
   } else if (world.hud.map === "compact" && !ready(ownFloor)) {
     // Concrete with steel tracks under each bay, by code until the painted tile exists.
     ctx.fillStyle = "#57554f";
@@ -522,7 +530,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   if (isBand(world)) ctx.clip(bandShape(world.points));
   drawWet(ctx, world);
   ctx.restore();
-  drawBasement(ctx, world);
+  drawBasement(ctx, world, art);
   drawBell(ctx, world);
   drawFountainProp(ctx, world, art);
   drawDrops(ctx, world);
@@ -3218,6 +3226,7 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   geese: { aim: false, w: 46, h: 54 },
   pamphlet: { aim: false, w: 52, h: 54 },
   driver: { aim: false, w: 38, h: 56 },
+  pump: { aim: false, w: 44, h: 50 },
   lionblade: { aim: false, w: 40, h: 60 },
   underlings: { aim: false, w: 45, h: 58 },
   spire: { aim: false, w: 38, h: 64 },
