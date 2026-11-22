@@ -97,7 +97,6 @@ export const ROOMS: Room[] = [
       { kind: "map", id: "greathall" },
       { kind: "keeper", id: "quack" },
       { kind: "bookmark", id: "backroom" },
-      { kind: "tower", id: "flask" },
     ],
   },
   {
@@ -291,7 +290,6 @@ export const LEGACY = {
   } as Record<BookmarkId, (m: MetaStats) => boolean>,
   towers: {
     desk: (m: MetaStats) => m.richest >= 200,
-    flask: (m: MetaStats) => m.brews >= 1,
   } as Partial<Record<TowerKind, (m: MetaStats) => boolean>>,
 };
 

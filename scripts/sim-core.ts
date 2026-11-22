@@ -30,6 +30,7 @@ import {
   canBeGreat,
   DRAGON,
   boardLegs,
+  VAEL_LADDER,
   PASSIVE,
 } from "../src/game/engine.ts";
 import { makeHuman } from "./sim-human.ts";
@@ -89,6 +90,8 @@ export interface RunResult {
   won: boolean;
   /** Wave the run ended on (the night's length on a win). */
   reachedWave: number;
+  /** Vaelithra: the wave each step of her ladder opened on (Unstoppered, the Underlings, the Spire). */
+  vaelSteps?: number[];
   livesLeft: number;
   maxLives: number;
   /** Stacks lost on each wave played, index 0 = wave 1. */
@@ -258,6 +261,11 @@ function play(config: RunConfig, rng: () => number): RunResult {
     // Ooze: once the Mimic Chest is down, the free Copycat goes beside the priciest tower it can copy.
     if (config.hero === "ooze" && config.oozeCopycat !== false && keeperOn && world.towers.some((t) => t.kind === "mimic") && !world.towers.some((t) => t.kind === "copycat") && copySpot())
       return "copycat";
+    // Vaelithra: each of her later towers as soon as her ladder opens it.
+    if (config.hero === "vael" && keeperOn) {
+      const ready = VAEL_LADDER.slice(0, world.hud.vaelOpen).find((k) => !world.towers.some((t) => t.kind === k));
+      if (ready) return ready;
+    }
     // Keeper towers are one of each: once one is down, the rotation moves past it.
     for (let i = 0; i < order.length; i++) {
       const kind = order[(placed + i) % order.length];
@@ -406,6 +414,30 @@ function play(config: RunConfig, rng: () => number): RunResult {
 
   const click = (c: number, r: number) => api.pointer(c * CELL + CELL / 2, r * CELL + CELL / 2, "down");
 
+  /** Vaelithra's plan: finish the kinds closest to fully upgraded, so her ladder opens her towers. */
+  const tryLadder = () => {
+    if (config.hero === "vael" && world.hud.phase === "prep" && world.hud.vaelOpen < VAEL_LADDER.length) {
+      let pick: { kind: TowerKind; left: number; count: number } | null = null;
+      for (const kind of new Set(world.towers.map((t) => t.kind))) {
+        if (kind === "copycat") continue;
+        const left = fittingsFor(kind).filter((m) => !(world.hud.fitted[kind] ?? []).includes(m.id)).length;
+        if (!left) continue;
+        const count = world.towers.filter((t) => t.kind === kind).length;
+        if (!pick || left < pick.left || (left === pick.left && count > pick.count)) pick = { kind, left, count };
+      }
+      // Only with the next tower's seeds still in hand: the ladder shouldn't cost the board its defence.
+      if (pick && world.hud.seeds >= api.shopPriceFor(pick.kind) + world.hud.towerCost) {
+        const before = purse();
+        api.openShop(pick.kind);
+        const left = fittingsFor(pick.kind).filter((m) => !(world.hud.fitted[pick!.kind] ?? []).includes(m.id));
+        api.pickMod(left[0].id);
+        api.closeShop();
+        spend(pick.kind, before);
+        return true;
+      }
+    }
+    return false;
+  };
   const tryMod = () => {
     if (config.strategy !== "mixed+mods" || world.hud.phase !== "prep") return false;
     // An upgrade reaches every tower of its kind, so it's worth most on the kind there are most of.
@@ -466,6 +498,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
     if (lean && world.hud.phase !== "prep") return;
     const limit = lean ? 2 : 40;
     dragonChores();
+    // Her ladder's upgrades don't use up a build (the cautious bot only builds twice a wave).
+    for (let n = 0; n < 12 && tryLadder(); n++);
     for (let guard = 0; guard < limit; guard++) {
       if (tryMod()) continue;
       const kind = nextKind();
@@ -489,6 +523,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
   };
 
   const leaks: number[] = [];
+  /** Vaelithra: the wave each step of her ladder opened on. */
+  const vaelSteps: number[] = [];
   let t = 0;
   let sinceBuild = 0;
   let prevLives = world.hud.lives;
@@ -522,6 +558,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       while (leaks.length <= w) leaks.push(0);
       prevLives = world.hud.lives;
       stepWorld(world, DT);
+      while (vaelSteps.length < world.hud.vaelOpen) vaelSteps.push(world.hud.wave);
       t += DT;
       if (world.hud.lives < prevLives) leaks[w] += prevLives - world.hud.lives;
       sinceBuild += DT;
@@ -543,6 +580,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     config,
     won,
     reachedWave: won ? world.hud.waveCount : world.hud.wave,
+    vaelSteps,
     livesLeft: world.hud.lives,
     maxLives: world.hud.maxLives,
     leaks,

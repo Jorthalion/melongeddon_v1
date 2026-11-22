@@ -9,7 +9,7 @@ export const DRAWN_KINDS: TowerKind[] = [
   "spitter", "ballista", "reader", "bell", "hive", "lantern", "ink", "compost", "peeler", "bookworm",
   "boomerang", "orrery", "plane", "quill", "globe",
   "press", "organ", "scope",
-  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese", "lionblade", "gourdgate", "bombard", "pamphlet", "driver",
+  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese", "lionblade", "gourdgate", "bombard", "pamphlet", "driver", "underlings", "spire",
 ];
 
 const WOOD = "#5a3a22";
@@ -856,6 +856,82 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.fillRect(3, -9, 1.2, 8 + Math.sin(t * 2) * 0.8);
       break;
     }
+    case "underlings": {
+      // Vaelithra's Underlings (stand-in): a dark desk with a purple neon lamp, a stack of vials and a small hooded intern.
+      shadow(ctx, x, y, 18);
+      ctx.translate(x, y);
+      ctx.fillStyle = "#17121c";
+      rrect(ctx, -16, 0, 32, 10, 2);
+      ctx.fill();
+      ctx.fillStyle = "#2a2133";
+      rrect(ctx, -16, -3, 32, 5, 2);
+      ctx.fill();
+      ctx.strokeStyle = "#b9b4c8";
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(-16, -3, 32, 5);
+      // The lamp: a neon arc and its glow.
+      const lamp = ctx.createRadialGradient(-10, -10, 1, -10, -10, 12);
+      lamp.addColorStop(0, `rgba(190,110,255,${0.55 + Math.sin(t * 3) * 0.12})`);
+      lamp.addColorStop(1, "rgba(190,110,255,0)");
+      ctx.fillStyle = lamp;
+      ctx.beginPath();
+      ctx.arc(-10, -10, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#d9a8ff";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(-10, -6, 4, Math.PI, 0);
+      ctx.stroke();
+      // Vials.
+      for (const [vx, c] of [[2, "#9d6bff"], [6, "#c49bff"], [10, "#7a4fd8"]] as const) {
+        ctx.fillStyle = c;
+        rrect(ctx, vx, -9, 3, 6, 1);
+        ctx.fill();
+      }
+      // A hooded intern with a purple lanyard.
+      ctx.fillStyle = "#231a2c";
+      ctx.beginPath();
+      ctx.moveTo(10, 10);
+      ctx.quadraticCurveTo(12, -2, 17, -6);
+      ctx.quadraticCurveTo(22, -2, 24, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#b9a2ea";
+      ctx.fillRect(16.4, -1, 1.2, 6);
+      break;
+    }
+    case "spire": {
+      // Vaelithra's Nexus Spire (stand-in): a black corporate tower with purple neon windows on a round dark base.
+      shadow(ctx, x, y, 15);
+      ctx.translate(x, y);
+      ctx.fillStyle = "#141018";
+      ctx.beginPath();
+      ctx.ellipse(0, 12, 14, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#0d0a10";
+      ctx.beginPath();
+      ctx.moveTo(-8, 12);
+      ctx.lineTo(-5, -22);
+      ctx.lineTo(0, -28);
+      ctx.lineTo(5, -22);
+      ctx.lineTo(8, 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#a8a2b8";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      for (let row = 0; row < 6; row++) {
+        const on = (Math.floor(t * 2) + row) % 5 !== 0;
+        ctx.fillStyle = on ? "#b16cff" : "#3b2a4d";
+        ctx.fillRect(-4, 8 - row * 5, 2.5, 2);
+        ctx.fillRect(1.5, 8 - row * 5, 2.5, 2);
+      }
+      ctx.fillStyle = "#d9a8ff";
+      ctx.beginPath();
+      ctx.arc(0, -28, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
     case "pamphlet": {
       // Quackarot's Pamphlet (stand-in): a stubby orange megaphone launcher on a round base, a rolled pamphlet in its mouth, a fuse on top.
       shadow(ctx, x, y, 17);
@@ -1182,6 +1258,14 @@ export function drawShot(ctx: CanvasRenderingContext2D, x: number, y: number, el
     ctx.beginPath();
     ctx.arc(x, y, 5, t * 20, t * 20 + 4);
     ctx.stroke();
+  } else if (element === "vial") {
+    // An intern's sleeping draught: a small violet vial with a silver stopper.
+    ctx.fillStyle = "#9d6bff";
+    ctx.beginPath();
+    ctx.arc(x, y + 1, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#c9c4d6";
+    ctx.fillRect(x - 1, y - 4.5, 2, 3);
   } else if (element === "potion") {
     ctx.fillStyle = "#3fae4f";
     ctx.beginPath();

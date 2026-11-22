@@ -306,6 +306,8 @@ function withCannon(kind: TowerKind) {
   const owner = keeperOf(kind) ?? "vael";
   const api = startGame(owner);
   api.world.hud.seeds = 5000;
+  // Vaelithra's later towers open during the night: open her whole ladder for this.
+  if (owner === "vael") api.world.hud.vaelOpen = 3;
   api.chooseBuild(kind);
   // (4,3) is open floor near the carpet; the Reserve Desk, the Gourd Gate and the Pamphlet must touch the carpet, so they go one tile over.
   api.pointer(center(kind === "desk" || kind === "gourdgate" || kind === "pamphlet" ? 5 : 4), center(3), "down");

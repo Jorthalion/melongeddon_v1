@@ -6,7 +6,7 @@ import {
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   ARMOURS, ARMOUR_TEXT, ARMOUR_VALUES, ARMOUR_LEVEL, ARMOUR_FOR_OATH, DRAGON, BIG_KINDS, ROOST_STAGES, canBeGreat, roostStageFor, type ArmourId, type OathId,
   ASSER_VALUES, carpetAlong,
-  nearestOnCarpet, gateStrip, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
+  nearestOnCarpet, gateStrip, VAEL_VALUES, VAEL_LADDER, vaelLockLine, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
   assignExits, combineRoutes, EXIT_NAME, HALL, type Exit, type ExitId,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, hiveCrowd, fittingName, ballistaPierce,
@@ -203,6 +203,10 @@ interface Enemy {
   /** Vaelithra: hits taken while drowsy (the third puts it to sleep), and seconds before it can nod off again. */
   dozeHits?: number;
   restT?: number;
+  /** Vaelithra: a Nightmare went off this sleep; a report is filed (seconds left); Fumes' next doze hit. */
+  nightmared?: boolean;
+  reportT?: number;
+  fumeCd?: number;
   /** Drawing only: seconds it has burned lately (char spots build up), seconds since it was last healed, and the trail timer. */
   charred?: number;
   healT?: number;
@@ -444,7 +448,7 @@ interface Shot {
   bounces: number;
   orange: boolean;
   splash: number;
-  element: "shot" | "fire" | "ice" | "mortar" | "seed" | "fly" | "ink" | "peel" | "worm" | "potion";
+  element: "shot" | "fire" | "ice" | "mortar" | "seed" | "fly" | "ink" | "peel" | "worm" | "potion" | "vial";
   /** Upgrade on-hit effects (Juicy, Splatter, Electric) only fire from the classic cannons. */
   procs: boolean;
   /** Brass Telescope: ignores shells, husks and damp. */
@@ -493,6 +497,8 @@ interface Pool {
   flare?: number;
   /** Ground Pound (Quackarot): drawn as a cracked crater, not a puddle. */
   crater?: boolean;
+  /** Vaelithra's own puddle (the Cauldron's or Unstoppered's): Deep sleep and Fumes work in it. */
+  vael?: boolean;
 }
 
 /** Instant-hit trails (ballista spear, reader shot). */
@@ -671,6 +677,9 @@ export interface Hud {
   lockedTowers: TowerKind[];
   /** The Heavy tab opens at wave 6, or once you have held 200 seeds tonight. */
   heavyOpen: boolean;
+  /** Vaelithra's ladder: how many of her three later towers are open tonight, and fully upgraded towers on the board now. */
+  vaelOpen: number;
+  fullyUpgraded: number;
   /**
    * Dr. Samodovol's shelves: the "Doctor's pick" on the current shelf, an extra real upgrade from
    * further along the shelves (two with Second Opinion). Empty for everyone else.
@@ -938,6 +947,8 @@ export interface World {
   bits: Bit[];
   floaters: Floater[];
   shake: number;
+  /** Vaelithra's Lights Out: seconds the board stays dimmed. */
+  lightsOut?: number;
   pathCells: Set<string>;
   /** Tiles a diagonal stretch of carpet half-covers ("c,r"): nothing can be built there, and nothing else treats them as carpet. */
   vergeCells: Set<string>;
@@ -1204,6 +1215,8 @@ export function createWorld(
       runLevel: 1,
       lockedTowers: [],
       heavyOpen: false,
+      vaelOpen: 0,
+      fullyUpgraded: 0,
       setupPage: "who",
       builtKinds: [],
       pickCards: [],
@@ -1734,6 +1747,7 @@ export function createWorld(
       if (!best) continue;
       tile.set(stats.interval);
       addPool(best.x, best.y, spread, cling);
+      world.pools[world.pools.length - 1].vael = true;
     }
   };
 
@@ -2947,7 +2961,10 @@ export function createWorld(
     lecture = null;
     lectureNow = null;
     reached.clear();
+    world.hud.vaelOpen = 0;
+    world.hud.fullyUpgraded = 0;
     world.enemies = [];
+
     world.towers = [];
     world.shots = [];
     world.pools = [];
@@ -3007,6 +3024,8 @@ export function createWorld(
       fitted: {},
       workshop: null,
       heavyOpen: false,
+      vaelOpen: 0,
+      fullyUpgraded: 0,
       setupPage: "who",
       builtKinds: [],
       pickCards: [],
@@ -3466,6 +3485,93 @@ export function createWorld(
       douse(e);
     }
   };
+  /** Asleep (Vaelithra's sleeping draught): stopped, and not by ice. */
+  const sleeping = (e: Enemy) => e.freeze > 0 && e.stunBy === "sleep";
+  /** Standing in one of her own puddles (the Cauldron's or Unstoppered's). */
+  const inVaelPool = (e: Enemy) => world.pools.some((p) => p.vael && !p.hot && (p.x - e.x) ** 2 + (p.y - e.y) ** 2 < p.r * p.r);
+  /** It nods off: a stop, not ice, then a rest before it can again. In her puddle with Unstoppered standing: Deep sleep. */
+  const fallAsleep = (e: Enemy) => {
+    let nap = e.boss ? DROWSY.sleepBoss : DROWSY.sleep;
+    if (world.towers.some((t) => t.kind === "flask") && inVaelPool(e)) nap *= VAEL_VALUES.deepSleep;
+    e.freeze = nap;
+    e.stunBy = "sleep";
+    e.restT = nap + DROWSY.rest;
+    e.dozeHits = 0;
+    e.nightmared = false;
+    float(e.x, e.y - 22, "asleep", "#d6c8fa");
+  };
+  /** One doze hit (any of her hits, a Fumes tick, an intern's vial): drowsy, and the third while drowsy puts it to sleep. */
+  const doze = (e: Enemy) => {
+    if (world.hud.hero !== "vael" || e.guard === "husk" || expressOnBelt(e)) return;
+    const was = (e.drowsy ?? 0) > 0;
+    if (!was) float(e.x, e.y - 18, "drowsy", "#b9a2ea");
+    e.dozeHits = was ? (e.dozeHits ?? 0) + 1 : 1;
+    e.drowsy = Math.max(e.drowsy ?? 0, DROWSY.time * fx.chill * (e.boss ? DROWSY.boss : 1));
+    if (e.dozeHits >= DROWSY.sleepHits && (e.restT ?? 0) <= 0 && e.freeze <= 0) fallAsleep(e);
+  };
+  /**
+   * Vaelithra's ladder: a fully upgraded tower is one on the board whose kind has every back-room upgrade bought
+   * tonight (kinds with none, and the Copycat, never count). At 2, 4 and 6 her next tower opens, for the night.
+   */
+  const syncVael = () => {
+    if (world.hud.hero !== "vael") return;
+    const full = (kind: TowerKind) => {
+      if (kind === "copycat") return false;
+      const all = fittingsFor(kind);
+      const have = world.hud.fitted[kind] ?? [];
+      return all.length > 0 && all.every((m) => have.includes(m.id));
+    };
+    const fulls = world.towers.filter((t) => full(t.kind));
+    world.hud.fullyUpgraded = fulls.length;
+    const lines = [
+      "Vaelithra: “Unstoppered. Approved. Try not to slip.”",
+      "Vaelithra: “Interns. Make yourselves useful.”",
+      "Vaelithra: “The Nexus is online. Everyone else is off the clock.”",
+    ];
+    while (world.hud.vaelOpen < VAEL_LADDER.length && fulls.length >= VAEL_VALUES.unlocks[world.hud.vaelOpen]) {
+      const kind = VAEL_LADDER[world.hud.vaelOpen];
+      const tipped = fulls.reduce((a, b) => (b.id > a.id ? b : a));
+      float(tipped.x, tipped.y - 34, `${TOWERS[kind].name} approved`, "#c9a6ff");
+      world.hud.log = lines[world.hud.vaelOpen];
+      world.hud.vaelOpen += 1;
+      notify();
+    }
+  };
+  /** What a locked card on her ladder says. */
+  const vaelLockText = (kind: TowerKind) => vaelLockLine(kind, world.hud.fullyUpgraded);
+  /**
+   * The Nexus Spire: every `lightsOutEvery` s (Overtime: `overtimeEvery`) the lights go out and every drowsy fruit on
+   * the board falls asleep at once (bosses for less). Husks, Express Corn on a belt and fruit still resting are left alone.
+   */
+  const tickSpire = (tower: Tower) => {
+    const every = hasMod(tower, "overtime") ? VAEL_VALUES.overtimeEvery : VAEL_VALUES.lightsOutEvery;
+    if (!tower.armed) {
+      // Built: the first Lights Out comes a full cycle later.
+      tower.armed = true;
+      tower.cd = every;
+    }
+    if (tower.cd > 0) return;
+    tower.cd = every;
+    let n = 0;
+    for (const e of world.enemies) {
+      if (e.hp <= 0 || (e.drowsy ?? 0) <= 0 || e.guard === "husk" || expressOnBelt(e)) continue;
+      if ((e.restT ?? 0) > 0 || e.freeze > 0) continue;
+      fallAsleep(e);
+      n++;
+    }
+    world.lightsOut = world.reduced ? 0 : 0.25;
+    world.floaters.push({ x: world.w / 2, y: world.h * 0.3, text: "LIGHTS OUT", life: 1.1, color: "#c9a6ff", size: 22 });
+    cue("fire", "spire");
+    if (n) world.hud.log = "Vaelithra: “Lights out. Everyone take five. Forever.”";
+  };
+  /** One of Vaelithra's later towers that isn't open yet tonight. */
+
+  const vaelLocked = (kind: TowerKind) => {
+    const step = VAEL_LADDER.indexOf(kind);
+    if (step < 0 || world.hud.hero !== "vael") return false;
+    syncVael();
+    return step >= world.hud.vaelOpen;
+  };
   /** Fire wakes it: no longer drowsy, and a sleeping fruit gets up. */
   const wake = (e: Enemy) => {
     e.drowsy = 0;
@@ -3729,6 +3835,8 @@ export function createWorld(
     if (e.native === "gargoyle" && (world.bell?.quiet ?? 0) <= 0) amount *= NATIVES.gargoyleSkin;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
+    // A report filed by the Underlings: every tower is hers while she's the keeper.
+    if ((e.reportT ?? 0) > 0 && world.hud.hero === "vael") amount *= VAEL_VALUES.reportAmp;
     // Black Ice (a Freeze cannon fitting): frozen fruit take more from everything.
     if (COMBO.on && (e.frost ?? 0) >= COMBO.frostMax && fitted("freeze", "blackice")) amount *= COMBO.blackIce;
     // Emberforged Armour: Sir Michael's Great towers and Roost leave blue fire on what they hit.
@@ -3845,22 +3953,25 @@ export function createWorld(
         addSting(e, spitter?.mods.includes("grit") ? AFFLICT.gritStacks : AFFLICT.seedStacks);
       }
     }
-    // Vaelithra's sleeping draught: drowsy, not frosted.
-    if (world.hud.hero === "vael" && e.guard !== "husk" && !expressOnBelt(e)) {
-      const was = (e.drowsy ?? 0) > 0;
-      if (!was) float(e.x, e.y - 18, "drowsy", "#b9a2ea");
-      e.dozeHits = was ? (e.dozeHits ?? 0) + 1 : 1;
-      e.drowsy = Math.max(e.drowsy ?? 0, DROWSY.time * fx.chill * (e.boss ? DROWSY.boss : 1));
-      // The third hit while drowsy: it nods off (a stop, not ice), then needs a rest before it can again.
-      if (e.dozeHits >= DROWSY.sleepHits && (e.restT ?? 0) <= 0 && e.freeze <= 0) {
-        const nap = e.boss ? DROWSY.sleepBoss : DROWSY.sleep;
-        e.freeze = nap;
-        e.stunBy = "sleep";
-        e.restT = nap + DROWSY.rest;
-        e.dozeHits = 0;
-        float(e.x, e.y - 22, "asleep", "#d6c8fa");
+    // Her keeper towers cash in on sleep: the Cauldron's Nightmare, the interns' report (both on a fruit already asleep).
+    if (e.hp > 0 && sleeping(e)) {
+      if (shot.element === "potion" && !e.nightmared && (e.poison ?? 0) > 0) {
+        e.nightmared = true;
+        const burst = (e.poison ?? 0) * (e.poisonDps ?? 0) * (e.poisonT ?? 0) * VAEL_VALUES.nightmareMul;
+        e.poison = 0;
+        e.poisonDps = 0;
+        e.poisonT = 0;
+        hurt(e, null, burst, 0, "poison");
+        float(e.x, e.y - 30, "nightmare", "#a970ff");
+        world.hud.log = "Vaelithra: “That's going in your performance review.”";
+      }
+      if (shot.element === "vial") {
+        if ((e.reportT ?? 0) <= 0) float(e.x, e.y - 30, "report filed", "#c9a6ff");
+        e.reportT = VAEL_VALUES.reportTime;
       }
     }
+    // Vaelithra's sleeping draught: drowsy, not frosted (the third hit while drowsy puts it to sleep).
+    if (e.hp > 0) doze(e);
     // Fire wakes a drowsy fruit (even her own fire), and a sleeping one.
     if (shot.element === "fire") wake(e);
     // Cold rind is ice: it adds frost (with combos off, the old chill slow instead).
@@ -3894,6 +4005,7 @@ export function createWorld(
         burn: 0,
         toxic: Math.round((CANNON.cauldronDps + (has("distill") ? 8 : has("vial") ? 4 : 0)) * fx.sigDmg),
         owner: credit ?? undefined,
+        vael: true,
       });
     }
     if (shot.procs && has("juicy")) {
@@ -4361,6 +4473,15 @@ export function createWorld(
       }
       // Drowsy (Vaelithra): slowed until it wears off, or until fire wakes it.
       if ((e.restT ?? 0) > 0) e.restT = (e.restT ?? 0) - dt;
+      if ((e.reportT ?? 0) > 0) e.reportT = Math.max(0, (e.reportT ?? 0) - dt);
+      // Unstoppered's Fumes: a drowsy fruit standing in her puddle takes a doze hit every second.
+      if ((e.drowsy ?? 0) > 0 && e.hp > 0 && !sleeping(e) && world.towers.some((t) => t.kind === "flask") && inVaelPool(e)) {
+        e.fumeCd = (e.fumeCd ?? VAEL_VALUES.fumesEvery) - dt;
+        if (e.fumeCd <= 0) {
+          e.fumeCd = VAEL_VALUES.fumesEvery;
+          doze(e);
+        }
+      } else e.fumeCd = undefined;
       if (((e.drowsy ?? 0) > 0 || (e.freeze > 0 && e.stunBy === "sleep")) && burningNow(e)) wake(e);
       if ((e.drowsy ?? 0) > 0) {
         e.drowsy = (e.drowsy ?? 0) - dt;
@@ -4604,6 +4725,10 @@ export function createWorld(
         dripFlask(tower, dt);
         continue;
       }
+      if (tower.kind === "spire") {
+        tickSpire(tower);
+        continue;
+      }
       if (tower.kind === "gourdgate") {
         tickGate(tower, dt);
         continue;
@@ -4629,7 +4754,13 @@ export function createWorld(
         const prog = progScore(e);
         // The tower's targeting mode (Settings in the inspector, A); the Mimic Chest keeps its own rule:
         // the first fruit that isn't a boss.
-        const score = tower.kind === "mimic" ? prog + (e.boss ? 0 : 1e6) : targetScore(mode, tower, e, prog, Math.sqrt(d2), world.pools);
+        // The Underlings throw at the drowsiest fruit: the most doze hits, then the longest drowsy, then the furthest along.
+        const score =
+          tower.kind === "mimic"
+            ? prog + (e.boss ? 0 : 1e6)
+            : tower.kind === "underlings"
+              ? (e.dozeHits ?? 0) * 1e9 + Math.max(0, e.drowsy ?? 0) * 1e6 + prog
+              : targetScore(mode, tower, e, prog, Math.sqrt(d2), world.pools);
         if (score > bestScore || (score === bestScore && prog > bestProg)) {
           bestScore = score;
           bestProg = prog;
@@ -4926,6 +5057,8 @@ export function createWorld(
                         ? "worm"
                         : tower.kind === "cauldron"
                           ? "potion"
+                          : tower.kind === "underlings"
+                            ? "vial"
                           : tower.kind === "trebuchet" || tower.kind === "quackliber"
                             ? "mortar"
                             : "shot";
@@ -5078,6 +5211,7 @@ export function createWorld(
         !signatureBlocked(world.hud.build) &&
         !levelLocked(world.hud.build) &&
         !goalLocked(world.hud.build) &&
+        !vaelLocked(world.hud.build) &&
         !heavyLocked(world.hud.build) &&
         !offCarpet(world.hud.build, c, r) &&
         world.hud.seeds >= world.hud.towerCost &&
@@ -5131,6 +5265,11 @@ export function createWorld(
       }
       if (heavyLocked(buildKind)) {
         world.hud.log = `Heavy cannons open at wave ${HEAVY_WAVE}, or once you have ${HEAVY_SEEDS} seeds in hand.`;
+        notify();
+        return;
+      }
+      if (vaelLocked(buildKind)) {
+        world.hud.log = vaelLockText(buildKind);
         notify();
         return;
       }
@@ -5213,6 +5352,8 @@ export function createWorld(
       // (Tap a built tower to open its stats.)
       world.hud.selected = null;
       world.hud.log = `${TOWERS[buildKind].name} set.`;
+      // Vaelithra: a tower that tips her ladder says so after the usual line.
+      syncVael();
       syncGuide();
       syncPrice();
       notify();
@@ -5371,6 +5512,7 @@ export function createWorld(
       if (!tower) return;
       world.runLog.sold += 1;
       world.towers = world.towers.filter((t) => t.id !== sel);
+      syncVael();
       syncMimics();
       const refund = slip("norefund") ? 0 : refundFor(tower.kind, tower.paid);
       const bank = tower.bank ?? 0;
@@ -5509,7 +5651,7 @@ export function createWorld(
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       if (isSignature(kind) && !own(kind)) return;
       world.hud.build = kind;
-      world.hud.log = TOWERS[kind].blurb;
+      world.hud.log = vaelLocked(kind) ? vaelLockText(kind) : TOWERS[kind].blurb;
       syncPrice();
       notify();
     },
@@ -5564,6 +5706,7 @@ export function createWorld(
         : `${mod.name}: every ${name} you build tonight will have it.`;
       record((m) => (m.fittings += 1));
       world.runLog.backRoomBuys += 1;
+      syncVael();
       if (world.hud.guide === "backroom") finishGuide();
       syncPrice();
       const picked = world.towers.find((t) => t.id === world.hud.selected);
@@ -6077,6 +6220,8 @@ export function createWorld(
     api.beginNight();
   };
   const loopTick = (dt: number) => {
+    if (world.lightsOut) world.lightsOut = Math.max(0, world.lightsOut - dt);
+    if (world.hud.hero === "vael" && (world.hud.phase === "prep" || world.hud.phase === "combat")) syncVael();
     if (!world.hud.heavyOpen && (world.hud.phase === "prep" || world.hud.phase === "combat")) {
       syncHeavy();
       if (world.hud.heavyOpen) notify();

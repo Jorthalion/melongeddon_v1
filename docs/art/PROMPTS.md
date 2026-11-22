@@ -41,6 +41,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | `enemy-chimer.png` | Chimer, the Bell Tower | `ENEMY_PROMPTS.md` §8 |
 | `enemy-gargoyle.png` | Gargoyle Gourd, the Bell Tower | `ENEMY_PROMPTS.md` §9 |
 | `tile-vine.png` | Creeping Squash vine on the carpet | `ENEMY_PROMPTS.md` §10 |
+| `sig-underlings.png`, `sig-spire.png` | Vaelithra's Underlings and Nexus Spire | "Vaelithra's third and fourth" below |
 | `tile-floor-halldoors.png`, `prop-signpost.png`, `door-reading.png`, `door-kitchens.png`, `door-restricted.png`, `prop-closed-sign.png` | The Hall of Doors (new map) | §2a3 below; the game already looks for these and draws code stand-ins until they arrive |
 | `cat-room-mezzanine-ruined.png` | The Mezzanine's ruined Grand Catalogue painting (optional) | §2a4 below |
 
@@ -147,6 +148,15 @@ The game looks for these files in `public/sprites/` (as `.webp`). Until each exi
 | `fly-dragonfire.png` | The Roost's breath in flight: **a ball of blue-white dragonfire** with a short trail of flame and sparks. **Side view, flying to the right.** Transparent background, no shadow. |
 
 The **Dragonfire Trebuchet** keeps the old `sig-trebuchet.webp` for now (crimson cloth, orange pumpkin). A blue-and-gold repaint is wanted: the same trebuchet with **blue cloth instead of crimson** and its pumpkin **wrapped in blue flame**.
+
+#### Vaelithra's third and fourth: the Underlings and the Nexus Spire (not yet painted; drawn by code until then)
+
+**Attach:** `public/sprites/sig-cauldron.webp` and `public/sprites/sig-flask.webp` (her two towers already in the game) for the style. **Paste the style line first**, but change "deep crimson cloth with gold embroidery" to **"black, deep violet and neon purple, with silver trim"**: she is a drow executive running the Potions Division of a cyberpunk company.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `sig-underlings.png` | A game tower in **exactly the same style as the attached tower images**, 3/4 top-down view on a **round dark walnut base with a silver band**: **a small black office desk** with a curved **purple neon desk lamp**, a rack of **little violet glass vials with silver stoppers**, a stack of paperwork, and **one small hooded intern** in a dark robe with a **purple lanyard**, mid-throw with a vial. Sly and busy, a little comic. Transparent background, no text, no letters, no logos. |
+| `sig-spire.png` | A game tower in **exactly the same style as the attached tower images**, 3/4 top-down view on a **round dark walnut base with a silver band**: **a miniature black glass corporate skyscraper**, tall and narrow with a pointed top, rows of **glowing purple neon windows**, thin silver edges, a small violet beacon at the tip, a faint purple haze at its foot. Cold and imposing. Transparent background, no text, no letters, no logos. |
 
 #### Asser Mälkki, the Author-Knight (done: `public/sprites/portrait-asser.webp` and `sig-lionblade.webp`)
 

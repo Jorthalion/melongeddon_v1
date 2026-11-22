@@ -1,5 +1,5 @@
 import { asset } from "../lib/asset.ts";
-import { BOARDS, EXIT_COLOR, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, reachShape, roundedSpot, roostStageFor, boardLegs, carpetInReachAll, nearestSegment, type TowerKind, type World } from "./engine";
+import { BOARDS, EXIT_COLOR, CANNON, FLOOR, CARPET_DYE, CELL, SIEGE, gateStrip, VERGE_NOTE, bindLeg, carpetLegs, GLOBAL_RANGE, PASSIVE, carpetInReach, reachShape, roundedSpot, roostStageFor, boardLegs, carpetInReachAll, nearestSegment, VAEL_VALUES, type TowerKind, type World } from "./engine";
 import { DRAWN_KINDS, drawBoomerangShape, drawCannon, drawGlobeShape, drawPlaneShape, drawQuillShape, drawShot, drawFootShape, drawSpillTile, drawRoost, drawGreatPlinth } from "./drawCannons.ts";
 import {
   STATUS_LOOK,
@@ -158,6 +158,9 @@ const SPRITE_SRC = {
   driver: asset("sprites/sig-driver.webp"),
   // Asser's Lion Blade (the code-drawn sword is only a fallback while it loads).
   lionblade: asset("sprites/sig-lionblade.webp"),
+  // Vaelithra's third and fourth (not painted yet: drawn by code until these exist; prompts in docs/art/PROMPTS.md).
+  underlings: asset("sprites/sig-underlings.webp"),
+  spire: asset("sprites/sig-spire.webp"),
   // Sir Michael's second and third: the Dragon Gate, and the Dragon's Roost at each stage (egg, Whelp, Drake, Great Dragon).
   // Painted; the code-drawn stand-ins only show while a file loads.
   gourdgate: asset("sprites/sig-dragongate.webp"),
@@ -1074,6 +1077,19 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       continue;
     }
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim, motionOf(t, world.anim));
+    // The Nexus Spire: a ring of pips counting down to the next Lights Out.
+    if (t.kind === "spire") {
+      const every = t.mods.includes("overtime") ? VAEL_VALUES.overtimeEvery : VAEL_VALUES.lightsOutEvery;
+      const left = Math.max(0, Math.min(1, t.cd / every));
+      const pips = 10;
+      for (let i = 0; i < pips; i++) {
+        const a = -Math.PI / 2 + (i / pips) * Math.PI * 2;
+        ctx.fillStyle = i / pips < 1 - left ? "rgba(201,166,255,0.95)" : "rgba(80,60,100,0.6)";
+        ctx.beginPath();
+        ctx.arc(t.x + Math.cos(a) * 22, t.y - 4 + Math.sin(a) * 22, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     // The Post: a lit "typing" dot while armed; a speech-bubble shockwave down its straight when it goes off.
     if (t.kind === "pamphlet") {
       if (t.armed !== false) {
@@ -1291,7 +1307,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   for (const s of world.shots) {
     // A ki blast's painting carries its own trail and glow.
     if (!(s.splashChill && ready(art.ki))) shotTrail(ctx, s.x, s.y, s.tx, s.ty, shotColor(s.element, s.orange));
-    if (s.element === "potion") {
+    if (s.element === "potion" || s.element === "vial") {
       drawShot(ctx, s.x, s.y, s.element, world.anim);
       continue;
     }
@@ -1442,6 +1458,11 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.globalAlpha = 1;
   }
 
+  // Vaelithra's Lights Out: the board goes dark for a quarter of a second.
+  if ((world.lightsOut ?? 0) > 0) {
+    ctx.fillStyle = `rgba(6,2,12,${Math.min(0.6, (world.lightsOut ?? 0) * 2.4)})`;
+    ctx.fillRect(0, 0, world.w, world.h);
+  }
   const vig = ctx.createRadialGradient(world.w / 2, world.h / 2, world.w * 0.22, world.w / 2, world.h / 2, world.w * 0.72);
   vig.addColorStop(0, "rgba(0,0,0,0)");
   vig.addColorStop(1, "rgba(8,4,6,0.42)");
@@ -2884,6 +2905,8 @@ const PAINTED_CANNON: Partial<Record<TowerKind, { aim: boolean; w: number; h: nu
   pamphlet: { aim: false, w: 52, h: 54 },
   driver: { aim: false, w: 38, h: 56 },
   lionblade: { aim: false, w: 40, h: 60 },
+  underlings: { aim: false, w: 50, h: 52 },
+  spire: { aim: false, w: 40, h: 64 },
   gourdgate: { aim: false, w: 58, h: 58 },
   bombard: { aim: false, w: 62, h: 60 },
   // Trick cannons.
@@ -3458,6 +3481,8 @@ function shotColor(element: string, orange: boolean): string {
       return "232,136,58";
     case "potion":
       return "120,220,110";
+    case "vial":
+      return "185,120,255";
     case "ink":
       return "120,140,200";
     case "seed":

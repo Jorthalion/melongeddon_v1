@@ -257,6 +257,8 @@ export type TowerKind =
   | "quackliber"
   | "geese"
   | "lionblade"
+  | "underlings"
+  | "spire"
   | "gourdgate"
   | "bombard"
   | "pamphlet"
@@ -291,7 +293,7 @@ export const SIGNATURE: Record<HeroId, TowerKind> = {
 /** Every tower in each keeper's own tab: the signature first, then any extras. */
 export const KEEPER_TOWERS: Record<HeroId, TowerKind[]> = {
   mynxi: ["catalogue", "desk"],
-  vael: ["cauldron", "flask"],
+  vael: ["cauldron", "flask", "underlings", "spire"],
   michael: ["trebuchet", "gourdgate", "bombard"],
   elf: ["scales", "stomp", "honey"],
   ooze: ["mimic", "copycat"],
@@ -359,6 +361,8 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   pamphlet: "utility",
   driver: "utility",
   lionblade: "precision",
+  underlings: "alchemy",
+  spire: "utility",
   gourdgate: "utility",
   bombard: "cannon",
   spitter: "precision",
@@ -562,6 +566,9 @@ export const DEFAULT_TARGET: Record<TowerKind, { default: TargetMode; modes: Tar
   quackliber: aims("first", PLAIN_MODES),
   geese: null,
   lionblade: null,
+  // The Underlings aim at the drowsiest fruit (their own rule); the Spire doesn't aim.
+  underlings: null,
+  spire: null,
   gourdgate: null,
   bombard: null,
   pamphlet: null,
@@ -732,6 +739,18 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     cost: 110,
     role: "Spill",
   },
+  underlings: {
+    name: "The Underlings",
+    blurb: "Vaelithra's third, opened by four fully upgraded towers. Hooded interns run out every 3 s and throw a sleeping draught at the drowsiest fruit in reach. A fruit already asleep gets a report filed on it: 30% more damage from her towers for 4 s.",
+    cost: 120,
+    role: "Interns",
+  },
+  spire: {
+    name: "The Nexus Spire",
+    blurb: "Vaelithra's fourth, opened by six fully upgraded towers. Every 15 s the lights go out and every drowsy fruit on the board falls asleep at once. No damage of its own.",
+    cost: 220,
+    role: "Lights Out",
+  },
   cauldron: {
     name: "Bubbling Cauldron",
     blurb: "Vael's own. Lobs a potion that leaves a green puddle: it slows and it eats. Its poison stacks, and it catches fire.",
@@ -851,6 +870,10 @@ export const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; ran
   globe: { dmg: 1.5, pace: 3.4, range: 1.3 },
   catalogue: { dmg: 1.15, pace: 1.1, range: 1.4 },
   cauldron: { dmg: 0.5, pace: 1.7, range: 1.05 },
+  // The Underlings: light vials (a doze hit each), one every 3 s.
+  underlings: { dmg: 0.4, pace: 3, range: 1.1 },
+  // The Nexus Spire: no shot and no reach; Lights Out runs on VAEL_VALUES.lightsOutEvery.
+  spire: { dmg: 0, pace: 15, range: 0.5 },
   trebuchet: { dmg: 1.5, pace: 2.8, range: 1.3 },
   scales: { dmg: 0.6, pace: 1.4, range: 1.15 },
   stomp: { dmg: 0.5, pace: 3.6, range: 1 },
@@ -875,6 +898,34 @@ export const PROFILE: Partial<Record<TowerKind, { dmg: number; pace: number; ran
  * anything solid or sets up an ice combo. Fire wakes a fruit up; a shush or a crescendo keeps a drowsy fruit
  * stopped longer.
  */
+/**
+ * Vaelithra's ladder and her keeper towers' sleep payoffs. Her other three towers open during the night as she
+ * fully upgrades towers (a tower whose kind has every back-room upgrade bought tonight).
+ */
+export const VAEL_VALUES = {
+  /** Fully upgraded towers on the board that open Unstoppered, the Underlings and the Nexus Spire. */
+  unlocks: [2, 4, 6] as const,
+  /** Nightmare: the Cauldron's potion on a sleeping fruit sets off its poison at once, this much harder (once per sleep). */
+  nightmareMul: 1.5,
+  /** Unstoppered's Deep sleep: a fruit that falls asleep in her puddle sleeps this much longer. */
+  deepSleep: 1.5,
+  /** Unstoppered's Fumes: a drowsy fruit in her puddle takes a doze hit this often (s). */
+  fumesEvery: 1,
+  /** The Underlings' report: a sleeping fruit hit by a vial takes this much more from her towers, for `reportTime` s. */
+  reportAmp: 1.3,
+  reportTime: 4,
+  /** The Nexus Spire: seconds between Lights Out (Overtime: `overtimeEvery`). */
+  lightsOutEvery: 15,
+  overtimeEvery: 12,
+};
+/** Vaelithra's ladder in order: the tower each step opens. */
+export const VAEL_LADDER: TowerKind[] = ["flask", "underlings", "spire"];
+/** A locked card on her ladder: how many fully upgraded towers open it, and how many there are now. */
+export function vaelLockLine(kind: TowerKind, now: number): string {
+  const need = VAEL_VALUES.unlocks[VAEL_LADDER.indexOf(kind)] ?? 0;
+  return `${TOWERS[kind].name} opens with ${need} fully upgraded towers (${now} now). A fully upgraded tower has every back-room upgrade for its kind.`;
+}
+
 export const DROWSY = {
   /** Seconds a hit keeps it drowsy (the Cold Hands perk stretches it), and its pace while drowsy. */
   time: 1.4,
@@ -1157,6 +1208,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
 }
 
 export type ModId =
+  | "overtime"
   | "reach"
   | "chill"
   | "ripe"
@@ -1206,14 +1258,15 @@ export interface ModDef {
 }
 
 export const MODS: ModDef[] = [
-  { id: "reach", name: "Longer barrel", blurb: "Reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane", "quill", "globe", "press", "scope"] },
+  { id: "reach", name: "Longer barrel", blurb: "Reaches farther down the carpet.", kinds: ["melon", "spitter", "ballista", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane", "quill", "globe", "press", "scope", "underlings"] },
+  { id: "overtime", name: "Overtime", blurb: "Lights Out every 12 seconds instead of 15.", kinds: ["spire"] },
   { id: "chill", name: "Cold rind", blurb: "Its shot frosts whatever it hits.", kinds: ["spitter"] },
   { id: "ripe", name: "Ripe core", blurb: "Heavier melons. Hits 20% harder.", kinds: ["melon"] },
   {
     id: "haste",
     name: "Quick wick",
     blurb: "Cycles a little faster.",
-    kinds: ["melon", "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane", "quill", "globe", "press", "organ", "scope"],
+    kinds: ["melon", "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm", "boomerang", "orrery", "plane", "quill", "globe", "press", "organ", "scope", "underlings"],
   },
   { id: "loud", name: "Louder bell", blurb: "The shush carries farther.", kinds: ["bell"] },
   { id: "longsheet", name: "Broadsheet", blurb: "Each sheet slides half again as far.", kinds: ["press"] },
@@ -1273,6 +1326,7 @@ export function shopPrice(hero: HeroId | null, owned: number, visits: number, ex
  */
 export const FITTING_NAMES: Partial<Record<TowerKind, Partial<Record<ModId, { name: string; blurb: string }>>>> = {
   melon: { haste: { name: "Oiled breech", blurb: "Loads a little faster." } },
+  underlings: { reach: { name: "Longer commute", blurb: "The interns run farther down the carpet." }, haste: { name: "Coffee run", blurb: "The interns throw a little more often." } },
   spitter: { reach: { name: "Long straw", blurb: "Spits farther down the carpet." }, haste: { name: "Deep breath", blurb: "Spits a little faster." } },
   ballista: { reach: { name: "Taut string", blurb: "Throws farther down the carpet." }, haste: { name: "Ratchet winch", blurb: "Winds back a little faster." } },
   reader: { haste: { name: "Speed reading", blurb: "Reads a little faster." } },
@@ -1309,6 +1363,8 @@ export function fittingDetail(kind: TowerKind, id: ModId): string {
   const tiles = (px: number) => `${+(px / CELL).toFixed(1)} tile${px === CELL ? "" : "s"}`;
   const reach = `${tiles(28)} more reach.`;
   switch (id) {
+    case "overtime":
+      return `The Spire puts the drowsy to sleep every ${VAEL_VALUES.overtimeEvery} s instead of every ${VAEL_VALUES.lightsOutEvery} s.`;
     case "reach":
       return kind === "orrery" ? `The planets circle ${tiles(28)} farther out.` : reach;
     case "haste":
@@ -3125,7 +3181,8 @@ export function reachShape(
   kind: TowerKind,
   range: number,
 ): { mode: "carpet" | "towers" | "gate" | "none"; inner: number; outer: number; aura: boolean; beyond?: { radius?: number; note: string } } {
-  if (range <= 0 || kind === "compost" || kind === "lectern") return { mode: "none", inner: 0, outer: 0, aura: false };
+  if (range <= 0 || kind === "compost" || kind === "lectern" || kind === "spire") return { mode: "none", inner: 0, outer: 0, aura: false };
+
   if (kind === "lantern") return { mode: "towers", inner: 0, outer: range, aura: false };
   if (kind === "gourdgate") return { mode: "gate", inner: 0, outer: range, aura: false };
   // Orrery planets touch a fruit within about a fruit's width of their orbit, on either side of it.

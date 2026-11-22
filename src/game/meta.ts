@@ -124,7 +124,6 @@ export function unlockedIds(rooms: readonly RoomId[]): BookmarkId[] {
 /** Keeper towers that start locked, with the room that opens them. The rest are open from the start. */
 export const TOWER_GOALS: Partial<Record<TowerKind, { goal: string }>> = {
   desk: { goal: restoreText("tower", "desk") },
-  flask: { goal: restoreText("tower", "flask") },
 };
 
 /** Keeper towers the restored rooms haven't opened yet. */

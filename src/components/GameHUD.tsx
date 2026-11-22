@@ -9,6 +9,9 @@ import {
   PASSIVE,
   HEAVY_SEEDS,
   HEAVY_WAVE,
+  VAEL_LADDER,
+  VAEL_VALUES,
+  vaelLockLine,
   fittingsFor,
   TRICK_LEVEL,
   TOWER_GOALS,
@@ -353,7 +356,10 @@ export function BuildFooter({
             const goal = hud.lockedTowers.includes(id) ? TOWER_GOALS[id]?.goal : undefined;
             // Heavy cannons wait for wave 6, or 200 seeds in hand tonight.
             const heavyWait = groupOf(id).id === "heavy" && !hud.heavyOpen;
-            const locked = needs > hud.runLevel || goal != null || heavyWait;
+            // Vaelithra's ladder: her later towers open tonight as she fully upgrades towers.
+            const step = hud.hero === "vael" ? VAEL_LADDER.indexOf(id) : -1;
+            const vaelWait = step >= 0 && step >= hud.vaelOpen;
+            const locked = needs > hud.runLevel || goal != null || heavyWait || vaelWait;
             // The numbers it will really have once built: fittings, perks, the room (api.previewStats).
             const read = api.previewStats(id);
             return (
@@ -363,6 +369,8 @@ export function BuildFooter({
                 title={
                   goal
                     ? `${TOWERS[id].name}: locked. ${goal} ${TOWERS[id].blurb}`
+                    : vaelWait
+                    ? `${vaelLockLine(id, hud.fullyUpgraded)} ${TOWERS[id].blurb}`
                     : heavyWait
                     ? `${TOWERS[id].name}: opens at wave ${HEAVY_WAVE}, or once you have ${HEAVY_SEEDS} seeds in hand. ${TOWERS[id].blurb}`
                     : locked
@@ -390,7 +398,7 @@ export function BuildFooter({
                 <span className={`block truncate leading-tight font-semibold ${column ? "text-sm" : "mt-0.5 text-[0.8125rem]"}`}>{column ? TOWERS[id].name : SHORT_NAME[id]}</span>
                 <span className={`block truncate leading-tight text-parchment ${column ? "text-[0.8125rem]" : "text-[0.8125rem]"}`}><CardStat kind={id} read={read} /></span>
                 <span className={`block truncate leading-tight text-muted ${column ? "text-[0.8125rem]" : "text-[0.8125rem]"}`}>
-                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : waits ? "Next wave" : cost === 0 ? "Free" : cost}
+                  {goal ? "Locked" : vaelWait ? `${hud.fullyUpgraded}/${VAEL_VALUES.unlocks[step]} upgraded` : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : waits ? "Next wave" : cost === 0 ? "Free" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                 </span>
                 </span>
@@ -406,6 +414,8 @@ export function BuildFooter({
               <p className="line-clamp-2 text-[0.8125rem] text-muted">
                 {hud.lockedTowers.includes(hud.build)
                   ? `Locked: ${TOWER_GOALS[hud.build]?.goal}`
+                  : hud.hero === "vael" && VAEL_LADDER.indexOf(hud.build) >= hud.vaelOpen
+                  ? vaelLockLine(hud.build, hud.fullyUpgraded)
                   : TOWER_LINE[hud.build]
                     ? `${TOWER_LINE[hud.build]} One at a time.`
                     : `${TOWERS[hud.build].blurb} One at a time.`}
@@ -462,6 +472,8 @@ const SHORT_NAME: Record<TowerKind, string> = {
   bombard: "Roost",
   pamphlet: "The Post",
   driver: "Quackmission",
+  underlings: "Underlings",
+  spire: "Spire",
 };
 /** Quackarot's newest towers: the one line under them on the build bar and in the inspector. */
 const TOWER_LINE: Partial<Record<TowerKind, string>> = {
@@ -577,6 +589,9 @@ export function describeStats(kind: TowerKind, read: { dmg: number; range: numbe
   // "lit" by a Reading Lamp; "powered up" in a Quack-Liber's aura (or Quackarot golden); "quick" from another speed-up.
   const lit = (read.lit ? " · lit" : "") + (read.powered ? " · powered up" : read.quick ? " · quick" : "");
   if (kind === "compost") return "No shot · pays seeds every wave";
+  if (kind === "underlings")
+    return `DMG ${read.dmg} vials at the drowsiest fruit · a sleeper hit: +${Math.round((VAEL_VALUES.reportAmp - 1) * 100)}% from her towers for ${VAEL_VALUES.reportTime}s · ${tiles} · ${read.interval.toFixed(1)}s`;
+  if (kind === "spire") return `No damage · Lights Out every ${VAEL_VALUES.lightsOutEvery}s: every drowsy fruit falls asleep`;
   if (kind === "flask") return `No shot · puddle every ${read.interval.toFixed(1)}s from each tile · ${tiles} · spills to ${CANNON.flaskMaxTiles} tiles`;
   if (kind === "desk") return `No shot · banks ${CANNON.deskBank} a wave · melons within ${tiles} eat it`;
   if (kind === "lectern") return "No shot · notes the fruit that got furthest; that kind is slower next wave";

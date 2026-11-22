@@ -29,7 +29,7 @@ export const KEEPERS: Array<{
     name: "Vaelithra",
     role: "Potions division",
     flavor: "“Hold still. This only stings if you're a melon.”",
-    line: "Her shots make fruit drowsy: slow and sleepy, but never frozen. Each new kind of tower costs her 20 more, but the back room costs her less.",
+    line: "Her shots make fruit drowsy, then asleep. Fully upgrade her towers and three more of her own open during the night.",
     toneHz: 250,
     portrait: asset("sprites/portrait-vael.webp"),
   },

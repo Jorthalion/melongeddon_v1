@@ -10,6 +10,8 @@ function onBoard(meta: MetaStats, rooms?: RoomId[]) {
   api.chooseHero("vael");
   api.beginNight();
   api.world.hud.seeds = 5000;
+  // Unstoppered opens during the night on her ladder (tests/vael.test.ts): open it for these.
+  api.world.hud.vaelOpen = 3;
   return api;
 }
 
@@ -45,30 +47,14 @@ function clearWave(api: Api) {
   if (w.hud.phase === "upgrade") api.pickUpgrade(w.hud.offer[0].id);
 }
 
-test("Vaelithra's Keeper tab holds the Cauldron and the Unstoppered", () => {
-  assert.deepEqual(groupsFor("vael").find((g) => g.id === "keeper")?.kinds, ["cauldron", "flask"]);
+test("Vaelithra's Keeper tab holds all four of her towers, the Cauldron first", () => {
+  assert.deepEqual(groupsFor("vael").find((g) => g.id === "keeper")?.kinds, ["cauldron", "flask", "underlings", "spire"]);
 });
 
-test("it's locked until The Great Hall is restored; the old brew goal no longer opens it", () => {
-  assert.ok(build(onBoard({ ...EMPTY_META }, ["stacks", "greathall"]), "flask"), "open with The Great Hall");
+test("Unstoppered is no longer a Grand Catalogue unlock: without The Great Hall it is never listed as locked", () => {
   const api = onBoard({ ...EMPTY_META }, ["stacks"]);
-  assert.equal(build(api, "flask"), undefined);
-  assert.match(api.world.hud.log, /Restore The Great Hall/);
-
-  // Build a Still, take Trial Vial at the first pick, and win.
-  assert.ok(build(api, "still"));
-  const w = api.world;
-  for (let n = 0; n < 200 && w.hud.phase !== "victory"; n++) {
-    api.startWave();
-    for (let i = 0; i < 60 * 240 && w.hud.phase === "combat"; i++) {
-      w.enemies.length = 0;
-      stepWorld(w, 1 / 60);
-    }
-    if (w.hud.phase === "upgrade") api.pickUpgrade((w.hud.offer.find((u) => u.id === "vial") ?? w.hud.offer[0]).id);
-  }
-  assert.equal(w.hud.phase, "victory");
-  assert.ok(w.hud.upgrades.includes("vial"));
-  assert.ok(w.hud.lockedTowers.includes("flask"), "the brew is an achievement now, not an unlock");
+  assert.ok(!api.world.hud.lockedTowers.includes("flask"));
+  assert.ok(build(api, "flask"), "opens on her ladder, Great Hall or not");
 });
 
 test("it drips a slow puddle from its own tile", () => {
