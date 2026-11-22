@@ -55,16 +55,19 @@ test("the Rotunda builds a route per door: each from its door to the exit, shari
   const built = buildRoutes(board);
   assert.equal(built.routes.length, 3);
   const exit = centre(17, 3);
-  const doors: Array<[number, number]> = [[5, 0], [0, 8], [2, 11]];
+  const doors: Array<[number, number]> = [[5, 0], [0, 8], [17, 9]];
   built.routes.forEach((r, i) => {
     assert.deepEqual(r[0], centre(...doors[i]), `route ${i} starts at its door`);
     assert.deepEqual(r[r.length - 1], exit, `route ${i} ends at the exit`);
   });
-  // North and west both run the whole trunk from the desk (10,8); the stairs join it at (10,10).
+  // North and west both run the whole trunk from the compass (10,8); the back stairs join it near the exit, at (14,7).
   const trunk = buildRoutes({ ...board, doors: undefined }).points;
   assert.deepEqual(built.routes[0].slice(-trunk.length), trunk);
   assert.deepEqual(built.routes[1].slice(-trunk.length), trunk);
-  assert.deepEqual(built.routes[2].slice(-(trunk.length - 1)), trunk.slice(1));
+  const join = trunk.findIndex((p) => p.x === centre(14, 7).x && p.y === centre(14, 7).y);
+  assert.ok(join > 1, "the stairs join the trunk's last climb, past the compass");
+  assert.deepEqual(built.routes[2].slice(-(trunk.length - join)), trunk.slice(join));
+  assert.ok(built.routes[2].length < built.routes[1].length, "the stairs are the short way to the exit");
   // Segments count each tile once: three door carpets and the trunk.
   assert.equal(built.segments.length, 4);
   // A one-door board is untouched: one route, its own carpet.
@@ -189,7 +192,7 @@ test("the back stairs are boarded until wave 11: heard after wave 9, open after 
   // Closed or not, its tiles are carpet: nothing can be built on them.
   api.chooseBuild("melon");
   const before = w.towers.length;
-  const tile = centre(5, 10);
+  const tile = centre(16, 8);
   api.pointer(tile.x, tile.y, "down");
   assert.equal(w.towers.length, before, "no building on the boarded stairs' carpet");
   api.dismissSelection();
@@ -214,4 +217,19 @@ test("the Rotunda is unlocked by its own Catalogue room, and Every Door Watched 
   assert.equal(a.check(ctx(false, 0)), false);
   assert.equal(a.check(ctx(true, 0, "endless")), false);
   assert.equal(a.check(ctx(true, 0, "midnight", "stacks")), false);
+});
+
+test("the desk stands on the floor beside the compass, not on the carpet, and can't be built on", () => {
+  const api = start();
+  const w = api.world;
+  const [dc, dr] = BOARDS.rotunda.desk!;
+  const [cc, cr] = BOARDS.rotunda.compass!;
+  assert.ok(!w.pathCells.has(`${dc},${dr}`), "the desk is off the carpet");
+  assert.ok(w.pathCells.has(`${cc},${cr}`), "the compass marks the carpet where north and west meet");
+  assert.ok(w.shelfCells.has(`${dc},${dr}`), "nothing is built on the desk");
+  api.chooseBuild("melon");
+  const before = w.towers.length;
+  const tile = centre(dc, dr);
+  api.pointer(tile.x, tile.y, "down");
+  assert.equal(w.towers.length, before);
 });

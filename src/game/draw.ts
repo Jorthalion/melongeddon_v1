@@ -2323,12 +2323,49 @@ function entryTiles(world: World) {
 }
 
 /**
- * A board with doors (the Rotunda): the round desk where the carpets meet, a brass lamp by each door (lit for the
- * door the next fruit use), and a door that isn't open yet boarded up with its carpet still rolled.
+ * A board with doors (the Rotunda): a brass compass inlaid in the carpet where the carpets meet, the round desk on
+ * the floor beside it, a brass lamp by each door (lit for the door the next fruit use), and a door that isn't open
+ * yet boarded up with its carpet still rolled.
  */
+/** A flat brass compass rose inlaid in the carpet: four points, a ring, worn gold. Nothing stands on it. */
+function drawCompass(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  const r = CELL * 0.38;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = 0.85;
+  ctx.strokeStyle = "rgba(230,195,106,0.75)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.62, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let k = 0; k < 8; k++) {
+    const long = k % 2 === 0;
+    const a = (k * Math.PI) / 4 - Math.PI / 2;
+    const tip = long ? r * 0.95 : r * 0.6;
+    const side = long ? r * 0.16 : r * 0.12;
+    ctx.fillStyle = long ? (k === 0 ? "#f3d68a" : "#d4b06a") : "#9c7a3c";
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * tip, Math.sin(a) * tip);
+    ctx.lineTo(Math.cos(a + Math.PI / 2) * side, Math.sin(a + Math.PI / 2) * side);
+    ctx.lineTo(Math.cos(a - Math.PI / 2) * side, Math.sin(a - Math.PI / 2) * side);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.fillStyle = "#f3d68a";
+  ctx.beginPath();
+  ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawDoors(ctx: CanvasRenderingContext2D, world: World) {
   if (!world.doors.length) return;
   const art = getSprites();
+  const compass = BOARDS[world.hud.map].compass;
+  if (compass) drawCompass(ctx, compass[0] * CELL + CELL / 2, compass[1] * CELL + CELL / 2);
   const desk = BOARDS[world.hud.map].desk;
   if (desk && ready(art.rotundaDesk)) {
     const x = desk[0] * CELL + CELL / 2;
@@ -3074,6 +3111,8 @@ function drawShelves(
   const bays = board.bays ?? [];
   for (const [c, r] of spots) {
     if (underBell(c, r)) continue;
+    // The Rotunda's desk stands on its own cell: drawn by drawDoors, not as a shelf.
+    if (board.desk && c === board.desk[0] && r === board.desk[1]) continue;
     const x = c * CELL + CELL / 2;
     const y = r * CELL + CELL / 2;
     const bay = bays.findIndex((b) => c >= b.cols[0] && c <= b.cols[1] && r >= b.rows[0] && r <= b.rows[1]);

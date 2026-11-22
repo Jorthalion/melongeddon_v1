@@ -1756,10 +1756,12 @@ export interface Board {
    * bosses use. Without doors the board has one route, `corners`.
    */
   doors?: Door[];
-  /** The Rotunda's desk, drawn where the first doors' carpets meet (a cell on the carpet; decoration only). */
+  /** The Rotunda's round desk: furniture on a floor tile beside where the carpets meet (no building on it). */
   desk?: [number, number];
   /**
    * More than one way out (the Hall of Doors): each exit's carpet starts on a corner of the trunk. With exits, a
+  /** A board with doors: the carpet tile where the doors' carpets meet, marked with a brass compass inlay. */
+  compass?: [number, number];
    * route is an entrance's carpet, the trunk up to where its exit starts, then that exit (one per pair).
    */
   exits?: Exit[];
@@ -1883,6 +1885,8 @@ export function shelfCells(map: MapId, path: Set<string>, verge: Set<string> = n
   if (b.bays) for (const k of bayShelves(b, aisles ?? b.bays.map((x) => x.aisles[1]))) if (!path.has(k)) out.add(k);
   for (const [c, r] of b.shelves ?? DEFAULT_SHELVES) {
     const key = `${c},${r}`;
+  // The Rotunda's desk is furniture on the floor: no building there (drawn by drawDoors, not as a shelf).
+  if (b.desk && !path.has(`${b.desk[0]},${b.desk[1]}`)) out.add(`${b.desk[0]},${b.desk[1]}`);
     if (c < 0 || r < 0 || c >= cols || r >= rows || path.has(key) || verge.has(key) || fixed.has(key)) continue;
     out.add(key);
   }
@@ -2202,33 +2206,38 @@ export const BOARDS: Record<MapId, Board> = {
   rotunda: {
     id: "rotunda",
     name: "The Rotunda",
-    blurb: "A round room with doors on every side. Two carpets meet at the desk; later, the back stairs open.",
+    blurb: "A round room with doors on every side. Two carpets meet at the compass in the middle; later, the back stairs open right by the exit.",
     cols: 18,
     rows: 12,
     // Splitting a wave over two doors makes it harder than one carpet (tuned with the simulator).
     hp: 0.9,
-    // The trunk: from the desk down, along, up the right-hand side and out of the east door.
+    // The trunk: from the compass (where north and west meet) down, along, up the right-hand side and out of
+    // the east door. (14, 7) is where the back stairs join it: a second meeting point, close to the exit.
     corners: [
       [10, 8],
       [10, 10],
       [14, 10],
       [14, 3],
       [17, 3],
+      [14, 7],
     ],
     doors: [
       { id: "north", corners: [[5, 0], [5, 4], [10, 4], [10, 8]] },
       { id: "west", corners: [[0, 8], [10, 8]] },
-      { id: "stairs", corners: [[2, 11], [2, 10], [10, 10]], from: 11 },
+      // The back stairs come up by the east wall, a few tiles below the exit, and join the trunk's last climb.
+      { id: "stairs", corners: [[17, 9], [16, 9], [16, 7], [14, 7]], from: 11 },
     ],
-    desk: [10, 8],
+    // The round desk stands on the floor beside the compass, not on the carpet (nothing can be built on it).
+    desk: [9, 9],
+    compass: [10, 8],
     michaelCannon: [7, 2],
     // Shelves round the walls and a reading table or two: about 13% of the floor. Kept clear: the pocket
-    // (cols 11-13, rows 4-9), row 9 between the west carpet and the stairs, and a tile beside each door.
+    // (cols 11-13, rows 4-9), which watches both meeting points, and a tile beside each door.
     shelves: [
       [0, 0], [1, 0], [2, 0], [3, 0], [8, 0], [9, 0], [12, 0], [13, 0], [16, 0], [17, 0],
       [6, 11], [7, 11], [8, 11], [9, 11], [12, 11], [13, 11], [16, 11], [17, 11],
       [17, 6], [17, 7], [17, 8], [0, 2], [0, 3], [0, 4],
-      [7, 6], [8, 6], [2, 6], [3, 6], [16, 1],
+      [7, 6], [8, 6], [2, 6], [3, 6], [16, 1], [2, 10], [3, 10],
     ],
   },
   halldoors: {
