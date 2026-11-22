@@ -1114,8 +1114,14 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     if (t.kind === "bombard") {
       const stage = roostStageFor(t.grown ?? 0);
       const img = art[`roost${stage}` as SpriteName];
-      if (ready(img)) blitFit(ctx, img, t.x, t.y - 4 - stage * 3, 52 + stage * 10, 52 + stage * 10);
-      else drawRoost(ctx, t.x, t.y, stage, t.aim, world.anim);
+      const size = 52 + stage * 10;
+      const cy = t.y - 4 - stage * 3;
+      if (ready(img)) {
+        // Its stage's strip (the egg's is "bombard"), base where the still painting's would be; else the painting.
+        const h = Math.min(size, size / (img.naturalWidth / img.naturalHeight));
+        const key = (stage === 0 ? "bombard" : `roost${stage}`) as TowerKind;
+        if (!drawStrip(ctx, key, img, t.x, cy + h / 2, size, size, world.anim, motionOf(t, world.anim))) blitFit(ctx, img, t.x, cy, size, size);
+      } else drawRoost(ctx, t.x, t.y, stage, t.aim, world.anim);
       if (t.id === world.hud.selected) ring(ctx, t.x, t.y);
       continue;
     }

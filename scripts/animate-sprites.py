@@ -77,6 +77,8 @@ TOWER_PAINTINGS = {
     "mimic": "sig-mimic.webp", "lectern": "sig-lectern.webp", "quackliber": "sig-quackliber.webp",
     "geese": "sig-geese.webp", "pamphlet": "sig-pamphlet.webp", "driver": "sig-driver.webp",
     "lionblade": "sig-lionblade.webp", "gourdgate": "sig-dragongate.webp", "bombard": "sig-roost-egg.webp",
+    # The Dragon's Roost grows: "bombard" is its egg, roost1-3 the whelp, the drake and the Great Dragon.
+    "roost1": "sig-roost-whelp.webp", "roost2": "sig-roost-drake.webp", "roost3": "sig-roost-dragon.webp",
     "boomerang": "trick-boomerang.webp", "orrery": "trick-orrery.webp", "plane": "trick-plane.webp",
     "quill": "trick-quill.webp", "globe": "trick-globe.webp",
     "underlings": "sig-underlings.webp", "spire": "sig-spire.webp",
