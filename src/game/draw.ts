@@ -20,6 +20,7 @@ import { BUILD_ANIM, BUILD_FRAME, BUILD_SHEETS } from "./buildAnims.ts";
 import { ENEMY_ANIM, ENEMY_FRAME, ENEMY_SHEETS } from "./enemyAnims.ts";
 import { POP_ANIM, POP_FRAME, POP_SHEETS } from "./popAnims.ts";
 import { TOWER_ANIM, TOWER_FRAME, TOWER_SHEETS } from "./towerAnims.ts";
+import { drawBasement, drawBasementFloor, drawBasementFruit, drawSoaked } from "./drawBasement.ts";
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
 /** The picture for a Coming up chip: the enemy's own sprite (its look, as the board draws it). */
@@ -53,6 +54,9 @@ const SPRITE_SRC = {
   // The Compact Stacks' room fruit and props (drawn by code until the art exists).
   wormgourd: asset("sprites/fruit-wormgourd.webp"),
   wormqueen: asset("sprites/fruit-wormqueen.webp"),
+  // The Flooded Basement's room fruit (drawn by code over a melon and a pumpkin until the art exists).
+  watermelon: asset("sprites/fruit-watermelon.webp"),
+  draingourd: asset("sprites/fruit-draingourd.webp"),
   cocoon: asset("sprites/prop-cocoon.webp"),
   floorCompact: asset("sprites/tile-floor-compact.webp"),
   shelfUnit: asset("sprites/prop-shelf-unit.webp"),
@@ -439,7 +443,10 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     compact: art.floorCompact,
   } as Partial<Record<string, HTMLImageElement>>)[world.hud.map];
   const floor = ready(ownFloor) ? ownFloor : art.floor;
-  if (world.hud.map === "compact" && !ready(ownFloor)) {
+  if (world.hud.map === "basement") {
+    // Low flagstones, middle flags and high pallets, by code until the painted tiles exist.
+    drawBasementFloor(ctx, world);
+  } else if (world.hud.map === "compact" && !ready(ownFloor)) {
     // Concrete with steel tracks under each bay, by code until the painted tile exists.
     ctx.fillStyle = "#57554f";
     ctx.fillRect(0, 0, world.w, world.h);
@@ -502,6 +509,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
   if (isBand(world)) ctx.clip(bandShape(world.points));
   drawWet(ctx, world);
   ctx.restore();
+  drawBasement(ctx, world);
   drawBell(ctx, world);
   drawFountainProp(ctx, world, art);
   drawDrops(ctx, world);
@@ -836,6 +844,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         tint: sl?.body ? { body: sl.body, alpha: bodyTintAlpha(sl, world.anim) } : null,
         motion: enemyMotion(e, world.anim, (sl ? sl.motion.bob : 1) * (e.boss ? 0.6 : 1)),
       });
+    if (!painted && (e.native === "watermelon" || e.native === "draingourd")) drawBasementFruit(ctx, e.native, e.x, e.y, drawnR * 0.8);
     if (sl) drawStatusBody(ctx, se, sl, world.anim, sprite);
     ctx.restore();
     const popKey = shape ? null : painted ? look : e.kind;
@@ -1124,6 +1133,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         ctx.fill();
       }
     }
+    // The Flooded Basement: a tower in the water is half under it and says so.
+    if (world.water > 0) drawSoaked(ctx, world, t);
     // The Compact Stacks: a carpet-side tower whose carpet rolled away is dimmed and says so.
     if (t.idle) {
       ctx.save();
@@ -3277,7 +3288,7 @@ const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108, goose: 46, cat: 46
  * own fruit, then the Siege's geese and cats (the bosses as big as Karl's little brother).
  */
 const LOOK_H = {
-  pit: 50, gall: 34, borrower: 46, express: 48, parcel: 58, sprout: 30, squash: 58, chimer: 48, gargoyle: 56, wormgourd: 50, wormqueen: 64,
+  pit: 50, gall: 34, borrower: 46, express: 48, parcel: 58, sprout: 30, squash: 58, chimer: 48, gargoyle: 56, wormgourd: 50, wormqueen: 64, watermelon: 46, draingourd: 58,
   honker: 46, gosling: 26, matriarch: 88, whiskers: 44, boxcat: 48, para: 46, tank: 66, general: 88,
 } as const;
 type Look = keyof typeof LOOK_H;

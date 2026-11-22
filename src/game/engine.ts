@@ -8,7 +8,7 @@ import {
   ASSER_VALUES, carpetAlong,
   nearestOnCarpet, gateStrip, VAEL_VALUES, VAEL_LADDER, vaelLockLine, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
   assignExits, combineRoutes, EXIT_NAME, HALL, type Exit, type ExitId,
-  pathFor, trackCells, type Bay,
+  pathFor, trackCells, type Bay, BASEMENT, deepWave, waterFor, underWater, heightTiles, type Height, ROOM_TOWERS, ROOM_TOWER_KINDS,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
@@ -115,6 +115,8 @@ interface Enemy {
   freeze: number;
   /** Foot of the Law: seconds left pinned under the foot. Unlike freeze, husks feel it. */
   stomped?: number;
+  /** The Flooded Basement: this fruit has been iced in once (the note floats only the first time). */
+  icedIn?: boolean;
   guard: Guard;
   shell: number;
   split: boolean;
@@ -667,6 +669,9 @@ export interface Hud {
   aisles: number[];
   cranked: boolean;
   jammed: number[];
+  /** The Flooded Basement: the water level now (0–3, a copy of World.water), and whether a Drain Gourd has plugged the drain (the water stays at 1 through the break). */
+  water: number;
+  plugged: boolean;
   /** Tag Team (Quackarot's perk): the line between two Quack-Libers slows fruit, so it's drawn crackling. */
   tagTeam: boolean;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
@@ -930,7 +935,15 @@ function writeBest(n: number, key = BEST_KEY) {
 }
 
 /** Sound cues the engine raises; the UI drains and plays them. Ignored headless. */
-export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak" | "rumble";
+export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak" | "rumble" | "slosh";
+
+/** The Flooded Basement: is this tile under water now? A Sump Pump keeps its own tile and the eight round it dry. */
+export function floodedTile(world: Pick<World, "water" | "heights" | "towers">, c: number, r: number) {
+  if (world.water <= 0) return false;
+  const h = world.heights.get(`${c},${r}`);
+  if (!h || !underWater(h, world.water)) return false;
+  return !world.towers.some((t) => t.kind === "pump" && Math.abs(t.c - c) <= 1 && Math.abs(t.r - r) <= 1);
+}
 
 /** What turning a crank would do (api.crankPreview): whether it can turn, the path length before and after, the carpet-side towers that would go idle, and the carpet tiles the towers reach before and after. */
 export interface CrankPreview {
@@ -1011,6 +1024,14 @@ export interface World {
   cocoons: Array<{ x: number; y: number; wp: number; route?: number; left: number }>;
   /** A crank turning (for the slide): the bay, seconds left, and which way the aisle moved. */
   crankAnim: { bay: number; left: number; dir: number } | null;
+  /** The Flooded Basement: each low or middle tile's height ("c,r"; others are high; empty on other boards). */
+  heights: Map<string, Height>;
+  /** The Flooded Basement's water level: 0 dry, 1 the low floor floods, 2 deeper, 3 the middle floor floods too. */
+  water: number;
+  /** Seconds left of the water spreading after it rises (drawing). */
+  waterRise: number;
+  /** Ice sheets a Freeze hit made on the water: where, how wide, seconds left, and how long each fruit has been held (bosses let go early). */
+  ice: Array<{ x: number; y: number; r: number; left: number; max: number; held: Map<number, number> }>;
   /** The crank under the pointer in prep, and what turning it would do (drawn as a ghost path and a note). */
   crankHint: (CrankPreview & { bay: number }) | null;
   /** Board size in cells and world pixels (set with the map). */
@@ -1241,6 +1262,8 @@ export function createWorld(
       aisles: [],
       cranked: false,
       jammed: [],
+      water: 0,
+      plugged: false,
       tagTeam: false,
       geeseSpent: false,
       copycatPlaced: false,
@@ -1309,6 +1332,10 @@ export function createWorld(
     cocoons: [],
     crankAnim: null,
     crankHint: null,
+    heights: new Map(),
+    water: 0,
+    waterRise: 0,
+    ice: [],
     exits: [],
     routeDoor: [0],
     routeExit: [],
@@ -2179,7 +2206,7 @@ export function createWorld(
     const reach = CANNON.quackAura * fx.auraReach;
     let best = 1;
     for (const q of world.towers) {
-      if (q.kind !== "quackliber") continue;
+      if (q.kind !== "quackliber" || soaked(q)) continue;
       if ((q.x - tower.x) ** 2 + (q.y - tower.y) ** 2 > reach * reach) continue;
       best = Math.max(best, (CANNON.quackHaste + fx.auraHaste) * ((q.rally ?? 0) > 0 ? CANNON.quackRally : 1));
     }
@@ -2225,11 +2252,80 @@ export function createWorld(
   /** The floor tile a fruit stands on (belt, stairs or bed), if any. */
   const floorAt = (e: Enemy) => world.floors.get(`${Math.floor(e.x / CELL)},${Math.floor(e.y / CELL)}`);
   const tileOf = (e: { x: number; y: number }) => `${Math.floor(e.x / CELL)},${Math.floor(e.y / CELL)}`;
+  /** The Flooded Basement: is this tile under water now (a Sump Pump keeps its own tile and the eight round it dry)? */
+  const flooded = (c: number, r: number) => floodedTile(world, c, r);
+  const floodedAt = (x: number, y: number) => flooded(Math.floor(x / CELL), Math.floor(y / CELL));
+  /** A tower standing in the water: it doesn't act until its tile is dry again. */
+  const soaked = (t: Tower) => world.water > 0 && flooded(t.c, t.r);
+  /** Wading: fruit in water walk slower (bosses less so); the Water Melon swims faster. */
+  const wade = (e: Enemy) => (!floodedAt(e.x, e.y) ? 1 : e.native === "watermelon" ? BASEMENT.snorkel : e.boss ? BASEMENT.wadeSlowBoss : BASEMENT.wadeSlow);
   /** Express Corn on a belt: nothing slows or stops it, and the belt carries it faster. */
   const expressOnBelt = (e: Enemy) => e.native === "express" && floorAt(e)?.kind === "belt";
   /** A fruit's floor pace, walking back (`back`) or on. */
   const paceOf = (e: Enemy, back: boolean) =>
-    expressOnBelt(e) ? (back ? 1 / NATIVES.expressBelt : NATIVES.expressBelt) : floorPace(floorAt(e)?.kind, back);
+    (expressOnBelt(e) ? (back ? 1 / NATIVES.expressBelt : NATIVES.expressBelt) : floorPace(floorAt(e)?.kind, back)) * (world.heights.size ? wade(e) : 1);
+  /** The Flooded Basement: whether this wave reaches level 3, the level it started at (a plugged drain: 1), and whether a Drain Gourd got through. */
+  let waterDeep = false;
+  let waterStart = 0;
+  let drainPlugged = false;
+  /** Raise the water (it never falls during a wave). */
+  const raiseWater = (level: number) => {
+    if (level <= world.water) return;
+    world.water = level;
+    world.hud.water = level;
+    world.waterRise = BASEMENT.riseTime;
+    cue("slosh");
+    world.hud.log = level >= 3 ? "The water's rising. The middle floor's going under." : "The water's rising.";
+    notify();
+  };
+  /** The water during a wave: it rises with the share of the wave's fruit in, puts fires out, and its ice holds fruit fast. */
+  const tickWater = (dt: number) => {
+    raiseWater(waterFor(queue.length ? queueCursor / queue.length : 1, waterDeep, waterStart));
+    world.waterRise = Math.max(0, world.waterRise - dt);
+    world.runLog.towerTime += world.towers.length * dt;
+    if (world.water > 0) world.runLog.soakedTime += world.towers.filter(soaked).length * dt;
+    if (world.water > 0) {
+      // Fire fizzles: patches on water go out, and a burning fruit that wades in stops burning.
+      if (world.pools.some((p) => p.hot)) world.pools = world.pools.filter((p) => !(p.hot && floodedAt(p.x, p.y)));
+      for (const e of world.enemies) if (e.hp > 0 && (e.burnT ?? 0) > 0 && floodedAt(e.x, e.y)) e.burnT = 0;
+    }
+    for (const ice of world.ice) {
+      ice.left -= dt;
+      for (const e of world.enemies) {
+        if (e.hp <= 0 || Math.hypot(e.x - ice.x, e.y - ice.y) > ice.r) continue;
+        const held = (ice.held.get(e.id) ?? 0) + dt;
+        ice.held.set(e.id, held);
+        if (e.boss && held > BASEMENT.iceHoldBoss) continue;
+        e.stomped = Math.max(e.stomped ?? 0, dt * 1.5);
+        if (!e.icedIn) {
+          e.icedIn = true;
+          float(e.x, e.y - 22, "iced in", "#cfe8f5");
+        }
+      }
+    }
+    if (world.ice.length) world.ice = world.ice.filter((i) => i.left > 0);
+  };
+  /** A Freeze hit on a fruit in water: the water round it freezes (a sheet already there just lasts longer). */
+  const freezeWater = (x: number, y: number) => {
+    const r = CELL * BASEMENT.iceRadius;
+    const near = world.ice.find((i) => Math.hypot(i.x - x, i.y - y) < r / 2);
+    if (near) near.left = near.max;
+    else world.ice.push({ x, y, r, left: BASEMENT.iceTime, max: BASEMENT.iceTime, held: new Map() });
+  };
+  /** Fire on ice melts it at once. */
+  const meltIce = (x: number, y: number) => {
+    if (world.ice.length) world.ice = world.ice.filter((i) => Math.hypot(i.x - x, i.y - y) > i.r);
+  };
+  /** The end of a wave: the water drains, unless a Drain Gourd got through (it stays at 1 through the break and the next wave). */
+  const drainWater = () => {
+    const plugged = drainPlugged || world.enemies.some((e) => e.native === "draingourd" && e.hp > 0);
+    drainPlugged = false;
+    world.ice = [];
+    world.hud.plugged = plugged;
+    world.water = plugged ? 1 : 0;
+    world.hud.water = world.water;
+    if (plugged) world.runLog.plugs += 1;
+  };
   /** Gargoyle Gourd: wide awake while the clock silences the towers. */
   const awake = (e: Enemy) => (e.native === "gargoyle" && (world.bell?.quiet ?? 0) > 0 ? NATIVES.gargoyleAwake : 1);
   /** The Bell Tower: count down to the strike during a wave; when it strikes, every tower goes quiet for a moment. */
@@ -2305,7 +2401,7 @@ export function createWorld(
     // Reading Lamp: the best lamp in reach boosts this cannon (lamps do not stack).
     let boost: { range: number; pace: number } | null = null;
     for (const lamp of world.towers) {
-      if (lamp.kind !== "lantern" || lamp === tower) continue;
+      if (lamp.kind !== "lantern" || lamp === tower || soaked(lamp)) continue;
       const reach = towerReadout(world.hud.hero, "lantern", lamp.mods, world.hud.upgrades).range;
       if ((lamp.x - tower.x) ** 2 + (lamp.y - tower.y) ** 2 > reach * reach) continue;
       const bright = lamp.mods.includes("bright");
@@ -2363,7 +2459,10 @@ export function createWorld(
     return world.hud.hero === "michael" && BIG_KINDS.includes(world.hud.build) ? hoardSplit(full).fromSeeds : full;
   };
   /** A keeper tower can be built only by its keeper, and only one of each at a time. */
+  /** A room tower (the Sump Pump) can only be built on its own map. */
+  const roomLocked = (kind: TowerKind) => ROOM_TOWER_KINDS.includes(kind) && !(ROOM_TOWERS[world.hud.map] ?? []).includes(kind);
   const signatureBlocked = (kind: TowerKind) =>
+    roomLocked(kind) ||
     (kind === "geese" && world.hud.geeseSpent) ||
     (kind === "copycat" && world.hud.copycatPlaced) ||
     isSignature(kind) &&
@@ -2434,9 +2533,11 @@ export function createWorld(
     const tuned = tune();
     const hp = Math.round(st.hp * bonusHp * tuned.hp * (BOARDS[world.hud.map].hp ?? 1));
     const chute = Boolean(flags.chute) && !flags.at;
-    // It walks in from a tile before its entrance: off the left edge, or (a door) back the way its first straight runs.
-    const inX = world.doors.length && own.length > 1 ? Math.sign(own[1].x - start.x) : 1;
-    const inY = world.doors.length && own.length > 1 ? Math.sign(own[1].y - start.y) : 0;
+    // It walks in from a tile before its entrance: off the left edge, or (a door, or a board that starts off the
+    // left edge, like the Flooded Basement's cellar stairs) back the way its first straight runs.
+    const along = (world.doors.length > 0 || start.x > CELL) && own.length > 1;
+    const inX = along ? Math.sign(own[1].x - start.x) : 1;
+    const inY = along ? Math.sign(own[1].y - start.y) : 0;
     let x = flags.at?.x ?? start.x - CELL * inX;
     let y = flags.at?.y ?? start.y - CELL * inY;
     let wp = flags.at?.wp ?? 0;
@@ -2622,6 +2723,7 @@ export function createWorld(
   const exitOfRoute = (route?: number) => world.exits[world.routeExit[route ?? 0] ?? -1];
   /** A fruit gets out: what its exit costs (the Kitchens take seeds while the purse can pay; else stacks). */
   const leakAt = (e: Enemy) => {
+    if (e.native === "draingourd") drainPlugged = true;
     const exit = exitOfRoute(e.route);
     if (exit) world.runLog.leaksByExit[exit.id] = (world.runLog.leaksByExit[exit.id] ?? 0) + 1;
     if (exit?.cost === "seeds" && world.hud.seeds >= HALL.kitchenSeeds) {
@@ -3123,6 +3225,12 @@ export function createWorld(
     world.crankHint = null;
     world.trackCells = new Set();
     legCache = null;
+    world.heights = heightTiles(map);
+    world.water = 0;
+    world.waterRise = 0;
+    world.ice = [];
+    world.hud.water = 0;
+    world.hud.plugged = false;
     world.floors = floorTiles(map);
     world.bell = BOARDS[map].bell ? { next: FLOOR.bellEvery, quiet: 0 } : null;
     world.vines = new Map();
@@ -3154,6 +3262,10 @@ export function createWorld(
     world.towers = [];
     world.shots = [];
     world.pools = [];
+    world.ice = [];
+    world.water = 0;
+    world.waterRise = 0;
+    drainPlugged = false;
     world.sparks = [];
     world.lines = [];
     world.rings = [];
@@ -3236,6 +3348,8 @@ export function createWorld(
       golden: 0,
       shutExit: null,
       aisles: BOARDS[world.hud.map].bays?.map((b) => b.aisles[1]) ?? [],
+      water: 0,
+      plugged: false,
       cranked: false,
       jammed: [],
       tagTeam: false,
@@ -3347,10 +3461,19 @@ export function createWorld(
     r += extra;
     if (cling) life += 1.2;
     if (wetAt(x, y)) life *= CANNON.wetPuddle;
+    if (world.heights.size && floodedAt(x, y)) r *= BASEMENT.puddleWide;
     world.pools.push({ x, y, r, life, max: life, hot: false, burn: 0, owner: credit ?? undefined });
   };
 
   const addFire = (x: number, y: number, life = 2.4, burn = 22) => {
+    if (world.heights.size) {
+      // The Flooded Basement: fire melts any ice it lands on, and fizzles out on water.
+      meltIce(x, y);
+      if (floodedAt(x, y)) {
+        world.rings.push({ x, y, r: 18, life: 0.4, max: 0.4, color: "220,225,230" });
+        return;
+      }
+    }
     if (wetAt(x, y)) {
       life *= CANNON.wetFire;
       burn *= CANNON.wetFire;
@@ -4181,6 +4304,8 @@ export function createWorld(
       e.freeze = Math.max(e.freeze, e.guard === "damp" ? hold * 1.4 : hold);
       e.stunBy = undefined;
       float(e.x, e.y - 18, "frozen", "#d5e4ee");
+      // The Flooded Basement: a Freeze hit on a fruit in water freezes the water round it.
+      if (world.heights.size && floodedAt(e.x, e.y)) freezeWater(e.x, e.y);
       if (COMBO.on) {
         // Fire, then ice: it puts a fire out. Then it gains its frost as usual.
         douse(e);
@@ -4194,7 +4319,7 @@ export function createWorld(
       world.pools.push({
         x: e.x,
         y: e.y,
-        r: Math.round((CANNON.cauldronRadius + (has("sticky") ? 12 : 0)) * fx.poolWide),
+        r: Math.round((CANNON.cauldronRadius + (has("sticky") ? 12 : 0)) * fx.poolWide * (world.heights.size && floodedAt(e.x, e.y) ? BASEMENT.puddleWide : 1)),
         life,
         max: life,
         hot: false,
@@ -4264,7 +4389,10 @@ export function createWorld(
         if (other.id === e.id || other.hp <= 0) continue;
         const d = Math.hypot(other.x - e.x, other.y - e.y);
         // Ice conducts: the spark jumps farther to a fruit with frost.
-        const reach = COMBO.on && (other.frost ?? 0) >= 1 ? 92 * COMBO.sparkFrost : 92;
+        const reach =
+          (COMBO.on && (other.frost ?? 0) >= 1 ? 92 * COMBO.sparkFrost : 92) *
+          // The Flooded Basement: water carries the spark farther between two fruit both in it.
+          (world.heights.size && floodedAt(e.x, e.y) && floodedAt(other.x, other.y) ? BASEMENT.chainReach : 1);
         if (d < bestD && d < reach) {
           bestD = d;
           best = other;
@@ -4382,7 +4510,7 @@ export function createWorld(
     // Interest is worked out on the seeds held before any heap pays, so heaps don't compound.
     const interest = has("interest") ? Math.min(CANNON.interestCap, Math.floor(world.hud.seeds * CANNON.interestRate)) : 0;
     for (const heap of world.towers) {
-      if (heap.kind !== "compost") continue;
+      if (heap.kind !== "compost" || soaked(heap)) continue;
       const pay =
         Math.round(CANNON.compostSeeds * (heap.mods.includes("loam") ? 1.5 : 1)) + (has("interest") ? CANNON.interestBase + interest : 0);
       world.hud.seeds += pay;
@@ -4461,10 +4589,11 @@ export function createWorld(
     let spilled = false;
     for (const flask of world.towers) if (flask.kind === "flask" && spillFlask(flask)) spilled = true;
     for (const desk of world.towers) {
-      if (desk.kind !== "desk" || desk.idle) continue;
+      if (desk.kind !== "desk" || desk.idle || soaked(desk)) continue;
       desk.bank = (desk.bank ?? 0) + CANNON.deskBank;
       float(desk.x, desk.y - 50, `+${CANNON.deskBank}`, "#e6c36a");
     }
+    if (world.heights.size) drainWater();
     const beat = nextBeat(cleared, world.hud.night);
     const upcoming = waveAt(endless ? cleared : Math.min(cleared, nightLength(world.hud.night) - 1), world.hud.night);
     if (beat !== "victory") cue("clear");
@@ -4534,6 +4663,7 @@ export function createWorld(
       world.hud.log = `Wave ${cleared} cleared.`;
     }
     if (spilled) world.hud.log = `${world.hud.log} Vaelithra: “That was not in the notes.”`;
+    if (world.hud.plugged) world.hud.log = `${world.hud.log} A Drain Gourd's plugged the drain.`;
     if (lectureLine) world.hud.log = `${world.hud.log} ${lectureLine}`;
     if (mendLine) world.hud.log = `${world.hud.log} ${mendLine}`;
     // A board with doors: a door opening in two waves is heard first; then it opens.
@@ -4577,6 +4707,7 @@ export function createWorld(
         route: q.route,
       });
     }
+    if (world.heights.size) tickWater(dt);
     // Door lamps: a door glows for a moment before its next fruit walks in.
     if (world.doors.length) {
       world.doors.forEach((d) => (d.lit = false));
@@ -4929,6 +5060,8 @@ export function createWorld(
       credit = tower.id;
       // The Compact Stacks: a carpet-side tower whose carpet rolled away waits for it to come back.
       if (tower.idle) continue;
+      // The Flooded Basement: a tower standing in the water waits for it to drop.
+      if (soaked(tower)) continue;
       tower.cd -= dt;
       if (tower.rally) tower.rally = Math.max(0, tower.rally - dt);
       if (PASSIVE.includes(tower.kind)) continue;
@@ -5629,6 +5762,12 @@ export function createWorld(
       if (world.bell) world.bell = { next: FLOOR.bellEvery, quiet: 0 };
       bellRushed = false;
       world.vines = new Map();
+      if (world.heights.size) {
+        waterDeep = deepWave(cleared + 1, world.hud.night === "endless" ? null : nightLength(world.hud.night), world.hud.difficulty);
+        waterStart = world.hud.plugged ? 1 : 0;
+        world.hud.plugged = false;
+        drainPlugged = false;
+      }
       clearSiegeWave();
       world.hud.dropWave = dropsFor(cleared);
       cue(queue.some((q) => q.kind === "karl" || q.siege === "matriarch" || q.siege === "general") ? "boss" : "wave");
@@ -5884,6 +6023,7 @@ export function createWorld(
     chooseBuild(kind: TowerKind) {
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       if (isSignature(kind) && !own(kind)) return;
+      if (roomLocked(kind)) return;
       world.hud.build = kind;
       world.hud.log = vaelLocked(kind) ? vaelLockText(kind) : TOWERS[kind].blurb;
       syncPrice();

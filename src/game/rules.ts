@@ -262,7 +262,9 @@ export type TowerKind =
   | "gourdgate"
   | "bombard"
   | "pamphlet"
-  | "driver";
+  | "driver"
+  // Room towers: only on their own map (see ROOM_TOWERS).
+  | "pump";
 
 /**
  * What the Copycat can copy. Step kinds get the hidden "one step harder" (`mimicstep`); plain kinds
@@ -324,6 +326,17 @@ export const TOWER_GROUPS: TowerGroup[] = [
   { id: "heavy", name: "Heavy", key: "y", kinds: ["press", "organ", "scope"] },
 ];
 
+/**
+ * Room towers: shared towers that only one map offers, at the end of its Support tab (the Flooded Basement's
+ * Sump Pump). They're in no tab of their own, and the Copycat never copies them.
+ */
+export const ROOM_TOWERS: Partial<Record<MapId, TowerKind[]>> = { basement: ["pump"] };
+export const ROOM_TOWER_KINDS: TowerKind[] = Object.values(ROOM_TOWERS).flat();
+/** The towers a tab shows on this map: its own, plus the map's room towers in Support. */
+export function tabKinds(group: TowerGroup, map: MapId): TowerKind[] {
+  return group.id === "support" ? [...group.kinds, ...(ROOM_TOWERS[map] ?? [])] : group.kinds;
+}
+
 /** The keeper's own tab: their signature tower, plus any extras. */
 export function keeperGroup(kinds: TowerKind[]): TowerGroup {
   return { id: "keeper", name: "Keeper", key: "r", kinds };
@@ -341,6 +354,7 @@ export function groupsFor(hero: HeroId | null): TowerGroup[] {
 export function groupOf(kind: TowerKind): TowerGroup {
   const keeper = keeperOf(kind);
   if (keeper) return keeperGroup(KEEPER_TOWERS[keeper]);
+  if (ROOM_TOWER_KINDS.includes(kind)) return TOWER_GROUPS.find((g) => g.id === "support") ?? TOWER_GROUPS[0];
   return TOWER_GROUPS.find((g) => g.kinds.includes(kind)) ?? TOWER_GROUPS[0];
 }
 
@@ -360,6 +374,7 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   geese: "utility",
   pamphlet: "utility",
   driver: "utility",
+  pump: "utility",
   lionblade: "precision",
   underlings: "alchemy",
   spire: "utility",
@@ -487,7 +502,7 @@ export const HEAVY_WAVE = 6;
 export const HEAVY_SEEDS = 200;
 
 /** Cannons that never shoot. */
-export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern", "desk"];
+export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern", "desk", "pump"];
 
 /**
  * What an aiming tower picks among the fruit in reach. Ties go to First, so a mode that can't tell
@@ -573,6 +588,7 @@ export const DEFAULT_TARGET: Record<TowerKind, { default: TargetMode; modes: Tar
   bombard: null,
   pamphlet: null,
   driver: null,
+  pump: null,
 };
 
 /** Whole-board range: more than the diagonal of the largest board (22 x 14 cells is about 1250 px). */
@@ -810,6 +826,12 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     blurb: "Quackarot's third. One bad take, and everything on the straight beside it gets ratioed. When the front fruit reaches that straight's corner with at least one more still on it, every fruit on the straight takes one big hit. Then it waits for the next group. Fruit that already turned the corner are safe.",
     cost: 70,
     role: "Line blast",
+  },
+  pump: {
+    name: "Sump Pump",
+    blurb: "The Flooded Basement only. No shot. Keeps its own tile and the eight round it dry, however high the water gets, so towers there keep working.",
+    cost: 90,
+    role: "Keeps dry",
   },
   driver: {
     name: "Instant Quackmission",
@@ -1173,7 +1195,7 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   if (kind === "lantern") {
     return { dmg: 0, range: CANNON.lanternRadius + (mods.includes("wick") ? 30 : 0), interval: 0 };
   }
-  if (kind === "compost") return { dmg: 0, range: 0, interval: 0 };
+  if (kind === "compost" || kind === "pump") return { dmg: 0, range: 0, interval: 0 };
   if (kind === "desk") return { dmg: 0, range: CANNON.deskReach, interval: 0 };
   if (kind === "lectern") return { dmg: 0, range: CANNON.lecternRadius, interval: 0 };
   const profile = PROFILE[kind];
@@ -1491,7 +1513,8 @@ export type MapId =
   | "courtyard"
   | "rotunda"
   | "halldoors"
-  | "compact";
+  | "compact"
+  | "basement";
 
 /** A board with more than one way in: each door's carpet runs to where it joins the board's own carpet (the trunk). */
 export type DoorId = "north" | "west" | "stairs" | "lift";
@@ -1588,6 +1611,99 @@ export function floorPace(kind: FloorKind | undefined, back: boolean) {
   const fwd = kind === "belt" ? FLOOR.belt : kind === "up" ? FLOOR.up : kind === "down" ? FLOOR.down : 1;
   return back ? 1 / fwd : fwd;
 }
+
+/**
+ * The Flooded Basement: a burst pipe floods the floor during each wave. Tiles are low, middle or high
+ * (`Board.heights`); the water (`World.water`, 0–3) rises with the share of the wave's fruit that have come in,
+ * and drains at the end of the wave. Every number here is tuned with the simulator.
+ */
+export const BASEMENT = {
+  /** Share of the wave's fruit spawned when the water reaches level 1 (the low floor floods), then level 2 (deeper). */
+  rise: [0.25, 0.6] as const,
+  /**
+   * On a level-3 wave (see `deepOn`) the water goes on to level 3 (the middle floor floods too) at this share. The
+   * brief's every 5th wave at 60% lost nearly every night on those waves, so they're rarer and the flood comes at 95%
+   * (85% still cost the human-like bot most of its Melongeddon nights on those waves: 35%, against the Rotunda's 68%).
+   */
+  deepRise: 0.95,
+  /**
+   * Which waves reach level 3 on each difficulty: null none (Story), 0 only the night's last (Normal), or every this
+   * many-th wave and the last.
+   */
+  deepOn: { easy: null, normal: 0, hard: 10, overdue: 10 } as Record<Difficulty, number | null>,
+  /** Fruit pace on a flooded tile (bosses wade better). */
+  wadeSlow: 0.7,
+  wadeSlowBoss: 0.85,
+  /** The Water Melon's pace on a flooded tile (it swims). */
+  snorkel: 1.3,
+  /** A Freeze hit on a fruit in water freezes the water round it: seconds, reach in tiles, and how long a boss is held. */
+  iceTime: 3,
+  iceRadius: 1,
+  iceHoldBoss: 0.5,
+  /** A Still or Cauldron puddle on a flooded tile is this much wider. */
+  puddleWide: 1.5,
+  /** The Electric spark reaches this much farther between two fruit that are both in water. */
+  chainReach: 1.5,
+  /** The Sump Pump's price (the Flooded Basement's own Support tower). */
+  pumpCost: 90,
+  /** Seconds the rising water takes to spread (drawing only). */
+  riseTime: 0.25,
+};
+export type Height = "low" | "mid" | "high";
+/** Does this wave (1-based) reach level 3? As `deepOn` says for the difficulty (`last`: the night's last wave, null on Endless). */
+export function deepWave(wave: number, last: number | null, difficulty: Difficulty = "normal") {
+  const every = BASEMENT.deepOn[difficulty];
+  if (every == null) return false;
+  return wave === last || (every > 0 && wave % every === 0);
+}
+/** The water level once `share` of a wave's fruit have come in (`start`: the level it started at). */
+export function waterFor(share: number, deep: boolean, start = 0) {
+  const rose = deep && share >= BASEMENT.deepRise ? 3 : share >= BASEMENT.rise[1] ? 2 : share >= BASEMENT.rise[0] ? 1 : 0;
+  return Math.max(start, rose);
+}
+/** Is a tile of this height under water at this level? */
+export function underWater(height: Height, level: number) {
+  return (height === "low" && level >= 1) || (height === "mid" && level >= 3);
+}
+/** A board's floor heights by "c,r" (tiles not listed are high; boards without heights have none). */
+export function heightTiles(map: MapId): Map<string, Height> {
+  const out = new Map<string, Height>();
+  const h = BOARDS[map].heights;
+  if (!h) return out;
+  for (const [c, r] of h.mid) out.set(`${c},${r}`, "mid");
+  for (const [c, r] of h.low) out.set(`${c},${r}`, "low");
+  return out;
+}
+/**
+ * The Flooded Basement's floor: in the middle of the room (cols 2–14, rows 2–11) the carpet and every tile
+ * touching it are low, a few pallets of high floor sit in the corners and along the walls (all at least two
+ * tiles from the carpet), and everything else is the middle floor round the low ground. (A low floor over the
+ * whole middle drowned nearly every useful tile: the simulator won 0% of nights.)
+ */
+function basementHeights(corners: Array<[number, number]>): NonNullable<Board["heights"]> {
+  const low: Array<[number, number]> = [];
+  const mid: Array<[number, number]> = [];
+  const carpet: Array<[number, number]> = [];
+  for (let i = 0; i < corners.length - 1; i++) {
+    const [c0, r0] = corners[i];
+    const [c1, r1] = corners[i + 1];
+    for (let k = 0; k <= Math.max(Math.abs(c1 - c0), Math.abs(r1 - r0)); k++) carpet.push([c0 + Math.sign(c1 - c0) * k, r0 + Math.sign(r1 - r0) * k]);
+  }
+  const touches = (c: number, r: number) => carpet.some(([a, b]) => Math.abs(a - c) <= 1 && Math.abs(b - r) <= 1);
+  const pallets: Array<[number, number, number, number]> = [
+    [0, 2, 0, 1], // top left, under the burst pipe
+    [16, 17, 5, 6], // east wall
+    [0, 1, 6, 7], // west wall
+    [16, 17, 9, 11], // bottom right
+  ];
+  const high = (c: number, r: number) => pallets.some(([c0, c1, r0, r1]) => c >= c0 && c <= c1 && r >= r0 && r <= r1);
+  for (let c = 0; c < 18; c++)
+    for (let r = 0; r < 12; r++) {
+      if (c >= 2 && c <= 14 && r >= 2 && r <= 11 && touches(c, r)) low.push([c, r]);
+      else if (!high(c, r)) mid.push([c, r]);
+    }
+  return { low, mid };
+}
 export type NightId = "midnight" | "overflow" | "siege" | "endless";
 
 export interface Board {
@@ -1615,6 +1731,11 @@ export interface Board {
   shelves?: Array<[number, number]>;
   /** Belts, stairs and growth beds on the carpet (see FloorKind). */
   floors?: FloorRun[];
+  /** The Flooded Basement: low and middle floor tiles (every other tile is high). The water floods them (see BASEMENT). */
+  heights?: { low: Array<[number, number]>; mid: Array<[number, number]> };
+  /** The Flooded Basement's painted water gauge and burst pipe (shelf cells drawn as those). */
+  gauge?: [number, number];
+  pipe?: [number, number];
   /** Damp air: burning does 45% less (as on the Overflow). */
   damp?: boolean;
   /** The Bell Tower's bell: its top-left cell (it fills a 2×2 block of shelf cells). It strikes during waves and every tower goes quiet. */
@@ -2174,6 +2295,46 @@ export const BOARDS: Record<MapId, Board> = {
       [16, 11], [17, 11], [18, 11], [19, 11], [19, 10],
     ],
   },
+  basement: {
+    id: "basement",
+    name: "The Flooded Basement",
+    blurb: "A burst pipe in the cellar. The water rises every wave, and towers standing in it go quiet.",
+    cols: 18,
+    rows: 12,
+    // Simulator (easy/normal/hard/overdue, with the water as tuned in BASEMENT): hp 1 won 52/40/7/1% with level 3
+    // every 10th wave at 60%; 0.6 with level 3 late, none on Story and only on the last wave on Normal: 95/82/17/11
+    // (the Rotunda: 99/88/10/8). The human-like bot: Melongeddon 45%, Overdue 38% (the Rotunda: 68%, 38%).
+    hp: 0.6,
+    // In by the cellar stairs (top right), out by the coal chute (bottom left).
+    corners: [
+      [17, 1],
+      [12, 1],
+      [12, 5],
+      [5, 5],
+      [5, 8],
+      [11, 8],
+      [11, 10],
+      [0, 10],
+    ],
+    heights: basementHeights([
+      [17, 1],
+      [12, 1],
+      [12, 5],
+      [5, 5],
+      [5, 8],
+      [11, 8],
+      [11, 10],
+      [0, 10],
+    ]),
+    natives: { common: "watermelon", elite: "draingourd" },
+    michaelCannon: [15, 2],
+    pipe: [0, 0],
+    gauge: [7, 0],
+    // The pipe, the gauge, and old card catalogues on pallets (none on low ground by the carpet).
+    shelves: [
+      [0, 0], [7, 0], [0, 3], [0, 4], [17, 3], [17, 4], [16, 8], [17, 8], [15, 0], [16, 0],
+    ],
+  },
 };
 
 export function cornerRot(prev: [number, number], corner: [number, number], next: [number, number]) {
@@ -2328,7 +2489,7 @@ export const SIEGE = {
  * The three newest rooms' own fruit. Each is a flag on an ordinary kind (its `base`), swapped into the
  * shared waves on its own room only: a common one from wave 4, an elite from wave 10 (not on Story).
  */
-export type NativeId = "express" | "parcel" | "sprout" | "squash" | "chimer" | "gargoyle" | "wormgourd" | "wormqueen";
+export type NativeId = "express" | "parcel" | "sprout" | "squash" | "chimer" | "gargoyle" | "wormgourd" | "wormqueen" | "watermelon" | "draingourd";
 export const NATIVE_INFO: Record<NativeId, { name: string; base: EnemyKind; line: string }> = {
   express: { name: "Express Corn", base: "corn", line: "Express post. These ones don't stop on the belts." },
   parcel: { name: "Parcel", base: "pumpkin", line: "A parcel. Tear the paper off first: there's something inside." },
@@ -2338,6 +2499,8 @@ export const NATIVE_INFO: Record<NativeId, { name: string; base: EnemyKind; line
   gargoyle: { name: "Gargoyle Gourd", base: "pumpkin", line: "A gargoyle gourd. Stone until the clock strikes, then it runs." },
   wormgourd: { name: "Bookworm Gourd", base: "pumpkin", line: "A bookworm gourd. In the shelves only splash and fire reach it, and it jams the cranks." },
   wormqueen: { name: "Bookworm Queen", base: "pumpkin", line: "The bookworm queen. Burn or splash her cocoon, or two more crawl out." },
+  watermelon: { name: "Water Melon", base: "melon", line: "A melon in a snorkel. The water doesn't slow this one down: it speeds it up." },
+  draingourd: { name: "Drain Gourd", base: "pumpkin", line: "A drain gourd. Let one through, and the water won't go down after the wave." },
 };
 /** Room fruit numbers (tune with the simulator). */
 export const NATIVES = {
@@ -3115,7 +3278,7 @@ export const ROOST_STAGES = ["Egg", "Whelp", "Drake", "Great Dragon"] as const;
  * and every keeper tower can't.
  */
 export function canBeGreat(kind: TowerKind) {
-  return !isSignature(kind) && kind !== "lantern" && kind !== "compost" && kind !== "copycat";
+  return !isSignature(kind) && kind !== "lantern" && kind !== "compost" && kind !== "copycat" && !ROOM_TOWER_KINDS.includes(kind);
 }
 /** How many waves' growth reach each Roost stage: 0 egg, 1 whelp, 2 drake, 3 Great Dragon. */
 export function roostStageFor(grown: number) {

@@ -33,6 +33,10 @@ export interface RunLog {
   leaksByExit: Partial<Record<ExitId, number>>;
   /** The Compact Stacks: cranks turned, and bays a bookworm jammed. */
   cranks: number;
+  /** The Flooded Basement: drains a Drain Gourd plugged, and tower-seconds in waves spent waterlogged out of all tower-seconds in waves. */
+  plugs: number;
+  soakedTime: number;
+  towerTime: number;
   jams: number;
   /** Leaks Ooze absorbed. */
   absorbed: number;
@@ -102,6 +106,9 @@ export function emptyRunLog(): RunLog {
     leaksByDoor: {},
     leaksByExit: {},
     cranks: 0,
+    plugs: 0,
+    soakedTime: 0,
+    towerTime: 0,
     jams: 0,
     absorbed: 0,
     minStacks: Infinity,

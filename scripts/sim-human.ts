@@ -58,7 +58,8 @@ export type Place =
   | "door" // the free tile nearest the door (Mynxi's Desk)
   | "useless" // the tile worst for shooting (the Lectern helps nobody)
   | "flask" // carpet, few free neighbours to spill onto, no Fire cannon beside it
-  | "kit"; // the old bots' own spot finder (Copycat, Post, Quackmission)
+  | "kit" // the old bots' own spot finder (Copycat, Post, Quackmission)
+  | "pump"; // the Flooded Basement: where a Sump Pump keeps the most towers dry
 
 export interface Want {
   kind: TowerKind;
@@ -82,6 +83,8 @@ export interface HumanKit {
   purse: () => number;
   /** The old bots' spot finder, for the Copycat, the Post and the Quackmission. */
   kitCell: (range: number, kind: TowerKind) => Spot | null;
+  /** The Flooded Basement: where a Sump Pump would keep two or more towers dry at the coming wave's top level (null: nowhere). */
+  pumpSpot: () => Spot | null;
   /** Sir Michael's merges and Roost feeding (the old bots' chores). */
   dragonChores: () => void;
   /** Tests: kinds it never builds, keeper extras' cannon thresholds instead of KEEPER_PLAN's, and no Great pairing. */
@@ -244,6 +247,7 @@ export function makeHuman(kit: HumanKit) {
   /** Every free tile's score for `want`; then one of the few best, the way a decent player eyeballs it. */
   const spotFor = (want: Want): Spot | null => {
     const kind = want.kind;
+    if (want.place === "pump") return kit.pumpSpot();
     if (want.place === "kit") {
       const r = api.previewStats(kind).range;
       return kit.kitCell(r >= GLOBAL_RANGE ? 132 : r, kind);
@@ -316,6 +320,12 @@ export function makeHuman(kit: HumanKit) {
             }
           }
         }
+        // The Flooded Basement: a decent player keeps cannons out of the water (high, then middle, then low; a pump's square is dry).
+        if (world.heights.size && v > 0 && !PASSIVE.includes(kind)) {
+          const h = world.heights.get(`${c},${r}`);
+          const pumped = world.towers.some((t) => t.kind === "pump" && Math.abs(t.c - c) <= 1 && Math.abs(t.r - r) <= 1);
+          v *= !h || pumped ? 1 : h === "mid" ? 0.9 : kind === "freeze" ? 0.2 : 0.35;
+        }
         if (v > 0) scored.push({ s: { c, r }, v });
       }
     if (!scored.length) return null;
@@ -345,6 +355,10 @@ export function makeHuman(kit: HumanKit) {
     if (n < 2) return ok({ kind: "melon", place: "cover", why: "opening", urgent: true }) ?? ok({ kind: "mortar", place: "cover", why: "opening", urgent: true });
 
     const answers: Array<Want | null> = [];
+    // The Flooded Basement: a Sump Pump in the low middle once five towers stand, so the low ground by the carpet stays usable.
+    // More pumps wherever one keeps two or more towers dry at the coming wave's top level (the Coming up bar warns of level 3).
+    if (world.heights.size && n >= 5 && !has("pump")) answers.push({ kind: "pump", place: "kit", why: "water" });
+    else if (world.heights.size && world.hud.phase === "prep" && kit.pumpSpot()) answers.push({ kind: "pump", place: "pump", why: "water", urgent: true });
     // Paratroopers about to land where nothing reaches.
     for (const d of now?.drops ?? []) if (!api.dropCovered(d)) answers.push({ kind: "melon", place: "drop", why: "paratroopers", urgent: true, drop: d });
     // Box Cats: only area towers (and splash) can touch them.

@@ -300,6 +300,21 @@ A storeroom of rolling library shelving on steel tracks: two bays of grey-green 
 | `fruit-wormqueen.png` | The **Bookworm Queen**: the same gourd but bigger and longer, five segments, darker green with gold flecks, **spectacles and a small gold crown**. Side view facing right. Transparent background, 512 × 512. |
 | `prop-cocoon.png` | A **cocoon of shredded book pages** bound in silk, pale cream with faint lines of print showing, a little green glow inside. Seen from slightly above. Transparent background, 256 × 256. |
 
+### 2a6. The Flooded Basement (not yet drawn)
+A library cellar with a burst pipe: three floor heights (damp low flagstones, lighter middle flags, wooden pallets for the high floor), water that rises over them during each wave, a painted water gauge, and its own room fruit and Sump Pump. Everything is drawn by code for now. The game already looks for the two fruit files; the floor tiles, water, props and pump need hooking up once they're painted.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `tile-floor-basement-low.png` | **Dark damp cellar flagstones**, uneven grey-green slabs with wet sheen in the cracks, a little moss, a faint pale tide line. Seamless, tileable, no single object in the middle. |
+| `tile-floor-basement-mid.png` | **Lighter dry flagstones**, warm grey, worn smooth, a faint tide line low down, one edge showing a small stone step. Seamless, tileable. |
+| `tile-floor-basement-high.png` | A **wooden shipping pallet** seen from straight above, five pale planks on dark runners, a few nail heads, dry and dusty. Fills the square edge to edge. |
+| `water-overlay.png` | A **tiling, translucent water surface** seen from above: soft blue-green with gentle ripples and a few light glints, mostly see-through so the floor shows under it. Seamless, tileable, transparent background. |
+| `prop-gauge.png` | A **painted water gauge on a stone wall**: a cream board with three black marks numbered 1, 2 and 3 and a brass float marker. Seen straight on. Transparent background, 256 × 256. |
+| `prop-pipe.png` | A **burst iron pipe** coming out of a cellar corner, cracked open with water spraying out in a fan, rusty brackets. Seen from slightly above. Transparent background, 512 × 512. |
+| `fruit-watermelon.png` | A **Water Melon**: a dark green striped melon wearing a **yellow snorkel and a blue diving mask**, cheerful. Side view facing right, like the other fruit. Transparent background, 512 × 512. |
+| `fruit-draingourd.png` | A **Drain Gourd**: a squat **grey gourd** with a **rubber drain plug** on a chain stuck in its top, smug. Side view facing right. Transparent background, 512 × 512. |
+| `sig-pump.png` | A **Sump Pump**: a squat cast-iron hand pump on a small stone plinth, a brass wheel on its side, a green canvas hose coiled beside it. Seen from slightly above, like the other towers. Transparent background, 512 × 512. |
+
 ### 2a4. The Mezzanine's ruined painting (done: `cat-room-mezzanine-ruined.webp`)
 
 Every other Grand Catalogue room has a ruined painting for before it's restored; the Mezzanine's now does too (a cobwebbed gallery with a broken railing and a collapsed spiral stair).

@@ -4,7 +4,7 @@
  * applies it. The React hook in `components/hotkeys.ts` only adds DOM concerns
  * (typing in inputs, focused buttons, preventDefault).
  */
-import { BOARDS, HEROES, fittingsFor, groupOf, groupsFor, type Hud, type UpgradeId, type createWorld } from "./engine.ts";
+import { BOARDS, HEROES, fittingsFor, groupOf, groupsFor, tabKinds, type Hud, type UpgradeId, type createWorld } from "./engine.ts";
 
 type Api = ReturnType<typeof createWorld>;
 
@@ -149,7 +149,7 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
         if (key === "Escape" || key === "b") return { type: "closeShop" };
         if (digit >= 0) return digit < fittingsFor(hud.workshop).length ? { type: "pickMod", index: digit } : { type: "swallow" };
       }
-      const kinds = groupOf(hud.build).kinds;
+      const kinds = tabKinds(groupOf(hud.build), hud.map);
       const tab = groupsFor(hud.hero).findIndex((g) => g.key === key);
       if (digit >= 0 && digit < kinds.length) return { type: "build", index: digit };
       if (tab >= 0) return { type: "tab", index: tab };
@@ -244,7 +244,7 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       return true;
     case "build":
       api.dismissSelection();
-      api.chooseBuild(groupOf(hud.build).kinds[action.index]);
+      api.chooseBuild(tabKinds(groupOf(hud.build), hud.map)[action.index]);
       return true;
     case "tab": {
       const tab = groupsFor(hud.hero)[action.index];

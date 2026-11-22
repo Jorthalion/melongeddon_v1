@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Crown, TriangleAlert } from "lucide-react";
-import { BOARDS, DOOR_LETTER, DOOR_NAME, EXIT_COLOR, EXIT_NAME, NATIVE_INFO, exitCostText, type WaveGroup } from "@/game/engine";
+import { ArrowDown, ArrowUp, Crown, Droplet, TriangleAlert } from "lucide-react";
+import { BOARDS, deepWave, DOOR_LETTER, DOOR_NAME, EXIT_COLOR, EXIT_NAME, NATIVE_INFO, exitCostText, type WaveGroup } from "@/game/engine";
 import { describeEnemy, fruitFromGroup } from "@/game/enemyInfo";
 import { COUNTERS, countersFor, unanswered, type BuildInfo } from "@/game/counters";
 import { enemySpriteSrc } from "@/game/draw";
@@ -121,6 +121,16 @@ export function ComingUpBar({ api }: { api: GameApi }) {
           {between ? `Next · wave ${preview.index + 1}` : "Still to come"}
           <span className="hidden normal-case tracking-normal text-muted sm:inline"> · {preview.name}</span>
         </p>
+        {BOARDS[hud.map].heights && (deepWave(preview.index + 1, hud.waveCount || null, hud.difficulty) || (between && hud.plugged)) ? (
+          <span
+            data-flood
+            className="flex shrink-0 items-center gap-0.5 rounded-md border border-[#4f9cc4]/70 bg-[#13232c] px-1 py-0.5 text-[#9fd3ec]"
+            title={[deepWave(preview.index + 1, hud.waveCount || null, hud.difficulty) ? "Floods the middle floor" : "", between && hud.plugged ? "The drain's plugged: this wave starts flooded" : ""].filter(Boolean).join(" · ")}
+          >
+            <Droplet size={13} aria-hidden />
+            <span className="hidden sm:inline">{deepWave(preview.index + 1, hud.waveCount || null, hud.difficulty) ? "Floods the middle floor" : "Starts flooded"}</span>
+          </span>
+        ) : null}
         <ul className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-0.5" aria-label="Enemies coming">
           {preview.groups.map((g, i) => {
             const marks = badges(g);

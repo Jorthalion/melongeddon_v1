@@ -23,6 +23,7 @@ import {
   buildCost,
   boardLegs,
   groupOf,
+  tabKinds,
   legsTouching,
   groupsFor,
   refundFor,
@@ -281,6 +282,7 @@ export function BuildFooter({
             </p>
             <p className="min-w-0 truncate text-sm text-muted">{hud.waveName}</p>
             <p className="shrink-0 text-sm">{hud.left} remaining</p>
+            {hud.map === "basement" ? <WaterGauge level={hud.water} plugged={hud.plugged} /> : null}
           </div>
           <div className="mt-2 h-1 overflow-hidden rounded-full bg-panel-2">
             <div
@@ -340,8 +342,8 @@ export function BuildFooter({
           column={column}
         />
       ) : (
-        <div className={column ? "flex shrink-0 flex-col gap-1.5" : "grid h-[5.5rem] grid-cols-5 gap-2"}>
-          {groupOf(hud.build).kinds.map((id, slot) => {
+        <div className={column ? "flex shrink-0 flex-col gap-1.5" : `grid h-[5.5rem] ${tabKinds(groupOf(hud.build), hud.map).length > 5 ? "grid-cols-6" : "grid-cols-5"} gap-2`}>
+          {tabKinds(groupOf(hud.build), hud.map).map((id, slot) => {
             const placed = api.world.towers.length;
             const cost = Math.max(0, buildCost(hud.hero, placed, id, hud.builtKinds) - (hud.bookmark === "discount" ? 5 : 0));
             const on = hud.build === id;
@@ -474,7 +476,19 @@ const SHORT_NAME: Record<TowerKind, string> = {
   driver: "Quackmission",
   underlings: "Underlings",
   spire: "Spire",
+  pump: "Sump Pump",
 };
+/** The Flooded Basement's water level (0–3) as three little bars. */
+function WaterGauge({ level, plugged }: { level: number; plugged: boolean }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-xs text-muted" title={plugged ? "A Drain Gourd plugged the drain: the low floor stays flooded" : "The water: 1 floods the low floor, 3 the middle floor too"}>
+      Water
+      {[1, 2, 3].map((i) => (
+        <span key={i} className={`inline-block h-2.5 w-1.5 rounded-sm ${level >= i ? "bg-[#4f9cc4]" : "bg-panel-2"}`} />
+      ))}
+    </span>
+  );
+}
 /** Quackarot's newest towers: the one line under them on the build bar and in the inspector. */
 const TOWER_LINE: Partial<Record<TowerKind, string>> = {
   pamphlet: "He drafts it until the straight is full. Then he hits post.",
@@ -589,6 +603,7 @@ export function describeStats(kind: TowerKind, read: { dmg: number; range: numbe
   // "lit" by a Reading Lamp; "powered up" in a Quack-Liber's aura (or Quackarot golden); "quick" from another speed-up.
   const lit = (read.lit ? " · lit" : "") + (read.powered ? " · powered up" : read.quick ? " · quick" : "");
   if (kind === "compost") return "No shot · pays seeds every wave";
+  if (kind === "pump") return "No shot · keeps its tile and the eight round it dry";
   if (kind === "underlings")
     return `DMG ${read.dmg} vials at the drowsiest fruit · a sleeper hit: +${Math.round((VAEL_VALUES.reportAmp - 1) * 100)}% from her towers for ${VAEL_VALUES.reportTime}s · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "spire") return `No damage · Lights Out every ${VAEL_VALUES.lightsOutEvery}s: every drowsy fruit falls asleep`;

@@ -133,6 +133,7 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "rotunda" },
   { night: "midnight", map: "halldoors" },
   { night: "midnight", map: "compact" },
+  { night: "midnight", map: "basement" },
   { night: "overflow", map: "overflow" },
   { night: "siege", map: "courtyard" },
 ];
@@ -418,6 +419,22 @@ lines.push("");
       if (!rs.length) continue;
       const per = (k: string) => avg(rs.map((r) => r.leaksByExit?.[k] ?? 0)).toFixed(2);
       lines.push(`| ${d} | ${rs.length} | ${per("reading")} | ${per("kitchens")} | ${per("restricted")} |`);
+    }
+    lines.push("");
+  }
+}
+
+{
+  // The Flooded Basement: how much of each wave towers spend waterlogged, and how often a Drain Gourd plugs the drain.
+  const cellar = results.filter((r) => r.config.map === "basement");
+  if (cellar.length) {
+    lines.push("## The Flooded Basement: waterlogged towers", "");
+    lines.push("Per run: the share of tower-time in waves spent waterlogged, and drains a Drain Gourd plugged.", "");
+    lines.push(`| difficulty | runs | waterlogged | plugs |`, `|---|---|---|---|`);
+    for (const d of DIFFS) {
+      const rs = cellar.filter((r) => r.config.difficulty === d);
+      if (!rs.length) continue;
+      lines.push(`| ${d} | ${rs.length} | ${(avg(rs.map((r) => r.soaked ?? 0)) * 100).toFixed(1)}% | ${avg(rs.map((r) => r.plugs ?? 0)).toFixed(2)} |`);
     }
     lines.push("");
   }

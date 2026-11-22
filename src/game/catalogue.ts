@@ -18,6 +18,7 @@ export type RoomId =
   | "rotunda"
   | "halldoors"
   | "compact"
+  | "basement"
   | "greenhouse"
   | "belltower"
   | "bindery"
@@ -139,6 +140,13 @@ export const ROOMS: Room[] = [
     blurb: "Oil the tracks and free the cranks. The shelves move again.",
     cost: 17,
     rewards: [{ kind: "map", id: "compact" }],
+  },
+  {
+    id: "basement",
+    name: "The Flooded Basement",
+    blurb: "Fix the burst pipe. Well, mostly.",
+    cost: 17,
+    rewards: [{ kind: "map", id: "basement" }],
   },
 
   {

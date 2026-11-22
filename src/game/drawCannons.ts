@@ -10,6 +10,7 @@ export const DRAWN_KINDS: TowerKind[] = [
   "boomerang", "orrery", "plane", "quill", "globe",
   "press", "organ", "scope",
   "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese", "lionblade", "gourdgate", "bombard", "pamphlet", "driver", "underlings", "spire",
+  "pump",
 ];
 
 const WOOD = "#5a3a22";
@@ -401,6 +402,39 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.fill();
       ctx.fillStyle = "#3a2a14";
       ctx.fillRect(6, -16, 5, 1.5);
+      break;
+    }
+    case "pump": {
+      // The Sump Pump: a squat iron pump on a plinth, a turning wheel, and a hose off to the side.
+      shadow(ctx, x, y, 17);
+      plinth(ctx, x, y);
+      ctx.strokeStyle = "#3d6b5a";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x + 8, y + 2);
+      ctx.quadraticCurveTo(x + 22, y + 4, x + 18, y + 16);
+      ctx.stroke();
+      ctx.fillStyle = "#4b4f55";
+      rrect(ctx, x - 9, y - 14, 18, 22, 3);
+      ctx.fill();
+      ctx.fillStyle = "#6b7078";
+      rrect(ctx, x - 11, y - 17, 22, 5, 2);
+      ctx.fill();
+      ctx.save();
+      ctx.translate(x - 1, y - 2);
+      ctx.rotate(t * 3);
+      ctx.strokeStyle = BRASS;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * 6, Math.sin(a) * 6);
+      }
+      ctx.stroke();
+      ctx.restore();
       break;
     }
     case "compost": {

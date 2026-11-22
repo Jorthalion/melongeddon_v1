@@ -22,7 +22,7 @@ import {
   type NightId,
 } from "../src/game/engine.ts";
 import { ALL_UNLOCKED, EMPTY_META, GLOBAL_RANGE, boardSize, TOWERS as T, buildOffer, TOWER_GROUPS, backRoomPrice, stepWorld, towerReadout, type TowerKind } from "../src/game/engine.ts";
-import { HEROES, KEEPER_TOWERS, SIGNATURE, SIGNATURE_KINDS, keeperOf, type HeroId } from "../src/game/engine.ts";
+import { HEROES, KEEPER_TOWERS, ROOM_TOWER_KINDS, SIGNATURE, SIGNATURE_KINDS, keeperOf, type HeroId } from "../src/game/engine.ts";
 import { simulateRun, smartPick } from "../scripts/sim-core.ts";
 
 const center = (c: number) => c * CELL + CELL / 2;
@@ -103,9 +103,9 @@ test("every board stays inside its own size and keeps fixed spots off the carpet
       const [c, r] = key.split(",").map(Number);
       assert.ok(inside(c, r), `${board.id}: path cell ${key} off map`);
     }
-    // Fruit walk in from an edge: the left one, or (a board with doors) every door is on some edge.
+    // Fruit walk in from an edge: the left one (the Flooded Basement's cellar stairs are top right), or (a board with doors) every door is on some edge.
     const starts = board.doors ? board.doors.map((d) => d.corners[0]) : [board.corners[0]];
-    if (!board.doors) assert.equal(board.corners[0][0], 0, `${board.id}: fruit enter on the left edge`);
+    if (!board.doors && board.id !== "basement") assert.equal(board.corners[0][0], 0, `${board.id}: fruit enter on the left edge`);
     for (const [c, r] of starts) assert.ok(c === 0 || r === 0 || c === cols - 1 || r === rows - 1, `${board.id}: a door at ${c},${r} is on an edge`);
     for (const [c, r] of [board.michaelCannon]) {
       assert.ok(inside(c, r), `${board.id}: fixed tower spot ${c},${r} off map`);
@@ -293,7 +293,9 @@ test("an old bookmark milestone no longer unlocks it; its room does", () => {
 
 test("every shared cannon is in exactly one build tab of at most five; keeper towers belong to one keeper each", () => {
   const all = TOWER_GROUPS.flatMap((g) => g.kinds);
-  assert.equal(all.length + SIGNATURE_KINDS.length, Object.keys(T).length);
+  // Room towers (the Flooded Basement's Sump Pump) join the Support tab on their own map only.
+  assert.equal(all.length + SIGNATURE_KINDS.length + ROOM_TOWER_KINDS.length, Object.keys(T).length);
+  for (const k of ROOM_TOWER_KINDS) assert.ok(!all.includes(k) && !SIGNATURE_KINDS.includes(k), `${k} is in no tab of its own`);
   assert.equal(new Set(SIGNATURE_KINDS).size, SIGNATURE_KINDS.length);
   for (const h of HEROES) assert.equal(KEEPER_TOWERS[h][0], SIGNATURE[h], `${h}: the signature comes first`);
   for (const k of SIGNATURE_KINDS) assert.ok(!all.includes(k), `${k} is not in a shared tab`);
@@ -318,7 +320,8 @@ function withCannon(kind: TowerKind) {
 }
 
 test("every new cannon can be built and survives a wave", () => {
-  for (const kind of Object.keys(T) as TowerKind[]) {
+  // Room towers are built on their own map only (tests/basement.test.ts).
+  for (const kind of (Object.keys(T) as TowerKind[]).filter((k) => !ROOM_TOWER_KINDS.includes(k))) {
     const { api } = withCannon(kind);
     api.startWave();
     for (let i = 0; i < 60 * 90 && api.world.hud.phase === "combat"; i++) stepWorld(api.world, 1 / 60);

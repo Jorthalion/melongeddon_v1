@@ -104,6 +104,8 @@ export function describeEnemy(e: Fruit, world: Pick<World, "pools" | "floors" | 
   if (e.native === "gargoyle") traits.push("Stone skin between strikes; runs three times as fast while the towers are silent.");
   if (e.native === "wormgourd" || e.native === "wormqueen")
     traits.push("Burrows into the shelves: inside a bay only splash, fire and puddles reach it. One that walks out of a bay jams that bay's crank for the next break.");
+  if (e.native === "watermelon") traits.push("Wears a snorkel: in water it walks 30% faster instead of slower.");
+  if (e.native === "draingourd") traits.push("Let one through (or leave it standing at the end of a wave) and the water doesn't drain: the next wave starts with the low floor flooded.");
   if (e.native === "wormqueen") traits.push(`Leaves a cocoon when she pops: ${NATIVES.cocoonHatch} more hatch after ${NATIVES.cocoonTime}s unless splash or fire gets there first.`);
   if (e.kind === "goose" && !e.gosling && !e.matriarch && !e.honked) traits.push("Honks when first hit: towers close by skip a shot.");
   if (e.leader) traits.push("Leader: if it falls, its line stops for a moment.");

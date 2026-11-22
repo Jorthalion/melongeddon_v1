@@ -5,6 +5,9 @@
 import {
   CELL,
   GLOBAL_RANGE,
+  BASEMENT,
+  deepWave,
+  underWater,
   createWorld,
   ALL_UNLOCKED,
   fittingsFor,
@@ -110,6 +113,9 @@ export interface RunResult {
   leaksByExit?: Partial<Record<string, number>>;
   /** The Compact Stacks: cranks turned, and bays a bookworm jammed. */
   cranks?: number;
+  /** The Flooded Basement: share of tower-time in waves spent waterlogged, and drains a Drain Gourd plugged. */
+  soaked?: number;
+  plugs?: number;
   jams?: number;
   /** Damage dealt by each tower kind still standing at the end. */
   damageBy: Partial<Record<TowerKind, number>>;
@@ -295,8 +301,60 @@ function play(config: RunConfig, rng: () => number): RunResult {
     return null;
   };
 
+  /** The Flooded Basement: how dry a tile stays (2 high or beside a Sump Pump, 1 middle, 0 low). */
+  const dryRank = (c: number, r: number) => {
+    const h = world.heights.get(`${c},${r}`);
+    if (!h || world.towers.some((t) => t.kind === "pump" && Math.abs(t.c - c) <= 1 && Math.abs(t.r - r) <= 1)) return 2;
+    return h === "mid" ? 1 : 0;
+  };
+  /**
+   * The Flooded Basement: where a Sump Pump would keep the most towers dry at the coming wave's top level (3 on a
+   * level-3 wave the Coming up bar warns of, else 2), and how many. Towers a pump already covers don't count.
+   */
+  const pumpSpot = (): { spot: { c: number; r: number }; n: number } | null => {
+    if (!world.heights.size) return null;
+    const level = deepWave(world.hud.wave, world.hud.night === "endless" ? null : world.hud.waveCount, world.hud.difficulty) ? 3 : 2;
+    const wet = world.towers.filter((t) => {
+      if (t.kind === "pump" || PASSIVE.includes(t.kind)) return false;
+      const h = world.heights.get(`${t.c},${t.r}`);
+      return h != null && underWater(h, level) && dryRank(t.c, t.r) < 2;
+    });
+    if (!wet.length) return null;
+    let best: { spot: { c: number; r: number }; n: number } | null = null;
+    for (let c = 0; c < world.cols; c++)
+      for (let r = 0; r < world.rows; r++) {
+        const key = `${c},${r}`;
+        if (world.pathCells.has(key) || world.vergeCells.has(key) || world.shelfCells.has(key) || taken(c, r)) continue;
+        const n = wet.filter((t) => Math.abs(t.c - c) <= 1 && Math.abs(t.r - r) <= 1).length;
+        if (n > (best?.n ?? 0)) best = { spot: { c, r }, n };
+      }
+    return best;
+  };
   const bestCell = (range: number, kind: TowerKind) => {
     if (kind === "copycat") return copySpot();
+    if (kind === "pump") {
+      // The Sump Pump: where it keeps two or more towers dry; else (the first one) the low tile with the most carpet
+      // near it, so the dry square round it is worth building on.
+      const dry = pumpSpot();
+      if (dry && dry.n >= 2) return dry.spot;
+      resample();
+      let pick: { c: number; r: number } | null = null;
+      let most = 0;
+      for (const [key, h] of world.heights) {
+        if (h !== "low") continue;
+        const [c, r] = key.split(",").map(Number);
+        if (world.pathCells.has(key) || world.vergeCells.has(key) || world.shelfCells.has(key) || taken(c, r)) continue;
+        const x = c * CELL + CELL / 2;
+        const y = r * CELL + CELL / 2;
+        let n = 0;
+        for (const s of samples) if ((s.x - x) ** 2 + (s.y - y) ** 2 <= 110 * 110) n++;
+        if (n > most) {
+          most = n;
+          pick = { c, r };
+        }
+      }
+      return pick;
+    }
     if (kind === "pamphlet" || kind === "driver") {
       // Pamphlet: beside the longest straight (the later one on a tie, so nearer the door). Driver: the open tile nearest the door.
       const legs = boardLegs(world);
@@ -366,6 +424,23 @@ function play(config: RunConfig, rng: () => number): RunResult {
         scores.set(`${c},${r}`, score);
         if (score > bestScore) {
           bestScore = score;
+          best = { c, r };
+        }
+      }
+    }
+    // The Flooded Basement: a spot counts for the share of a wave it stays dry (low floods a quarter of the way in,
+    // the middle floor only on deep waves), so the bot prefers high, then middle, then low unless low is far better.
+    // Freeze goes on the driest spot that reaches the carpet at all, so it keeps freezing the water.
+    if (world.heights.size && best) {
+      const worth = [0.35, 0.9, 1];
+      let top = -1;
+      for (const [key, s] of scores) {
+        if (s <= 0) continue;
+        const [c, r] = key.split(",").map(Number);
+        const rank = dryRank(c, r);
+        const v = kind === "freeze" ? rank * 1000 + s : s * worth[rank];
+        if (v > top) {
+          top = v;
           best = { c, r };
         }
       }
@@ -480,6 +555,10 @@ function play(config: RunConfig, rng: () => number): RunResult {
           spend,
           purse,
           kitCell: (range, kind) => bestCell(range, kind),
+          pumpSpot: () => {
+            const p = pumpSpot();
+            return p && p.n >= 2 ? p.spot : null;
+          },
           dragonChores,
           avoid: config.avoid,
           keeperAt: config.keeperAt,
@@ -511,7 +590,12 @@ function play(config: RunConfig, rng: () => number): RunResult {
     for (let n = 0; n < 12 && tryLadder(); n++);
     for (let guard = 0; guard < limit; guard++) {
       if (tryMod()) continue;
-      const kind = nextKind();
+      // The Flooded Basement: a Sump Pump in the low middle once five towers stand, and more wherever one would keep
+      // two or more towers dry at the coming wave's top level (before a level-3 wave, that's the middle floor too).
+      const firstPump = world.heights.size > 0 && world.towers.length >= 5 && !world.towers.some((t) => t.kind === "pump");
+      const dryUp = world.heights.size > 0 && world.hud.phase === "prep" ? pumpSpot() : null;
+      const pumpNow = world.hud.seeds >= BASEMENT.pumpCost && (firstPump || (dryUp != null && dryUp.n >= 2));
+      const kind = pumpNow ? "pump" : nextKind();
       api.chooseBuild(kind);
       if (world.hud.seeds < world.hud.towerCost) break;
       if (config.maxTowers != null && world.towers.length >= config.maxTowers) break;
@@ -618,6 +702,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
     },
     leaksByExit: { ...world.runLog.leaksByExit },
     cranks: world.runLog.cranks,
+    soaked: world.runLog.towerTime ? world.runLog.soakedTime / world.runLog.towerTime : 0,
+    plugs: world.runLog.plugs,
     jams: world.runLog.jams,
     vsBy: world.towers.reduce<Partial<Record<TowerKind, Record<string, number>>>>((acc, x) => {
       const vs = api.tallyOf(x.id)?.vs ?? {};

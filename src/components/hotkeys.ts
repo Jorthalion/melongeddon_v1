@@ -21,7 +21,7 @@ import { keyAction, keyGoesToButton, runKeyAction } from "@/game/keys";
  *   M        sound on / off
  */
 export const HOTKEY_HELP =
-  "Q/W/E/R/T tab · 1–5 build or choose · Space start wave (any time between waves) / pause · P pause · S sell · X signpost (Hall of Doors) · [ ] cranks (Compact Stacks) · A aim · B back room · C checkout card · Enter main button · Esc back/menu · +/− speed · M sound";
+  "Q/W/E/R/T tab · 1–5 build or choose (6: Sump Pump, Flooded Basement) · Space start wave (any time between waves) / pause · P pause · S sell · X signpost (Hall of Doors) · [ ] cranks (Compact Stacks) · A aim · B back room · C checkout card · Enter main button · Esc back/menu · +/− speed · M sound";
 
 export function useHotkeys(
   api: ReturnType<typeof createWorld>,

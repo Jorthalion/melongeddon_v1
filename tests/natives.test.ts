@@ -106,7 +106,7 @@ test("swaps: from wave 10 the first plain pumpkin is the elite; in act three the
 
 test("swaps: the Stacks and the other rooms have none; flagged fruit, Karl and chute fruit are never swapped", () => {
   for (const map of Object.keys(BOARDS) as MapId[]) {
-    if (map === "sorting" || map === "greenhouse" || map === "belltower" || map === "compact") continue;
+    if (map === "sorting" || map === "greenhouse" || map === "belltower" || map === "compact" || map === "basement") continue;
     assert.equal(BOARDS[map].natives, undefined, map);
   }
   const busy: SpawnSpec[] = [
