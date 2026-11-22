@@ -88,7 +88,32 @@ lines.push(`# ${sc.question}`, "");
 lines.push(`Scenario \`${file}\`, ${((Date.now() - started) / 60000).toFixed(1)} minutes. Common flags: \`${[...flagsOf(sc.base), ...passOn].join(" ") || "(none)"}\`.`, "");
 
 lines.push("## Answer", "");
-for (const name of names.slice(1)) {
+// Many variants (a screen): one ranked table against the baseline instead of a paragraph each.
+if (names.length > 3) {
+  const rows = names.slice(1).map((name) => {
+    const c = compare(runs.get(base)!.map(gameOf), runs.get(name)!.map(gameOf));
+    const rs = runs.get(name)!;
+    return { name, c, win: rs.filter((r) => r.won).length / Math.max(1, rs.length), far: avg(rs.map((r) => progress(gameOf(r)))) };
+  });
+  rows.sort((a, b) => b.win - a.win || b.far - a.far);
+  const baseRuns = runs.get(base)!;
+  lines.push(
+    `Ranked by win rate. Baseline "${base}": ${pct(baseRuns.filter((r) => r.won).length, baseRuns.length)}. ` +
+      "\"Against the baseline\" is the win-rate difference over the same games, give or take a 95% range; " +
+      "**better** or **worse** only when the range doesn't cross zero.",
+    "",
+    "| rank | variant | win rate | how far (0–2) | against the baseline | |",
+    "|---|---|---|---|---|---|",
+  );
+  rows.forEach((x, i) => {
+    const d = Math.round(x.c.winDiff * 100);
+    const ci = Math.round(x.c.winCI * 100);
+    const call = Math.abs(x.c.winDiff) > x.c.winCI && x.c.winDiff !== 0 ? (x.c.winDiff > 0 ? "**better**" : "**worse**") : "too close";
+    lines.push(`| ${i + 1} | ${x.name} | ${pct(x.win, 1)} | ${x.far.toFixed(2)} | ${d > 0 ? "+" : ""}${d} ± ${ci} | ${call} |`);
+  });
+  lines.push("");
+}
+for (const name of names.length > 3 ? [] : names.slice(1)) {
   const c = compare(runs.get(base)!.map(gameOf), runs.get(name)!.map(gameOf), `"${base}"`, `"${name}"`);
   lines.push(`**"${name}" against "${base}":** ${c.verdict}`, "");
   lines.push(

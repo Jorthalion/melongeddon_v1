@@ -25,10 +25,14 @@ import {
   PASSIVE,
   SIGNATURE,
   TOWERS,
+  CANNON_UPGRADES,
   besideCarpet,
   canBeGreat,
   fittingsFor,
+  isSignature,
+  upgradeAffects,
   type ModId,
+  type UpgradeId,
   type TowerKind,
   type WavePreview,
   type World,
@@ -88,11 +92,28 @@ export interface HumanKit {
   opener?: TowerKind[];
   /** Scenarios: never more towers than this on the board. */
   maxTowers?: number;
+  /** "abuse": find the strongest thing and spam it (see ABUSE below). Default: the decent player. */
+  mode?: "human" | "abuse";
+  /** The abuse bot: spam this kind from the start instead of finding the strongest (--abuse KIND). */
+  abuseKind?: TowerKind;
 }
+
+/**
+ * The abuse bot (`--strategies abuse`): the same eyes and hands as the decent player (it reads the waves, answers
+ * shells, Box Cats, drops and chutes, places by real cover, lights its cannons), but one plan: find the strongest
+ * thing and spam it. Its candidates are the `paper` best shared shooters (damage per second × reach per seed, off
+ * the board) plus `wild` picked at random. Every cannon it buys is the kind that did the most damage per seed in the
+ * waves just played (each wave scored on its own, so a tower built late isn't flattered by bigger waves; the last
+ * waves count most), measured on the board (melon until something is measured), except that through wave `exploreUntil` every
+ * `every`th one tries the next candidate it hasn't built. Every fitting and shelf upgrade it can aim at that kind goes there. Sir Michael merges every pair he can. No Ink Wells or late Organs (combo pieces).
+ */
+export const ABUSE = { exploreUntil: 7, paper: 5, wild: 2, every: 3 };
 
 /** Towers that shoot fruit (and so count as a cannon to light, cover or overlap). */
 const NOT_SHOOTERS: TowerKind[] = [...PASSIVE, "geese", "pamphlet", "driver", "flask", "bombard", "gourdgate"];
 export const isShooter = (k: TowerKind) => !NOT_SHOOTERS.includes(k);
+/** Shared towers that shoot and can carry a spam (support towers like the Peeler and the Ink Well can't). */
+export const SPAM_KINDS = (Object.keys(TOWERS) as TowerKind[]).filter((k) => isShooter(k) && !isSignature(k) && k !== "peeler" && k !== "ink");
 /** Towers whose hit has a splash or a puddle (a crowd answer; they also knock a Box Cat's box off). */
 const SPLASHERS: TowerKind[] = ["mortar", "still", "fire", "organ", "cauldron", "lionblade", "quackliber", "press", "stomp", "bombard"];
 /** The cannons a decent player cycles through when nothing else is needed. */
@@ -137,6 +158,17 @@ export function makeHuman(kit: HumanKit) {
   const hero = world.hud.hero ?? "mynxi"; // chosen before the first build
   const why: Record<string, number> = {};
   let coreBuilt = 0;
+  const abuser = kit.mode === "abuse";
+  /** The abuse bot's scorebook: each tower's damage at the last break, and each kind's damage per seed per wave. */
+  const prevDmg = new Map<number, number>();
+  const score = new Map<TowerKind, number>();
+  let scoredWave = -1;
+  const tried = new Set<TowerKind>();
+  const blocked = new Map<TowerKind, number>();
+  let candidates: TowerKind[] | null = null;
+  let focus: TowerKind | null = kit.abuseKind ?? null;
+  /** The abuse bot: builds since it last tried a new kind. */
+  let sinceTry = ABUSE.every;
   let openerAt = 0;
   let livesAtWave = world.hud.lives;
   let lastPhase = world.hud.phase;
@@ -381,15 +413,87 @@ export function makeHuman(kit: HumanKit) {
       })();
       if (best >= 3) return { kind: "lantern", place: "lamp", why: "lamp" };
     }
-    if (n >= 6 && world.hud.wave >= 5 && count("ink") < (n >= 12 ? 2 : 1) && !skip.has("ink")) return { kind: "ink", place: "overlap", why: "ink" };
+    if (!abuser && n >= 6 && world.hud.wave >= 5 && count("ink") < (n >= 12 ? 2 : 1) && !skip.has("ink")) return { kind: "ink", place: "overlap", why: "ink" };
     // A heavy cannon once the board is up and the seeds are there.
-    if (n >= 8 && world.hud.wave >= 8 && !has("organ") && !skip.has("organ")) return { kind: "organ", place: "cover", why: "heavy" };
+    if (!abuser && n >= 8 && world.hud.wave >= 8 && !has("organ") && !skip.has("organ")) return { kind: "organ", place: "cover", why: "heavy" };
 
     return coreWant(skip);
   };
 
-  /** The next cannon in the cycle (Vael, planning a Flask, keeps Fire off the wet carpet). */
+  // ---------- the abuse bot ----------
+  /** Shared towers that shoot and can be built again and again. */
+  const spammable = (k: TowerKind) => isShooter(k) && !isSignature(k) && k !== "peeler" && !(kit.avoid ?? []).includes(k);
+  /** On paper: damage per second × reach, per seed (off the board, its fittings counted). */
+  const paper = (k: TowerKind) => {
+    const s = api.previewStats(k);
+    const reachPx = s.range >= GLOBAL_RANGE ? 260 : Math.min(260, s.range);
+    const rate = s.interval > 0 ? s.dmg / s.interval : s.dmg;
+    return (rate * reachPx) / Math.max(1, TOWERS[k].cost);
+  };
+  /** Between waves: what each kind did per seed in the wave just played (towers up for all of it), half old, half new. */
+  const remeasure = () => {
+    if (world.hud.phase !== "prep" || scoredWave === world.hud.wave) return;
+    scoredWave = world.hud.wave;
+    const per = new Map<TowerKind, number[]>();
+    for (const t of world.towers) {
+      const d = api.tallyOf(t.id)?.dmg ?? 0;
+      const before = prevDmg.get(t.id);
+      if (before != null) {
+        if (!per.has(t.kind)) per.set(t.kind, []);
+        per.get(t.kind)!.push((d - before) / Math.max(1, t.paid));
+      }
+      prevDmg.set(t.id, d);
+    }
+    for (const [k, xs] of per) {
+      const v = xs.reduce((a, b) => a + b, 0) / xs.length;
+      score.set(k, score.has(k) ? 0.5 * score.get(k)! + 0.5 * v : v);
+    }
+  };
+  const measured = (k: TowerKind) => score.get(k) ?? null;
+  const abuseWant = (skip: Set<TowerKind>): Want | null => {
+    if (kit.abuseKind) return skip.has(kit.abuseKind) ? null : { kind: kit.abuseKind, place: "cover", why: "abuse" };
+    if (!candidates) {
+      const pool = (Object.keys(TOWERS) as TowerKind[]).filter(spammable).sort((a, b) => paper(b) - paper(a));
+      const rest = pool.slice(ABUSE.paper);
+      const wild: TowerKind[] = [];
+      while (wild.length < ABUSE.wild && rest.length) wild.push(rest.splice(Math.floor(rng() * rest.length), 1)[0]);
+      candidates = [...pool.slice(0, ABUSE.paper), ...wild];
+    }
+    // Spam the best so far, and every few builds try a new one (while it's early enough to matter).
+    if (world.hud.wave <= ABUSE.exploreUntil && sinceTry >= ABUSE.every - 1) {
+      const next = candidates.find((k) => !tried.has(k) && blocked.get(k) !== world.hud.wave && !skip.has(k));
+      if (next) return { kind: next, place: "cover", why: "explore" };
+    }
+    let best: TowerKind | null = null;
+    let bestV = -1;
+    for (const k of tried) {
+      if (!spammable(k)) continue;
+      const v = measured(k);
+      if (v != null && v > bestV) [best, bestV] = [k, v];
+    }
+    focus = best ?? focus ?? "melon";
+    return skip.has(focus) ? null : { kind: focus, place: "cover", why: "abuse" };
+  };
+  /** The abuse bot on a thin floor: the best-measured kind it can afford right now (else a melon), not the one it saves for. */
+  const cheapAbuse = (skip: Set<TowerKind>): Want | null => {
+    let best: TowerKind = "melon";
+    let bestV = -1;
+    for (const k of tried) {
+      if (!spammable(k) || skip.has(k) || priceOf(k) > world.hud.seeds) continue;
+      const v = measured(k);
+      if (v != null && v > bestV) [best, bestV] = [k, v];
+    }
+    return skip.has(best) ? null : { kind: best, place: "cover", why: "abuse" };
+  };
+  /** The abuse bot's shelf pick: the cannon's own upgrade, else any that reaches its kind (null: pick as usual). */
+  const pick = (offer: UpgradeId[]): UpgradeId | null => {
+    if (!abuser || !focus) return null;
+    return offer.find((id) => CANNON_UPGRADES[focus!] === id) ?? offer.find((id) => upgradeAffects(id, focus!)) ?? null;
+  };
+
+  /** The next cannon in the cycle (Vael, planning a Flask, keeps Fire off the wet carpet); the abuse bot's pick instead. */
   const coreWant = (skip: Set<TowerKind>): Want | null => {
+    if (abuser) return abuseWant(skip);
     for (let i = 0; i < CORE.length; i++) {
       let k = CORE[(coreBuilt + i) % CORE.length];
       if (hero === "vael" && k === "fire") k = "still";
@@ -420,6 +524,7 @@ export function makeHuman(kit: HumanKit) {
     }
     let best: { kind: TowerKind; mod: ModId; price: number; perSeed: number } | null = null;
     for (const kind of new Set(sh.map((t) => t.kind))) {
+      if (abuser && focus && kind !== focus) continue; // every fitting goes to the kind it spams
       const left = fittingsFor(kind).filter((m) => !(world.hud.fitted[kind] ?? []).includes(m.id));
       if (!left.length) continue;
       const price = api.shopPriceFor(kind);
@@ -457,7 +562,13 @@ export function makeHuman(kit: HumanKit) {
     if (!spot) return "nowhere" as const;
     api.dismissSelection();
     api.chooseBuild(want.kind);
-    if (!kit.place(want.kind, spot)) return "nowhere" as const;
+    if (!kit.place(want.kind, spot)) {
+      if (want.why === "explore") blocked.set(want.kind, world.hud.wave);
+      return "nowhere" as const;
+    }
+    tried.add(want.kind);
+    if (want.why === "explore") sinceTry = 0;
+    else if (want.why === "abuse") sinceTry++;
     why[want.why] = (why[want.why] ?? 0) + 1;
     if (want.why === "core") coreBuilt++;
     if (want.why === "opener") openerAt++;
@@ -468,8 +579,9 @@ export function makeHuman(kit: HumanKit) {
     const phase = world.hud.phase;
     if (phase === "combat" && lastPhase !== "combat") livesAtWave = world.hud.lives;
     lastPhase = phase;
+    if (abuser) remeasure();
     // Sir Michael merges pairs into Great towers once the floor has enough cannons (merging early leaves carpet bare).
-    if (shooters().length >= 5) kit.dragonChores();
+    if (abuser || shooters().length >= 5) kit.dragonChores();
     const skip = new Set<TowerKind>(kit.avoid ?? []);
     let mods = 0;
     for (let guard = 0; guard < (phase === "prep" ? 12 : 2); guard++) {
@@ -498,7 +610,7 @@ export function makeHuman(kit: HumanKit) {
       const r = tryBuild(want);
       if (r === "poor") {
         // Save up for it, unless it's an extra and the floor is thin: then a plain cannon now.
-        const core = !want.urgent && want.why !== "core" && thin() ? coreWant(skip) : null;
+        const core = !want.urgent && thin() ? (abuser ? cheapAbuse(skip) : want.why !== "core" ? coreWant(skip) : null) : null;
         if (core && tryBuild(core) === "built") continue;
         break;
       }
@@ -510,5 +622,5 @@ export function makeHuman(kit: HumanKit) {
     api.dismissSelection();
   };
 
-  return { build, why };
+  return { build, why, pick, focus: () => focus };
 }

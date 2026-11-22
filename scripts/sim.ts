@@ -23,6 +23,8 @@
  *                               # build a keeper extra only once this many cannons are down
  *   npm run sim -- --opener melon,melon,melon,lantern --max-towers 4   # build these first (any bot); stop at 4 towers
  *   npm run sim:scenario -- scripts/scenarios/lamp-three-melons.json   # one question, A against B: see sim-scenario.ts
+ *   npm run sim -- --strategies abuse,human   # abuse = find the strongest thing and spam it (scripts/sim-human.ts, ABUSE)
+ *   npm run sim -- --strategies abuse --abuse fire   # the abuse bot spams one kind from the start
  *   npm run sim -- --picks smart  # bots choose shelf upgrades by what suits their board (default: random)
  *   npm run sim -- --heroes michael --armours azure,dragonscale,ember,wyrm   # Sir Michael once per armour (default: azure)
  *   npm run sim -- --styles scripts/styles/playstyles.json   # play these named playstyles instead of the four strategies
@@ -60,6 +62,9 @@ const NO_GREAT = args.includes("--no-great");
 const OPENER = (argOf("--opener")?.split(",").filter(Boolean) ?? []) as ENGINE.TowerKind[];
 for (const k of OPENER) if (!(k in ENGINE.TOWERS)) throw new Error(`--opener: no tower ${k}`);
 const MAX_TOWERS = argOf("--max-towers") != null ? Number(argOf("--max-towers")) : undefined;
+// --abuse KIND: the abuse bot spams this kind from the start instead of finding the strongest.
+const ABUSE_KIND = argOf("--abuse") as ENGINE.TowerKind | undefined;
+if (ABUSE_KIND && !(ABUSE_KIND in ENGINE.TOWERS)) throw new Error(`--abuse: no tower ${ABUSE_KIND}`);
 const KEEPER_AT: Partial<Record<ENGINE.TowerKind, number>> = {};
 for (const pair of argOf("--keeper-at")?.split(",").filter(Boolean) ?? []) {
   const [k, n] = pair.split("=");
@@ -104,7 +109,7 @@ const WORKERS = Math.max(1, Number(argOf("--workers") ?? Math.max(1, availablePa
 
 const HEROES = (["mynxi", "michael", "vael", "elf", "ooze", "scholar", "quack", "asser"] as HeroId[]).filter((h) => !HERO_ONLY.length || HERO_ONLY.includes(h));
 const DIFFS = (["easy", "normal", "hard", "overdue"] as Difficulty[]).filter((d) => !DIFF_ONLY.length || DIFF_ONLY.includes(d));
-const ALL_STRATEGIES: Strategy[] = ["melon", "mixed", "mixed+mods", "lean", "human"];
+const ALL_STRATEGIES: Strategy[] = ["melon", "mixed", "mixed+mods", "lean", "human", "abuse"];
 const STRATEGIES: Strategy[] = (argOf("--strategies")?.split(",").filter(Boolean) as Strategy[] | undefined) ?? ["melon", "mixed", "mixed+mods", "lean"];
 for (const s of STRATEGIES) if (!ALL_STRATEGIES.includes(s)) throw new Error(`--strategies: no bot ${s} (${ALL_STRATEGIES.join(", ")})`);
 interface Style {
@@ -161,6 +166,7 @@ for (const hero of HEROES)
               ...(NO_GREAT ? { noGreat: true } : {}),
               ...(OPENER.length ? { opener: OPENER } : {}),
               ...(MAX_TOWERS != null ? { maxTowers: MAX_TOWERS } : {}),
+              ...(ABUSE_KIND ? { abuse: ABUSE_KIND } : {}),
               ...(Object.keys(KEEPER_AT).length ? { keeperAt: KEEPER_AT } : {}),
               ...(KEEPERS ? { keepers: KEEPERS } : {}),
               ...(armour ? { armour } : {}),
@@ -242,7 +248,8 @@ lines.push(
   "**Strategies:** `melon` = only melon cannons. `mixed` = rotates melon, mortar, freeze, fire, still. " +
     "`mixed+mods` = mixed, and buys back-room mods when they are cheaper than a new tower. " +
     "`lean` = a cautious player: mixed, at most 2 new towers per wave, only between waves. " +
-    "`human` = a decent regular player: reads the next two waves and builds answers, puts lamps and ink beside its cannons, saves for what's next, buys fittings when they beat a cannon, uses the keeper's own towers, and picks upgrades the smart way.",
+    "`human` = a decent regular player: reads the next two waves and builds answers, puts lamps and ink beside its cannons, saves for what's next, buys fittings when they beat a cannon, uses the keeper's own towers, and picks upgrades the smart way. " +
+    "`abuse` = the same player with one plan: try the strongest-looking towers early, then spam whichever did the most damage per seed, with every fitting and upgrade it can aim at it (`--abuse KIND` picks the kind).",
   "",
 );
 lines.push("## Win rates", "");
@@ -310,15 +317,37 @@ lines.push("");
 
 // The human bot: why it built what it built.
 {
-  const humans = results.filter((r) => r.tactics);
-  if (humans.length) {
+  for (const bot of ["human", "abuse"] as Strategy[]) {
+    const humans = results.filter((r) => r.tactics && r.config.strategy === bot);
+    if (!humans.length) continue;
     const whys = [...new Set(humans.flatMap((r) => Object.keys(r.tactics!)))].sort();
-    lines.push("## The human bot's reasons", "");
+    lines.push(`## The ${bot} bot's reasons`, "");
     lines.push("Average builds (and back-room fittings) per run, by why it made them, per keeper.", "");
     lines.push(`| keeper | ${whys.join(" | ")} |`, `|---|${whys.map(() => "---").join("|")}|`);
     for (const hero of HEROES) {
       const rs = humans.filter((r) => r.config.hero === hero);
       if (rs.length) lines.push(`| ${hero} | ${whys.map((w) => avg(rs.map((r) => r.tactics![w] ?? 0)).toFixed(1)).join(" | ")} |`);
+    }
+    lines.push("");
+  }
+}
+
+// The abuse bot: what it found strongest and spammed, and how that went.
+{
+  const abusers = results.filter((r) => r.config.strategy === "abuse" && r.abused);
+  if (abusers.length) {
+    const kinds = [...new Set(abusers.map((r) => r.abused!))].sort((a, b) => abusers.filter((r) => r.abused === b).length - abusers.filter((r) => r.abused === a).length);
+    lines.push("## What the abuse bot spammed", "");
+    lines.push("The kind it ended each run spamming (most damage per seed per wave stood, measured on the board), how often, and its win rate.", "");
+    lines.push(`| tower | runs | share | ${DIFFS.join(" | ")} | keepers that picked it most |`, `|---|---|---|${DIFFS.map(() => "---").join("|")}|---|`);
+    for (const k of kinds) {
+      const rs = abusers.filter((r) => r.abused === k);
+      const fans = HEROES.filter((h) => {
+        const mine = abusers.filter((r) => r.config.hero === h);
+        const top = [...new Set(mine.map((r) => r.abused!))].sort((a, b) => mine.filter((r) => r.abused === b).length - mine.filter((r) => r.abused === a).length)[0];
+        return top === k;
+      });
+      lines.push(`| ${k} | ${rs.length} | ${pct(rs.length, abusers.length)} | ${DIFFS.map((d) => winRate(rs.filter((r) => r.config.difficulty === d))).join(" | ")} | ${fans.join(", ") || "–"} |`);
     }
     lines.push("");
   }

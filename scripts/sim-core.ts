@@ -39,7 +39,7 @@ import { makeHuman } from "./sim-human.ts";
  * lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves.
  * human = a decent regular player (sim-human.ts): reads the next waves, builds counters and combos, saves, uses the keeper's tools.
  */
-export type Strategy = "melon" | "mixed" | "mixed+mods" | "lean" | "human";
+export type Strategy = "melon" | "mixed" | "mixed+mods" | "lean" | "human" | "abuse";
 
 export interface RunConfig {
   hero: HeroId;
@@ -81,6 +81,8 @@ export interface RunConfig {
   keeperAt?: Partial<Record<TowerKind, number>>;
   /** Sir Michael's bots never merge Great towers (--no-great). */
   noGreat?: boolean;
+  /** The abuse bot: spam this kind from the start instead of finding the strongest (--abuse KIND). */
+  abuse?: TowerKind;
   /** Tests: called between waves, after the bot has built and just before the wave starts. */
   onPrep?: (world: ReturnType<typeof createWorld>["world"], api: ReturnType<typeof createWorld>) => void;
 }
@@ -121,6 +123,8 @@ export interface RunResult {
   builtBy: Partial<Record<TowerKind, number>>;
   /** The human bot only: why it built what it built ("core", "lamp", "shells ahead", "keeper", "back room"...), counted. */
   tactics?: Record<string, number>;
+  /** The abuse bot only: the kind it ended up spamming. */
+  abused?: TowerKind;
 }
 
 const DT = 1 / 60;
@@ -467,7 +471,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
 
   // The human bot decides for itself (sim-human.ts); this file still drives the phases and counts the results.
   const human =
-    config.strategy === "human"
+    config.strategy === "human" || config.strategy === "abuse"
       ? makeHuman({
           api,
           world,
@@ -482,6 +486,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
           noGreat: config.noGreat,
           opener: config.opener,
           maxTowers: config.maxTowers,
+          mode: config.strategy === "abuse" ? "abuse" : "human",
+          abuseKind: config.abuse,
           place: (kind, spot) => {
             const before = world.towers.length;
             const paid = purse();
@@ -561,6 +567,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
       api.pickUpgrade(
         config.pickUpgrade
           ? config.pickUpgrade(ids)
+          : human?.pick(ids)
+          ? human.pick(ids)!
           : config.picks === "smart" || human
           ? smartPick(ids, world.hud.upgrades, world.towers.map((x) => x.kind), world.hud.wave)
           : ids[Math.floor(rng() * ids.length)],
@@ -628,5 +636,6 @@ function play(config: RunConfig, rng: () => number): RunResult {
     spentBy,
     builtBy,
     ...(human ? { tactics: human.why } : {}),
+    ...(config.strategy === "abuse" && human?.focus() ? { abused: human.focus()! } : {}),
   };
 }
