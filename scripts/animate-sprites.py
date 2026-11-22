@@ -89,6 +89,8 @@ ENEMY_PAINTINGS = {
     "honker": "enemy-honker.webp", "gosling": "enemy-gosling.webp", "matriarch": "enemy-matriarch.webp",
     "whiskers": "enemy-whiskers.webp", "boxcat": "enemy-boxcat.webp", "para": "enemy-para.webp",
     "tank": "enemy-tank.webp", "general": "enemy-general.webp",
+    # The Compact Stacks.
+    "wormgourd": "fruit-wormgourd.webp", "wormqueen": "fruit-wormqueen.webp",
 }
 
 

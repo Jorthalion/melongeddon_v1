@@ -818,13 +818,13 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     const painted = look != null && ready(art[look]);
     const quiet = (world.bell?.quiet ?? 0) > 0;
     const worm = e.native === "wormgourd" || e.native === "wormqueen";
-    const shape = !painted && (siegeLook || e.native === "sprout" || e.native === "gargoyle" || worm);
-    // A Bookworm in the shelves is half hidden.
+    // A Bookworm in the shelves is half hidden: drawn by code there (the painting can't show it), painted on open carpet.
     const hidden = worm && (BOARDS[world.hud.map].bays ?? []).some((b) => {
       const c = Math.floor(e.x / CELL);
       const r = Math.floor(e.y / CELL);
       return c >= b.cols[0] && c <= b.cols[1] && r >= b.rows[0] && r <= b.rows[1];
     });
+    const shape = (!painted && (siegeLook || e.native === "sprout" || e.native === "gargoyle" || worm)) || hidden;
     // Whether a painted sprite is drawn (it takes its body look as a pre-tinted copy); a code-drawn one gets an overlay.
     const sprite = !shape && ready(painted ? art[look] : e.kind === "goose" || e.kind === "cat" ? undefined : art[e.kind]);
     // Status looks are sized to what's drawn: a painted sprite is bigger than the fruit's hit radius.
@@ -837,7 +837,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     if (!painted && siegeLook) drawSiegeShape(ctx, siegeLook, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, faceLeft, Boolean(e.leader), stretch);
     else if (!painted && e.native === "sprout") drawSproutShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim);
     else if (!painted && e.native === "gargoyle") drawGargoyleShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, quiet);
-    else if (!painted && worm) drawWormShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, hidden, e.native === "wormqueen", faceLeft);
+    else if ((!painted || hidden) && worm) drawWormShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, hidden, e.native === "wormqueen", faceLeft);
     else
       drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, faceLeft, painted ? look : null, {
         bob: sl ? sl.motion.bob : 1,

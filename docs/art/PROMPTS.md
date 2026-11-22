@@ -41,7 +41,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | `enemy-chimer.png` | Chimer, the Bell Tower | `ENEMY_PROMPTS.md` §8 |
 | `enemy-gargoyle.png` | Gargoyle Gourd, the Bell Tower | `ENEMY_PROMPTS.md` §9 |
 | `tile-vine.png` | Creeping Squash vine on the carpet | `ENEMY_PROMPTS.md` §10 |
-| `tile-floor-compact.png`, `prop-shelf-unit.png`, `prop-crank.png`, `fruit-wormgourd.png`, `fruit-wormqueen.png`, `prop-cocoon.png` | The Compact Stacks (new map) | §2a5 below; the game already looks for these and draws code stand-ins until they arrive |
+| `tile-floor-compact.png` | The Compact Stacks floor | §2a5 below. A first attempt (22 November) was turned down: it was one tile drawn in perspective with a dark border and a railway track down the middle, so it showed gaps and repeated tracks |
 
 The seven fruit images are also in `art-for-chatgpt/room-fruit-art-prompts.md`, with the reference pictures to attach. After the six fruit arrive, add them to `GROUPS` in `scripts/animate-sprites.py` and run `npm run animate` so they walk, flinch and pop like the others.
 
@@ -287,13 +287,13 @@ A long entrance hall: fruit come in from the west door and up the lift, meet at 
 | `door-restricted.png` | The way to the Restricted Section: a **heavy dark oak door banded with black iron**, a **thick chain** across it with a big brass padlock, a faint purple glow under the door. Seen straight on, filling the frame. Only bosses use it, and it costs double. Transparent background, 512 × 512. |
 | `prop-closed-sign.png` | A **small wooden card hanging from a short loop of crimson cord**, cream painted face with a thin red border and the single word **CLOSED** in bold red capitals (the one image that should have a word on it). Slightly tilted, as if it has just been hung. Transparent background, 256 × 256. |
 
-### 2a5. The Compact Stacks (not yet drawn; the game already looks for these files)
+### 2a5. The Compact Stacks (done except the floor: the shelf unit, crank, cocoon and both Bookworms are in `public/sprites/`; a Bookworm inside a bay is still drawn by code so it reads as half hidden)
 
 A storeroom of rolling library shelving on steel tracks: two bays of grey-green steel shelf units with one open aisle each, a brass crank wheel under each bay, and its own room fruit. Code drawings show until each file exists.
 
 | File name | Prompt (after the style line) |
 |---|---|
-| `tile-floor-compact.png` | A **worn grey concrete floor** with **pairs of polished steel tracks** running across it, oil stains and scuffs, a few rivets, warm light from above. Seamless, tileable, no single object in the middle. |
+| `tile-floor-compact.png` | A **worn grey concrete floor seen straight down from above**, flat with no perspective, filling the whole square edge to edge with **no border or frame**. Faint seams between poured slabs, oil stains, scuffs and a few rivets, warm light. **No rails or tracks** (the shelving sits on its own). Seamless and tileable, no single object in the middle. |
 | `prop-shelf-unit.png` | A **closed rolling steel shelf unit seen from above**, grey-green painted steel with a dark frame, packed with archive boxes and bound volumes in muted colours, a small brass label holder. It tiles side by side and end to end along a bay, so keep the edges straight. Transparent background, 512 × 512. |
 | `prop-crank.png` | A **big brass crank wheel** with six spokes and a wooden handle on its rim, mounted on a small iron bracket, seen from slightly above. Transparent background, 512 × 512. |
 | `fruit-wormgourd.png` | A **Bookworm Gourd**: a green segmented gourd shaped like a fat caterpillar, three round segments, wearing **little round spectacles**, a scrap of paper stuck to it, cheeky and studious. Side view facing right, like the other fruit. Transparent background, 512 × 512. |
