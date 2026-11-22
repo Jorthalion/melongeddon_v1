@@ -778,13 +778,15 @@ No last wave. Waves keep coming and keep getting tougher, Karl arrives every fif
 
 ## Rooms (maps)
 
+Some rooms have a second layout. On Setup, the room's card has a **Layout A · classic / Layout B · bigger** switch under it. Layout B opens with its room, and a win on it counts as a win on that room.
+
 | Room | What's different | Unlock |
 |---|---|---|
 | The Stacks | The original carpet | Always open |
 | The Annex | The carpet folds back on itself, so one cannon can cover two stretches | Always open |
-| The Mezzanine | A balcony across the top, the floor across the bottom, an open middle | Restore The Mezzanine |
+| The Mezzanine | A balcony across the top, the floor across the bottom, an open middle. **Layout B** (pick it under the room's card): a bigger room (22 × 14) whose carpet runs along the balcony, down the far side and back, then coils in to a door in the middle; fruit have 60% more health | Restore The Mezzanine |
 | Rare Books | A spiral to a door in the middle; fruit have 25% more health | Restore Rare Books |
-| The Archive | Dark: cannons have 20% less reach unless a Reading Lamp reaches them | Restore The Archive |
+| The Archive | Dark: cannons have 20% less reach unless a Reading Lamp reaches them. **Layout B** (pick it under the room's card): a bigger room (22 × 14), still dark, with a long walk in and then four tight switchbacks between the cabinets to the vault; a tower in a gap between two runs, by a Reading Lamp, hits the same fruit again and again; fruit have 20% more health | Restore The Archive |
 | The Great Hall | **Big map** (22 × 14). One very long carpet snaking up and down the hall; fruit have 20% more health | Restore The Great Hall |
 | The Reading Room | **Big map** (22 × 14). Three long lanes between the tables, so a cannon between two lanes covers both; fruit have 40% more health | Restore The Reading Room |
 | The Sorting Room | **Big map** (22 × 14), 42 tiles of carpet up and down three long columns. The columns are **return belts** (dark rubber with amber arrows) that carry fruit **60% faster** the way the carpet runs; anything walking back against a belt (the Reverse Driver's fruit) goes slower. Fruit are quick here, so they have 20% less health | Restore The Sorting Room |

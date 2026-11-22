@@ -153,10 +153,11 @@ export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebook
 
 
 /**
- * Test rooms: new versions of existing rooms, playable only in developer mode (Setup shows them in their own row)
- * and in the simulator (`--only archiveB`). Not in the Catalogue, achievements or the room list until they're confirmed.
+ * Test rooms: boards playable only in developer mode (Setup shows them in their own row) and in the simulator when
+ * named (`--only <id>`), until they're confirmed. Empty for now: the bigger Archive and Mezzanine became their rooms'
+ * layout B (`Board.variantOf`).
  */
-export const TEST_MAPS: MapId[] = ["archiveB", "mezzanineB"];
+export const TEST_MAPS: MapId[] = [];
 
 /** Maps the restored rooms have opened. */
 export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {

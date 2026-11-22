@@ -1517,7 +1517,7 @@ export type MapId =
   | "halldoors"
   | "compact"
   | "basement"
-  // Test rooms (dev only, not in the game yet): bigger versions of the Archive and the Mezzanine.
+  // Layout B of the Archive and the Mezzanine: bigger versions, picked on the room's own Setup card.
   | "archiveB"
   | "mezzanineB";
 
@@ -1761,8 +1761,13 @@ export interface Board {
    * bosses use. Without doors the board has one route, `corners`.
    */
   doors?: Door[];
-  /** A test room borrows another room's look (floor, furniture, door, light): the room it's a version of. */
+  /** A board can borrow another room's look (floor, furniture, door, light): layout B uses its room's. */
   look?: MapId;
+  /**
+   * Another layout of a room (layout B): picked with the A/B button on that room's Setup card, open whenever the
+   * room is, and counted as that room for wins and achievements (`baseMap`).
+   */
+  variantOf?: MapId;
   /** The Rotunda's round desk: furniture on a floor tile beside where the carpets meet (no building on it). */
   desk?: [number, number];
   /** A board with doors: the carpet tile where the doors' carpets meet, marked with a brass compass inlay. */
@@ -1994,14 +1999,15 @@ export const BOARDS: Record<MapId, Board> = {
     michaelCannon: [2, 5],
     dark: true,
   },
-  // Version B of the Archive (a test room, dev only): 22 x 14, about 57 tiles. A loose start, then four tight
+  // Layout B of the Archive: 22 x 14, about 57 tiles. A loose start, then four tight
   // switchbacks between rows of filing cabinets before the vault door. In the dark, where the lamps go along the
   // switchbacks is the puzzle: a lit tower between two runs hits the same fruit again and again.
   archiveB: {
     id: "archiveB",
     name: "The Archive (B)",
-    blurb: "Test room. The Archive, bigger: a long walk in the dark, then switchbacks between the cabinets to the vault.",
+    blurb: "Layout B: bigger and darker. A long walk in, then switchbacks between the cabinets to the vault.",
     look: "archive",
+    variantOf: "archive",
     cols: 22,
     rows: 14,
     dark: true,
@@ -2031,13 +2037,14 @@ export const BOARDS: Record<MapId, Board> = {
       [1, 7], [2, 7], [1, 8], [2, 8], [7, 5], [7, 6], [7, 7], [20, 5], [20, 6], [21, 6],
     ],
   },
-  // Version B of the Mezzanine (a test room, dev only): 22 x 14, about 61 tiles. A long straight balcony, down
+  // Layout B of the Mezzanine: 22 x 14, about 61 tiles. A long straight balcony, down
   // the far side, back along the floor, then a spiral that tightens in to a door in the middle of the room.
   mezzanineB: {
     id: "mezzanineB",
     name: "The Mezzanine (B)",
-    blurb: "Test room. The Mezzanine, bigger: along the balcony and down, then the carpet coils in to a door in the middle.",
+    blurb: "Layout B: bigger. Along the balcony and down, then the carpet coils in to a door in the middle.",
     look: "mezzanine",
+    variantOf: "mezzanine",
     cols: 22,
     rows: 14,
     // The coil gives towers a lot of time: at 1.35 the human bot won 100/94% on Melongeddon and Overdue (the
@@ -2420,6 +2427,20 @@ export const BOARDS: Record<MapId, Board> = {
     ],
   },
 };
+
+/** The room a board is a layout of (layout B counts as its room); every other board is its own room. */
+export function baseMap(map: MapId): MapId {
+  return BOARDS[map].variantOf ?? map;
+}
+/** Each room's layouts, A first: only rooms with a layout B are listed. */
+export function layoutsOf(map: MapId): MapId[] {
+  const base = baseMap(map);
+  return [base, ...(Object.keys(BOARDS) as MapId[]).filter((id) => BOARDS[id].variantOf === base)];
+}
+/** Maps plus every layout B of a room among them. */
+export function withLayouts(maps: readonly MapId[]): MapId[] {
+  return [...maps, ...(Object.keys(BOARDS) as MapId[]).filter((id) => BOARDS[id].variantOf && maps.includes(BOARDS[id].variantOf!) && !maps.includes(id))];
+}
 
 export function cornerRot(prev: [number, number], corner: [number, number], next: [number, number]) {
   const inDc = Math.sign(corner[0] - prev[0]);

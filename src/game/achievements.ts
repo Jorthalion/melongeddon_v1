@@ -4,7 +4,7 @@
  * Checked when a night ends (see finishNight in the engine). Saved under its own key, apart from
  * MetaStats, and never by dev mode, tests or the simulator.
  */
-import { ARMOURS, DIFFICULTIES, HEROES, KEEPER_TOWERS, armourFrom, type ArmourId, type Difficulty, type DoorId, type ExitId, type HeroId, type MapId, type NightId, type TowerKind } from "./rules.ts";
+import { ARMOURS, baseMap, DIFFICULTIES, HEROES, KEEPER_TOWERS, armourFrom, type ArmourId, type Difficulty, type DoorId, type ExitId, type HeroId, type MapId, type NightId, type TowerKind } from "./rules.ts";
 import { PICKABLE_MAPS, type MetaStats } from "./meta.ts";
 import { SLIPS, type SlipId } from "./slips.ts";
 import { DEFAULT_COSMETICS, ROOM_IDS, START_ROOMS, legacyRooms, type Cosmetics, type RoomId } from "./catalogue.ts";
@@ -608,7 +608,8 @@ export function addNight(ledger: Ledger, c: Omit<NightContext, "ledger" | "endle
   if (c.won && c.night !== "endless") {
     out.winsByNight[c.night] = (out.winsByNight[c.night] ?? 0) + 1;
     if (c.hero) out.winsByKeeper[c.hero] = (out.winsByKeeper[c.hero] ?? 0) + 1;
-    out.winsByMap[c.map] = (out.winsByMap[c.map] ?? 0) + 1;
+    // A win on a room's layout B counts as a win on the room.
+    out.winsByMap[baseMap(c.map)] = (out.winsByMap[baseMap(c.map)] ?? 0) + 1;
     out.winsByDifficulty[c.difficulty] = (out.winsByDifficulty[c.difficulty] ?? 0) + 1;
     if (c.hero === "michael" && c.log.armour && !out.armoursWon.includes(c.log.armour)) out.armoursWon.push(c.log.armour);
   }

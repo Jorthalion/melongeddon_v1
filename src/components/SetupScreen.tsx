@@ -8,6 +8,8 @@ import {
   PERK_LEVELS,
   PICKABLE_MAPS,
   TEST_MAPS,
+  baseMap,
+  layoutsOf,
   TOWER_GOALS,
   TOWERS,
   activePerks,
@@ -306,17 +308,20 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
               {/* Phones: one row that scrolls sideways. Wider screens: a grid. */}
               <div className="-mx-4 mt-1.5 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
                 {PICKABLE_MAPS.map((id) => {
-                  const board = BOARDS[id];
-                  const on = hud.map === id;
+                  // A room with a layout B shows whichever layout is picked (A until B is chosen).
+                  const layouts = layoutsOf(id);
+                  const shown = layouts.includes(hud.map) ? hud.map : id;
+                  const board = BOARDS[shown];
+                  const on = baseMap(hud.map) === id;
                   const locked = !hud.maps.includes(id);
                   return (
+                    <div key={id} className="flex w-40 shrink-0 snap-start flex-col sm:w-auto">
                     <button
-                      key={id}
                       type="button"
                       aria-pressed={on}
                       aria-disabled={locked}
                       title={locked ? `Locked. ${MAP_GOALS[id]?.goal ?? ""}` : board.blurb}
-                      className={`w-40 shrink-0 snap-start overflow-hidden rounded-lg border text-left sm:w-auto ${
+                      className={`flex-1 overflow-hidden rounded-lg border text-left ${
                         on
                           ? "border-[#c6a15a] shadow-[0_0_18px_rgba(198,161,90,0.28)]"
                           : locked
@@ -332,11 +337,11 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
                         }
                         onGesture();
                         tone(210, 0.05, "triangle", 0.03);
-                        api.chooseMap(id);
+                        api.chooseMap(shown);
                       }}
                     >
                       <span className="relative block">
-                        <MapPreview map={id} className={`block aspect-[16/10] w-full ${locked ? "opacity-30 grayscale" : ""}`} />
+                        <MapPreview map={shown} className={`block aspect-[16/10] w-full ${locked ? "opacity-30 grayscale" : ""}`} />
                         {locked ? (
                           <Lock className="absolute top-1/2 left-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
                         ) : null}
@@ -353,11 +358,37 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
                         )}
                       </span>
                     </button>
+                    {/* Layout A or B: a room with a second layout can be played either way. */}
+                    {layouts.length > 1 && !locked ? (
+                      <div className="mt-1 grid grid-cols-2 overflow-hidden rounded-md border border-line/70 text-xs" role="radiogroup" aria-label={`${BOARDS[id].name} layout`}>
+                        {layouts.map((layout, i) => {
+                          const picked = on && shown === layout;
+                          return (
+                            <button
+                              key={layout}
+                              type="button"
+                              role="radio"
+                              aria-checked={picked}
+                              title={BOARDS[layout].blurb}
+                              className={`min-h-8 px-2 font-semibold ${picked ? "bg-[#c6a15a] text-ink" : "text-muted hover:text-parchment"}`}
+                              onClick={() => {
+                                onGesture();
+                                tone(230, 0.05, "triangle", 0.03);
+                                api.chooseMap(layout);
+                              }}
+                            >
+                              {i === 0 ? "Layout A · classic" : "Layout B · bigger"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    </div>
                   );
                 })}
               </div>
               {/* Developer mode only: test rooms (new versions of rooms) that aren't in the game yet. */}
-              {hud.dev ? (
+              {hud.dev && TEST_MAPS.length ? (
                 <>
                   <p className={`${label} mt-4`}>Test rooms (dev only)</p>
                   <div className="-mx-4 mt-1.5 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">

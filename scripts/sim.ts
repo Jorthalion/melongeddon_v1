@@ -139,8 +139,10 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "basement" },
   { night: "overflow", map: "overflow" },
   { night: "siege", map: "courtyard" },
-  // Test rooms (dev only) run only when asked for by name: --only archiveB,mezzanineB.
-  ...ENGINE.TEST_MAPS.filter((map) => ONLY.includes(map)).map((map) => ({ night: "midnight" as NightId, map })),
+  // Test rooms and rooms' layout B run only when asked for by name: --only archiveB,mezzanineB.
+  ...(Object.keys(ENGINE.BOARDS) as MapId[])
+    .filter((map) => (ENGINE.TEST_MAPS.includes(map) || ENGINE.BOARDS[map].variantOf) && ONLY.includes(map))
+    .map((map) => ({ night: "midnight" as NightId, map })),
 ];
 
 /** --perks 00010: every keeper at level 10 with these perk picks (one digit per tier). Default: level 1, no perks. */

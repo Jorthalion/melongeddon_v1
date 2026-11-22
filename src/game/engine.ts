@@ -1,5 +1,5 @@
 import {
-  CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
+  CELL, BOARDS, baseMap, withLayouts, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
   BALANCE, DROWSY, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
@@ -1530,7 +1530,7 @@ export function createWorld(
     const saved = persistMeta ? { ...(stored ?? {}), bookmark: loadPick() } : stored;
     const { setup, notes } = validateSetup(saved, {
       // Test rooms load from a setup only in developer mode (or with everything open, for previews and tests).
-      maps: options.allTricks || world.hud.dev ? [...world.hud.maps, ...TEST_MAPS] : world.hud.maps,
+      maps: withLayouts(options.allTricks || world.hud.dev ? [...world.hud.maps, ...TEST_MAPS] : world.hud.maps),
       unlocked: world.hud.unlocked,
       keepers: HEROES.filter((h) => !world.hud.lockedKeepers.includes(h)),
       siege: world.hud.siegeOpen,
@@ -6024,7 +6024,8 @@ export function createWorld(
       if (world.hud.phase !== "select" || world.hud.night === "overflow" || world.hud.night === "siege") return;
       // Test rooms open only in developer mode (and for the simulator, which plays with everything open).
       const testRoom = TEST_MAPS.includes(map) && (world.hud.dev || options.allTricks === true);
-      if (map === "overflow" || map === "courtyard" || (!world.hud.maps.includes(map) && !testRoom)) return;
+      // A room's layout B is open whenever the room is.
+      if (map === "overflow" || map === "courtyard" || (!world.hud.maps.includes(baseMap(map)) && !testRoom)) return;
       applyBoard(map);
       world.hud.log = BOARDS[map].blurb;
       notify();
