@@ -127,6 +127,7 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "belltower" },
   { night: "midnight", map: "rotunda" },
   { night: "midnight", map: "halldoors" },
+  { night: "midnight", map: "compact" },
   { night: "overflow", map: "overflow" },
   { night: "siege", map: "courtyard" },
 ];
@@ -388,6 +389,22 @@ lines.push("");
       if (!rs.length) continue;
       const per = (k: string) => avg(rs.map((r) => r.leaksByExit?.[k] ?? 0)).toFixed(2);
       lines.push(`| ${d} | ${rs.length} | ${per("reading")} | ${per("kitchens")} | ${per("restricted")} |`);
+    }
+    lines.push("");
+  }
+}
+
+{
+  // The Compact Stacks: how often the bot cranks, and how often a bookworm jams a bay.
+  const stacks = results.filter((r) => r.config.map === "compact");
+  if (stacks.length) {
+    lines.push("## The Compact Stacks: cranks and jams", "");
+    lines.push("Per run: cranks the bot turned (at most one a break) and bays a Bookworm Gourd jammed.", "");
+    lines.push(`| difficulty | runs | cranks | jams |`, `|---|---|---|---|`);
+    for (const d of DIFFS) {
+      const rs = stacks.filter((r) => r.config.difficulty === d);
+      if (!rs.length) continue;
+      lines.push(`| ${d} | ${rs.length} | ${avg(rs.map((r) => r.cranks ?? 0)).toFixed(1)} | ${avg(rs.map((r) => r.jams ?? 0)).toFixed(2)} |`);
     }
     lines.push("");
   }

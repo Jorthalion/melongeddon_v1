@@ -102,6 +102,9 @@ export function describeEnemy(e: Fruit, world: Pick<World, "pools" | "floors" | 
   if (e.native === "squash") traits.push("Leaves healing vines behind it. Fire burns them away.");
   if (e.native === "chimer") traits.push("Every Chimer still walking makes the clock strike sooner.");
   if (e.native === "gargoyle") traits.push("Stone skin between strikes; runs three times as fast while the towers are silent.");
+  if (e.native === "wormgourd" || e.native === "wormqueen")
+    traits.push("Burrows into the shelves: inside a bay only splash, fire and puddles reach it. One that walks out of a bay jams that bay's crank for the next break.");
+  if (e.native === "wormqueen") traits.push(`Leaves a cocoon when she pops: ${NATIVES.cocoonHatch} more hatch after ${NATIVES.cocoonTime}s unless splash or fire gets there first.`);
   if (e.kind === "goose" && !e.gosling && !e.matriarch && !e.honked) traits.push("Honks when first hit: towers close by skip a shot.");
   if (e.leader) traits.push("Leader: if it falls, its line stops for a moment.");
   if (e.matriarch) traits.push("Rallies every goose on the board to walk faster.");

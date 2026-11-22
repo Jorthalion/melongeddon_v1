@@ -1483,7 +1483,8 @@ export type MapId =
   | "overflow"
   | "courtyard"
   | "rotunda"
-  | "halldoors";
+  | "halldoors"
+  | "compact";
 
 /** A board with more than one way in: each door's carpet runs to where it joins the board's own carpet (the trunk). */
 export type DoorId = "north" | "west" | "stairs" | "lift";
@@ -1636,6 +1637,87 @@ export interface Board {
   exits?: Exit[];
   /** The Hall of Doors' signpost: the carpet cell where the exits start. Turn it between waves to shut an exit. */
   signpost?: [number, number];
+  /**
+   * The Compact Stacks: bays of rolling shelving. Every tile of a bay is shelving except its open aisle, which is
+   * carpet; a crank between waves opens the next aisle, and the carpet is rebuilt with `pathFor`.
+   */
+  bays?: Bay[];
+}
+
+/** A bay of rolling shelving (the Compact Stacks): its columns and rows, its aisle rows, and its crank's tile. */
+export interface Bay {
+  cols: [number, number];
+  rows: [number, number];
+  aisles: number[];
+  crank: [number, number];
+}
+
+/** Drop repeated corners and the middle of three in a straight line. */
+function tidyCorners(corners: Array<[number, number]>): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (const p of corners) {
+    const last = out[out.length - 1];
+    if (last && last[0] === p[0] && last[1] === p[1]) continue;
+    out.push(p);
+    while (out.length >= 3) {
+      const [a, b, c] = out.slice(-3);
+      const straight = (a[0] === b[0] && b[0] === c[0]) || (a[1] === b[1] && b[1] === c[1]);
+      if (!straight) break;
+      out.splice(out.length - 2, 1);
+    }
+  }
+  return out;
+}
+
+/**
+ * The Compact Stacks' carpet for the open aisles (one row per bay): in by the west door at the bottom left, up
+ * to the first bay's aisle, through it, across the corridor between the bays, through the second bay, and out by
+ * the east door at the top right. A board without bays keeps its own corners.
+ */
+export function pathFor(board: Board, aisles: number[]): Array<[number, number]> {
+  const bays = board.bays;
+  if (!bays || bays.length !== 2) return board.corners;
+  const [A, B] = bays;
+  const [a, b] = aisles;
+  const cols = board.cols ?? COLS;
+  const inCol = A.cols[0] - 2;
+  const corridor = Math.round((A.cols[1] + B.cols[0]) / 2);
+  const outCol = cols - 1;
+  const entry = A.rows[1];
+  const exit = B.aisles[0];
+  return tidyCorners([
+    [0, entry], [inCol, entry], [inCol, a], [A.cols[0], a], [A.cols[1], a],
+    [corridor, a], [corridor, b], [B.cols[0], b], [B.cols[1], b], [outCol, b], [outCol, exit],
+  ]);
+}
+
+/** A bay's shelving for its open aisle: every tile of the bay but that row. */
+export function bayShelves(board: Board, aisles: number[]): Set<string> {
+  const out = new Set<string>();
+  (board.bays ?? []).forEach((bay, i) => {
+    for (let c = bay.cols[0]; c <= bay.cols[1]; c++)
+      for (let r = bay.rows[0]; r <= bay.rows[1]; r++) if (r !== aisles[i]) out.add(`${c},${r}`);
+  });
+  return out;
+}
+
+/**
+ * Tiles nothing may be built on because a crank could put carpet there (every tile of every possible path, outside
+ * the bays), and the cranks themselves. Empty on boards without bays.
+ */
+export function trackCells(board: Board): Set<string> {
+  const out = new Set<string>();
+  const bays = board.bays;
+  if (!bays?.length) return out;
+  const inBay = (c: number, r: number) => bays.some((b) => c >= b.cols[0] && c <= b.cols[1] && r >= b.rows[0] && r <= b.rows[1]);
+  for (const a of bays[0].aisles)
+    for (const b of bays[1]?.aisles ?? [0])
+      for (const k of buildBoard(pathFor(board, [a, b])).cells) {
+        const [c, r] = k.split(",").map(Number);
+        if (!inBay(c, r)) out.add(k);
+      }
+  for (const bay of bays) out.add(`${bay.crank[0]},${bay.crank[1]}`);
+  return out;
 }
 
 /** The classic bookshelf layout, used by boards that don't list their own. */
@@ -1664,11 +1746,13 @@ export const DEFAULT_SHELVES: Array<[number, number]> = [
  * The bookshelf cells on a board, as "c,r" keys. Cannons can't go there. A shelf listed on the
  * carpet, outside the board, or on the kept-open `michaelCannon` tile is left out.
  */
-export function shelfCells(map: MapId, path: Set<string>, verge: Set<string> = new Set()): Set<string> {
+export function shelfCells(map: MapId, path: Set<string>, verge: Set<string> = new Set(), aisles?: number[]): Set<string> {
   const b = BOARDS[map];
   const { cols, rows } = boardSize(map);
   const fixed = new Set([b.michaelCannon].map(([c, r]) => `${c},${r}`));
   const out = new Set<string>();
+  // The Compact Stacks: every bay tile but its open aisle is shelving.
+  if (b.bays) for (const k of bayShelves(b, aisles ?? b.bays.map((x) => x.aisles[1]))) if (!path.has(k)) out.add(k);
   for (const [c, r] of b.shelves ?? DEFAULT_SHELVES) {
     const key = `${c},${r}`;
     if (c < 0 || r < 0 || c >= cols || r >= rows || path.has(key) || verge.has(key) || fixed.has(key)) continue;
@@ -2054,6 +2138,35 @@ export const BOARDS: Record<MapId, Board> = {
       [4, 3], [5, 3], [16, 9], [17, 9],
     ],
   },
+  compact: {
+    id: "compact",
+    name: "The Compact Stacks",
+    blurb: "Rolling shelves on steel tracks. Turn a crank between waves and the carpet goes another way.",
+    cols: 20,
+    rows: 12,
+    // Bookworms that only splash reaches and a path that keeps moving: fruit are softer (simulator, 2 seeds,
+    // easy/normal/hard/overdue: hp 1 won 94/66/8/2% against the Rotunda's 100/89/13/8; 0.8 98/77/11/3; 0.7 100/84/16/8).
+    hp: 0.7,
+    // The opening carpet: both bays on their middle aisle (pathFor rebuilds it whenever a crank turns).
+    corners: [
+      [0, 9],
+      [2, 9],
+      [2, 5],
+      [19, 5],
+      [19, 2],
+    ],
+    bays: [
+      { cols: [4, 9], rows: [1, 9], aisles: [2, 5, 8], crank: [6, 10] },
+      { cols: [13, 18], rows: [1, 9], aisles: [2, 5, 8], crank: [15, 10] },
+    ],
+    natives: { common: "wormgourd", elite: "wormqueen" },
+    michaelCannon: [10, 1],
+    // A few shelves round the walls (the bays, the corridor between them and every track tile stay clear).
+    shelves: [
+      [0, 0], [1, 0], [2, 0], [3, 0], [0, 4], [0, 5], [4, 11], [5, 11],
+      [16, 11], [17, 11], [18, 11], [19, 11], [19, 10],
+    ],
+  },
 };
 
 export function cornerRot(prev: [number, number], corner: [number, number], next: [number, number]) {
@@ -2208,7 +2321,7 @@ export const SIEGE = {
  * The three newest rooms' own fruit. Each is a flag on an ordinary kind (its `base`), swapped into the
  * shared waves on its own room only: a common one from wave 4, an elite from wave 10 (not on Story).
  */
-export type NativeId = "express" | "parcel" | "sprout" | "squash" | "chimer" | "gargoyle";
+export type NativeId = "express" | "parcel" | "sprout" | "squash" | "chimer" | "gargoyle" | "wormgourd" | "wormqueen";
 export const NATIVE_INFO: Record<NativeId, { name: string; base: EnemyKind; line: string }> = {
   express: { name: "Express Corn", base: "corn", line: "Express post. These ones don't stop on the belts." },
   parcel: { name: "Parcel", base: "pumpkin", line: "A parcel. Tear the paper off first: there's something inside." },
@@ -2216,6 +2329,8 @@ export const NATIVE_INFO: Record<NativeId, { name: string; base: EnemyKind; line
   squash: { name: "Creeping Squash", base: "pumpkin", line: "A creeping squash. The carpet behind it turns into a bed." },
   chimer: { name: "Chimer", base: "corn", line: "Chimers. Every one still walking hurries the clock." },
   gargoyle: { name: "Gargoyle Gourd", base: "pumpkin", line: "A gargoyle gourd. Stone until the clock strikes, then it runs." },
+  wormgourd: { name: "Bookworm Gourd", base: "pumpkin", line: "A bookworm gourd. In the shelves only splash and fire reach it, and it jams the cranks." },
+  wormqueen: { name: "Bookworm Queen", base: "pumpkin", line: "The bookworm queen. Burn or splash her cocoon, or two more crawl out." },
 };
 /** Room fruit numbers (tune with the simulator). */
 export const NATIVES = {
@@ -2245,6 +2360,12 @@ export const NATIVES = {
   /** Gargoyle Gourd: speed while the clock silences the towers, and damage taken the rest of the time. */
   gargoyleAwake: 3,
   gargoyleSkin: 0.75,
+  /** Bookworm Gourd: its pace; a Queen's size, and her cocoon's seconds and hatchlings (splash or fire stops it). */
+  wormSpeed: 0.85,
+  queenR: 20,
+  queenHp: 1.6,
+  cocoonTime: 4,
+  cocoonHatch: 2,
 };
 
 /** One fruit in a wave's spawn queue. */

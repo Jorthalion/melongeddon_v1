@@ -31,6 +31,9 @@ export interface RunLog {
   leaksByDoor: Partial<Record<DoorId, number>>;
   /** The Hall of Doors: fruit that got out by each exit. */
   leaksByExit: Partial<Record<ExitId, number>>;
+  /** The Compact Stacks: cranks turned, and bays a bookworm jammed. */
+  cranks: number;
+  jams: number;
   /** Leaks Ooze absorbed. */
   absorbed: number;
   /** Lowest stacks reached (Infinity until the first leak). */
@@ -98,6 +101,8 @@ export function emptyRunLog(): RunLog {
     chuteStacksLost: 0,
     leaksByDoor: {},
     leaksByExit: {},
+    cranks: 0,
+    jams: 0,
     absorbed: 0,
     minStacks: Infinity,
     karlStacksLost: 0,

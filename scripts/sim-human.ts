@@ -169,7 +169,7 @@ export function makeHuman(kit: HumanKit) {
   };
 
   const free = (c: number, r: number) =>
-    c >= 0 && r >= 0 && c < world.cols && r < world.rows && !world.pathCells.has(`${c},${r}`) && !world.vergeCells.has(`${c},${r}`) && !world.shelfCells.has(`${c},${r}`) && !kit.taken(c, r);
+    c >= 0 && r >= 0 && c < world.cols && r < world.rows && !world.pathCells.has(`${c},${r}`) && !world.vergeCells.has(`${c},${r}`) && !world.shelfCells.has(`${c},${r}`) && !world.trackCells.has(`${c},${r}`) && !kit.taken(c, r);
   const centre = (s: Spot) => ({ x: s.c * CELL + CELL / 2, y: s.r * CELL + CELL / 2 });
   const shooters = () => world.towers.filter((t) => isShooter(t.kind));
   const has = (k: TowerKind) => world.towers.some((t) => t.kind === k);

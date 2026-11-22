@@ -8,6 +8,7 @@ import {
   ASSER_VALUES, carpetAlong,
   nearestOnCarpet, gateStrip, VAEL_VALUES, VAEL_LADDER, vaelLockLine, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
   assignExits, combineRoutes, EXIT_NAME, HALL, type Exit, type ExitId,
+  pathFor, trackCells, type Bay,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
@@ -142,6 +143,8 @@ interface Enemy {
   native?: NativeId;
   /** Parcel: still in its paper (direct hits do half). */
   wrapped?: boolean;
+  /** A Bookworm: the bay it's walking through (-1: none), to know when it walks out. */
+  bay?: number;
   /** Fell out of a Parcel: pays no seeds. */
   contents?: boolean;
   /** Sprout: seconds spent on beds so far. */
@@ -333,6 +336,8 @@ export function targetScore(mode: TargetMode, tower: Tower, e: Enemy, prog: numb
 
 /** Towers that work on an area rather than aiming a shot: they can see a Box Cat (and their puddles, chords and stamps knock the box off). */
 // The Cauldron and the Quack-Liber lob area shots (a puddle, a rocket's burst), so they see one too.
+/** Towers that reach a Bookworm burrowed in the shelves: the Box Cat's seers, and the lobs and fire. */
+export const BURROW_SEERS: TowerKind[] = ["mortar", "trebuchet", "fire"];
 export const BOX_SEERS: TowerKind[] = ["still", "organ", "bell", "stomp", "lionblade", "honey", "bombard", "geese", "cauldron", "quackliber"];
 
 interface Tower {
@@ -361,6 +366,8 @@ interface Tower {
   paid: number;
   /** Waves cleared when it was built (the History Lectern grows with each wave since). */
   born?: number;
+  /** The Compact Stacks: a carpet-side tower whose carpet rolled away; it does nothing until carpet is beside it again. */
+  idle?: boolean;
   /** Orrery: the planets' current angle and orbit radius. */
   spin?: number;
   orbit?: number;
@@ -654,6 +661,10 @@ export interface Hud {
   golden: number;
   /** The Hall of Doors: the exit the signpost shuts for the next wave (null: none). Turned in prep, reset each wave. */
   shutExit: ExitId | null;
+  /** The Compact Stacks: each bay's open aisle (a row), whether a crank was turned this break, and bays jammed this break. */
+  aisles: number[];
+  cranked: boolean;
+  jammed: number[];
   /** Tag Team (Quackarot's perk): the line between two Quack-Libers slows fruit, so it's drawn crackling. */
   tagTeam: boolean;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
@@ -917,7 +928,20 @@ function writeBest(n: number, key = BEST_KEY) {
 }
 
 /** Sound cues the engine raises; the UI drains and plays them. Ignored headless. */
-export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak";
+export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak" | "rumble";
+
+/** What turning a crank would do (api.crankPreview): whether it can turn, the path length before and after, the carpet-side towers that would go idle, and the carpet tiles the towers reach before and after. */
+export interface CrankPreview {
+  ok: boolean;
+  why: string;
+  from: number;
+  to: number;
+  idle: number[];
+  cover: number;
+  coverAfter: number;
+  /** The new carpet's corners, for the ghost. */
+  corners: Array<[number, number]>;
+}
 export interface Sfx {
   kind: SfxKind;
   tower?: TowerKind;
@@ -979,6 +1003,14 @@ export interface World {
   routeExit: number[];
   /** The trunk: the carpet every door joins and every exit leaves (a one-door board: its carpet). */
   trunk: Waypoint[];
+  /** The Compact Stacks: tiles a crank could put carpet on, and the cranks (nothing is built there). Empty elsewhere. */
+  trackCells: Set<string>;
+  /** Bookworm Queen cocoons: where, which carpet, and seconds until two Bookworm Gourds hatch. */
+  cocoons: Array<{ x: number; y: number; wp: number; route?: number; left: number }>;
+  /** A crank turning (for the slide): the bay, seconds left, and which way the aisle moved. */
+  crankAnim: { bay: number; left: number; dir: number } | null;
+  /** The crank under the pointer in prep, and what turning it would do (drawn as a ghost path and a note). */
+  crankHint: (CrankPreview & { bay: number }) | null;
   /** Board size in cells and world pixels (set with the map). */
   cols: number;
   rows: number;
@@ -1066,6 +1098,10 @@ export function createWorld(
   pickArmour: (armour: ArmourId) => void;
   /** The Hall of Doors, between waves: turn the signpost to shut the next exit for the next wave (none, then each in turn). */
   turnSign: () => void;
+  /** The Compact Stacks, between waves: roll a bay's shelves to open its next aisle (once a break; not a jammed bay). */
+  crank: (bay: number) => void;
+  /** What turning that crank would do, without turning it. */
+  crankPreview: (bay: number) => CrankPreview;
   /** @deprecated The oaths are gone: an old oath (or an armour) is mapped to an armour (ARMOUR_FOR_OATH) and put on. */
   pickOath: (oath: OathId | ArmourId) => void;
   /** Whether an armour is open for the playing keeper (keeper level, dev mode, or every tower open). */
@@ -1200,6 +1236,9 @@ export function createWorld(
       quackAura: CANNON.quackAura,
       golden: 0,
       shutExit: null,
+      aisles: [],
+      cranked: false,
+      jammed: [],
       tagTeam: false,
       geeseSpent: false,
       copycatPlaced: false,
@@ -1264,6 +1303,10 @@ export function createWorld(
     routes: [STACKS.points],
     segments: [STACKS.points],
     doors: [],
+    trackCells: new Set(),
+    cocoons: [],
+    crankAnim: null,
+    crankHint: null,
     exits: [],
     routeDoor: [0],
     routeExit: [],
@@ -1651,6 +1694,7 @@ export function createWorld(
 
   /** Show a splash area: a soft circle and a ring at its real radius. */
   const splashFx = (x: number, y: number, r: number, color: string) => {
+    if (world.cocoons.length) world.cocoons = world.cocoons.filter((k) => Math.hypot(k.x - x, k.y - y) > r + 6);
     world.rings.push({ x, y, r, life: 0.45, max: 0.45, color, fill: true });
     if (world.rings.length > 60) world.rings.splice(0, world.rings.length - 60);
   };
@@ -2447,6 +2491,11 @@ export function createWorld(
         host.bedTime = 0;
       }
       if (native === "squash") host.vineCd = NATIVES.vineEvery;
+      if (native === "wormgourd" || native === "wormqueen") host.speed *= NATIVES.wormSpeed;
+      if (native === "wormqueen") {
+        host.r = NATIVES.queenR;
+        host.hp = host.maxHp = Math.round(host.maxHp * NATIVES.queenHp);
+      }
       if (!world.hud.nativesSeen.includes(native)) {
         world.hud.nativesSeen = [...world.hud.nativesSeen, native];
         world.hud.log = NATIVE_INFO[native].line;
@@ -2880,6 +2929,131 @@ export function createWorld(
     return previewOf(cleared, left, world.hud.dropWave);
   };
 
+  /** Bookworm fruit jamming a bay this wave (cranks jammed next break). */
+  const jamNext = new Set<number>();
+  const inBay = (bay: Bay, c: number, r: number) => c >= bay.cols[0] && c <= bay.cols[1] && r >= bay.rows[0] && r <= bay.rows[1];
+  /** The bay a point is in (-1: none). */
+  const bayAt = (x: number, y: number) => (BOARDS[world.hud.map].bays ?? []).findIndex((b) => inBay(b, Math.floor(x / CELL), Math.floor(y / CELL)));
+  /** A Bookworm in the shelves: half hidden, so only area towers can aim at it or hurt it. */
+  const burrowed = (e: Enemy) => (e.native === "wormgourd" || e.native === "wormqueen") && e.hp > 0 && bayAt(e.x, e.y) >= 0;
+  /** Towers that must stand beside the carpet, and whether this one has lost it (a crank rolled it away). */
+  const idleTower = (t: Tower) =>
+    t.kind === "pamphlet" ? (t.leg ?? -1) < 0 : (t.kind === "gourdgate" || t.kind === "desk") && !besideCarpet(world, t.c, t.r);
+  /**
+   * The Compact Stacks: rebuild everything worked out from the carpet once (cells, verge, shelves, routes, the
+   * tiles nothing may be built on), then refresh every cache that read it: Gates find their new spot, Posts bind
+   * their straight again, Orreries reset their orbit, and carpet-side towers with no carpet beside them go idle.
+   */
+  const rebuildCarpet = () => {
+    const board = BOARDS[world.hud.map];
+    const built = buildRoutes({ ...board, corners: pathFor(board, world.hud.aisles) });
+    world.pathCells = built.cells;
+    world.vergeCells = built.verge;
+    world.shelfCells = shelfCells(world.hud.map, built.cells, built.verge, world.hud.aisles);
+    world.points = built.points;
+    world.turns = built.turns;
+    world.routes = built.routes;
+    world.segments = built.segments;
+    world.trunk = built.points;
+    const tracks = trackCells(board);
+    for (const k of built.cells) tracks.delete(k);
+    world.trackCells = tracks;
+    legCache = null;
+    for (const t of world.towers) {
+      t.gate = undefined;
+      if (t.kind === "pamphlet") t.leg = bindLeg(legsNow(), t.c, t.r);
+      if (t.kind === "orrery") t.orbit = statsFor(t).range;
+      t.idle = idleTower(t);
+    }
+    world.crankHint = null;
+    syncReach();
+  };
+  /** Carpet tiles within reach of the towers that aim (each tile once per tower), for a set of carpet cells. */
+  const coverOf = (cells: Set<string>) => {
+    let n = 0;
+    for (const t of world.towers) {
+      if (PASSIVE.includes(t.kind)) continue;
+      const range = statsFor(t).range;
+      for (const k of cells) {
+        const [c, r] = k.split(",").map(Number);
+        if ((c * CELL + CELL / 2 - t.x) ** 2 + (r * CELL + CELL / 2 - t.y) ** 2 <= range * range) n += 1;
+      }
+    }
+    return n;
+  };
+  /** What turning bay `bay`'s crank would do, without turning it. */
+  const crankPreview = (bay: number): CrankPreview => {
+    const board = BOARDS[world.hud.map];
+    const b = board.bays?.[bay];
+    const from = world.pathCells.size;
+    const none = { from, to: from, idle: [], cover: 0, coverAfter: 0, corners: [] as Array<[number, number]> };
+    if (!b) return { ok: false, why: "There's no crank here.", ...none };
+    const why =
+      world.hud.phase !== "prep" || world.enemies.some((e) => e.hp > 0)
+        ? "The shelves only roll between waves."
+        : world.hud.cranked
+          ? "One crank a break: you've turned one already."
+          : world.hud.jammed.includes(bay)
+            ? "Jammed: a bookworm in the works."
+            : "";
+    const aisles = [...world.hud.aisles];
+    aisles[bay] = b.aisles[(b.aisles.indexOf(aisles[bay]) + 1) % b.aisles.length];
+    const corners = pathFor(board, aisles);
+    const next = buildRoutes({ ...board, corners });
+    const legs = carpetLegs(next.points);
+    const idle = world.towers
+      .filter((t) =>
+        t.kind === "pamphlet"
+          ? bindLeg(legs, t.c, t.r) < 0
+          : (t.kind === "gourdgate" || t.kind === "desk") && !besideCarpet({ pathCells: next.cells, vergeCells: next.verge }, t.c, t.r),
+      )
+      .map((t) => t.id);
+    return { ok: !why, why, from, to: next.cells.size, idle, cover: coverOf(world.pathCells), coverAfter: coverOf(next.cells), corners };
+  };
+  /** Turn bay `bay`'s crank: its shelves roll and the next aisle opens (top, middle, bottom, then top again). */
+  const crank = (bay: number) => {
+    const board = BOARDS[world.hud.map];
+    const b = board.bays?.[bay];
+    if (!b) return;
+    const p = crankPreview(bay);
+    if (!p.ok) {
+      world.hud.log = p.why;
+      notify();
+      return;
+    }
+    const before = world.hud.aisles[bay];
+    const aisles = [...world.hud.aisles];
+    aisles[bay] = b.aisles[(b.aisles.indexOf(before) + 1) % b.aisles.length];
+    world.hud.aisles = aisles;
+    world.hud.cranked = true;
+    world.runLog.cranks += 1;
+    rebuildCarpet();
+    world.crankAnim = { bay, left: 0.5, dir: Math.sign(aisles[bay] - before) };
+    world.shake = world.reduced ? 0 : 4;
+    for (let c = b.cols[0]; c <= b.cols[1]; c++) burst(c * CELL + CELL / 2, aisles[bay] * CELL + CELL / 2, "#b9ab94", 2);
+    const name = ["top", "middle", "bottom"][b.aisles.indexOf(aisles[bay])] ?? "next";
+    const idled = world.towers.filter((t) => t.idle).length;
+    world.hud.log = `Bay ${"AB"[bay]}: the ${name} aisle is open. Path ${p.from} → ${p.to} tiles.${idled ? ` ${idled === 1 ? "A tower has" : `${idled} towers have`} no carpet beside ${idled === 1 ? "it" : "them"} now.` : ""}`;
+    cue("rumble");
+    notify();
+  };
+  /** Bookworm Queen cocoons: two Bookworm Gourds hatch unless splash or fire gets there first. */
+  const tickCocoons = (dt: number) => {
+    if (!world.cocoons.length) return;
+    // A fire patch burns a cocoon away.
+    world.cocoons = world.cocoons.filter((k) => !world.pools.some((p) => (p.hot || (p.burn ?? 0) > 0) && Math.hypot(p.x - k.x, p.y - k.y) <= p.r + 6));
+    const scale = hpScaleFor(world.hud.night, cleared);
+    for (const k of world.cocoons) {
+      k.left -= dt;
+      if (k.left > 0) continue;
+      for (let i = 0; i < NATIVES.cocoonHatch; i++) {
+        const spread = (i - (NATIVES.cocoonHatch - 1) / 2) * 12;
+        spawnEnemy("pumpkin", scale, "none", { at: { x: k.x + spread, y: k.y, wp: k.wp }, route: k.route, native: "wormgourd" });
+      }
+      float(k.x, k.y - 20, "hatched", "#8fc06a");
+    }
+    world.cocoons = world.cocoons.filter((k) => k.left > 0);
+  };
   /**
    * The Hall of Doors' signpost, between waves: shut the next exit for the next wave (none, then each exit in turn;
    * the boss-only exit is skipped when the wave brings a boss). The lamps and the Coming up bar follow.
@@ -2937,6 +3111,15 @@ export function createWorld(
     }));
     world.hud.shutExit = null;
     if (world.doors.length) world.segments = [...built.segments];
+    // The Compact Stacks: both bays back on their middle aisle every night.
+    const bays = BOARDS[map].bays;
+    world.hud.aisles = bays ? bays.map((b) => b.aisles[1]) : [];
+    world.hud.cranked = false;
+    world.hud.jammed = [];
+    world.cocoons = [];
+    world.crankAnim = null;
+    world.crankHint = null;
+    world.trackCells = new Set();
     legCache = null;
     world.floors = floorTiles(map);
     world.bell = BOARDS[map].bell ? { next: FLOOR.bellEvery, quiet: 0 } : null;
@@ -2945,6 +3128,7 @@ export function createWorld(
     world.brawls = [];
     Object.assign(world, boardSize(map));
     world.hud.map = map;
+    if (bays) rebuildCarpet();
     syncDoors();
   };
   applyBoard(world.hud.map);
@@ -3049,6 +3233,9 @@ export function createWorld(
       quackAura: CANNON.quackAura,
       golden: 0,
       shutExit: null,
+      aisles: BOARDS[world.hud.map].bays?.map((b) => b.aisles[1]) ?? [],
+      cranked: false,
+      jammed: [],
       tagTeam: false,
       geeseSpent: false,
       copycatPlaced: false,
@@ -3385,6 +3572,7 @@ export function createWorld(
     // What fell out of a Parcel pays nothing.
     if (!e.contents) world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
     if (e.native === "parcel") openParcel(e);
+    if (e.native === "wormqueen") world.cocoons.push({ x: e.x, y: e.y, wp: e.wp, route: e.route, left: NATIVES.cocoonTime });
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
     const juice =
       e.kind === "pumpkin" || e.kind === "karl"
@@ -3736,6 +3924,7 @@ export function createWorld(
   };
   /** An explosion at (x, y): puddles in it spread out once, fire patches in it flare up. */
   const explode = (x: number, y: number, r: number) => {
+    if (world.cocoons.length) world.cocoons = world.cocoons.filter((k) => Math.hypot(k.x - x, k.y - y) > r + 6);
     if (!COMBO.on) return;
     for (const pool of world.pools) {
       if (Math.hypot(pool.x - x, pool.y - y) > r + pool.r) continue;
@@ -3761,6 +3950,8 @@ export function createWorld(
       if (Math.hypot(e.x - from.x, e.y - from.y) > radius) return;
     }
     if (e.hp <= 0) return;
+    // A Bookworm in the shelves: only area damage reaches it (splash, fire, puddles, poison, a brawl).
+    if (burrowed(e) && via !== "splash" && via !== "burn" && via !== "pulp" && via !== "poison" && via !== "feud") return;
     // Shatter: the first splash on a fruit with 2+ frost does half again, throws ice shards at its neighbours,
     // ends the frost, and spends every affliction on it at once.
     let shards = 0;
@@ -3942,7 +4133,7 @@ export function createWorld(
     }
     // An explosive shot's own hit on a fruit with 2+ frost counts as the explosion, so it shatters it.
     const shatters = COMBO.on && shot.splash > 0 && e.guard !== "husk" && (frozen(e) || (e.frost ?? 0) >= 2);
-    hurt(e, null, shot.dmg, 0, shatters ? "splash" : shot.pierce ? "pierce" : "shot");
+    hurt(e, null, shot.dmg, 0, shatters || (shot.splash > 0 && burrowed(e)) ? "splash" : shot.pierce ? "pierce" : "shot");
     burst(e.x, e.y, "#3f9a5c", 6);
     // Stingers: a fly leaves one (Stinging Flies: two in a fruit already stung; a sticky fruit takes two).
     // A seed drives the ones already in deeper (Grit: two). A shell keeps them out until it cracks.
@@ -4161,6 +4352,16 @@ export function createWorld(
   const endWave = () => {
     cleared += 1;
     world.hud.shutExit = null;
+    if (BOARDS[world.hud.map].bays) {
+      world.hud.cranked = false;
+      world.hud.jammed = [...jamNext].sort();
+      jamNext.clear();
+      world.cocoons = [];
+      if (world.hud.jammed.length) {
+        world.runLog.jams += world.hud.jammed.length;
+        world.hud.log = `${world.hud.jammed.map((b) => `Bay ${"AB"[b]}`).join(" and ")} jammed: a bookworm in the works. That crank won't turn this break.`;
+      }
+    }
     world.hud.geeseSpent = false;
     world.hud.copycatPlaced = false;
     world.hud.chuteWave = usesChute(cleared);
@@ -4255,7 +4456,7 @@ export function createWorld(
     let spilled = false;
     for (const flask of world.towers) if (flask.kind === "flask" && spillFlask(flask)) spilled = true;
     for (const desk of world.towers) {
-      if (desk.kind !== "desk") continue;
+      if (desk.kind !== "desk" || desk.idle) continue;
       desk.bank = (desk.bank ?? 0) + CANNON.deskBank;
       float(desk.x, desk.y - 50, `+${CANNON.deskBank}`, "#e6c36a");
     }
@@ -4694,9 +4895,16 @@ export function createWorld(
         e.y += (dy / dist) * step;
       }
       if (e.hp > 0) noteReach(e, progressOf(e));
+      if (e.hp > 0 && (e.native === "wormgourd" || e.native === "wormqueen")) {
+        // A Bookworm that walks out of a bay alive jams that bay's crank for the next break.
+        const now = bayAt(e.x, e.y);
+        if (e.bay != null && e.bay >= 0 && now !== e.bay) jamNext.add(e.bay);
+        e.bay = now;
+      }
     }
 
     tickFeud();
+    tickCocoons(dt);
 
     // Reserve Desk: a melon that comes past eats whatever is banked.
     for (const desk of world.towers) {
@@ -4714,6 +4922,8 @@ export function createWorld(
     // While the Bell Tower's clock strikes, no tower acts (shots already in the air still land).
     for (const tower of (world.bell?.quiet ?? 0) > 0 ? [] : actingTowers()) {
       credit = tower.id;
+      // The Compact Stacks: a carpet-side tower whose carpet rolled away waits for it to come back.
+      if (tower.idle) continue;
       tower.cd -= dt;
       if (tower.rally) tower.rally = Math.max(0, tower.rally - dt);
       if (PASSIVE.includes(tower.kind)) continue;
@@ -4746,8 +4956,9 @@ export function createWorld(
       const inRange: Enemy[] = [];
       // A Box Cat can't be aimed at; area towers still see it. A paratrooper in the air can't be reached at all.
       const seesBoxes = BOX_SEERS.includes(tower.kind);
+      const seesBurrows = seesBoxes || BURROW_SEERS.includes(tower.kind);
       for (const e of world.enemies) {
-        if (e.hp <= 0 || (e.descend ?? 0) > 0 || (e.boxed && !seesBoxes)) continue;
+        if (e.hp <= 0 || (e.descend ?? 0) > 0 || (e.boxed && !seesBoxes) || (!seesBurrows && burrowed(e))) continue;
         const d2 = (e.x - tower.x) ** 2 + (e.y - tower.y) ** 2;
         if (d2 > range * range) continue;
         inRange.push(e);
@@ -5151,7 +5362,7 @@ export function createWorld(
     }
     world.hud.left = world.enemies.length + Math.max(0, queue.length - queueCursor) + drops.length;
 
-    if (world.hud.phase === "combat" && queueCursor >= queue.length && world.enemies.length === 0 && drops.length === 0) {
+    if (world.hud.phase === "combat" && queueCursor >= queue.length && world.enemies.length === 0 && drops.length === 0 && world.cocoons.length === 0) {
       endWave();
     }
   };
@@ -5194,9 +5405,13 @@ export function createWorld(
       const r = Math.floor(y / CELL);
       if (!inMap(c, r)) {
         world.hover = null;
+        world.crankHint = null;
         return;
       }
       world.hover = { c, r };
+      // The Compact Stacks: on a crank in prep, show what turning it would do.
+      const hoverCrank = (BOARDS[world.hud.map].bays ?? []).findIndex((b) => b.crank[0] === c && b.crank[1] === r);
+      world.crankHint = hoverCrank >= 0 && world.hud.phase === "prep" ? { ...crankPreview(hoverCrank), bay: hoverCrank } : null;
       syncReach();
       const path = world.pathCells.has(`${c},${r}`);
       const verge = world.vergeCells.has(`${c},${r}`);
@@ -5207,6 +5422,7 @@ export function createWorld(
         !path &&
         !verge &&
         !shelf &&
+        !world.trackCells.has(`${c},${r}`) &&
         !taken &&
         !signatureBlocked(world.hud.build) &&
         !levelLocked(world.hud.build) &&
@@ -5253,6 +5469,17 @@ export function createWorld(
       }
       if (shelf) {
         world.hud.log = "That's a bookshelf. Build on the open floor.";
+        notify();
+        return;
+      }
+      // The Compact Stacks: a crank, or a tile a crank could put carpet on.
+      const bayCrank = (BOARDS[world.hud.map].bays ?? []).findIndex((b) => b.crank[0] === c && b.crank[1] === r);
+      if (bayCrank >= 0) {
+        crank(bayCrank);
+        return;
+      }
+      if (world.trackCells.has(`${c},${r}`)) {
+        world.hud.log = "That's a shelf track: a crank could roll carpet over it. Build beside it.";
         notify();
         return;
       }
@@ -5819,6 +6046,12 @@ export function createWorld(
     turnSign() {
       turnSign();
     },
+    crank(bay: number) {
+      crank(bay);
+    },
+    crankPreview(bay: number) {
+      return crankPreview(bay);
+    },
     pickOath(oath: OathId | ArmourId) {
       // Scripts from the oath days (the simulator, old tests) skip the level check: no player reaches this.
       const armour = (ARMOURS as string[]).includes(oath) ? (oath as ArmourId) : ARMOUR_FOR_OATH[oath as OathId];
@@ -6227,6 +6460,10 @@ export function createWorld(
       if (world.hud.heavyOpen) notify();
     }
     tickFx(dt);
+    if (world.crankAnim) {
+      world.crankAnim.left -= dt;
+      if (world.crankAnim.left <= 0) world.crankAnim = null;
+    }
     if (world.hud.phase === "prep" || world.hud.phase === "combat") syncReach();
     if (world.hud.phase === "combat") tickCombat(dt);
   };

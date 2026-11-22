@@ -57,6 +57,7 @@ export type KeyAction =
   | { type: "togglePause" }
   | { type: "sell" }
   | { type: "turnSign" }
+  | { type: "crank"; bay: number }
   | { type: "aim" }
   | { type: "openShop" }
   | { type: "deselect" }
@@ -157,6 +158,8 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       if (key === "s" && hud.selected != null) return { type: "sell" };
       // X: the Hall of Doors' signpost (between waves): shut the next exit for the next wave.
       if (key === "x" && phase === "prep" && BOARDS[hud.map]?.exits?.length) return { type: "turnSign" };
+      // [ and ]: the Compact Stacks' cranks (between waves).
+      if ((key === "[" || key === "]") && phase === "prep" && BOARDS[hud.map]?.bays?.length) return { type: "crank", bay: key === "[" ? 0 : 1 };
       // A: the selected tower's next targeting mode (nothing on towers that don't aim).
       if (key === "a" && hud.selected != null) return { type: "aim" };
       if (key === "b") return { type: "openShop" };
@@ -257,6 +260,9 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       return true;
     case "turnSign":
       api.turnSign();
+      return true;
+    case "crank":
+      api.crank(action.bay);
       return true;
     case "openShop":
       api.openShop();

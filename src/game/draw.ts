@@ -50,6 +50,13 @@ const SPRITE_SRC = {
   squash: asset("sprites/enemy-squash.webp"),
   chimer: asset("sprites/enemy-chimer.webp"),
   gargoyle: asset("sprites/enemy-gargoyle.webp"),
+  // The Compact Stacks' room fruit and props (drawn by code until the art exists).
+  wormgourd: asset("sprites/fruit-wormgourd.webp"),
+  wormqueen: asset("sprites/fruit-wormqueen.webp"),
+  cocoon: asset("sprites/prop-cocoon.webp"),
+  floorCompact: asset("sprites/tile-floor-compact.webp"),
+  shelfUnit: asset("sprites/prop-shelf-unit.webp"),
+  crankWheel: asset("sprites/prop-crank.webp"),
   tileVine: asset("sprites/tile-vine.webp"),
   // The Siege: geese and cats (flags on the two kinds). Drawn by code until the art exists (docs/art/ENEMY_PROMPTS.md).
   honker: asset("sprites/enemy-honker.webp"),
@@ -429,9 +436,28 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     courtyard: art.floorCourtyard,
     rotunda: art.floorRotunda,
     halldoors: art.floorHalldoors,
+    compact: art.floorCompact,
   } as Partial<Record<string, HTMLImageElement>>)[world.hud.map];
   const floor = ready(ownFloor) ? ownFloor : art.floor;
-  if (world.hud.map === "halldoors" && !ready(ownFloor)) {
+  if (world.hud.map === "compact" && !ready(ownFloor)) {
+    // Concrete with steel tracks under each bay, by code until the painted tile exists.
+    ctx.fillStyle = "#57554f";
+    ctx.fillRect(0, 0, world.w, world.h);
+    ctx.fillStyle = "rgba(255,255,255,0.03)";
+    for (let i = 0; i < 160; i++) ctx.fillRect(((i * 97) % world.w), ((i * 61) % world.h), 2, 2);
+    ctx.strokeStyle = "rgba(190,196,200,0.35)";
+    ctx.lineWidth = 2;
+    for (const b of BOARDS.compact.bays ?? [])
+      for (let c = b.cols[0]; c <= b.cols[1]; c++)
+        for (const dx of [0.25, 0.75]) {
+          ctx.beginPath();
+          ctx.moveTo(c * CELL + CELL * dx, b.rows[0] * CELL);
+          ctx.lineTo(c * CELL + CELL * dx, (b.rows[1] + 1) * CELL);
+          ctx.stroke();
+        }
+    ctx.fillStyle = "rgba(16,12,14,0.3)";
+    ctx.fillRect(0, 0, world.w, world.h);
+  } else if (world.hud.map === "halldoors" && !ready(ownFloor)) {
     // Checkered marble by code until the painted tile exists.
     ctx.fillStyle = marble(ctx);
     ctx.fillRect(0, 0, world.w, world.h);
@@ -783,7 +809,14 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     }
     const painted = look != null && ready(art[look]);
     const quiet = (world.bell?.quiet ?? 0) > 0;
-    const shape = !painted && (siegeLook || e.native === "sprout" || e.native === "gargoyle");
+    const worm = e.native === "wormgourd" || e.native === "wormqueen";
+    const shape = !painted && (siegeLook || e.native === "sprout" || e.native === "gargoyle" || worm);
+    // A Bookworm in the shelves is half hidden.
+    const hidden = worm && (BOARDS[world.hud.map].bays ?? []).some((b) => {
+      const c = Math.floor(e.x / CELL);
+      const r = Math.floor(e.y / CELL);
+      return c >= b.cols[0] && c <= b.cols[1] && r >= b.rows[0] && r <= b.rows[1];
+    });
     // Whether a painted sprite is drawn (it takes its body look as a pre-tinted copy); a code-drawn one gets an overlay.
     const sprite = !shape && ready(painted ? art[look] : e.kind === "goose" || e.kind === "cat" ? undefined : art[e.kind]);
     // Status looks are sized to what's drawn: a painted sprite is bigger than the fruit's hit radius.
@@ -796,6 +829,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     if (!painted && siegeLook) drawSiegeShape(ctx, siegeLook, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, faceLeft, Boolean(e.leader), stretch);
     else if (!painted && e.native === "sprout") drawSproutShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim);
     else if (!painted && e.native === "gargoyle") drawGargoyleShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, quiet);
+    else if (!painted && worm) drawWormShape(ctx, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, hidden, e.native === "wormqueen", faceLeft);
     else
       drawEnemy(ctx, e.kind, e.x, e.y, e.r, e.hp / e.maxHp, world.anim, e.boss, art, faceLeft, painted ? look : null, {
         bob: sl ? sl.motion.bob : 1,
@@ -1089,6 +1123,19 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
         ctx.arc(t.x + Math.cos(a) * 22, t.y - 4 + Math.sin(a) * 22, 2, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+    // The Compact Stacks: a carpet-side tower whose carpet rolled away is dimmed and says so.
+    if (t.idle) {
+      ctx.save();
+      ctx.fillStyle = "rgba(14,10,12,0.55)";
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, CELL * 0.46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = "700 10px 'Outfit Variable', Outfit, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#f2a08a";
+      ctx.fillText("No carpet", t.x, t.y + CELL * 0.62);
+      ctx.restore();
     }
     // The Post: a lit "typing" dot while armed; a speech-bubble shockwave down its straight when it goes off.
     if (t.kind === "pamphlet") {
@@ -1851,6 +1898,183 @@ function drawCarpet(
 
   if (world.hud.map === "overflow" && world.points.length >= 2) drawChute(ctx, world, end, getSprites().chuteProp);
   drawDoors(ctx, world);
+  drawCompact(ctx, world);
+}
+
+/**
+ * The Compact Stacks: Bookworm Queen cocoons, a brass crank wheel below each bay (greyed once used, "JAMMED" when a
+ * bookworm got out), and while the pointer is on a crank in prep, the carpet it would open as a ghost with a note.
+ */
+function drawCompact(ctx: CanvasRenderingContext2D, world: World) {
+  const bays = BOARDS[world.hud.map].bays;
+  if (!bays) return;
+  const art = getSprites();
+  for (const k of world.cocoons) {
+    if (ready(art.cocoon)) blitFit(ctx, art.cocoon, k.x, k.y, 26, 26);
+    else {
+      ctx.save();
+      ctx.fillStyle = "#e7dcc0";
+      ctx.strokeStyle = "#9a8a66";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(k.x, k.y, 8, 11, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(k.x - 7, k.y + i * 3.5);
+        ctx.lineTo(k.x + 7, k.y + i * 3.5 + 1.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // Its timer: a ring running down.
+    ctx.strokeStyle = "rgba(143,192,106,0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(k.x, k.y, 15, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * Math.max(0, k.left)) / 4);
+    ctx.stroke();
+  }
+  const hint = world.crankHint;
+  if (hint && world.hud.phase === "prep") {
+    // The ghost of the carpet this crank would open.
+    ctx.save();
+    ctx.strokeStyle = hint.ok ? "rgba(230,195,106,0.55)" : "rgba(200,120,110,0.45)";
+    ctx.lineWidth = CELL * 0.55;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath();
+    hint.corners.forEach(([c, r], i) => (i ? ctx.lineTo(c * CELL + CELL / 2, r * CELL + CELL / 2) : ctx.moveTo(c * CELL + CELL / 2, r * CELL + CELL / 2)));
+    ctx.stroke();
+    ctx.restore();
+    for (const id of hint.idle) {
+      const t = world.towers.find((x) => x.id === id);
+      if (!t) continue;
+      ctx.strokeStyle = "rgba(226,80,70,0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, CELL * 0.45, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  bays.forEach((b, i) => {
+    const x = b.crank[0] * CELL + CELL / 2;
+    const y = b.crank[1] * CELL + CELL / 2;
+    const jammed = world.hud.jammed.includes(i);
+    const used = world.hud.cranked || jammed || world.hud.phase !== "prep";
+    const spin = world.crankAnim?.bay === i ? (0.5 - world.crankAnim.left) * 8 : 0;
+    ctx.save();
+    ctx.globalAlpha = used ? 0.5 : 1;
+    if (ready(art.crankWheel)) {
+      ctx.translate(x, y);
+      ctx.rotate(spin);
+      fit(ctx, art.crankWheel, 0, 0, CELL - 4, CELL - 4);
+    } else {
+      ctx.translate(x, y);
+      ctx.rotate(spin);
+      ctx.strokeStyle = used ? "#8a8070" : "#d9b25a";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, CELL * 0.34, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let k = 0; k < 6; k++) {
+        const a = (k * Math.PI) / 3;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * CELL * 0.34, Math.sin(a) * CELL * 0.34);
+        ctx.stroke();
+      }
+      ctx.fillStyle = used ? "#8a8070" : "#e6c36a";
+      ctx.beginPath();
+      ctx.arc(CELL * 0.34, 0, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    // Which bay and its key; a jam says so.
+    ctx.save();
+    ctx.font = "700 10px 'Outfit Variable', Outfit, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = jammed ? "#e2645a" : "#efe0bd";
+    ctx.fillText(jammed ? "JAMMED" : `Bay ${"AB"[i]} ${i ? "]" : "["}`, x, y + CELL * 0.62);
+    ctx.restore();
+  });
+  if (hint && world.hud.phase === "prep") {
+    const b = bays[hint.bay];
+    const x = b.crank[0] * CELL + CELL / 2;
+    const y = b.crank[1] * CELL - CELL * 0.2;
+    const lines = [hint.ok ? `Path ${hint.from} → ${hint.to} tiles` : hint.why];
+    if (hint.ok && hint.idle.length) lines.push(`${hint.idle.length} carpet-side tower${hint.idle.length === 1 ? "" : "s"} would go idle`);
+    ctx.save();
+    ctx.font = "600 12px 'Outfit Variable', Outfit, sans-serif";
+    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 16;
+    const h = 8 + lines.length * 16;
+    const left = Math.max(4, Math.min(world.w - w - 4, x - w / 2));
+    ctx.fillStyle = "rgba(20,14,16,0.92)";
+    roundRect(ctx, left, y - h, w, h, 6);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(198,161,90,0.8)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.textAlign = "left";
+    lines.forEach((l, i) => {
+      ctx.fillStyle = i === 1 ? "#f2a08a" : "#efe0bd";
+      ctx.fillText(l, left + 8, y - h + 18 + i * 16);
+    });
+    ctx.restore();
+  }
+}
+
+/** A Bookworm Gourd by code: a green segmented gourd in little spectacles (the Queen bigger, with a crown). Half hidden in the shelves. */
+function drawWormShape(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hp: number, anim: number, hidden: boolean, queen: boolean, faceLeft: boolean) {
+  ctx.save();
+  if (hidden) ctx.globalAlpha = 0.45;
+  ctx.translate(x, y);
+  if (faceLeft) ctx.scale(-1, 1);
+  const seg = r * 0.62;
+  for (let i = 2; i >= 0; i--) {
+    const sx = -i * seg * 0.95;
+    const sy = Math.sin(anim * 6 + i) * 1.5;
+    ctx.fillStyle = i === 0 ? "#6faa3e" : i === 1 ? "#5d9636" : "#4e8230";
+    ctx.strokeStyle = "#2f5420";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, seg, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  // Spectacles.
+  ctx.strokeStyle = "#d9b25a";
+  ctx.lineWidth = 1.4;
+  for (const ex of [seg * 0.15, seg * 0.6]) {
+    ctx.beginPath();
+    ctx.arc(ex, -seg * 0.15, seg * 0.24, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#1c1a16";
+  for (const ex of [seg * 0.15, seg * 0.6]) {
+    ctx.beginPath();
+    ctx.arc(ex, -seg * 0.15, seg * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (queen) {
+    ctx.fillStyle = "#e6c36a";
+    ctx.beginPath();
+    ctx.moveTo(-seg * 0.4, -seg * 0.85);
+    ctx.lineTo(-seg * 0.2, -seg * 1.35);
+    ctx.lineTo(seg * 0.1, -seg * 0.95);
+    ctx.lineTo(seg * 0.4, -seg * 1.35);
+    ctx.lineTo(seg * 0.6, -seg * 0.85);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+  if (hp < 1) {
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(x - r, y - r - 8, r * 2, 3);
+    ctx.fillStyle = "#8fc06a";
+    ctx.fillRect(x - r, y - r - 8, r * 2 * Math.max(0, hp), 3);
+  }
 }
 
 let marbleTile: HTMLCanvasElement | null = null;
@@ -2836,10 +3060,31 @@ function drawShelves(
     }
     return;
   }
+  const bays = board.bays ?? [];
   for (const [c, r] of spots) {
     if (underBell(c, r)) continue;
     const x = c * CELL + CELL / 2;
     const y = r * CELL + CELL / 2;
+    const bay = bays.findIndex((b) => c >= b.cols[0] && c <= b.cols[1] && r >= b.rows[0] && r <= b.rows[1]);
+    if (bay >= 0) {
+      // A rolling steel shelf unit; the bay's units slide for a moment after its crank turns.
+      const anim = world.crankAnim?.bay === bay ? world.crankAnim : null;
+      const dy = anim ? -anim.dir * (anim.left / 0.5) * CELL * 0.5 : 0;
+      if (ready(art.shelfUnit)) fit(ctx, art.shelfUnit, x, y + dy, CELL - 2, CELL - 2);
+      else {
+        ctx.fillStyle = "#4f5c51";
+        ctx.fillRect(c * CELL + 2, r * CELL + 3 + dy, CELL - 4, CELL - 6);
+        ctx.strokeStyle = "#2c342d";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(c * CELL + 2, r * CELL + 3 + dy, CELL - 4, CELL - 6);
+        const tones = ["#8a6a48", "#6d5a7a", "#a08a5a", "#5a6f7a", "#7a4a3a"];
+        for (let i = 0; i < 4; i++) {
+          ctx.fillStyle = tones[(c * 3 + r * 5 + i) % tones.length];
+          ctx.fillRect(c * CELL + 5 + i * ((CELL - 10) / 4), r * CELL + 7 + dy, (CELL - 10) / 4 - 2, CELL - 14);
+        }
+      }
+      continue;
+    }
     if (ready(furniture)) {
       // Furniture stands square (no tilt), a touch bigger or smaller cell to cell.
       ctx.save();
@@ -3032,7 +3277,7 @@ const UNIT_H = { melon: 52, corn: 48, pumpkin: 58, karl: 108, goose: 46, cat: 46
  * own fruit, then the Siege's geese and cats (the bosses as big as Karl's little brother).
  */
 const LOOK_H = {
-  pit: 50, gall: 34, borrower: 46, express: 48, parcel: 58, sprout: 30, squash: 58, chimer: 48, gargoyle: 56,
+  pit: 50, gall: 34, borrower: 46, express: 48, parcel: 58, sprout: 30, squash: 58, chimer: 48, gargoyle: 56, wormgourd: 50, wormqueen: 64,
   honker: 46, gosling: 26, matriarch: 88, whiskers: 44, boxcat: 48, para: 46, tank: 66, general: 88,
 } as const;
 type Look = keyof typeof LOOK_H;

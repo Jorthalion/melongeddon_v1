@@ -106,6 +106,9 @@ export interface RunResult {
   combos: { shatters: number; thermals: number; wildfires: number; contagion: number; maxStung: number; maxAfflictions: number };
   /** The Hall of Doors: fruit that got out by each exit. */
   leaksByExit?: Partial<Record<string, number>>;
+  /** The Compact Stacks: cranks turned, and bays a bookworm jammed. */
+  cranks?: number;
+  jams?: number;
   /** Damage dealt by each tower kind still standing at the end. */
   damageBy: Partial<Record<TowerKind, number>>;
   /** Who hurts what: each kind's damage by fruit kind ("corn"), by the armour the fruit wore ("~shell"), and shells it cracked ("#cracks"). */
@@ -282,7 +285,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
         const c = s.c + a;
         const r = s.r + b;
         if (c < 0 || r < 0 || c >= world.cols || r >= world.rows) continue;
-        if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || taken(c, r)) continue;
+        if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.trackCells.has(`${c},${r}`) || taken(c, r)) continue;
         return { c, r };
       }
     return null;
@@ -302,7 +305,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       let near = Infinity;
       for (let c = 0; c < world.cols; c++)
         for (let r = 0; r < world.rows; r++) {
-          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || taken(c, r)) continue;
+          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.trackCells.has(`${c},${r}`) || taken(c, r)) continue;
           if (kind === "pamphlet" && bindLeg(legs, c, r) !== want) continue;
           const d = Math.hypot(c * CELL + CELL / 2 - door.x, r * CELL + CELL / 2 - door.y);
           if (d < near) {
@@ -323,7 +326,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       let score = -Infinity;
       for (let c = 0; c < world.cols; c++)
         for (let r = 0; r < world.rows; r++) {
-          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || taken(c, r)) continue;
+          if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.trackCells.has(`${c},${r}`) || taken(c, r)) continue;
           const x = c * CELL + CELL / 2;
           const y = r * CELL + CELL / 2;
           let v = 0;
@@ -349,7 +352,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     const pool = bare ?? samples;
     for (let c = 0; c < world.cols; c++) {
       for (let r = 0; r < world.rows; r++) {
-        if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`)) continue;
+        if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.trackCells.has(`${c},${r}`)) continue;
         if (taken(c, r)) continue;
         if ((kind === "gourdgate" || kind === "desk") && !besideCarpet(world, c, r)) continue;
         const x = c * CELL + CELL / 2;
@@ -534,6 +537,15 @@ function play(config: RunConfig, rng: () => number): RunResult {
     if (phase === "victory" || phase === "defeat") break;
     if (phase === "prep") {
       build();
+      // The Compact Stacks: turn the crank that puts the most carpet in reach of the towers (never one that would
+      // leave a carpet-side tower idle); skip it if neither helps.
+      if (world.hud.aisles.length && !world.hud.cranked) {
+        const best = [0, 1]
+          .map((bay) => ({ bay, p: api.crankPreview(bay) }))
+          .filter((o) => o.p.ok && !o.p.idle.length && o.p.coverAfter > o.p.cover)
+          .sort((a, b) => b.p.coverAfter - b.p.cover - (a.p.coverAfter - a.p.cover))[0];
+        if (best) api.crank(best.bay);
+      }
       config.onPrep?.(world, api);
       // The Hall of Doors' signpost: shut the Kitchens while seeds are short (a leak there costs seeds), else the
       // Reading Room. The sign itself skips the Restricted Section on a boss wave.
@@ -597,6 +609,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
       maxAfflictions: world.runLog.maxAfflictions,
     },
     leaksByExit: { ...world.runLog.leaksByExit },
+    cranks: world.runLog.cranks,
+    jams: world.runLog.jams,
     vsBy: world.towers.reduce<Partial<Record<TowerKind, Record<string, number>>>>((acc, x) => {
       const vs = api.tallyOf(x.id)?.vs ?? {};
       const mine = (acc[x.kind] ??= {});
