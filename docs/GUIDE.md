@@ -444,7 +444,7 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | Still | 45 | No shot; leaves a slowing puddle on a timer |
 | Fire cannon | 70 | Leaves fire on the carpet that burns whoever stands in it. Prefers the front fruit that isn't burning yet |
 | Freeze cannon | 65 | Stops fruit cold for a moment. Prefers the front fruit that isn't frozen yet |
-| Shush Bell | 70 | Every few seconds, stuns everything nearby (husked corn can't hear it) |
+| Shush Bell | 70 | Every few seconds, stuns everything nearby (husked corn only stops for half as long) |
 | Fly Hive | 65 | Fruit flies that find targets anywhere on the board. Past seven hives, every hive flies 5% less often for each extra one (at most 70% slower) |
 | Reading Lamp | 60 | No shot; cannons next to it reach farther and fire faster |
 | Ink Well | 55 | Marks fruit so they take 25% more damage from everything |
@@ -483,7 +483,7 @@ Slowing comes in four kinds, and only ice counts for the ice combos below.
 - **Daze.** The Pipe Organ's chord, Barbed Spears and a Quack-Liber ki blast's burst slow what they hit for a moment (a lilac swirl pip). No frost.
 - **Puddles.** The Still's and the Cauldron's puddles slow anything standing in them. No frost.
 
-Husks ignore every one of these. When several apply, the strongest wins; they don't multiply.
+Husks ignore every one of these, except that a husk in a Still puddle still feels most of its slow (80%). When several apply, the strongest wins; they don't multiply.
 
 ### Combos: ice, fire, explosions and stings
 
@@ -508,7 +508,7 @@ Status effects build on each other. Small coloured dots under a fruit show what 
 
 Different afflictions add together; the same one adds a stack and refreshes. All of them together do at most 60 a second to one fruit (Ink and Honey still multiply that). Husks and pits take stings in full; damp takes poison in full; a shell keeps stingers out until it cracks.
 
-- **Driven in:** a Seed Spitter seed on a stung fruit adds a stinger (one that pings off a shell doesn't).
+- **Driven in:** a Seed Spitter seed on a stung fruit adds a stinger (not while a shell is still on).
 - **Stinging Flies** (the Hive's upgrade card) adds two stingers to a fruit that's already stung; a sticky (honeyed) fruit takes two per fly.
 - **Flammable:** fire on a poisoned fruit burns 50% hotter while the poison lasts; the poison is spent when the fire goes out.
 - **Worms follow stingers:** a fruit with three stingers takes the Bookworm's full worm, like a pumpkin.
@@ -668,12 +668,12 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | Armour | Direct hit | Splash | Fire | Puddle | Bookworm | Slows, freezes, stuns |
 |---|---|---|---|---|---|---|
 | **Shell** (until cracked) | First 3 hits blocked ("chip", "chip", "crack") | First 3 hits blocked | 40% | 40% | 100% | Work normally |
-| **Husk** | 50% | 140% | 140% | 100% | 100% | **Immune to all of them**, except the Legal Elf's Foot of the Law |
+| **Husk** | 50% | 140% | 140% | 100% | 100% | **Immune to nearly all of them**: the Foot of the Law works in full, the Shush Bell at half, the Still's puddles at 80% |
 | **Damp** | 115% | 100% | 15% | 100% | 100% | Freezes last 40% longer |
 | **Raw** | 100% | 100% | First burn bakes it into "bread" instead of hurting it | 100% | 100% | Work normally |
 
-- **Shell:** the first three hits are wasted, however big they are, but every hit after that does full damage. Many small, fast hits get through sooner than a few big ones. Seed Spitter seeds **bounce off** ("ping") without cracking it, so a spitter on its own never gets through. One Mortar blast chips every shell it touches at once.
-- **Husk:** "all of them" means the Still's puddles, Freeze, the Shush Bell, Barbed Spears, the Organ's daze, a Quack-Liber ki blast's daze, Vaelithra's drowsy, the Cold rind upgrade and the Cauldron's slow. Three things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
+- **Shell:** the first three hits are wasted, however big they are, but every hit after that does full damage. Many small, fast hits get through sooner than a few big ones. Seed Spitter seeds chip it like any other hit, and with their speed they crack it quickly (no stinger goes in until it cracks). One Mortar blast chips every shell it touches at once.
+- **Husk:** "nearly all of them" means Freeze, Barbed Spears, the Organ's daze, a Quack-Liber ki blast's daze, Vaelithra's drowsy, the Cold rind upgrade and the Cauldron's slow. Two work in part: the **Shush Bell** makes a husk stand still for half the usual stop, and a **Still** puddle slows a husk 80% as much as anything else. Three things still work: the Legal Elf's **Foot of the Law** pins husks like anything else, knockback from the Trebuchet still pushes them, and the Ink Well's mark still sticks.
 - **Raw:** once baked, the pumpkin crawls at 55% speed for the rest of its walk, but fire can't hurt it any more. Finish it with anything else.
 - **Split:** not armour. When popped, it breaks into four small melons with about half a melon's health, which have no armour.
 
@@ -690,7 +690,7 @@ Every hit belongs to one of five kinds, and armour treats each kind differently:
 | You see | Bring | Avoid relying on |
 |---|---|---|
 | Shelled melons | Peeler (one hit takes the whole shell), Mortar (chips many at once), any fast cannon | Seed Spitter, fire alone |
-| Husked corn | Mortar, Trebuchet, fire, Peeler, the Foot of the Law | Still, Freeze, Shush Bell, Vaelithra's drowsy |
+| Husked corn | Mortar, Trebuchet, fire, Peeler, the Foot of the Law | Freeze, Vaelithra's drowsy (the Still and the Shush Bell only in part) |
 | Damp pumpkins | Melon, Ballista, Long Reader, Freeze | Fire |
 | Raw pumpkins | One touch of fire, then direct hits | Fire alone |
 | Split pumpkins | Splash and fast cannons for the four melons | One slow, big hitter |

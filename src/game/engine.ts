@@ -4236,7 +4236,7 @@ export function createWorld(
     }
     // Quack-hameha counts this rocket's kills.
     const popsBefore = shot.splashChill && shot.owner != null ? tallyFor(shot.owner).pops : null;
-    if (shot.element === "seed" && e.guard === "rind" && e.shell > 0) {
+    if (shot.element === "seed" && e.guard === "rind" && e.shell > 0 && !CANNON.seedChip) {
       float(e.x, e.y - 16, "ping", "#d8c9a8");
       return false;
     }
@@ -4783,6 +4783,8 @@ export function createWorld(
       let toxic: { dps: number; by?: number } | null = null;
       let dotBy: number | undefined;
       let burnBy: number | undefined;
+      /** The deepest Still puddle it stands in (1: none). A husk still feels part of it. */
+      let stillCrawl = 1;
       for (const pool of world.pools) {
         if (Math.hypot(e.x - pool.x, e.y - pool.y) > pool.r) continue;
         if (pool.honey) {
@@ -4810,6 +4812,7 @@ export function createWorld(
         }
         const crawl = has("distill") ? 0.38 : has("sticky") ? 0.45 : has("vial") ? 0.55 : 0.78;
         slow = Math.min(slow, softenSlow(crawl));
+        stillCrawl = Math.min(stillCrawl, crawl);
         if (has("distill")) {
           if (16 > dot) dotBy = pool.owner;
           dot = Math.max(dot, 16);
@@ -4860,7 +4863,7 @@ export function createWorld(
         e.freeze = 0;
         e.frost = 0;
         e.iced = 0;
-        slow = 1;
+        slow = stillCrawl < 1 ? softenSlow(1 - (1 - stillCrawl) * CANNON.stillHusk) : 1;
       }
       // Pinned under the Foot of the Law: the one stop a husk can't shrug off.
       if ((e.stomped ?? 0) > 0) {
@@ -5267,7 +5270,11 @@ export function createWorld(
         tower.cd = stats.interval;
         cue("fire", "bell");
         for (const e of inRange) {
-          if (e.guard === "husk") continue;
+          // A husk shrugs off most of the hush: it only stands still for a moment.
+          if (e.guard === "husk") {
+            e.halt = Math.max(e.halt ?? 0, CANNON.bellStun * CANNON.bellHusk);
+            continue;
+          }
           e.freeze = Math.max(e.freeze, (e.boss ? CANNON.bellStunBoss : CANNON.bellStun));
           e.stunBy = "bell";
         }

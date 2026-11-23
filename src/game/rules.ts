@@ -631,7 +631,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   spitter: {
     name: "Seed Spitter",
-    blurb: "Rapid fire, tiny seeds, short reach. Shreds corn. Shelled melons shrug it off. Its seeds drive stingers in deeper.",
+    blurb: "Rapid fire, tiny seeds, short reach. Shreds corn, and its quick seeds crack shells fast. Its seeds drive stingers in deeper.",
     cost: 50,
     role: "Rapid",
   },
@@ -980,6 +980,12 @@ export const CANNON = {
   prizeMelon: 1.3,
   ripeMelon: 1.2,
   bellStun: 0.9,
+  /** Share of the Bell's stop a husk still feels (it stands still that long). */
+  bellHusk: 0.5,
+  /** Share of a Still puddle's slow a husk still feels (0.8: melon+Still 63% -> 76% on Normal; 0.5 gave 64%). */
+  stillHusk: 0.8,
+  /** 1: Spitter seeds chip shells like any other hit. 0: they bounce off ("ping"). */
+  seedChip: 1,
   /** Printing Press: how far a sheet slides (px), how fast, and the ink it leaves (damage taken ×, seconds). */
   pressSheet: 220,
   pressSpeed: 300,

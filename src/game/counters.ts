@@ -29,7 +29,7 @@ const burn = (b: BuildInfo) => any(b, BURN);
 
 export const COUNTERS: Record<CounterId, { label: string; beats: string; answers: (b: BuildInfo) => boolean }> = {
   shell: { label: "shells", beats: "a Peeler, splash, fire or the Telescope", answers: (b) => b.kinds.has("peeler") || b.kinds.has("scope") || splash(b) || burn(b) },
-  husk: { label: "husks", beats: "splash or fire, or the Foot of the Law (freeze, slows and the Bell don't work)", answers: (b) => splash(b) || burn(b) || b.kinds.has("stomp") },
+  husk: { label: "husks", beats: "splash or fire, or the Foot of the Law (freeze doesn't work; the Bell and the Still only in part)", answers: (b) => splash(b) || burn(b) || b.kinds.has("stomp") },
   damp: { label: "damp pumpkins", beats: "direct shots or the Telescope (fire barely works)", answers: (b) => any(b, DIRECT) },
   pit: { label: "stone pits", beats: "direct shots (splash, fire and puddles barely touch them)", answers: (b) => any(b, DIRECT) },
   boxed: { label: "Box Cats", beats: "splash, fire, a Still, a Reading Lamp by the carpet, or an area tower", answers: (b) => splash(b) || burn(b) || any(b, AREA) },
