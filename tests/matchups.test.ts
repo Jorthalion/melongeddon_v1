@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CANNON, CELL } from "../src/game/engine.ts";
+import { CANNON, CELL, STATS } from "../src/game/engine.ts";
+import { flyMiss } from "../src/game/rules.ts";
 import { lab, lost, shoot, step } from "./comboLab.ts";
 
 test("a shell soaks CANNON.shellHits hits, then the next one lands in full", () => {
@@ -71,4 +72,24 @@ test("the Shush Bell makes a husk stand still for a moment", () => {
   assert.ok((e.halt ?? 0) > 0, "it stands still");
   assert.ok((e.halt ?? 0) <= CANNON.bellStun * CANNON.bellHusk + 0.01, "but only briefly");
   assert.equal(e.freeze, 0, "not stunned");
+});
+
+test("a Fly Hive fly can miss fast fruit, never a slow or slowed one", () => {
+  assert.equal(flyMiss(STATS.melon.speed), 0, "a walking melon is never missed");
+  assert.ok(flyMiss(STATS.corn.speed) > 0.2, `corn dodges sometimes (${flyMiss(STATS.corn.speed)})`);
+  assert.ok(flyMiss(1000) <= CANNON.flyMissMax, "capped");
+  const { api, fruit } = lab(2, 200);
+  const [fast, held] = fruit;
+  Object.assign(fast, { speed: 90, slow: 1 });
+  Object.assign(held, { speed: 90, freeze: 5 });
+  const random = Math.random;
+  Math.random = () => 0; // every roll comes up "miss" if a miss is possible
+  try {
+    shoot(api, fast, { element: "fly", dmg: 10 });
+    shoot(api, held, { element: "fly", dmg: 10 });
+  } finally {
+    Math.random = random;
+  }
+  assert.equal(lost(fast), 0, "the fast one dodged");
+  assert.ok(lost(held) > 0, "the stopped one was bitten");
 });

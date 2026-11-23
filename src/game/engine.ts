@@ -1,6 +1,6 @@
 import {
   CELL, BOARDS, baseMap, withLayouts, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
-  BALANCE, DROWSY, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  BALANCE, DROWSY, softenSlow, flyMiss, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
@@ -4220,6 +4220,11 @@ export function createWorld(
   const shotLife = (x: number, y: number, tx: number, ty: number) => Math.max(1.6, Math.hypot(tx - x, ty - y) / SHOT_SPEED + 1);
 
   const onShotHit = (shot: Shot, e: Enemy) => {
+    // A fly can miss a fruit that's walking fast right now (slowed, frozen or stopped fruit are easy prey).
+    if (shot.element === "fly" && Math.random() < flyMiss(e.speed * e.slow)) {
+      float(e.x, e.y - 16, "miss", "#cfc9a8");
+      return false;
+    }
     if (shot.bombard) {
       // The giant pumpkin: the full hit on its target, half to everything near it, a one-tile shove
       // for everything hit but Karl, and a burning patch where it landed.

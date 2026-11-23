@@ -594,6 +594,9 @@ export const DEFAULT_TARGET: Record<TowerKind, { default: TargetMode; modes: Tar
 /** Whole-board range: more than the diagonal of the largest board (22 x 14 cells is about 1250 px). */
 export const GLOBAL_RANGE = 1400;
 
+/** Chance a Fly Hive fly misses a fruit moving at `speed` px/s right now: see `CANNON.flyMissFrom`. */
+export const flyMiss = (speed: number) => Math.min(CANNON.flyMissMax, Math.max(0, speed - CANNON.flyMissFrom) * CANNON.flyMissPer);
+
 /** How fast every Fly Hive flies (1 = full pace) with this many hives on the board: see `CANNON.hiveCrowdFrom`. */
 export const hiveCrowd = (hives: number) =>
   Math.max(CANNON.hiveCrowdFloor, 1 - CANNON.hiveCrowdSlow * Math.max(0, hives - CANNON.hiveCrowdFrom));
@@ -655,7 +658,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   hive: {
     name: "Fly Hive",
-    blurb: "Fruit flies that find anything, anywhere on the board. Small bites, never miss. Each fly leaves a stinger that keeps biting. Past seven hives, they all fly a little less often.",
+    blurb: "Fruit flies that find anything, anywhere on the board. Small bites, but fast fruit like corn can dodge them (slow it down and they won't). Each fly leaves a stinger that keeps biting. Past seven hives, they all fly a little less often.",
     cost: 65,
     role: "Homing",
   },
@@ -968,6 +971,12 @@ export const CANNON = {
    * against 43–59% for the other builds; from the 8th hive at 5% it wins 64% and fire + hive barely moves.
    */
   hiveCrowdFrom: 7,
+  /** Fly Hive flies miss fast fruit: no miss at or under `flyMissFrom` px/s (a melon walks 46, corn 78), then
+   * `flyMissPer` more chance per px/s faster, up to `flyMissMax`. Measured on the fruit's speed when the fly arrives,
+   * so a slowed, frozen or stopped fruit is never missed. */
+  flyMissFrom: 50,
+  flyMissPer: 0.01,
+  flyMissMax: 0.5,
   hiveCrowdSlow: 0.05,
   hiveCrowdFloor: 0.3,
   /** Melon cannon: its damage over the shared cannon base (14). It has no element, pulp or status, so it simply hits harder.

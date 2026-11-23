@@ -445,7 +445,7 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | Fire cannon | 70 | Leaves fire on the carpet that burns whoever stands in it. Prefers the front fruit that isn't burning yet |
 | Freeze cannon | 65 | Stops fruit cold for a moment. Prefers the front fruit that isn't frozen yet |
 | Shush Bell | 70 | Every few seconds, stuns everything nearby (husked corn only stops for half as long) |
-| Fly Hive | 65 | Fruit flies that find targets anywhere on the board. Past seven hives, every hive flies 5% less often for each extra one (at most 70% slower) |
+| Fly Hive | 65 | Fruit flies that find targets anywhere on the board. Fast fruit can dodge them ("miss"): corn about one fly in four, more on harder nights; a melon, or anything slowed or stopped, never. Past seven hives, every hive flies 5% less often for each extra one (at most 70% slower) |
 | Reading Lamp | 60 | No shot; cannons next to it reach farther and fire faster |
 | Ink Well | 55 | Marks fruit so they take 25% more damage from everything |
 | Peeler | 60 | Strips shells, husks and damp so other cannons hit normally, and whatever it hits takes 25% more damage for 3 seconds |
