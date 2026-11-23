@@ -26,11 +26,11 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Keeper portraits (9) | all eight keepers, plus Quackarot golden; Mynxi's four tutorial faces |
 | Floors, carpet and tiles (17) | the shared floor, carpet and corner; own floors for Rare Books, the Archive, the Overflow, the Sorting Room, the Greenhouse, the Bell Tower, the Great Hall, the Reading Room, the Courtyard and the Rotunda; beds, belt, stairs, shelf |
 | Map props (21) | every room's doors and furniture, the Courtyard's hedge, statue and fountain, the Rotunda's desk, lamps and stairs, the returns chute |
-| Grand Catalogue (40) | header, shelf, spines, lamps, plaque, seal, fragment; restored and ruined paintings for 12 rooms (the Mezzanine has no ruined one) |
+| Grand Catalogue (40) | header, shelf, spines, lamps, plaque, seal, fragment; restored and ruined paintings for 12 rooms |
 | Status overlays (2) | ice block, flame tongues |
 | Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
 
-**Still needed:** three images for the Flooded Basement: `fruit-watermelon.png`, `fruit-draingourd.png` and `sig-pump.png` (§2a6). The game draws code stand-ins until they arrive.
+**Still needed:** three images for the Flooded Basement: `fruit-watermelon.png`, `fruit-draingourd.png` and `sig-pump.png` (§2a6). The game draws code stand-ins until they arrive. Also six Grand Catalogue paintings, restored and ruined, for the Hall of Doors, the Compact Stacks and the Flooded Basement (§2a7); their cards show text only until then.
 
 ---
 
@@ -301,6 +301,19 @@ A library cellar with a burst pipe: three floor heights (damp low flagstones, li
 | `fruit-watermelon.png` | (Send the fruit setup message from `ENEMY_PROMPTS.md` first, attaching `melon.webp`.) **The Water Melon**: a striped green melon like the attached melon, wearing a **yellow snorkel and a blue diving mask** pushed up on its head, little water droplets flying off it. Glowing yellow eyes, a gleeful grin. Bold ink outlines, cel-painted, transparent background, no text. |
 | `fruit-draingourd.png` | (Same chat, attaching `pumpkin.webp`.) **The Drain Gourd**: a squat **slate-grey gourd** the size of the attached pumpkin, with a **black rubber drain plug on a brass chain** jammed in its top and water dribbling from its sides. Glowing yellow eyes, a smug, satisfied smirk. Bold ink outlines, cel-painted, transparent background, no text. |
 | `sig-pump.png` | A **Sump Pump**: a squat cast-iron hand pump with a long curved handle and a **brass wheel** on its side, a **green canvas hose** coiled beside it, a little puddle at its foot. It stands on a **round dark walnut base with an iron band, rivets and two lit candles**, like the other towers. 3/4 top-down view, transparent background, 512 × 512. |
+
+### 2a7. Grand Catalogue paintings for the three newest rooms (not yet painted)
+
+The Hall of Doors, the Compact Stacks and the Flooded Basement have no painting in the Grand Catalogue yet, so their cards show text only. Each needs a restored and a ruined painting. Match the existing ones (for example `cat-room-rotunda.webp`): **a wide 16:9 scene, 1280 × 720 or larger, no transparency**, a view into the room from its doorway at about eye height. The card crops it to a short strip across the middle, so keep the main subject in the centre band and leave the top and bottom as plain wall and floor. **Restored** = candlelit, tidy, working. **Ruined** = the same room from the same viewpoint before it was restored: dark, dusty, broken, cobwebs, cold grey light. Wire them into `ROOM_ART` in `src/components/GrandCatalogue.tsx` when they arrive.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `cat-room-halldoors.png` | A **long grand entrance hall** with a black and cream marble checkerboard floor, a **carved wooden signpost** with three blank arrow boards in the middle, and **three doors** along the far wall: green leather with brass studs, a steel double door with porthole windows, and a dark oak door with a chain and padlock. Candle sconces, a red carpet runner leading in. |
+| `cat-room-halldoors-ruined.png` | The same hall **in ruin**: doors torn off their hinges and leaning against the wall, empty door frames, the signpost knocked over with its arrows snapped off, cracked marble, a fallen sconce, cobwebs, dust in the cold light. |
+| `cat-room-compact.png` | A **storeroom of rolling library shelving**: rows of grey-green steel shelf units on floor tracks, one aisle cranked open between them, **big brass crank wheels** on the end of each unit, archive boxes and bound volumes in order, warm lamps hanging above. |
+| `cat-room-compact-ruined.png` | The same storeroom **seized up**: shelf units jammed crooked off their rusted tracks, a crank wheel snapped off on the floor, boxes spilled, **pale silk cocoons of shredded pages** in the corners, cobwebs between the shelves. |
+| `cat-room-basement.png` | A **library cellar**, dry and mended: stone flagstones and wooden pallets stacked with crates of books, an iron pipe along the wall **with a neat new brass patch and a little drip**, a painted water gauge on the wall at its lowest mark, a hand pump in the corner, candles on the crates. |
+| `cat-room-basement-ruined.png` | The same cellar **flooded**: dark water knee-deep over the flagstones, the **burst pipe spraying** from the wall, crates and books floating, the water gauge half under water, ripples catching the cold light. |
 
 ### 2a4. The Mezzanine's ruined painting (done: `cat-room-mezzanine-ruined.webp`)
 
