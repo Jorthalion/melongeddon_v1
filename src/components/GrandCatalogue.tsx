@@ -34,6 +34,9 @@ const ROOM_ART: Partial<Record<RoomId, { restored: string; ruined?: string }>> =
   greenhouse: { restored: asset("sprites/cat-room-greenhouse.webp"), ruined: asset("sprites/cat-room-greenhouse-ruined.webp") },
   belltower: { restored: asset("sprites/cat-room-belltower.webp"), ruined: asset("sprites/cat-room-belltower-ruined.webp") },
   rotunda: { restored: asset("sprites/cat-room-rotunda.webp"), ruined: asset("sprites/cat-room-rotunda-ruined.webp") },
+  halldoors: { restored: asset("sprites/cat-room-halldoors.webp"), ruined: asset("sprites/cat-room-halldoors-ruined.webp") },
+  compact: { restored: asset("sprites/cat-room-compact.webp"), ruined: asset("sprites/cat-room-compact-ruined.webp") },
+  basement: { restored: asset("sprites/cat-room-basement.webp"), ruined: asset("sprites/cat-room-basement-ruined.webp") },
 };
 /** Spines per shelf board, so each row stands on its own plank. */
 const PER_SHELF = 9;

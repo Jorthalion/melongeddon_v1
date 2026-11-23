@@ -26,11 +26,11 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Keeper portraits (9) | all eight keepers, plus Quackarot golden; Mynxi's four tutorial faces |
 | Floors, carpet and tiles (17) | the shared floor, carpet and corner; own floors for Rare Books, the Archive, the Overflow, the Sorting Room, the Greenhouse, the Bell Tower, the Great Hall, the Reading Room, the Courtyard and the Rotunda; beds, belt, stairs, shelf |
 | Map props (21) | every room's doors and furniture, the Courtyard's hedge, statue and fountain, the Rotunda's desk, lamps and stairs, the returns chute |
-| Grand Catalogue (40) | header, shelf, spines, lamps, plaque, seal, fragment; restored and ruined paintings for 12 rooms |
+| Grand Catalogue (40) | header, shelf, spines, lamps, plaque, seal, fragment; restored and ruined paintings for 15 rooms |
 | Status overlays (2) | ice block, flame tongues |
 | Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
 
-**Still needed:** three images for the Flooded Basement: `fruit-watermelon.png`, `fruit-draingourd.png` and `sig-pump.png` (§2a6). The game draws code stand-ins until they arrive. Also six Grand Catalogue paintings, restored and ruined, for the Hall of Doors, the Compact Stacks and the Flooded Basement (§2a7); their cards show text only until then.
+**Still needed:** three images for the Flooded Basement: `fruit-watermelon.png`, `fruit-draingourd.png` and `sig-pump.png` (§2a6). The game draws code stand-ins until they arrive.
 
 ---
 
@@ -302,9 +302,9 @@ A library cellar with a burst pipe: three floor heights (damp low flagstones, li
 | `fruit-draingourd.png` | (Same chat, attaching `pumpkin.webp`.) **The Drain Gourd**: a squat **slate-grey gourd** the size of the attached pumpkin, with a **black rubber drain plug on a brass chain** jammed in its top and water dribbling from its sides. Glowing yellow eyes, a smug, satisfied smirk. Bold ink outlines, cel-painted, transparent background, no text. |
 | `sig-pump.png` | A **Sump Pump**: a squat cast-iron hand pump with a long curved handle and a **brass wheel** on its side, a **green canvas hose** coiled beside it, a little puddle at its foot. It stands on a **round dark walnut base with an iron band, rivets and two lit candles**, like the other towers. 3/4 top-down view, transparent background, 512 × 512. |
 
-### 2a7. Grand Catalogue paintings for the three newest rooms (not yet painted)
+### 2a7. Grand Catalogue paintings for the three newest rooms (done: all six are in `public/sprites/` and shown in the Catalogue)
 
-The Hall of Doors, the Compact Stacks and the Flooded Basement have no painting in the Grand Catalogue yet, so their cards show text only. Each needs a restored and a ruined painting. Match the existing ones (for example `cat-room-rotunda.webp`): **a wide 16:9 scene, 1280 × 720 or larger, no transparency**, a view into the room from its doorway at about eye height. The card crops it to a short strip across the middle, so keep the main subject in the centre band and leave the top and bottom as plain wall and floor. **Restored** = candlelit, tidy, working. **Ruined** = the same room from the same viewpoint before it was restored: dark, dusty, broken, cobwebs, cold grey light. Wire them into `ROOM_ART` in `src/components/GrandCatalogue.tsx` when they arrive.
+The Hall of Doors, the Compact Stacks and the Flooded Basement each have a restored and a ruined painting in the Grand Catalogue (resized to 640 × 360 like the others). Match the existing ones (for example `cat-room-rotunda.webp`): **a wide 16:9 scene, 1280 × 720 or larger, no transparency**, a view into the room from its doorway at about eye height. The card crops it to a short strip across the middle, so keep the main subject in the centre band and leave the top and bottom as plain wall and floor. **Restored** = candlelit, tidy, working. **Ruined** = the same room from the same viewpoint before it was restored: dark, dusty, broken, cobwebs, cold grey light.
 
 | File name | Prompt (after the style line) |
 |---|---|
