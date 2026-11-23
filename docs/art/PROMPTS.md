@@ -30,7 +30,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Status overlays (2) | ice block, flame tongues |
 | Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
 
-**Still needed:** nothing. Every image asked for in these prompt files is in the game (the last eight arrived on 22 November). Nothing unused is left in `public/sprites/` either.
+**Still needed:** three images for the Flooded Basement: `fruit-watermelon.png`, `fruit-draingourd.png` and `sig-pump.png` (§2a6). The game draws code stand-ins until they arrive.
 
 ---
 
@@ -287,7 +287,7 @@ A storeroom of rolling library shelving on steel tracks: two bays of grey-green 
 | `fruit-wormqueen.png` | The **Bookworm Queen**: the same gourd but bigger and longer, five segments, darker green with gold flecks, **spectacles and a small gold crown**. Side view facing right. Transparent background, 512 × 512. |
 | `prop-cocoon.png` | A **cocoon of shredded book pages** bound in silk, pale cream with faint lines of print showing, a little green glow inside. Seen from slightly above. Transparent background, 256 × 256. |
 
-### 2a6. The Flooded Basement (not yet drawn; the game already looks for these files)
+### 2a6. The Flooded Basement (six of nine done: the three floors, the water, the gauge and the pipe are in `public/sprites/`; still needed: `fruit-watermelon`, `fruit-draingourd` and `sig-pump`)
 A library cellar with a burst pipe: three floor heights (damp low flagstones, lighter middle flags, wooden pallets for the high floor), water that rises over them during each wave, a painted water gauge, and its own room fruit and Sump Pump. Everything is drawn by code for now, and each file replaces its code drawing as soon as it's in `public/sprites/` as a `.webp` with the same name: each floor tile fills one board square, the water surface tiles over flooded squares (and drifts slowly), the gauge and pipe fill their own square (the game still lays the water level over the gauge and the spray over the pipe), and the pump is drawn like the other towers (no aim).
 
 | File name | Prompt (after the style line) |
@@ -298,9 +298,9 @@ A library cellar with a burst pipe: three floor heights (damp low flagstones, li
 | `water-overlay.png` | A **tiling, translucent water surface** seen from above: soft blue-green with gentle ripples and a few light glints, mostly see-through so the floor shows under it. Seamless, tileable, transparent background. |
 | `prop-gauge.png` | A **painted water gauge on a stone wall**: a cream board with three black marks numbered 1, 2 and 3 and a brass float marker. Seen straight on. Transparent background, 256 × 256. |
 | `prop-pipe.png` | A **burst iron pipe** coming out of a cellar corner, cracked open with water spraying out in a fan, rusty brackets. Seen from slightly above. Transparent background, 512 × 512. |
-| `fruit-watermelon.png` | A **Water Melon**: a dark green striped melon wearing a **yellow snorkel and a blue diving mask**, cheerful. Side view facing right, like the other fruit. Transparent background, 512 × 512. |
-| `fruit-draingourd.png` | A **Drain Gourd**: a squat **grey gourd** with a **rubber drain plug** on a chain stuck in its top, smug. Side view facing right. Transparent background, 512 × 512. |
-| `sig-pump.png` | A **Sump Pump**: a squat cast-iron hand pump on a small stone plinth, a brass wheel on its side, a green canvas hose coiled beside it. Seen from slightly above, like the other towers. Transparent background, 512 × 512. |
+| `fruit-watermelon.png` | (Send the fruit setup message from `ENEMY_PROMPTS.md` first, attaching `melon.webp`.) **The Water Melon**: a striped green melon like the attached melon, wearing a **yellow snorkel and a blue diving mask** pushed up on its head, little water droplets flying off it. Glowing yellow eyes, a gleeful grin. Bold ink outlines, cel-painted, transparent background, no text. |
+| `fruit-draingourd.png` | (Same chat, attaching `pumpkin.webp`.) **The Drain Gourd**: a squat **slate-grey gourd** the size of the attached pumpkin, with a **black rubber drain plug on a brass chain** jammed in its top and water dribbling from its sides. Glowing yellow eyes, a smug, satisfied smirk. Bold ink outlines, cel-painted, transparent background, no text. |
+| `sig-pump.png` | A **Sump Pump**: a squat cast-iron hand pump with a long curved handle and a **brass wheel** on its side, a **green canvas hose** coiled beside it, a little puddle at its foot. It stands on a **round dark walnut base with an iron band, rivets and two lit candles**, like the other towers. 3/4 top-down view, transparent background, 512 × 512. |
 
 ### 2a4. The Mezzanine's ruined painting (done: `cat-room-mezzanine-ruined.webp`)
 
