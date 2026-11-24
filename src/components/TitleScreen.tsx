@@ -272,7 +272,7 @@ export function HowToPlay() {
       <p className={h}>Nights</p>
       <ul className="space-y-1 text-muted">
         <li>
-          <span className="font-semibold text-parchment">Midnight:</span> the first night. Fifteen waves, and a
+          <span className="font-semibold text-parchment">Midnight:</span> the first night. Twenty-one waves, and a
           finale in the last one.
         </li>
         <li>

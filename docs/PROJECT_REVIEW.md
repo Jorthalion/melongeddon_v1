@@ -10,7 +10,7 @@ This document describes the whole project so an outside reviewer can judge the g
 
 ## 1. What the game is
 
-Melongeddon is a single-player **tower defense** game with a comic gothic-library setting. Melons, corn, pumpkins and a boss melon named **Karl** walk a red carpet through the Midnight Library toward a door. The player builds cannons on the floor beside the carpet; they can never build on it. Each fruit that gets through costs a **stack** of books, which works as a life (Karl costs 3). Each pop pays **seeds**, the currency. A story night is **15 waves**.
+Melongeddon is a single-player **tower defense** game with a comic gothic-library setting. Melons, corn, pumpkins and a boss melon named **Karl** walk a red carpet through the Midnight Library toward a door. The player builds cannons on the floor beside the carpet; they can never build on it. Each fruit that gets through costs a **stack** of books, which works as a life (Karl costs 3). Each pop pays **seeds**, the currency. Midnight is **21 waves**; the Overflow and the Siege are **15**.
 
 It runs in three places:
 
@@ -132,7 +132,7 @@ Two variants are pumpkin-only:
 **Health scaling:**
 
 - Base curve: `1 + 0.55 × step²`.
-- Story nights use the full curve through wave 6. After that the step grows by only 0.375 per wave, so wave 15 is about as tough as the old 10-wave finale.
+- Story nights use the full curve through wave 6. After that the step grows by only 0.375 per wave, so wave 15 is about as tough as the old 10-wave finale. Midnight's act three (waves 16–21) keeps climbing, by 0.3 of a step per wave, into Karl.
 - The Overflow multiplies health by a further 1.4.
 - Endless follows the curve to wave 10, then adds 15% per wave.
 - Difficulty multiplies health and speed:
@@ -212,7 +212,7 @@ There are seven keepers. Each has a starting kit, a perk and a signature tower t
 
 ### 4.5 Nights and story
 
-- **Midnight (night one, 15 waves).** Two acts: waves 1–6 teach the fruit and their armour; act two (waves 7–15) is thicker and mixes the armour types, ending on "The last wave" card before Karl. There is no mid-night choice any more: the knight's door (accept, betray or send away, with three endings) was removed on `dev`. Sir Michael is now only a keeper you can pick.
+- **Midnight (night one, 21 waves).** Three acts: waves 1–6 teach the fruit and their armour; act two (waves 7–15) is thicker and mixes the armour types; act three (waves 16–21) brings one new fruit a wave (pits, galls, borrowers) with a crowd behind it, ending on "The last wave" card before Karl. Upgrade picks come after waves 1, 2, 6 and 15. There is no mid-night choice any more: the knight's door (accept, betray or send away, with three endings) was removed on `dev`. Sir Michael is now only a keeper you can pick.
 - **The Overflow (night two, 15 waves).** A flooded map with a **returns chute**:
   - From wave 6, some fruit come up the chute and walk the carpet *backwards*.
   - Fire is weaker on the wet floor.
@@ -363,7 +363,7 @@ There are **176 tests**, all passing, in about 11 seconds (`npm test`). They cov
 
 1. Pulled the Grok app-builder export out into a standalone Vite, React and TypeScript project. Split the code into pure rules, a DOM-free engine and the UI. Added tests and the bot simulator.
 2. A balance pass driven by the simulator. The before and after reports are `docs/balance-baseline.md` and `docs/balance-current.md`.
-3. Ten new cannons and a tabbed build bar. Three unlockable maps. Story nights went from 10 to 15 waves.
+3. Ten new cannons and a tabbed build bar. Three unlockable maps. Story nights went from 10 to 15 waves (Midnight later grew to 21 with act three).
 4. Menu rework in four phases: pause menu, saved setup, keyboard everywhere, phone layout and the Back gesture, and one Settings panel. The design is documented in `docs/menu-navigation.md`.
 5. Overdue difficulty; three new keepers; a signature tower for every keeper; tower types, so shared upgrades only change the types they name.
 6. Windows installer and installable web app.
@@ -437,7 +437,7 @@ Please be specific: name files, functions and numbers where you can.
    - Which systems overlap or feel redundant? Possible examples: upgrade picks vs back-room upgrades vs perks vs bookmarks.
 2. **Difficulty and pacing:**
    - Are the win-rate targets in section 5 sensible for a casual tower defense?
-   - Is 15 waves per night the right length?
+   - Are 21 waves for Midnight and 15 for the other nights the right lengths?
 3. **Trick towers:** are the boomerang, orrery and plane distinct enough from the existing 15 regular towers? Is there a better fourth idea?
 4. **Night Three:** what new mechanic would best follow the backwards chute (the Overflow)? Midnight no longer has a story choice.
 5. **Architecture:**
