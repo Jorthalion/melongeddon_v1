@@ -144,7 +144,11 @@ const TIPS: Array<{ id: string; mood: Mood; title: string; text: string; when: (
   },
 ];
 
-export function MynxiTutor({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+/**
+ * `docked` (phones): the box sits in the layout above the board instead of over it, so the board
+ * shrinks to fit below and the carpet stays in sight while a lesson waits for a tap.
+ */
+export function MynxiTutor({ api, onGesture, docked = false }: { api: GameApi; onGesture: () => void; docked?: boolean }) {
   const hud = api.world.hud;
   const seen = useRef(new Set<string>());
   const [, setTick] = useState(0);
@@ -158,7 +162,13 @@ export function MynxiTutor({ api, onGesture }: { api: GameApi; onGesture: () => 
   const at = step ? GUIDE_STEPS.indexOf(step) : -1;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-[3.75rem] z-30 flex justify-center px-3">
+    <div
+      className={
+        docked
+          ? "relative z-30 flex shrink-0 justify-center px-2 pb-1.5"
+          : "pointer-events-none absolute inset-x-0 top-[3.75rem] z-30 flex justify-center px-3"
+      }
+    >
       <div
         role="status"
         aria-live="polite"
@@ -167,7 +177,7 @@ export function MynxiTutor({ api, onGesture }: { api: GameApi; onGesture: () => 
         <img
           src={FACE[line.mood]}
           alt="Mynxi"
-          className="size-16 shrink-0 rounded-lg border border-[#c6a15a]/60 object-cover object-[center_18%] sm:size-20"
+          className={`${docked ? "size-12" : "size-16 sm:size-20"} shrink-0 rounded-lg border border-[#c6a15a]/60 object-cover object-[center_18%]`}
         />
         <div className="min-w-0 flex-1">
           <p className="text-[0.6875rem] tracking-[0.22em] text-gold uppercase">

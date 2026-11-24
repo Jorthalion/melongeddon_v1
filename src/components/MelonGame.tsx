@@ -238,6 +238,8 @@ export function MelonGame() {
   const wide = layout.mode === "wide" && showPlace;
   /** Phones: the back room button and the tips go in the bottom area, off the board. */
   const narrow = !wide && box.w < NARROW_PX;
+  /** Mynxi's tutorial: over the board and any card, under the pause menu (on phones, above the board). */
+  const tutorOn = phase !== "coldopen" && phase !== "select" && phase !== "poster" && !hud.menu;
   // The tips have one place, never over the board or the Coming up bar (see TipCard).
   const tipDock = (where: string, fit: "full" | "line") => (
     <TipFit.Provider value={fit}>
@@ -270,6 +272,8 @@ export function MelonGame() {
       <div data-board-controls className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${wide ? "py-3" : "sm:px-3"}`}>
         {showPlace ? <ComingUpBar api={api} /> : null}
         {showPlace && !wide && !narrow ? tipDock("top", "line") : null}
+        {/* Phones: Mynxi's box goes above the board, not over it (the board shrinks to fit). */}
+        {narrow && tutorOn ? <MynxiTutor api={api} onGesture={gesture} docked /> : null}
         <canvas
           ref={canvasRef}
           className="min-h-0 w-full flex-1 touch-none bg-ink sm:rounded-xl sm:border sm:border-line"
@@ -307,7 +311,7 @@ export function MelonGame() {
           <CardOverlay hudPhase={phase} api={api} onGesture={gesture} />
         ) : null}
         {/* Mynxi's tutorial sits above the board and any card, but under the pause menu. */}
-        {phase !== "coldopen" && phase !== "select" && phase !== "poster" && !hud.menu ? <MynxiTutor api={api} onGesture={gesture} /> : null}
+        {tutorOn && !narrow ? <MynxiTutor api={api} onGesture={gesture} /> : null}
       </div>
       {wide ? (
         <aside aria-label="Back room column" className="relative flex min-h-0 shrink-0 flex-col py-3 pr-3" style={{ width: layout.right }}>
