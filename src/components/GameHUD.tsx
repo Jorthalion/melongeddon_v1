@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Crosshair, BookOpen, Coins, Heart, IdCard, Lock, Menu, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
+import { Check, ChevronDown, Crosshair, BookOpen, Coins, Gavel, Heart, IdCard, Lock, Menu, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
 import {
   BOARDS,
   CANNON,
@@ -179,6 +179,7 @@ export function GameHeader({
               >
                 {hud.paused ? <Play className="size-4" /> : <Pause className="size-4" />}
               </button>
+              {hud.hero === "elf" ? <ObjectionButton api={api} onGesture={gesture} /> : null}
               <button
                 type="button"
                 aria-label="Speed up"
@@ -986,5 +987,39 @@ function TowerInspector({
         <X className="size-4" />
       </button>
     </div>
+  );
+}
+
+/**
+ * The Legal Elf's Objection!, next to Pause: ready (gold), spent or with nothing to hit (grey, the reason
+ * as its title). O does the same.
+ */
+function ObjectionButton({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+  const hud = api.world.hud;
+  const why = hud.phase === "combat" ? hud.objectionWhy : "Objections are for during a wave.";
+  const ready = !why;
+  const spent = hud.phase === "combat" && hud.objections <= 0;
+  return (
+    <button
+      type="button"
+      aria-label={ready ? `Objection! (O), ${hud.objections} left this wave` : `Objection! ${why}`}
+      aria-disabled={!ready}
+      title={ready ? `Objection! Throw back what's at the door (O). ${hud.objections} left this wave.` : why}
+      className={`relative grid h-8 sm:h-11 place-items-center rounded-lg border px-2 text-[0.8125rem] font-semibold ${
+        ready ? "border-[#e6c36a] bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-ink" : "border-line/70 text-muted opacity-50"
+      }`}
+      onClick={() => {
+        onGesture();
+        api.objection();
+      }}
+    >
+      <span className="flex items-center gap-1">
+        <Gavel className="size-4" />
+        <span className="hidden sm:inline">{spent ? "Spent" : "Objection!"}</span>
+      </span>
+      {hud.objections > 1 && hud.phase === "combat" ? (
+        <span className="absolute -top-1.5 -right-1.5 rounded-full bg-ink px-1 text-[0.625rem] leading-4 text-gold">×{hud.objections}</span>
+      ) : null}
+    </button>
   );
 }

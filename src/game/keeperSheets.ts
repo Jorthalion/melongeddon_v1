@@ -50,11 +50,11 @@ export const KEEPER_SHEETS: Record<
     seeds: 150,
     difficulty: "Medium",
     rules: [
-      "Back-room upgrades cost him 30% less.",
-      "Scales of Justice take a share of the heaviest fruit's health, and kills pay a fee.",
-      "Foot of the Law stamps a stretch of carpet still; Honeyed Heel makes fruit take 25% more damage.",
+      "Objection! (once a wave, O): every fruit on the last 3 tiles before the door is thrown back 3 tiles and honeyed (bosses: 1 tile). They walk 10% faster for 3 s after.",
+      "The court: Honeyed Heel makes fruit sticky; Foot of the Law holds a sticky fruit twice as long and spreads the honey; the Scales take 20% from a stopped or honeyed fruit instead of 12%, and double the fee.",
+      "Billable Steps: every fruit the Foot of the Law stomps pays 1 seed, up to 3 a stomp.",
     ],
-    suits: "Upgrading a few towers hard, and big, armoured fruit.",
+    suits: "Timing one big save a wave, and big, armoured fruit.",
   },
   ooze: {
     stacks: 13,

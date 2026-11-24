@@ -69,11 +69,17 @@ export interface PerkFx {
   /** Pumpkin Trebuchet: knockback and splash multipliers. */
   knock?: number;
   splash?: number;
-  /** Back room: extra share off the price (0.1 = 10% more off). */
-  shopOff?: number;
-  /** Scales of Justice: extra share of health taken, and extra fee per kill. */
+  /** Scales of Justice: extra share of health taken (plain and court weighings alike). */
   share?: number;
-  fee?: number;
+  /** Legal Elf: extra Objections a wave (Sustained), 1 = an extra pick every fifth wave with an unhinged card (Prompt Drop). */
+  objections?: number;
+  promptDrop?: number;
+  /** Foot of the Law: how wide it lands, multiplier (Heavy Footed); 1 = everything it stomps is honeyed (Contempt of Court); extra feet you can build (Second Foot). */
+  stompWide?: number;
+  stompHoney?: number;
+  stompExtra?: number;
+  /** Honeyed Heel: 1 = more prints down at once, and they last longer (Sticky Situation). */
+  sticky?: number;
   /** Ooze Clues: extra leaks absorbed each wave. */
   absorb?: number;
   /** Mimic Chest: extra seeds per meal. */
@@ -184,20 +190,20 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
       { name: "Indemnity", blurb: "Start with two more stacks.", fx: { lives: 2 } },
     ],
     [
-      { name: "Hard Bargain", blurb: "The back room costs 40% less instead of 30%.", fx: { shopOff: 0.1 } },
-      { name: "Billable Hours", blurb: "Scales fees pay 5 more seeds.", fx: { fee: 5 } },
+      { name: "Sustained", blurb: "Two Objections a wave instead of one.", fx: { objections: 1 } },
+      { name: "Heavy Footed", blurb: "The Foot of the Law lands 30% wider.", fx: { stompWide: 1.3 } },
     ],
     [
-      { name: "Fine Print", blurb: "Every kill pays 1 more seed.", fx: { killSeeds: 1 } },
-      { name: "Retainer", blurb: "+10 seeds after every wave.", fx: { waveSeeds: 10 } },
+      { name: "Prompt Drop", blurb: "Every fifth wave, an extra upgrade pick. One of its cards is always unhinged: much stronger, with a drawback in the fine print.", fx: { promptDrop: 1 } },
+      { name: "Sticky Situation", blurb: "The Honeyed Heel keeps 4 prints down at once, and they last 10 s.", fx: { sticky: 1 } },
     ],
     [
-      { name: "Precedent", blurb: "The Scales take 18% of health instead of 12%.", fx: { share: 0.06 } },
-      { name: "Swift Ruling", blurb: "The Scales fire 25% faster.", fx: { sigPace: 0.75 } },
+      { name: "Precedent", blurb: "The Scales take 18% of health instead of 12%, and 26% instead of 20% in court.", fx: { share: 0.06 } },
+      { name: "Contempt of Court", blurb: "Every fruit the Foot of the Law stomps is honeyed too.", fx: { stompHoney: 1 } },
     ],
     [
-      { name: "Second Scales", blurb: "You can build two Scales of Justice.", fx: { sigExtra: 1 } },
       { name: "Class Action", blurb: "All your cannons hit 12% harder.", fx: { allDmg: 1.12 } },
+      { name: "Second Foot", blurb: "You can build two Foot of the Law.", fx: { stompExtra: 1 } },
     ],
   ],
   ooze: [
@@ -354,9 +360,13 @@ export function perkFx(hero: HeroId | null, rec: KeeperRecord | undefined): Requ
     chill: 1,
     knock: 1,
     splash: 1,
-    shopOff: 0,
     share: 0,
-    fee: 0,
+    objections: 0,
+    promptDrop: 0,
+    stompWide: 1,
+    stompHoney: 0,
+    stompExtra: 0,
+    sticky: 0,
     absorb: 0,
     loot: 0,
     footnote: 0,
@@ -378,7 +388,7 @@ export function perkFx(hero: HeroId | null, rec: KeeperRecord | undefined): Requ
     secondWind: 0,
     sisuPerStack: 0,
   };
-  const MUL = new Set<keyof PerkFx>(["allDmg", "allRange", "sigDmg", "sigRange", "sigPace", "poolLife", "poolWide", "chill", "knock", "splash", "auraReach"]);
+  const MUL = new Set<keyof PerkFx>(["allDmg", "allRange", "sigDmg", "sigRange", "sigPace", "poolLife", "poolWide", "chill", "knock", "splash", "auraReach", "stompWide"]);
   for (const perk of activePerks(hero, rec)) {
     for (const [k, v] of Object.entries(perk.fx) as Array<[keyof PerkFx, number]>) {
       if (k === "chainRatio") out.chainRatio = Math.max(out.chainRatio, v);

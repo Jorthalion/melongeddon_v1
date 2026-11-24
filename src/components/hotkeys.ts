@@ -13,6 +13,7 @@ import { keyAction, keyGoesToButton, runKeyAction } from "@/game/keys";
  *   S        sell the selected cannon
  *   X        the Hall of Doors: turn the signpost (between waves) to shut the next exit
  *   [ / ]    the Compact Stacks: turn Bay A's / Bay B's crank (between waves)
+ *   O        the Legal Elf's Objection! (during a wave)
  *   B        open or close the back-room side tab (1–9 buy its upgrades while it's open)
  *   C        open or close the checkout card (everything shaping this run; pauses the board)
  *   Enter    the main button on Setup, the intro (not Sir Michael's), story cards and end cards
@@ -21,7 +22,7 @@ import { keyAction, keyGoesToButton, runKeyAction } from "@/game/keys";
  *   M        sound on / off
  */
 export const HOTKEY_HELP =
-  "Q/W/E/R/T tab · 1–5 build or choose (6: Sump Pump, Flooded Basement) · Space start wave (any time between waves) / pause · P pause · S sell · X signpost (Hall of Doors) · [ ] cranks (Compact Stacks) · A aim · B back room · C checkout card · Enter main button · Esc back/menu · +/− speed · M sound";
+  "Q/W/E/R/T tab · 1–5 build or choose (6: Sump Pump, Flooded Basement) · Space start wave (any time between waves) / pause · P pause · S sell · X signpost (Hall of Doors) · [ ] cranks (Compact Stacks) · A aim · O Objection! (Legal Elf) · B back room · C checkout card · Enter main button · Esc back/menu · +/− speed · M sound";
 
 export function useHotkeys(
   api: ReturnType<typeof createWorld>,

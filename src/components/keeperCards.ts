@@ -47,7 +47,7 @@ export const KEEPERS: Array<{
     name: "Legal Elf",
     role: "Legal advisor",
     flavor: "“Objection. You're a pumpkin.”",
-    line: "The back room gives him 30% off, and his Scales take a cut of the biggest fruit.",
+    line: "Objection! throws back what's at the door. Honey, stomp, then the Scales pass sentence.",
     toneHz: 330,
     portrait: asset("sprites/portrait-elf.webp"),
   },

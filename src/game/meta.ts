@@ -169,7 +169,7 @@ export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {
  * Back-room price for the next upgrade to a tower kind that already has `owned` of them.
  * `visits` is upgrades bought tonight for any kind (the Back-room Key makes the first one free).
  */
-export function backRoomPrice(hero: HeroId | null, owned: number, visits: number, bookmark: BookmarkId | null, extraOff = 0) {
+export function backRoomPrice(hero: HeroId | null, owned: number, visits: number, bookmark: BookmarkId | null) {
   if (bookmark === "backroom" && visits === 0) return 0;
-  return shopPrice(hero, owned, visits, extraOff);
+  return shopPrice(hero, owned, visits);
 }

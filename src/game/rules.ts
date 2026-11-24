@@ -61,7 +61,12 @@ export type UpgradeId =
   | "footnotes"
   | "stinging"
   | "blot"
-  | "interest";
+  | "interest"
+  // The Legal Elf's unhinged cards (Prompt Drop only): a real boost with a drawback in the fine print.
+  | "cyberpop"
+  | "advance"
+  | "malpractice"
+  | "probono";
 
 /** The Siege brings two kinds that aren't fruit at all: geese and cats (every variant is a flag on one of them). */
 export type EnemyKind = "melon" | "corn" | "pumpkin" | "karl" | "goose" | "cat";
@@ -157,6 +162,26 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
     id: "interest",
     name: "Interest",
     blurb: "Each Compost Heap pays 20 more, plus 10% of your unspent seeds (up to 20).",
+  },
+  cyberpop: {
+    id: "cyberpop",
+    name: "Unhinged Cyberpop",
+    blurb: "Every tower hits 40% harder. Fine print: they stop listening to their aim and shoot whatever's in reach.",
+  },
+  advance: {
+    id: "advance",
+    name: "Billable in Advance",
+    blurb: "+60 seeds now. Fine print: every kill pays 2 seeds less for the rest of the night.",
+  },
+  malpractice: {
+    id: "malpractice",
+    name: "Malpractice Insurance",
+    blurb: "+3 stacks. Fine print: the back room costs 25% more for the rest of the night.",
+  },
+  probono: {
+    id: "probono",
+    name: "Pro Bono",
+    blurb: "Every wave cleared puts a stack back. Fine print: the Scales work for free (no fees).",
   },
 };
 
@@ -474,7 +499,25 @@ export const UPGRADE_SCOPE: Record<UpgradeId, string> = {
   stinging: "Fly Hives",
   blot: "Ink Wells",
   interest: "Compost Heaps",
+  cyberpop: "Every tower",
+  advance: "The ledger",
+  malpractice: "Stacks and back room",
+  probono: "Stacks and Scales",
 };
+
+/** The Legal Elf's unhinged cards: only Prompt Drop ever offers them, one to a shelf. */
+export const UNHINGED: UpgradeId[] = ["cyberpop", "advance", "malpractice", "probono"];
+
+/**
+ * Prompt Drop's shelf: two ordinary cards from the last shelf and one unhinged card the night doesn't
+ * have yet (none left: no shelf). `roll` picks which unhinged card (0 to 1).
+ */
+export function promptOffer(owned: UpgradeId[], branch: UpgradeId | null, built: TowerKind[] = [], roll = Math.random()): UpgradeDef[] {
+  const wild = UNHINGED.filter((id) => !owned.includes(id));
+  if (!wild.length) return [];
+  const plain = buildOffer("elf", 3, owned, branch, built).filter((u) => !UNHINGED.includes(u.id)).slice(0, 2);
+  return [...plain, UPGRADES[wild[Math.min(wild.length - 1, Math.floor(roll * wild.length))]]];
+}
 
 /** The upgrades that are a keeper's own: the first pick only they are offered, and their later one. */
 export const KEEPER_UPGRADES: Partial<Record<HeroId, UpgradeId[]>> = {
@@ -784,19 +827,19 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   scales: {
     name: "Scales of Justice",
-    blurb: "The Legal Elf's own. Weighs the heaviest fruit in reach and takes a share of its health. Kills pay a fee.",
+    blurb: "The Legal Elf's own. Weighs the heaviest fruit in reach and takes a share of its health. Kills pay a fee. Takes more from a fruit that's stopped or honeyed, and doubles the fee.",
     cost: 95,
     role: "Heavy hitter",
   },
   honey: {
     name: "Honeyed Heel",
-    blurb: "The Legal Elf's third. A big bare foot dipped in honey steps onto the carpet just ahead of the fruit and leaves a sticky footprint. Anything that walks through gets honey on it and takes 25% more damage from everything for 4 s. No damage of its own.",
+    blurb: "The Legal Elf's third. A big bare foot dipped in honey steps onto the carpet just ahead of the fruit and leaves a sticky footprint. Anything that walks through gets honey on it and takes 25% more damage from everything for 4 s. No damage of its own. Stomp a sticky fruit and it's stuck fast.",
     cost: 75,
     role: "Sticky",
   },
   stomp: {
     name: "Foot of the Law",
-    blurb: "The Legal Elf's second. A giant foot stamps the busiest stretch of carpet in reach: a little damage, and everything under it stops. Even husks feel this one.",
+    blurb: "The Legal Elf's second. A giant foot stamps the busiest stretch of carpet in reach: a little damage, and everything under it stops. Even husks feel this one. A honeyed fruit stays stopped twice as long, and the honey spreads. Each fruit it stomps pays 1 seed (3 per stomp at most).",
     cost: 85,
     role: "Stomp",
   },
@@ -1018,6 +1061,11 @@ export const CANNON = {
   honeyTime: 4,
   stompStun: 1.1,
   stompStunBoss: 0.4,
+  /** Foot of the Law on a honeyed fruit: it's stuck fast, stopped this many times as long (bosses too). */
+  stompStuck: 2,
+  /** Billable Steps: seeds per fruit the foot stomps (husks and bosses count), and the most one stomp pays. */
+  stompFee: 1,
+  stompFeeMax: 3,
   lanternRadius: 72,
   lanternRange: 1.15,
   lanternPace: 0.85,
@@ -1116,7 +1164,15 @@ export const CANNON = {
   /** Scales of Justice: extra damage as a share of the target's max health (Karl takes the boss share). */
   scalesShare: 0.12,
   scalesBossShare: 0.04,
+  /** The court's sentence: the share taken from a fruit that is stopped (stomped or halted) or honeyed, and Karl's. */
+  scalesCourtShare: 0.2,
+  scalesCourtBossShare: 0.07,
+  /** Seeds a Scales kill pays (a court kill pays this times `scalesCourtFee`; Billable Hours adds `scalesBillable`). */
   scalesFee: 5,
+  scalesCourtFee: 2,
+  scalesBillable: 5,
+  /** The Scales' aim: two fruit within this share of each other's health count as equally heavy (the stopped or honeyed one is weighed). */
+  scalesTie: 0.1,
   /** Mimic Chest: damage to Karl instead of swallowing him, and seeds found in what it eats. */
   mimicBossBite: 120,
   mimicLoot: 3,
@@ -1312,7 +1368,8 @@ export type ModId =
   | "barbs"
   | "virulent"
   | "grit"
-  | "pierce";
+  | "pierce"
+  | "billable";
 
 export interface ModDef {
   id: ModId;
@@ -1366,6 +1423,7 @@ export const MODS: ModDef[] = [
   { id: "virulent", name: "Virulent", blurb: "Its poison stacks up to five times instead of three.", kinds: ["cauldron"] },
   { id: "grit", name: "Grit", blurb: "A seed drives two stingers deeper instead of one.", kinds: ["spitter"] },
   { id: "pierce", name: "Through and through", blurb: "The spear goes through 3 more fruit.", kinds: ["ballista"] },
+  { id: "billable", name: "Billable Hours", blurb: "Scales fees pay 5 more seeds.", kinds: ["scales"] },
 ];
 
 /**
@@ -1373,15 +1431,43 @@ export const MODS: ModDef[] = [
  * that kind already has. Other kinds' upgrades don't raise it. Mynxi's very first upgrade of the
  * night is 15.
  */
-export function shopPrice(hero: HeroId | null, owned: number, visits: number, extraOff = 0) {
+export function shopPrice(hero: HeroId | null, owned: number, visits: number) {
   if (hero === "mynxi" && visits === 0) return 15;
   // Vaelithra's formula is cheaper and climbs slower: 25, then 15 more per upgrade the kind has.
-  if (hero === "vael") return Math.round((25 + owned * 15) * (1 - extraOff));
-  const price = 40 + owned * 30;
-  // The Legal Elf negotiates: the back room costs 30% less (more with his Hard Bargain perk).
-  const rate = (hero === "elf" ? 0.7 : 1) - extraOff;
-  return rate === 1 ? price : Math.round(price * rate);
+  if (hero === "vael") return 25 + owned * 15;
+  return 40 + owned * 30;
 }
+
+/**
+ * The Legal Elf. Objection!: once a wave, in combat, every fruit on the last `objectionZone` tiles before the
+ * door (along its carpet) is overruled: thrown back and honeyed. The fine print: overruled fruit walk faster
+ * for a moment, so it isn't free.
+ */
+export const ELF_VALUES = {
+  /** Tiles before the door that Objection! reaches, measured along the carpet. */
+  objectionZone: 3,
+  /** Tiles an overruled fruit is thrown back (never past where it came in). */
+  objectionBack: 3,
+  /** Tiles a boss is pushed back (it's honeyed too). */
+  objectionBossBack: 1,
+  /** The fine print: overruled fruit walk this much faster (1.1 = 10%) for `finePrintTime` s. */
+  finePrintHaste: 1.1,
+  finePrintTime: 3,
+  /** Prompt Drop: an extra pick after every this-many cleared waves. */
+  promptEvery: 5,
+  /** The unhinged cards' numbers: Cyberpop's damage, Billable in Advance's seeds and per-kill cost, Malpractice's stacks and back-room mark-up. */
+  cyberpopDmg: 1.4,
+  advanceSeeds: 60,
+  advanceKill: 2,
+  malpracticeLives: 3,
+  malpracticeMarkup: 1.25,
+  /** Pro Bono: stacks put back after each wave cleared. */
+  probonoLives: 1,
+  /** Heavy Footed: the foot lands this much wider. Sticky Situation: prints down at once, and how long each lasts (s). */
+  heavyFooted: 1.3,
+  stickyMax: 4,
+  stickyLife: 10,
+};
 
 /** The back-room upgrades a tower kind can have (the Copycat's hidden step is never one). */
 /**
@@ -1507,6 +1593,8 @@ export function fittingDetail(kind: TowerKind, id: ModId): string {
       return `A seed drives ${AFFLICT.gritStacks} stingers deeper into a stung fruit instead of ${AFFLICT.seedStacks}.`;
     case "pierce":
       return `The spear goes through ${CANNON.ballistaPierce + CANNON.ballistaPierceMore} fruit instead of ${CANNON.ballistaPierce}.`;
+    case "billable":
+      return `A Scales kill pays ${CANNON.scalesFee + CANNON.scalesBillable} seeds instead of ${CANNON.scalesFee} (in court, double).`;
     default:
       return MODS.find((m) => m.id === id)?.blurb ?? "";
   }

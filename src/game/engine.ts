@@ -5,7 +5,7 @@ import {
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   ARMOURS, ARMOUR_TEXT, ARMOUR_VALUES, ARMOUR_LEVEL, ARMOUR_FOR_OATH, DRAGON, BIG_KINDS, ROOST_STAGES, canBeGreat, roostStageFor, type ArmourId, type OathId,
-  ASSER_VALUES, carpetAlong,
+  ASSER_VALUES, ELF_VALUES, UNHINGED, promptOffer, carpetAlong,
   nearestOnCarpet, gateStrip, VAEL_VALUES, VAEL_LADDER, vaelLockLine, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
   assignExits, combineRoutes, EXIT_NAME, HALL, type Exit, type ExitId,
   pathFor, trackCells, type Bay, BASEMENT, deepWave, waterFor, underWater, heightTiles, type Height, ROOM_TOWERS, ROOM_TOWER_KINDS,
@@ -15,7 +15,7 @@ import {
   SIEGE, type SiegeVariant,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
-import { KEEPER_VOICE, openingLine } from "./keeperVoice.ts";
+import { ELF_LINES, KEEPER_VOICE, loseLine, openingLine } from "./keeperVoice.ts";
 import { STATUS_LOOK } from "./drawStatus.ts";
 
 export * from "./rules.ts";
@@ -129,6 +129,8 @@ interface Enemy {
   inkMul?: number;
   /** Honeyed Heel: seconds left sticky (takes more damage from everything). */
   honeyed?: number;
+  /** Objection!'s fine print: seconds left walking a little faster after being overruled. */
+  overruled?: number;
   /** Bookworm burrow: seconds left, and damage per second. */
   worm?: number;
   wormDps?: number;
@@ -537,6 +539,8 @@ export interface Stomp {
   y: number;
   life: number;
   max: number;
+  /** It landed on honey: drawn with amber drips. */
+  honey?: boolean;
 }
 
 /** Expanding rings (bell shush, compost payout). */
@@ -683,6 +687,10 @@ export interface Hud {
   tagTeam: boolean;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
   geeseSpent: boolean;
+  /** The Legal Elf: Objection! presses left this wave (0 for everyone else). */
+  objections: number;
+  /** Whether Objection! would hit anything right now ("" if it would, else the reason it can't). */
+  objectionWhy: string;
   /** Quackarot's power level: kills toward the Quack-Liber's full-power blast (`CANNON.quackKiNeed` fills it). */
   ki: number;
   /** Ooze's Copycat was put down this wave: free, so only once a wave (a sold one can't be rebuilt until the wave is over). */
@@ -944,7 +952,7 @@ function writeBest(n: number, key = BEST_KEY) {
 }
 
 /** Sound cues the engine raises; the UI drains and plays them. Ignored headless. */
-export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak" | "rumble" | "slosh";
+export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak" | "rumble" | "slosh" | "objection";
 
 /** The Flooded Basement: is this tile under water now? A Sump Pump keeps its own tile and the eight round it dry. */
 export function floodedTile(world: Pick<World, "water" | "heights" | "towers">, c: number, r: number) {
@@ -1109,6 +1117,8 @@ export function createWorld(
   setTrigger: (mode: "auto" | "manual") => void;
   /** Anti-Geese Protocol (selected): set it off now (needs a fruit in the ring). */
   engage: () => void;
+  /** The Legal Elf: Objection! Returns how many fruit it overruled (0: nothing to hit, not spent). */
+  objection: () => number;
   dismissSelection: () => void;
   nudgeSpeed: (dir: -1 | 1) => void;
   togglePause: () => void;
@@ -1275,6 +1285,8 @@ export function createWorld(
       plugged: false,
       tagTeam: false,
       geeseSpent: false,
+      objections: 0,
+      objectionWhy: "",
       ki: 0,
       copycatPlaced: false,
       sisu: 0,
@@ -1595,7 +1607,11 @@ export function createWorld(
   const roomPrice = (kind: TowerKind) =>
     world.hud.guide === "backroom"
       ? 0
-      : backRoomPrice(world.hud.hero, world.hud.fitted[kind]?.length ?? 0, world.hud.shopVisits, world.hud.bookmark, fx.shopOff);
+      : Math.round(
+          backRoomPrice(world.hud.hero, world.hud.fitted[kind]?.length ?? 0, world.hud.shopVisits, world.hud.bookmark) *
+            // Malpractice Insurance's fine print: the back room costs more.
+            (has("malpractice") ? ELF_VALUES.malpracticeMarkup : 1),
+        );
   /** Move the tutorial to `step`, skipping building steps the board already satisfies. */
   const guideTo = (step: GuideStep | null) => {
     const mine = world.towers.map((t) => groupOf(t.kind).id);
@@ -1803,7 +1819,7 @@ export function createWorld(
     if (PASSIVE.includes(kind)) return read;
     // Signature perks name one tower ("The Scales fire 25% faster"), so a keeper's extra towers skip them.
     const sig = ownSignature(kind);
-    const dmgMul = fx.allDmg * (sig ? fx.sigDmg : 1) * sisuMul();
+    const dmgMul = fx.allDmg * (sig ? fx.sigDmg : 1) * sisuMul() * (has("cyberpop") ? ELF_VALUES.cyberpopDmg : 1);
     const rangeMul = fx.allRange * (sig ? fx.sigRange : 1);
     return {
       ...read,
@@ -2258,6 +2274,66 @@ export function createWorld(
     const { along, total } = carpetAlong(route, e.x, e.y, e.wp, e.reverse);
     return total - along <= 3 * CELL;
   };
+  /** How wide the Foot of the Law lands (Heavy Footed: wider). */
+  const stompRadius = () => CANNON.stompRadius * fx.stompWide;
+  /** The Legal Elf's court: a fruit that is stopped (stomped or halted) or honeyed. */
+  const inCourt = (e: Enemy) => (e.stomped ?? 0) > 0 || (e.halt ?? 0) > 0 || (e.honeyed ?? 0) > 0;
+  /** Objection!: the living fruit on the last few tiles before the door, along each one's own carpet. */
+  const objectionZone = () =>
+    world.enemies.filter((e) => {
+      if (e.hp <= 0 || (e.descend ?? 0) > 0) return false;
+      const { along, total } = carpetAlong(routeOf(e), e.x, e.y, e.wp, e.reverse);
+      return total - along <= ELF_VALUES.objectionZone * CELL;
+    });
+  /** Prompt Drop: what follows its shelf ("shelf": it waits behind the usual shelf). */
+  let promptNext: "shelf" | "prep" | "consequence" | null = null;
+  /** Objection! presses this wave, and tonight (for the lines). */
+  let objectedWave = 0;
+  let objectedNight = 0;
+  /** Why Objection! can't be pressed right now ("" when it can). */
+  const objectionBlock = () => {
+    if (world.hud.hero !== "elf") return "Only the Legal Elf can object.";
+    if (world.hud.phase !== "combat") return "Objections are for during a wave.";
+    if (world.hud.objections <= 0) return "Spent this wave. It's back next wave.";
+    if (!objectionZone().length) return ELF_LINES.noGrounds;
+    return "";
+  };
+  /** Objection!: overrule every fruit near the door. Non-bosses are thrown back and honeyed; bosses only budge a tile. */
+  const objection = () => {
+    const why = objectionBlock();
+    if (why) {
+      world.hud.log = why === ELF_LINES.noGrounds ? `Legal Elf: “${ELF_LINES.noGrounds}”` : why;
+      world.hud.objectionWhy = why;
+      return 0;
+    }
+    const zone = objectionZone();
+    world.hud.objections -= 1;
+    for (const e of zone) {
+      pushBack(e, (e.boss ? ELF_VALUES.objectionBossBack : ELF_VALUES.objectionBack) * CELL);
+      e.honeyed = Math.max(e.honeyed ?? 0, CANNON.honeyTime);
+      e.overruled = ELF_VALUES.finePrintTime;
+      float(e.x, e.y - 22, "overruled", "#f3ce78");
+    }
+    // A gold flash over the last tiles of every carpet, and the big word in the middle of the board.
+    for (const route of world.routes.length ? world.routes : [world.points]) {
+      const end = route[route.length - 1];
+      if (end) world.rings.push({ x: end.x, y: end.y, r: ELF_VALUES.objectionZone * CELL, life: 0.6, max: 0.6, color: "243,206,120", fill: true });
+    }
+    world.floaters.push({ x: (world.cols * CELL) / 2, y: (world.rows * CELL) / 2, text: "OBJECTION!", life: 1.4, color: "#f3ce78", size: 44 });
+    cue("objection");
+    world.shake = world.reduced ? 0 : Math.max(world.shake, 5);
+    const n = zone.length;
+    // A second press in one wave (Sustained) gets its own line; otherwise they take turns.
+    const line = objectedWave > 0 ? ELF_LINES.sustained : ELF_LINES.objection[objectedNight % ELF_LINES.objection.length];
+    objectedWave += 1;
+    objectedNight += 1;
+    world.hud.log = `Legal Elf: “${line}” ${n} overruled.`;
+    syncObjection();
+    return n;
+  };
+  const syncObjection = () => {
+    world.hud.objectionWhy = world.hud.hero === "elf" ? objectionBlock() : "";
+  };
   /** Tag Team: with two Quack-Libers standing, fruit near the line between them walk slower. */
   const perimeterAt = (e: Enemy) => {
     if (!fx.perimeter) return 1;
@@ -2495,7 +2571,7 @@ export function createWorld(
     (kind === "geese" && world.hud.geeseSpent) ||
     (kind === "copycat" && world.hud.copycatPlaced) ||
     isSignature(kind) &&
-    (!own(kind) || world.towers.filter((t) => t.kind === kind).length >= 1 + (ownSignature(kind) ? fx.sigExtra : 0));
+    (!own(kind) || world.towers.filter((t) => t.kind === kind).length >= 1 + (ownSignature(kind) ? fx.sigExtra : 0) + (kind === "stomp" ? fx.stompExtra : 0));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
   /** What a tower reaches: a Copycat reaches what its copy does. */
   const towerRange = (tower: Tower) => statsFor(tower.kind === "copycat" && tower.copy ? tower.copy : tower).range;
@@ -3316,6 +3392,9 @@ export function createWorld(
     materialNoted = false;
     windUsed = false;
     goldenUsed = false;
+    objectedWave = 0;
+    objectedNight = 0;
+    promptNext = null;
     world.hud.golden = 0;
     absurdDrops = 0;
     stillBuilt = false;
@@ -3383,6 +3462,8 @@ export function createWorld(
       jammed: [],
       tagTeam: false,
       geeseSpent: false,
+      objections: 0,
+      objectionWhy: "",
       ki: 0,
       copycatPlaced: false,
       sisu: 0,
@@ -3473,7 +3554,7 @@ export function createWorld(
     if (world.hud.lives <= 0) {
       cue("defeat");
       world.hud.phase = "defeat";
-      world.hud.log = `The stacks are pulp. ${world.hud.hero ? `${KEEPER_NAMES[world.hud.hero].short}: ${KEEPER_VOICE[world.hud.hero].lose}` : ""}`.trim();
+      world.hud.log = `The stacks are pulp. ${world.hud.hero ? loseLine(world.hud.hero, world.hud.map) : ""}`.trim();
       bumpBest();
       finishNight(false);
       notify();
@@ -3736,7 +3817,11 @@ export function createWorld(
     }
     contagion(e);
     // What fell out of a Parcel pays nothing.
-    if (!e.contents) world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
+    if (!e.contents) {
+      const pay = e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
+      // Billable in Advance's fine print: every kill pays less (never below nothing).
+      world.hud.seeds += has("advance") ? Math.max(0, pay - ELF_VALUES.advanceKill) : pay;
+    }
     if (e.native === "parcel") openParcel(e);
     if (e.native === "wormqueen") world.cocoons.push({ x: e.x, y: e.y, wp: e.wp, route: e.route, left: NATIVES.cocoonTime });
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
@@ -4679,7 +4764,24 @@ export function createWorld(
       beat === "upgrade"
         ? withDoctorsPick(buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds()), step)
         : [];
-    if (beat === "upgrade" && offer.length) {
+    // Pro Bono: a stack back for every wave cleared.
+    if (has("probono") && world.hud.lives > 0) world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + ELF_VALUES.probonoLives);
+    // The Legal Elf's Prompt Drop: every fifth wave, an extra shelf with one unhinged card (after the usual one, if any).
+    promptNext = null;
+    const drop = world.hud.hero === "elf" && fx.promptDrop > 0 && cleared % ELF_VALUES.promptEvery === 0 ? promptOffer(world.hud.upgrades, world.hud.branch, builtKinds()) : [];
+    if (drop.length) {
+      if (beat === "upgrade" && offer.length) promptNext = "shelf";
+      else {
+        promptNext = beat === "consequence" ? "consequence" : "prep";
+        world.hud.pickCards = [];
+        world.hud.offer = drop;
+        world.hud.phase = "upgrade";
+        world.hud.log = `Legal Elf: “${ELF_LINES.promptDrop}”`;
+      }
+    }
+    if (promptNext && promptNext !== "shelf") {
+      // The drop's shelf is up; the rest happens after the pick.
+    } else if (beat === "upgrade" && offer.length) {
       world.hud.offer = offer;
       world.hud.phase = "upgrade";
       if (world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "upgrade";
@@ -4932,6 +5034,7 @@ export function createWorld(
       if (dot) hurt(e, null, dot * dt, 0, "pulp");
       if ((e.ink ?? 0) > 0) e.ink = (e.ink ?? 0) - dt;
       if ((e.honeyed ?? 0) > 0) e.honeyed = (e.honeyed ?? 0) - dt;
+      if ((e.overruled ?? 0) > 0) e.overruled = (e.overruled ?? 0) - dt;
       if ((e.worm ?? 0) > 0) {
         e.worm = (e.worm ?? 0) - dt;
         credit = e.wormBy ?? null;
@@ -5059,7 +5162,9 @@ export function createWorld(
       // The History Lectern's note: the kind that got furthest last wave walks slower.
       const studied = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
       const rush = (e.rallied ?? 0) > 0 ? SIEGE.rallySpeed : 1;
-      const step = e.speed * e.slow * studied * rush * perimeterAt(e) * paceOf(e, Boolean(e.reverse)) * awake(e) * dt;
+      // Objection!'s fine print: an overruled fruit walks a little faster for a moment.
+      const appeal = (e.overruled ?? 0) > 0 ? ELF_VALUES.finePrintHaste : 1;
+      const step = e.speed * e.slow * studied * rush * appeal * perimeterAt(e) * paceOf(e, Boolean(e.reverse)) * awake(e) * dt;
       if (dist <= step + 0.5) {
         e.x = wp.x;
         e.y = wp.y;
@@ -5175,6 +5280,16 @@ export function createWorld(
         continue;
       }
       if (tower.kind === "hive") target = inRange[Math.floor(Math.random() * inRange.length)] ?? target;
+      // The Scales on Strong: between two fruit about as heavy, weigh the one in court.
+      if (tower.kind === "scales" && mode === "strong" && !inCourt(target)) {
+        const heavy = target.hp;
+        const rival = inRange
+          .filter((e) => inCourt(e) && e.hp >= heavy * (1 - CANNON.scalesTie))
+          .sort((a, b) => b.hp - a.hp)[0];
+        if (rival) target = rival;
+      }
+      // Unhinged Cyberpop's fine print: the towers stop listening to their aim.
+      if (has("cyberpop") && inRange.length) target = inRange[Math.floor(Math.random() * inRange.length)] ?? target;
       tower.aimAt = target.id;
       tower.aim = Math.atan2(target.y - tower.y, target.x - tower.x);
       if (tower.cd > 0) continue;
@@ -5282,13 +5397,16 @@ export function createWorld(
         const fx2 = d > 0 ? target.x + ((next.x - target.x) / d) * lead : target.x;
         const fy2 = d > 0 ? target.y + ((next.y - target.y) / d) * lead : target.y;
         const mine = world.pools.filter((p) => p.owner === tower.id);
-        if (mine.length >= CANNON.honeyMax) world.pools = world.pools.filter((p) => p !== mine[0]);
+        // Sticky Situation: more prints down at once, and they last longer.
+        const prints = fx.sticky ? ELF_VALUES.stickyMax : CANNON.honeyMax;
+        const printLife = fx.sticky ? ELF_VALUES.stickyLife : CANNON.honeyLife;
+        if (mine.length >= prints) world.pools = world.pools.filter((p) => p !== mine[0]);
         world.pools.push({
           x: fx2,
           y: fy2,
           r: CANNON.honeyRadius,
-          life: CANNON.honeyLife,
-          max: CANNON.honeyLife,
+          life: printLife,
+          max: printLife,
           hot: false,
           burn: 0,
           honey: true,
@@ -5361,11 +5479,12 @@ export function createWorld(
         // Foot of the Law: land on the fruit with the most company, then pin and bruise everything under the sole.
         tower.cd = stats.interval;
         cue("fire", "stomp");
+        const footR = stompRadius();
         let spot = target;
         let crowd = -1;
         for (const e of inRange) {
           let n = 0;
-          for (const o of inRange) if (Math.hypot(o.x - e.x, o.y - e.y) <= CANNON.stompRadius) n++;
+          for (const o of inRange) if (Math.hypot(o.x - e.x, o.y - e.y) <= footR) n++;
           if (n > crowd) {
             crowd = n;
             spot = e;
@@ -5373,13 +5492,26 @@ export function createWorld(
         }
         const sx = spot.x;
         const sy = spot.y;
-        for (const e of world.enemies) {
-          if (e.hp <= 0 || Math.hypot(e.x - sx, e.y - sy) > CANNON.stompRadius) continue;
-          e.stomped = Math.max(e.stomped ?? 0, e.boss ? CANNON.stompStunBoss : CANNON.stompStun);
+        const under = world.enemies.filter((e) => e.hp > 0 && Math.hypot(e.x - sx, e.y - sy) <= footR);
+        const sticky = under.some((e) => (e.honeyed ?? 0) > 0);
+        for (const e of under) {
+          // The court: a fruit already honeyed is stuck fast (twice as long); a plain one is blocked.
+          const stop = (e.boss ? CANNON.stompStunBoss : CANNON.stompStun) * ((e.honeyed ?? 0) > 0 ? CANNON.stompStuck : 1);
+          if ((e.honeyed ?? 0) > 0) float(e.x, e.y - 18, "stuck fast", "#e8b84a");
+          else float(e.x, e.y - 18, "blocked", "#f4f1e8");
+          e.stomped = Math.max(e.stomped ?? 0, stop);
           hurt(e, null, stats.dmg, 0, "splash");
         }
-        world.stomps.push({ x: sx, y: sy, life: 0.45, max: 0.45 });
-        world.rings.push({ x: sx, y: sy, r: CANNON.stompRadius, life: 0.4, max: 0.4, color: "201,162,90" });
+        // The honey spreads to everything under the sole (Contempt of Court: honey or not).
+        if (sticky || fx.stompHoney) for (const e of under) if (e.hp > 0) e.honeyed = Math.max(e.honeyed ?? 0, CANNON.honeyTime);
+        // Billable Steps: each fruit it stomps pays a seed, up to a few a stomp.
+        const billed = Math.min(under.length * CANNON.stompFee, CANNON.stompFeeMax);
+        if (billed > 0) {
+          world.hud.seeds += billed;
+          float(sx, sy - 40, `+${billed}`, "#e6c36a");
+        }
+        world.stomps.push({ x: sx, y: sy, life: 0.45, max: 0.45, honey: sticky });
+        world.rings.push({ x: sx, y: sy, r: footR, life: 0.4, max: 0.4, color: sticky ? "232,184,74" : "201,162,90" });
         world.shake = world.reduced ? 0 : Math.max(world.shake, 4);
         float(sx, sy - 26, "STOMP", "#e6c36a");
         continue;
@@ -5388,10 +5520,16 @@ export function createWorld(
         // A share of the heaviest fruit's health, and a fee if the verdict kills it.
         tower.cd = stats.interval;
         cue("fire", "scales");
-        const share = target.boss ? CANNON.scalesBossShare : CANNON.scalesShare + fx.share;
+        // The sentence: a fruit stopped or honeyed is in court, and the Scales take more (and double the fee).
+        const court = inCourt(target);
+        const share = target.boss
+          ? court ? CANNON.scalesCourtBossShare : CANNON.scalesBossShare
+          : (court ? CANNON.scalesCourtShare : CANNON.scalesShare) + fx.share;
         hurt(target, null, stats.dmg + target.maxHp * share);
-        if (target.hp <= 0) {
-          const fee = CANNON.scalesFee + fx.fee;
+        if (court) float(target.x, target.y - 40, "guilty", "#e6c36a");
+        // Pro Bono's fine print: the Scales work for free.
+        if (target.hp <= 0 && !has("probono")) {
+          const fee = (CANNON.scalesFee + (hasMod(tower, "billable") ? CANNON.scalesBillable : 0)) * (court ? CANNON.scalesCourtFee : 1);
           world.hud.seeds += fee;
           float(target.x, target.y - 26, `fee +${fee}`, "#e6c36a");
         }
@@ -5581,6 +5719,7 @@ export function createWorld(
     if (world.hud.phase === "combat" && queueCursor >= queue.length && world.enemies.length === 0 && drops.length === 0 && world.cocoons.length === 0) {
       endWave();
     }
+    if (world.hud.hero === "elf") syncObjection();
   };
 
   const tickFx = (dt: number) => {
@@ -5824,6 +5963,9 @@ export function createWorld(
       }
       world.hud.paused = false;
       absorbed = 0;
+      // Objection! recharges at the start of every wave (Sustained: two).
+      world.hud.objections = world.hud.hero === "elf" ? 1 + fx.objections : 0;
+      objectedWave = 0;
       world.marks = [];
       // Lion Blades standing now will mend when this wave is cleared; ones built mid-wave won't.
       for (const blade of world.towers) if (blade.kind === "lionblade") blade.mendReady = true;
@@ -5859,6 +6001,14 @@ export function createWorld(
       notify();
     },
     pickUpgrade(upgradeId: UpgradeId) {
+      if (world.hud.phase === "upgrade" && !world.hud.checkout && UNHINGED.includes(upgradeId) && world.hud.offer.some((u) => u.id === upgradeId)) {
+        // An unhinged card: its boost lands now (the drawback is in the rules from here on).
+        if (upgradeId === "advance") world.hud.seeds += ELF_VALUES.advanceSeeds;
+        if (upgradeId === "malpractice") {
+          world.hud.lives += ELF_VALUES.malpracticeLives;
+          world.hud.maxLives += ELF_VALUES.malpracticeLives;
+        }
+      }
       if (world.hud.phase !== "upgrade" || world.hud.checkout) return;
       if (!world.hud.offer.some((u) => u.id === upgradeId)) return;
       // The Doctor's pick is a real upgrade like any other; it is only counted (Close Reading, Annotated, achievements).
@@ -5878,6 +6028,34 @@ export function createWorld(
       if (upgradeId === "seeds") world.hud.seeds += 55;
       syncPrice();
       world.hud.offer = [];
+      // Prompt Drop: its shelf comes after the usual one.
+      if (promptNext === "shelf") {
+        const drop = promptOffer(world.hud.upgrades, world.hud.branch, builtKinds());
+        promptNext = "prep";
+        if (drop.length) {
+          world.hud.offer = drop;
+          world.hud.log = `${UPGRADES[upgradeId].name} locked in. Legal Elf: “${ELF_LINES.promptDrop}”`;
+          notify();
+          return;
+        }
+      }
+      if (promptNext === "consequence") {
+        promptNext = null;
+        const last = waveAt(cleared, world.hud.night);
+        world.hud.phase = "consequence";
+        world.hud.waveName = last.name;
+        world.hud.blurb = last.blurb;
+        world.hud.log = `${UPGRADES[upgradeId].name} locked in. ${
+          world.hud.night === "overflow"
+            ? "Karl is not using the door."
+            : world.hud.night === "siege"
+              ? "Both of them, at once. They still hate each other."
+              : "Everything left in the library is on the carpet."
+        }`;
+        notify();
+        return;
+      }
+      promptNext = null;
       world.hud.phase = "prep";
       const next = waveAt(cleared, world.hud.night);
       world.hud.blurb = next.blurb;
@@ -5942,6 +6120,13 @@ export function createWorld(
       cue("build");
       world.hud.log = mode === "auto" ? "Anti-Geese Protocol: on Auto. It goes off when they crowd in or near the door." : "Anti-Geese Protocol: on Manual. Press Engage.";
       notify();
+    },
+    /** The Legal Elf's Objection!: returns how many fruit it overruled (0: nothing happened, and it isn't spent). */
+    objection() {
+      if (world.hud.menu || world.hud.checkout) return 0;
+      const n = objection();
+      notify();
+      return n;
     },
     engage() {
       const tower = world.towers.find((t) => t.id === world.hud.selected);
@@ -6034,6 +6219,9 @@ export function createWorld(
       materialNoted = false;
       windUsed = false;
       goldenUsed = false;
+      objectedWave = 0;
+      objectedNight = 0;
+      promptNext = null;
       world.hud.golden = 0;
       if (hero === "mynxi") {
         world.hud.seeds = 150;

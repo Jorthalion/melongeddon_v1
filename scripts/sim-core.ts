@@ -36,7 +36,25 @@ import {
   VAEL_LADDER,
   PASSIVE,
 } from "../src/game/engine.ts";
+import { ELF_VALUES, carpetAlong, CELL as TILE, type World as SimWorld } from "../src/game/engine.ts";
 import { makeHuman } from "./sim-human.ts";
+
+/**
+ * Every bot objects the same way: the Legal Elf presses Objection! when 3 or more fruit, or any fruit with
+ * over half its health, are on the last tiles before the door.
+ */
+export function shouldObject(world: SimWorld) {
+  if (world.hud.hero !== "elf" || world.hud.objections <= 0 || world.hud.objectionWhy) return false;
+  let n = 0;
+  for (const e of world.enemies) {
+    if (e.hp <= 0) continue;
+    const { along, total } = carpetAlong(world.routes[e.route ?? 0] ?? world.points, e.x, e.y, e.wp, Boolean(e.reverse));
+    if (total - along > ELF_VALUES.objectionZone * TILE) continue;
+    if (e.hp > e.maxHp / 2) return true;
+    n++;
+  }
+  return n >= 3;
+}
 
 /**
  * lean = a cautious player: mixed rotation, at most 2 new towers per wave, only between waves.
@@ -671,6 +689,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       while (leaks.length <= w) leaks.push(0);
       prevLives = world.hud.lives;
       stepWorld(world, DT);
+      if (shouldObject(world)) api.objection();
       while (vaelSteps.length < world.hud.vaelOpen) vaelSteps.push(world.hud.wave);
       t += DT;
       if (world.hud.lives < prevLives) leaks[w] += prevLives - world.hud.lives;

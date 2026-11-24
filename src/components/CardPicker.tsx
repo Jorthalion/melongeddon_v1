@@ -3,6 +3,7 @@ import {
   UPGRADE_KIND,
   KEEPER_NAMES,
   UPGRADE_SCOPE,
+  UNHINGED,
   isKeeperUpgrade,
   type BookmarkId,
   type Hud,
@@ -58,7 +59,9 @@ export function CardOverlay({
               </button>
             </div>
             <p className="mt-1 text-sm text-muted">
-              {hud.night === "midnight" && hud.upgrades.length >= 3
+              {hud.offer.some((u) => UNHINGED.includes(u.id as UpgradeId))
+                ? "Prompt Drop: an extra pick. One card is unhinged. Read the fine print."
+                : hud.night === "midnight" && hud.upgrades.length >= 3
                 ? "One more shelf. The fruit after this is not just thicker."
                 : hud.night === "overflow" && hud.upgrades.length >= 2
                 ? "One more shelf. Then the meter starts spending."
@@ -102,6 +105,12 @@ export function CardOverlay({
                       {i + 1}
                     </kbd>
                     {/* Dr. Samodovol's extra book: a real upgrade from further along the shelves, marked as his. */}
+                    {/* The Legal Elf's Prompt Drop: a joke with teeth. */}
+                    {UNHINGED.includes(id) ? (
+                      <span className="pointer-events-none absolute bottom-1.5 right-2.5 rounded-sm border border-[#e86a8a]/70 bg-ink/50 px-1 font-display text-[0.625rem] text-[#f29ab0] italic">
+                        unhinged
+                      </span>
+                    ) : null}
                     {hud.pickCards.includes(id) ? (
                       <span className="pointer-events-none absolute bottom-1.5 right-2.5 rounded-sm border border-gold/60 bg-ink/50 px-1 font-display text-[0.625rem] text-gold italic">
                         Doctor's pick
@@ -145,7 +154,7 @@ export function CardOverlay({
         {hudPhase === "victory" ? (
           <EndCard
             title={hud.night === "overflow" ? "The chute holds." : hud.night === "siege" ? "The courtyard holds." : "The stacks hold."}
-            body={`${hud.blurb} Absurdity ${hud.absurdity}. ${winLine(hud.hero ?? "mynxi")}`}
+            body={`${hud.blurb} Absurdity ${hud.absurdity}. ${winLine(hud.hero ?? "mynxi", hud.map)}`}
             action={victoryAction(hud.night)}
 
             unlocks={hud.newUnlocks}
@@ -172,8 +181,8 @@ export function CardOverlay({
             title="The carpet won."
             body={
               hud.night === "endless"
-                ? `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your endless best is ${hud.endlessBest}. ${loseLine(hud.hero ?? "mynxi")}`
-                : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. ${loseLine(hud.hero ?? "mynxi")}`
+                ? `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your endless best is ${hud.endlessBest}. ${loseLine(hud.hero ?? "mynxi", hud.map)}`
+                : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. ${loseLine(hud.hero ?? "mynxi", hud.map)}`
             }
             action="Try again"
             unlocks={hud.newUnlocks}

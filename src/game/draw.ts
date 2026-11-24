@@ -1468,6 +1468,17 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.beginPath();
     ctx.ellipse(st.x, st.y + 8, 30 * (0.6 + 0.4 * Math.min(1, k / 0.35)), 9, 0, 0, Math.PI * 2);
     ctx.fill();
+    // Landed on honey: amber drips run off the sole as it lifts.
+    if (st.honey) {
+      ctx.fillStyle = "rgba(232,184,74,0.9)";
+      for (let i = 0; i < 6; i++) {
+        const dx = (i - 2.5) * 9;
+        const len = 6 + ((i * 7) % 5) * 2 + k * 14;
+        ctx.beginPath();
+        ctx.ellipse(st.x + dx, st.y + 4 + len / 2, 2.6, len / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     if (ready(art.flyStomp)) {
       // The painted foot: its sole sits about a fifth of the way up from the bottom, so lift the centre to land it on the spot.
       blitFit(ctx, art.flyStomp, st.x, st.y - drop - 26, 104, 90);

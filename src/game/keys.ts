@@ -59,6 +59,7 @@ export type KeyAction =
   | { type: "turnSign" }
   | { type: "crank"; bay: number }
   | { type: "aim" }
+  | { type: "objection" }
   | { type: "openShop" }
   | { type: "deselect" }
   | { type: "speed"; dir: -1 | 1 };
@@ -162,6 +163,8 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
       if ((key === "[" || key === "]") && phase === "prep" && BOARDS[hud.map]?.bays?.length) return { type: "crank", bay: key === "[" ? 0 : 1 };
       // A: the selected tower's next targeting mode (nothing on towers that don't aim).
       if (key === "a" && hud.selected != null) return { type: "aim" };
+      // O: the Legal Elf's Objection! (during a wave).
+      if (key === "o" && hud.hero === "elf" && phase === "combat") return { type: "objection" };
       if (key === "b") return { type: "openShop" };
       // Esc order: close the back room (above), then the inspector, then open the pause menu.
       if (key === "Escape") return hud.selected != null ? { type: "deselect" } : { type: "openMenu" };
@@ -235,6 +238,9 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       return true;
     case "aim":
       api.cycleTarget(1);
+      return true;
+    case "objection":
+      api.objection();
       return true;
     case "endPrimary":
       if (hud.phase === "defeat" || hud.night === "endless") api.restartNight();

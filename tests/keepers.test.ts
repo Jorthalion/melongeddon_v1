@@ -87,9 +87,9 @@ test("a signature tower is the keeper's own, and only one at a time", () => {
   assert.ok(build(api, "catalogue", spot.c, spot.r), "once it's gone, it can be built again");
 });
 
-test("Legal Elf: the back room costs 30% less", () => {
-  assert.equal(backRoomPrice("elf", 0, 1, null), Math.round(40 * 0.7));
-  assert.equal(backRoomPrice("elf", 2, 3, null), Math.round(100 * 0.7));
+test("Legal Elf: the back room costs him what it costs everyone (Objection! replaced the discount)", () => {
+  assert.equal(backRoomPrice("elf", 0, 1, null), 40);
+  assert.equal(backRoomPrice("elf", 2, 3, null), 100);
   assert.equal(backRoomPrice("scholar", 2, 3, null), 100);
 });
 

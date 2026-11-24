@@ -134,8 +134,9 @@ test("signature perks change the keeper's own tower in the inspector numbers", (
   assert.equal(desk.statsOf(melonB.id)!.range, base.statsOf(melonA.id)!.range);
 });
 
-test("the level 10 perk allows a second signature tower (not for the Doctor)", () => {
-  for (const hero of HEROES.filter((h) => h !== "scholar")) {
+test("the level 10 perk allows a second signature tower (not for the Doctor, and the Legal Elf's is a second Foot)", () => {
+  // The Legal Elf's Second Foot is checked in tests/legal-elf.test.ts.
+  for (const hero of HEROES.filter((h) => h !== "scholar" && h !== "elf")) {
     const one = start(hero, emptyProgress());
     const two = start(hero, at(hero, 10, 0));
     const kind = SIGNATURE[hero];
