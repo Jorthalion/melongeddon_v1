@@ -131,6 +131,8 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "mezzanine" },
   { night: "midnight", map: "rarebooks" },
   { night: "midnight", map: "archive" },
+  { night: "midnight", map: "greathall" },
+  { night: "midnight", map: "readingroom" },
   { night: "midnight", map: "sorting" },
   { night: "midnight", map: "greenhouse" },
   { night: "midnight", map: "belltower" },
