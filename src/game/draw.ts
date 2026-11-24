@@ -1147,6 +1147,31 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       continue;
     }
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim, motionOf(t, world.anim));
+    // Dr. Samodovol's Study marks: a small gold pip per mark under the tower.
+    if (t.studyMarks) {
+      for (let i = 0; i < t.studyMarks; i++) {
+        ctx.fillStyle = "rgba(230,195,106,0.95)";
+        ctx.strokeStyle = "rgba(40,24,12,0.9)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(t.x - (t.studyMarks - 1) * 3.5 + i * 7, t.y + 20, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    // The Archaeological Dig: a find waiting to be chosen.
+    if (t.kind === "dig" && world.hud.digFinds > 0) {
+      const bob = world.reduced ? 0 : Math.sin(world.anim * 4) * 2;
+      ctx.fillStyle = "#e6c36a";
+      ctx.beginPath();
+      ctx.arc(t.x, t.y - 30 + bob, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#241418";
+      ctx.font = "bold 11px serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("!", t.x, t.y - 29.5 + bob);
+    }
     // The Nexus Spire: a ring of pips counting down to the next Lights Out.
     if (t.kind === "spire") {
       const every = t.mods.includes("overtime") ? VAEL_VALUES.overtimeEvery : VAEL_VALUES.lightsOutEvery;

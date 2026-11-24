@@ -32,6 +32,7 @@ import {
   carpetLegs,
   canBeGreat,
   DRAGON,
+  DOCTOR,
   boardLegs,
   VAEL_LADDER,
   PASSIVE,
@@ -298,6 +299,11 @@ function play(config: RunConfig, rng: () => number): RunResult {
     // Ooze: once the Mimic Chest is down, the free Copycat goes beside the priciest tower it can copy.
     if (config.hero === "ooze" && config.oozeCopycat !== false && keeperOn && world.towers.some((t) => t.kind === "mimic") && !world.towers.some((t) => t.kind === "copycat") && copySpot())
       return "copycat";
+    // Dr. Samodovol: the Study once four cannons are down (beside the most of them), then the Dig.
+    if (config.hero === "scholar" && keeperOn) {
+      if (placed >= 4 && !world.towers.some((t) => t.kind === "study")) return "study";
+      if (placed >= 6 && !world.towers.some((t) => t.kind === "dig")) return "dig";
+    }
     // Vaelithra: each of her later towers as soon as her ladder opens it.
     if (config.hero === "vael" && keeperOn) {
       const ready = VAEL_LADDER.slice(0, world.hud.vaelOpen).find((k) => !world.towers.some((t) => t.kind === k));
@@ -406,18 +412,20 @@ function play(config: RunConfig, rng: () => number): RunResult {
     if (range >= GLOBAL_RANGE) range = 132;
     let best: { c: number; r: number } | null = null;
     let bestScore = 0;
-    if (kind === "lantern" || kind === "compost" || kind === "lectern") {
+    if (kind === "lantern" || kind === "compost" || kind === "lectern" || kind === "study" || kind === "dig") {
       // Lamp: next to the most cannons. Compost: the spot least useful for shooting.
       let pick: { c: number; r: number } | null = null;
       let score = -Infinity;
       for (let c = 0; c < world.cols; c++)
         for (let r = 0; r < world.rows; r++) {
           if (world.pathCells.has(`${c},${r}`) || world.vergeCells.has(`${c},${r}`) || world.shelfCells.has(`${c},${r}`) || world.trackCells.has(`${c},${r}`) || taken(c, r)) continue;
+          if (kind === "dig" && besideCarpet(world, c, r)) continue;
           const x = c * CELL + CELL / 2;
           const y = r * CELL + CELL / 2;
           let v = 0;
-          if (kind === "lantern" || kind === "lectern") {
-            for (const t of world.towers) if (t.kind !== "lantern" && t.kind !== "compost" && (t.x - x) ** 2 + (t.y - y) ** 2 <= 72 * 72) v++;
+          if (kind === "lantern" || kind === "lectern" || kind === "study") {
+            const near = kind === "study" ? DOCTOR.studyReach : 72;
+            for (const t of world.towers) if (!PASSIVE.includes(t.kind) && (t.x - x) ** 2 + (t.y - y) ** 2 <= near * near) v++;
           } else {
             for (const p of samples) if ((p.x - x) ** 2 + (p.y - y) ** 2 <= 132 * 132) v--;
           }
@@ -427,7 +435,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
           }
         }
       // A lamp with no cannons to light yet just goes on the best shooting spot.
-      if (kind === "compost" || score > 0) return pick;
+      if (kind === "compost" || kind === "dig" || score > 0) return pick;
     }
     const scores = new Map<string, number>();
     // A board with doors: open where the carpets meet (the best spot, as a player would), then cover each open
@@ -635,7 +643,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
       spend(kind, paid);
       builtBy[kind] = (builtBy[kind] ?? 0) + 1;
       builds++;
-      if (kind !== signature && kind !== "copycat" && kind !== "bombard" && kind !== "gourdgate" && kind !== "pamphlet" && kind !== "driver") placed++;
+      if (kind !== signature && kind !== "copycat" && kind !== "bombard" && kind !== "gourdgate" && kind !== "pamphlet" && kind !== "driver" && kind !== "study" && kind !== "dig") placed++;
     }
     api.dismissSelection();
   };
@@ -651,6 +659,8 @@ function play(config: RunConfig, rng: () => number): RunResult {
     const phase = world.hud.phase;
     if (phase === "victory" || phase === "defeat") break;
     if (phase === "prep") {
+      // Dr. Samodovol's Dig: two stacks back when two are missing, else a Study mark on the best tower.
+      for (let n = 0; n < 4 && world.hud.digFinds > 0; n++) api.digFind(world.hud.lives <= world.hud.maxLives - DOCTOR.digStacks ? "stacks" : "mark");
       build();
       // The Compact Stacks: turn the crank that puts the most carpet in reach of the towers (never one that would
       // leave a carpet-side tower idle); skip it if neither helps.

@@ -9,7 +9,7 @@ export const DRAWN_KINDS: TowerKind[] = [
   "spitter", "ballista", "reader", "bell", "hive", "lantern", "ink", "compost", "peeler", "bookworm",
   "boomerang", "orrery", "plane", "quill", "globe",
   "press", "organ", "scope",
-  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "quackliber", "geese", "lionblade", "gourdgate", "bombard", "pamphlet", "driver", "underlings", "spire",
+  "catalogue", "desk", "cauldron", "flask", "trebuchet", "scales", "stomp", "honey", "mimic", "copycat", "lectern", "study", "dig", "quackliber", "geese", "lionblade", "gourdgate", "bombard", "pamphlet", "driver", "underlings", "spire",
   "pump",
 ];
 
@@ -888,6 +888,102 @@ export function drawCannon(ctx: CanvasRenderingContext2D, x: number, y: number, 
       ctx.stroke();
       ctx.fillStyle = "#7a2630";
       ctx.fillRect(3, -9, 1.2, 8 + Math.sin(t * 2) * 0.8);
+      break;
+    }
+    case "study": {
+      // Dr. Samodovol's Study (stand-in until painted): a writing desk with a green-shaded lamp, an open ledger and a quill.
+      const glow = ctx.createRadialGradient(x + 8, y - 12, 2, x + 8, y - 12, 26);
+      glow.addColorStop(0, "rgba(150,210,140,0.3)");
+      glow.addColorStop(1, "rgba(150,210,140,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(x + 8, y - 12, 26, 0, Math.PI * 2);
+      ctx.fill();
+      shadow(ctx, x, y, 18);
+      ctx.translate(x, y);
+      ctx.fillStyle = WOOD_DARK;
+      ctx.fillRect(-15, 2, 3, 12);
+      ctx.fillRect(12, 2, 3, 12);
+      ctx.fillStyle = WOOD;
+      rrect(ctx, -17, -4, 34, 8, 2);
+      ctx.fill();
+      // The ledger.
+      ctx.fillStyle = "#f3e7c9";
+      ctx.beginPath();
+      ctx.moveTo(-13, -5);
+      ctx.quadraticCurveTo(-8, -10, -3, -6);
+      ctx.quadraticCurveTo(2, -10, 6, -5);
+      ctx.closePath();
+      ctx.fill();
+      // The lamp: brass stem, green shade.
+      ctx.fillStyle = "#c6a15a";
+      ctx.fillRect(9, -16, 1.6, 12);
+      ctx.fillStyle = "#2f6b3a";
+      ctx.beginPath();
+      ctx.moveTo(4, -15);
+      ctx.lineTo(16, -15);
+      ctx.lineTo(13, -20);
+      ctx.lineTo(7, -20);
+      ctx.closePath();
+      ctx.fill();
+      // The quill, writing.
+      ctx.strokeStyle = "#e8e0d0";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-4 + Math.sin(t * 3) * 1.5, -7);
+      ctx.lineTo(-10 + Math.sin(t * 3) * 1.5, -18);
+      ctx.stroke();
+      break;
+    }
+    case "dig": {
+      // Dr. Samodovol's Archaeological Dig (stand-in until painted): a roped-off pit, a spade and a little flag.
+      shadow(ctx, x, y, 20);
+      ctx.translate(x, y);
+      ctx.fillStyle = "#4a3322";
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 15, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#24170e";
+      ctx.beginPath();
+      ctx.ellipse(0, 5, 10, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Something half dug up: a bone-white glint.
+      ctx.fillStyle = `rgba(243,231,201,${0.6 + Math.sin(t * 2) * 0.25})`;
+      ctx.fillRect(-3, 4, 6, 2);
+      // Rope posts.
+      ctx.fillStyle = WOOD;
+      for (const px of [-16, 16]) ctx.fillRect(px - 1.2, -6, 2.4, 12);
+      ctx.strokeStyle = "#c6a15a";
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(-16, -4);
+      ctx.quadraticCurveTo(0, 0, 16, -4);
+      ctx.stroke();
+      // The spade, stuck in the spoil heap.
+      ctx.strokeStyle = WOOD;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(8, -2);
+      ctx.lineTo(12, -16);
+      ctx.stroke();
+      ctx.fillStyle = "#9aa3a8";
+      ctx.beginPath();
+      ctx.moveTo(6, -3);
+      ctx.lineTo(10, -2);
+      ctx.lineTo(9, 3);
+      ctx.lineTo(5, 2);
+      ctx.closePath();
+      ctx.fill();
+      // A survey flag.
+      ctx.fillStyle = "#cfc7b8";
+      ctx.fillRect(-10, -18, 1, 14);
+      ctx.fillStyle = "#c0392b";
+      ctx.beginPath();
+      ctx.moveTo(-9, -18);
+      ctx.lineTo(-3, -16 + Math.sin(t * 4) * 0.8);
+      ctx.lineTo(-9, -14);
+      ctx.closePath();
+      ctx.fill();
       break;
     }
     case "underlings": {

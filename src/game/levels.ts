@@ -235,7 +235,7 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
       { name: "Annotated", blurb: "Taking the Doctor's pick also pays 20 seeds.", fx: { annotated: 20 } },
     ],
     [
-      { name: "Cited Edition", blurb: "The kind the Lectern remembers is 20% slower instead of 15%.", fx: { lectureSlow: 0.05 } },
+      { name: "Cited Edition", blurb: "The kind the Lectern noted last wave is 30% slower instead of 25%.", fx: { lectureSlow: 0.05 } },
       { name: "Midpoint", blurb: "The Lectern speaks if a fruit got halfway along the carpet.", fx: { midpoint: 1 } },
     ],
     [

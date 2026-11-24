@@ -12,7 +12,7 @@ import {
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
-  SIEGE, type SiegeVariant,
+  SIEGE, type SiegeVariant, DOCTOR, type DigFind,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 import { ELF_LINES, KEEPER_VOICE, loseLine, openingLine } from "./keeperVoice.ts";
@@ -375,8 +375,10 @@ interface Tower {
   spill?: Array<{ c: number; r: number; x: number; y: number; cd: number }>;
   /** Seeds spent on this tower (build + shop mods). Sell refunds a share of it. */
   paid: number;
-  /** Waves cleared when it was built (the History Lectern grows with each wave since). */
+  /** Waves cleared when it was built (the History Lectern publishes and the Dig digs by the waves since). */
   born?: number;
+  /** Dr. Samodovol's Study marks on this tower (each: DOCTOR.markDmg more damage, DOCTOR.markRange more reach). */
+  studyMarks?: number;
   /** The Compact Stacks: a carpet-side tower whose carpet rolled away; it does nothing until carpet is beside it again. */
   idle?: boolean;
   /** Orrery: the planets' current angle and orbit radius. */
@@ -636,6 +638,8 @@ export interface Hud {
   zone: number;
   /** The Dragon's Roost was fed this break (once between waves). */
   roostFed: boolean;
+  /** Dr. Samodovol's Archaeological Dig: finds dug up and not chosen yet (the Dig's inspector chooses). */
+  digFinds: number;
   branch: UpgradeId | null;
   map: MapId;
   build: TowerKind;
@@ -1154,6 +1158,8 @@ export function createWorld(
   greatOffer: (towerId: number) => { cost: number; partner: number; why: string } | { cost: 0; partner: null; why: string };
   /** Sir Michael: feed the Dragon's Roost (once between waves): one more wave of growth. */
   feedRoost: () => void;
+  /** Dr. Samodovol: choose what the Dig's waiting find is (two stacks, seeds, or a Study mark on the best tower). */
+  digFind: (find: DigFind) => void;
   /** The Dragon's Roost's stage (0 egg … 3 Great Dragon) and waves grown, for a tower id. */
   roostOf: (towerId: number) => { stage: number; grown: number; next: number | null } | null;
   /** Setup: pick the keeper (kept in the HUD so it survives a return to Setup). */
@@ -1255,6 +1261,7 @@ export function createWorld(
       hoard: 0,
       zone: 0,
       roostFed: false,
+      digFinds: 0,
       map: "stacks",
       build: "melon",
       shopVisits: 0,
@@ -1408,6 +1415,18 @@ export function createWorld(
    */
   let lecture: { kind: EnemyKind; waves: number } | null = null;
   let lectureNow: EnemyKind | null = null;
+  /** Every kind a Lectern has noted tonight, and whether a published Lectern stands this wave (those kinds walk slower). */
+  const archive = new Set<EnemyKind>();
+  let archiveNow = false;
+  /** The Doctor's wave-end lines, kept past a shelf so the pick's message doesn't hide them. */
+  let doctorCarry = "";
+  /** The Study: each tower's night damage when the last wave ended, so it can tell what each did this wave. */
+  const dmgAtWave = new Map<number, number>();
+  /** How much a fruit of this kind is slowed by the Doctor's notes: last wave's note, else the published archive. */
+  const lectureFactor = (kind: EnemyKind) =>
+    lectureNow === kind ? CANNON.lectureSlow - fx.lectureSlow : archiveNow && archive.has(kind) ? DOCTOR.archiveSlow : 1;
+  /** A History Lectern that has stood `DOCTOR.publishAfter` waves has published. */
+  const published = (t: Tower) => t.kind === "lectern" && cleared - (t.born ?? cleared) >= DOCTOR.publishAfter;
   const reached = new Map<EnemyKind, number>();
   /** The route a fruit (or a globe or sheet rolling back along one) walks. */
   const routeOf = (e: { route?: number }) => world.routes[e.route ?? 0] ?? world.points;
@@ -1659,7 +1678,9 @@ export function createWorld(
   const offCarpet = (kind: TowerKind, c: number, r: number) =>
     kind === "pamphlet"
       ? bindLeg(legsNow(), c, r) < 0
-      : (kind === "desk" || kind === "gourdgate") && !besideCarpet(world, c, r);
+      : kind === "dig"
+        ? besideCarpet(world, c, r)
+        : (kind === "desk" || kind === "gourdgate") && !besideCarpet(world, c, r);
   /**
    * The carpet's straights for the current board (worked out once per board): every segment's, in order, so a
    * board with doors numbers each straight once. `routeLegs(i)` are route i's straights with each one's number here.
@@ -2493,9 +2514,12 @@ export function createWorld(
     // A Copycat's copy of a heavy cannon hits for a share of the original.
     const read = tower.copied && COPY_HEAVY_KINDS.includes(tower.kind) ? { ...plain, dmg: Math.max(1, Math.round(plain.dmg * CANNON.copyHeavyDmg)) } : plain;
     if (PASSIVE.includes(tower.kind)) return read;
+    // Dr. Samodovol's Study marks: more damage and reach, per mark.
+    const marks = tower.studyMarks ?? 0;
+    const marked = marks > 0 ? { ...read, dmg: Math.max(1, Math.round(read.dmg * (1 + DOCTOR.markDmg * marks))), range: read.range >= GLOBAL_RANGE ? read.range : Math.round(read.range * (1 + DOCTOR.markRange * marks)) } : read;
     // Dr. Samodovol's Close Reading: each Doctor's pick taken tonight makes his cannons fire a little faster.
     const read2 = fx.closeReading ? Math.min(3, world.runLog.doctorTaken) * fx.closeReading : 0;
-    const studied = read2 > 0 ? { ...read, interval: read.interval / (1 + read2) } : read;
+    const studied = read2 > 0 ? { ...marked, interval: marked.interval / (1 + read2) } : marked;
     const aura = quackHaste(tower) * (world.hud.golden > 0 ? CANNON.overQuackHaste : 1);
     const haste = aura;
     const hasted = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true, powered: aura > 1 } : studied;
@@ -3359,6 +3383,9 @@ export function createWorld(
     world.wet = new Set();
     lecture = null;
     lectureNow = null;
+    archive.clear();
+    archiveNow = false;
+    dmgAtWave.clear();
     reached.clear();
     world.hud.vaelOpen = 0;
     world.hud.fullyUpgraded = 0;
@@ -3425,6 +3452,7 @@ export function createWorld(
       hoard: 0,
       zone: 0,
       roostFed: false,
+      digFinds: 0,
       build: "melon",
       shopVisits: 0,
       fitted: {},
@@ -4618,6 +4646,55 @@ export function createWorld(
     giveXp(Math.round(base * (1 + bonus)));
   };
 
+  /** A tower the Study can mark: one that hits fruit, isn't a Copycat, and has room for another mark. */
+  const markable = (t: Tower) => !PASSIVE.includes(t.kind) && t.kind !== "copycat" && (t.studyMarks ?? 0) < DOCTOR.maxMarks && statsCore(t).dmg > 0;
+  const giveMark = (t: Tower) => {
+    t.studyMarks = (t.studyMarks ?? 0) + 1;
+    world.runLog.studyMarks += 1;
+    float(t.x, t.y - 34, "Studied", "#e6c36a");
+  };
+  /**
+   * Dr. Samodovol's Study, after each wave: the tower in its reach that did the most damage that wave (the
+   * nearest on a tie) gets one Study mark. One mark a wave, and none on a tower already at DOCTOR.maxMarks.
+   */
+  const studyAfterWave = () => {
+    const did = new Map<number, number>();
+    for (const t of world.towers) {
+      const now = tally.get(t.id)?.dmg ?? 0;
+      did.set(t.id, now - (dmgAtWave.get(t.id) ?? 0));
+      dmgAtWave.set(t.id, now);
+    }
+    let line = "";
+    for (const study of world.towers) {
+      if (study.kind !== "study" || soaked(study) || line) continue;
+      const reach = DOCTOR.studyReach;
+      const near = world.towers
+        .filter((t) => t !== study && markable(t) && (t.x - study.x) ** 2 + (t.y - study.y) ** 2 <= reach * reach)
+        .sort((a, b) => (did.get(b.id) ?? 0) - (did.get(a.id) ?? 0) || Math.hypot(a.x - study.x, a.y - study.y) - Math.hypot(b.x - study.x, b.y - study.y));
+      const best = near[0];
+      if (!best || (did.get(best.id) ?? 0) <= 0) continue;
+      giveMark(best);
+      line = `The Study: the ${TOWERS[best.kind].name} is studied (${best.studyMarks}/${DOCTOR.maxMarks} marks).`;
+    }
+    return line;
+  };
+  /** The Archaeological Dig: every DOCTOR.digEvery waves after it's built, a find waits to be chosen. */
+  const digAfterWave = () => {
+    let found = 0;
+    for (const dig of world.towers) {
+      if (dig.kind !== "dig" || soaked(dig)) continue;
+      const since = cleared - (dig.born ?? cleared);
+      if (since > 0 && since % DOCTOR.digEvery === 0) {
+        found += 1;
+        float(dig.x, dig.y - 40, "A find!", "#e6c36a");
+      }
+    }
+    if (!found) return "";
+    world.hud.digFinds += found;
+    world.runLog.digFinds += found;
+    return "The Dig turned something up: open the Dig to choose what it is.";
+  };
+
   const endWave = () => {
     cleared += 1;
     world.hud.shutExit = null;
@@ -4701,12 +4778,16 @@ export function createWorld(
     lectureNow = null;
     let lectureLine = "";
     if (world.towers.some((t) => t.kind === "lectern")) {
-      const bar = fx.midpoint ? 0.5 : CANNON.lectureAt;
+      // A published Lectern notes the furthest kind whatever its reach. `fresh`: it published this very wave.
+      const isOut = world.towers.some(published);
+      const fresh = isOut && !world.towers.some((t) => t.kind === "lectern" && cleared - (t.born ?? cleared) > DOCTOR.publishAfter);
+      const bar = isOut ? 0 : fx.midpoint ? 0.5 : CANNON.lectureAt;
       let best: EnemyKind | null = null;
       let far = -1;
       for (const [kind, p] of reached) if (p >= bar && p > far) [best, far] = [kind, p];
       if (best) {
         lecture = { kind: best, waves: 1 + fx.carriedNote };
+        archive.add(best);
         const name = {
           melon: ["The melons", "They"],
           corn: ["The corn", "They"],
@@ -4716,6 +4797,7 @@ export function createWorld(
           cat: ["The cats", "They"],
         }[best];
         lectureLine = `The Doctor: “${name[0]} got furthest. I've taken notes. ${name[1]} will be slower next time.”`;
+        if (fresh) lectureLine += " The Lectern's notes are published: every kind it has noted walks slower for the rest of the night.";
       } else {
         lectureLine = "The Doctor: “Nothing got far. I have nothing to add.”";
       }
@@ -4729,6 +4811,9 @@ export function createWorld(
       desk.bank = (desk.bank ?? 0) + CANNON.deskBank;
       float(desk.x, desk.y - 50, `+${CANNON.deskBank}`, "#e6c36a");
     }
+    const studyLine = studyAfterWave();
+    const digLine = digAfterWave();
+    doctorCarry = [lectureLine, studyLine, digLine].filter(Boolean).join(" ");
     if (world.heights.size) drainWater();
     const beat = nextBeat(cleared, world.hud.night);
     const upcoming = waveAt(endless ? cleared : Math.min(cleared, nightLength(world.hud.night) - 1), world.hud.night);
@@ -4818,6 +4903,8 @@ export function createWorld(
     if (spilled) world.hud.log = `${world.hud.log} Vaelithra: “That was not in the notes.”`;
     if (world.hud.plugged) world.hud.log = `${world.hud.log} A Drain Gourd's plugged the drain.`;
     if (lectureLine) world.hud.log = `${world.hud.log} ${lectureLine}`;
+    if (studyLine) world.hud.log = `${world.hud.log} ${studyLine}`;
+    if (digLine) world.hud.log = `${world.hud.log} ${digLine}`;
     if (mendLine) world.hud.log = `${world.hud.log} ${mendLine}`;
     // A board with doors: a door opening in two waves is heard first; then it opens.
     for (const d of BOARDS[world.hud.map].doors ?? []) {
@@ -5139,7 +5226,7 @@ export function createWorld(
           const bx = back.x - e.x;
           const by = back.y - e.y;
           const bd = Math.hypot(bx, by);
-          const studiedBack = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
+          const studiedBack = lectureFactor(e.kind);
           const stepBack = e.speed * e.slow * studiedBack * perimeterAt(e) * paceOf(e, !e.reverse) * awake(e) * dt;
           if (!driven) e.panic = Math.max(0, (e.panic ?? 0) - stepBack);
           if (bd <= stepBack + 0.5) {
@@ -5160,7 +5247,7 @@ export function createWorld(
       const dy = wp.y - e.y;
       const dist = Math.hypot(dx, dy);
       // The History Lectern's note: the kind that got furthest last wave walks slower.
-      const studied = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
+      const studied = lectureFactor(e.kind);
       const rush = (e.rallied ?? 0) > 0 ? SIEGE.rallySpeed : 1;
       // Objection!'s fine print: an overruled fruit walks a little faster for a moment.
       const appeal = (e.overruled ?? 0) > 0 ? ELF_VALUES.finePrintHaste : 1;
@@ -5868,6 +5955,8 @@ export function createWorld(
         world.hud.log =
           buildKind === "pamphlet"
             ? "The Post has to stand beside a straight."
+            : buildKind === "dig"
+            ? "The Dig needs quiet ground: not right beside the carpet."
             : `The ${TOWERS[buildKind].name} goes right beside the carpet.`;
         notify();
         return;
@@ -5973,6 +6062,7 @@ export function createWorld(
       for (const roost of world.towers) if (roost.kind === "bombard") roost.roostReady = true;
       waveLost = false;
       lectureNow = lecture && lecture.waves > 0 ? lecture.kind : null;
+      archiveNow = world.towers.some(published);
       reached.clear();
       syncMimics(true);
       const spec = waveAt(cleared, world.hud.night);
@@ -6060,7 +6150,8 @@ export function createWorld(
       const next = waveAt(cleared, world.hud.night);
       world.hud.blurb = next.blurb;
       world.hud.waveName = next.name;
-      world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.`;
+      world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.${doctorCarry ? ` ${doctorCarry}` : ""}`;
+      doctorCarry = "";
       if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
       notify();
     },
@@ -6535,6 +6626,33 @@ export function createWorld(
       float(t.x, t.y - 34, "Great!", "#8fc0ff");
       world.hud.log = `Great ${TOWERS[t.kind].name}: two became one, twice the size.${fromHoard ? ` The Hoard paid ${fromHoard}.` : ""}`;
       world.hud.range = towerRange(t);
+      syncPrice();
+      notify();
+    },
+    digFind(find: DigFind) {
+      if (world.hud.digFinds <= 0) return;
+      if (world.hud.phase === "victory" || world.hud.phase === "defeat") return;
+      if (find === "mark") {
+        // The best tower: the most damage tonight among those with room for a mark.
+        const best = world.towers.filter(markable).sort((a, b) => (tally.get(b.id)?.dmg ?? 0) - (tally.get(a.id)?.dmg ?? 0) || b.paid - a.paid)[0];
+        if (!best) {
+          world.hud.log = "No tower has room for another Study mark.";
+          notify();
+          return;
+        }
+        giveMark(best);
+        world.hud.log = `The find is a lost treatise: the ${TOWERS[best.kind].name} is studied (${best.studyMarks}/${DOCTOR.maxMarks} marks).`;
+      } else if (find === "stacks") {
+        const before = world.hud.lives;
+        world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + DOCTOR.digStacks);
+        const got = world.hud.lives - before;
+        world.hud.log = got > 0 ? `The find is a box of old books: ${got} stack${got > 1 ? "s" : ""} back.` : "The find is a box of old books, but the stacks are already full.";
+        syncSisu();
+      } else {
+        world.hud.seeds += DOCTOR.digSeeds;
+        world.hud.log = `The find is a jar of old seeds: +${DOCTOR.digSeeds}.`;
+      }
+      world.hud.digFinds -= 1;
       syncPrice();
       notify();
     },

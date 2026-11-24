@@ -30,7 +30,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Status overlays (2) | ice block, flame tongues |
 | Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
 
-**Still needed:** nothing. Every image asked for in this file is in the game.
+**Still needed:** Dr. Samodovol's Study and Archaeological Dig (`sig-study.png`, `sig-dig.png`, "Dr. Samodovol's second and third" below). Everything else asked for in this file is in the game.
 
 ---
 
@@ -142,6 +142,15 @@ The **Dragonfire Trebuchet** keeps the old `sig-trebuchet.webp` for now (crimson
 |---|---|
 | `sig-underlings.png` | A game tower in **exactly the same style as the attached tower images**, 3/4 top-down view on a **round dark walnut base with a silver band**: **a small black office desk** with a curved **purple neon desk lamp**, a rack of **little violet glass vials with silver stoppers**, a stack of paperwork, and **one small hooded intern** in a dark robe with a **purple lanyard**, mid-throw with a vial. Sly and busy, a little comic. Transparent background, no text, no letters, no logos. |
 | `sig-spire.png` | A game tower in **exactly the same style as the attached tower images**, 3/4 top-down view on a **round dark walnut base with a silver band**: **a miniature black glass corporate skyscraper**, tall and narrow with a pointed top, rows of **glowing purple neon windows**, thin silver edges, a small violet beacon at the tip, a faint purple haze at its foot. Cold and imposing. Transparent background, no text, no letters, no logos. |
+
+#### Dr. Samodovol's second and third: the Study and the Archaeological Dig (not yet painted; drawn by code until then)
+
+**Attach:** `public/sprites/sig-lectern.webp` (his History Lectern) for the style. **Paste the style line first.** Neither tower shoots or turns to aim. When they arrive: add `study` and `dig` to `SPRITE_SRC` in `src/game/draw.ts`, `PAINTED` in `src/components/TowerIcon.tsx` and `GROUPS` in `scripts/animate-sprites.py`, then run `npm run animate -- study dig`.
+
+| File name | Prompt (after the style line) |
+|---|---|
+| `sig-study.png` | A game tower in **exactly the same style as the attached tower image**, 3/4 top-down view on a **round dark walnut base with a brass band**: **a small scholar's writing desk** with turned legs, an **open ledger** covered in tiny handwriting, a **green glass banker's lamp** with a brass stem throwing a soft green-gold glow, a **quill in a brass inkwell**, a short stack of leather books with crimson ribbon bookmarks, and a **brass magnifying glass** resting on the ledger. Quiet and studious. Transparent background, no text, no letters, no logos. |
+| `sig-dig.png` | A game tower in **exactly the same style as the attached tower image**, 3/4 top-down view on a **round dark walnut base with a brass band**: **a small archaeological dig pit** cut into the floorboards, the earth inside dark and crumbly, **a half-buried antique book and a brass-bound casket** peeking out, a **wooden-handled spade** stuck in a little spoil heap, **two short posts with a gold rope** around the pit, a **tiny red survey flag** on a pin, and a soft golden glint from the find. Curious and inviting. Transparent background, no text, no letters, no logos. |
 
 #### Asser Mälkki, the Author-Knight (done: `public/sprites/portrait-asser.webp` and `sig-lionblade.webp`)
 

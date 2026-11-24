@@ -20,6 +20,7 @@ import {
   BOX_SEERS,
   CELL,
   CANNON,
+  DOCTOR,
   GLOBAL_RANGE,
   KEEPER_TOWERS,
   PASSIVE,
@@ -139,6 +140,11 @@ const KEEPER_PLAN: Partial<Record<string, Array<{ kind: TowerKind; at: number; p
     { kind: "honey", at: 6, place: "overlap" },
   ],
   ooze: [{ kind: "copycat", at: 3, place: "kit" }],
+  // Dr. Samodovol: the Study among his first cannons (it marks the best one each wave), the Dig on quiet ground.
+  scholar: [
+    { kind: "study", at: 3, place: "lamp" },
+    { kind: "dig", at: 4, place: "useless" },
+  ],
   quack: [
     { kind: "pamphlet", at: 6, place: "kit" },
     { kind: "driver", at: 7, place: "kit" },
@@ -153,6 +159,8 @@ export const PLACE_OF: Partial<Record<TowerKind, Place>> = {
   honey: "overlap",
   peeler: "early",
   desk: "door",
+  study: "lamp",
+  dig: "useless",
   flask: "flask",
   geese: "late",
   copycat: "kit",
@@ -263,7 +271,8 @@ export function makeHuman(kit: HumanKit) {
     const carpet = pool();
     const sh = shooters();
     const offBoard = api.previewStats(kind);
-    const lr = lampReach();
+    // The Study marks towers in its own reach; a lamp lights those in its glow.
+    const lr = kind === "study" ? DOCTOR.studyReach : lampReach();
     // How many cannons already reach each sample (for Ink and Honey).
     const reached = want.place === "overlap" ? carpet.map((s) => sh.filter((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 <= reach(t) ** 2).length) : [];
     const lit = new Set(sh.filter((t) => api.statsOf(t.id)?.lit).map((t) => t.id));
@@ -275,6 +284,7 @@ export function makeHuman(kit: HumanKit) {
       for (let r = 0; r < world.rows; r++) {
         if (!free(c, r)) continue;
         if ((kind === "gourdgate" || kind === "desk") && !besideCarpet(world, c, r)) continue;
+        if (kind === "dig" && besideCarpet(world, c, r)) continue;
         const { x, y } = centre({ c, r });
         const here = want.place === "useless" || want.place === "door" || want.place === "lamp" ? offBoard : api.previewStats(kind, { c, r });
         const range = here.range >= GLOBAL_RANGE ? 132 : here.range;

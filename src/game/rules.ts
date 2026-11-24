@@ -279,6 +279,8 @@ export type TowerKind =
   | "mimic"
   | "copycat"
   | "lectern"
+  | "study"
+  | "dig"
   | "quackliber"
   | "geese"
   | "lionblade"
@@ -324,7 +326,7 @@ export const KEEPER_TOWERS: Record<HeroId, TowerKind[]> = {
   michael: ["trebuchet", "gourdgate", "bombard"],
   elf: ["scales", "stomp", "honey"],
   ooze: ["mimic", "copycat"],
-  scholar: ["lectern"],
+  scholar: ["lectern", "study", "dig"],
   quack: ["quackliber", "geese", "pamphlet", "driver"],
   asser: ["lionblade"],
 };
@@ -433,6 +435,8 @@ export const TOWER_TYPE: Record<TowerKind, TowerType> = {
   lantern: "utility",
   compost: "utility",
   lectern: "utility",
+  study: "utility",
+  dig: "utility",
   desk: "utility",
 };
 
@@ -545,7 +549,7 @@ export const HEAVY_WAVE = 6;
 export const HEAVY_SEEDS = 200;
 
 /** Cannons that never shoot. */
-export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern", "desk", "pump"];
+export const PASSIVE: TowerKind[] = ["lantern", "compost", "lectern", "study", "dig", "desk", "pump"];
 
 /**
  * What an aiming tower picks among the fruit in reach. Ties go to First, so a mode that can't tell
@@ -621,6 +625,8 @@ export const DEFAULT_TARGET: Record<TowerKind, { default: TargetMode; modes: Tar
   mimic: null,
   copycat: null,
   lectern: null,
+  study: null,
+  dig: null,
   quackliber: aims("first", PLAIN_MODES),
   geese: null,
   lionblade: null,
@@ -857,9 +863,21 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   lectern: {
     name: "History Lectern",
-    blurb: "The Doctor's own. No shot, and it helps no cannon. After each wave it notes which fruit got furthest along the carpet; next wave that kind walks slower. If nothing got far, it has nothing to add.",
-    cost: 50,
-    role: "Study",
+    blurb: "The Doctor's own. No shot, and it helps no cannon. After each wave it notes which fruit got furthest along the carpet; next wave that kind walks a quarter slower. If nothing got far, it has nothing to add. Two waves after it's built it publishes: from then on it notes the furthest kind every wave, however far it got, and every kind it has ever noted walks 10% slower for the rest of the night.",
+    cost: 35,
+    role: "Notes",
+  },
+  study: {
+    name: "The Study",
+    blurb: "The Doctor's second. No shot. After each wave it studies one tower within two and a half tiles: the one that did the most damage that wave. That tower gets a Study mark: 12% more damage and 6% more reach. Three marks at most on any tower, and one mark a wave.",
+    cost: 90,
+    role: "Upgrades",
+  },
+  dig: {
+    name: "Archaeological Dig",
+    blurb: "The Doctor's third. No shot, and it can't go beside the carpet. Every third wave after it's built it digs up a find, and you choose: two stacks back, 40 seeds, or a free Study mark on your best tower.",
+    cost: 60,
+    role: "Finds",
   },
   quackliber: {
     name: "Quack-Liber",
@@ -993,6 +1011,30 @@ export function vaelLockLine(kind: TowerKind, now: number): string {
   const need = VAEL_VALUES.unlocks[VAEL_LADDER.indexOf(kind)] ?? 0;
   return `${TOWERS[kind].name} opens with ${need} fully upgraded towers (${now} now). A fully upgraded tower has every back-room upgrade for its kind.`;
 }
+
+/**
+ * Dr. Samodovol's keeper towers: the Study's marks, the History Lectern's publishing, and the Archaeological
+ * Dig's finds. Tuned with the human bot on Melongeddon and Overdue (see the commit that added them).
+ */
+export const DOCTOR = {
+  /** The Study: it studies the tower in this reach (px) that did the most damage last wave. */
+  studyReach: 120,
+  /** A Study mark: damage and reach multipliers per mark, and the most marks one tower can carry. */
+  markDmg: 0.12,
+  markRange: 0.06,
+  maxMarks: 3,
+  /** The History Lectern publishes this many waves after it's built. */
+  publishAfter: 2,
+  /** Published: every kind it has ever noted walks at this speed for the rest of the night (last wave's note still gets `CANNON.lectureSlow`). */
+  archiveSlow: 0.9,
+  /** The Dig: a find every this many waves after it's built. */
+  digEvery: 3,
+  /** The Dig's finds: stacks back (up to the most you can hold), or seeds. */
+  digStacks: 2,
+  digSeeds: 40,
+};
+/** The Archaeological Dig's three finds, in the order the inspector shows them. */
+export type DigFind = "stacks" | "seeds" | "mark";
 
 export const DROWSY = {
   /** Seconds a hit keeps it drowsy (the Cold Hands perk stretches it), and its pace while drowsy. */
@@ -1289,6 +1331,8 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   if (kind === "compost" || kind === "pump") return { dmg: 0, range: 0, interval: 0 };
   if (kind === "desk") return { dmg: 0, range: CANNON.deskReach, interval: 0 };
   if (kind === "lectern") return { dmg: 0, range: CANNON.lecternRadius, interval: 0 };
+  if (kind === "study") return { dmg: 0, range: DOCTOR.studyReach, interval: 0 };
+  if (kind === "dig") return { dmg: 0, range: 0, interval: 0 };
   const profile = PROFILE[kind];
   if (profile) {
     const base = hero === "mynxi" ? 176 : 132;
@@ -3698,9 +3742,9 @@ export function reachShape(
   kind: TowerKind,
   range: number,
 ): { mode: "carpet" | "towers" | "gate" | "none"; inner: number; outer: number; aura: boolean; beyond?: { radius?: number; note: string } } {
-  if (range <= 0 || kind === "compost" || kind === "lectern" || kind === "spire") return { mode: "none", inner: 0, outer: 0, aura: false };
+  if (range <= 0 || kind === "compost" || kind === "lectern" || kind === "dig" || kind === "spire") return { mode: "none", inner: 0, outer: 0, aura: false };
 
-  if (kind === "lantern") return { mode: "towers", inner: 0, outer: range, aura: false };
+  if (kind === "lantern" || kind === "study") return { mode: "towers", inner: 0, outer: range, aura: false };
   if (kind === "gourdgate") return { mode: "gate", inner: 0, outer: range, aura: false };
   // Orrery planets touch a fruit within about a fruit's width of their orbit, on either side of it.
   if (kind === "orrery") return { mode: "carpet", inner: Math.max(0, range - CANNON.orreryReach), outer: range + CANNON.orreryReach, aura: false };

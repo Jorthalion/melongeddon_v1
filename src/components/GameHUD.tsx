@@ -35,6 +35,7 @@ import {
   COPY_STEP_KINDS,
   COPY_HEAVY_KINDS,
   DRAGON,
+  DOCTOR,
   GLOBAL_RANGE,
   ROOST_STAGES,
 } from "@/game/engine";
@@ -477,6 +478,8 @@ const SHORT_NAME: Record<TowerKind, string> = {
   mimic: "Memec",
   copycat: "Copycat",
   lectern: "Lectern",
+  study: "Study",
+  dig: "Dig",
   quackliber: "Quack-Liber",
   geese: "Anti-Geese",
   lionblade: "Lion Blade",
@@ -619,7 +622,9 @@ export function describeStats(kind: TowerKind, read: { dmg: number; range: numbe
   if (kind === "spire") return `No damage · Lights Out every ${VAEL_VALUES.lightsOutEvery}s: every drowsy fruit falls asleep`;
   if (kind === "flask") return `No shot · puddle every ${read.interval.toFixed(1)}s from each tile · ${tiles} · spills to ${CANNON.flaskMaxTiles} tiles`;
   if (kind === "desk") return `No shot · banks ${CANNON.deskBank} a wave · melons within ${tiles} eat it`;
-  if (kind === "lectern") return "No shot · notes the fruit that got furthest; that kind is slower next wave";
+  if (kind === "lectern") return `No shot · notes the fruit that got furthest; that kind is slower next wave · publishes after ${DOCTOR.publishAfter} waves`;
+  if (kind === "study") return `No shot · each wave marks its best tower within ${tiles}: +${Math.round(DOCTOR.markDmg * 100)}% damage, +${Math.round(DOCTOR.markRange * 100)}% reach (${DOCTOR.maxMarks} at most)`;
+  if (kind === "dig") return `No shot · a find every ${DOCTOR.digEvery} waves: ${DOCTOR.digStacks} stacks, ${DOCTOR.digSeeds} seeds, or a Study mark`;
   if (kind === "mimic") return `Swallows one fruit · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "scales") return `DMG ${read.dmg} + ${Math.round(CANNON.scalesShare * 100)}% of max health · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "catalogue") return `DMG ${read.dmg} · chains ×${CANNON.catalogueChains} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
@@ -835,6 +840,37 @@ function DragonButtons({ api, towerId, onGesture }: { api: GameApi; towerId: num
   );
 }
 
+/** Dr. Samodovol's Archaeological Dig: choose what a waiting find is. */
+function DigButtons({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+  const hud = api.world.hud;
+  if (hud.digFinds <= 0) return <span className="self-center text-[0.8125rem] text-muted">Digging…</span>;
+  const finds = [
+    { id: "stacks" as const, label: `+${DOCTOR.digStacks} stacks`, title: `A box of old books: ${DOCTOR.digStacks} stacks back (up to your most).`, off: hud.lives >= hud.maxLives },
+    { id: "seeds" as const, label: `+${DOCTOR.digSeeds} seeds`, title: `A jar of old seeds: ${DOCTOR.digSeeds} seeds.`, off: false },
+    { id: "mark" as const, label: "Study mark", title: `A lost treatise: a Study mark on your best tower tonight (+${Math.round(DOCTOR.markDmg * 100)}% damage, +${Math.round(DOCTOR.markRange * 100)}% reach).`, off: false },
+  ];
+  return (
+    <span className="flex flex-wrap gap-1" role="group" aria-label={`Dig find${hud.digFinds > 1 ? `s (${hud.digFinds})` : ""}`}>
+      {finds.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          title={f.title}
+          disabled={f.off}
+          className="h-9 cursor-pointer rounded-lg border border-[#e6c36a] bg-[#e6c36a]/10 px-2 text-[0.8125rem] text-parchment disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => {
+            onGesture();
+            tone(320, 0.08, "triangle", 0.04);
+            api.digFind(f.id);
+          }}
+        >
+          {f.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 function TowerInspector({
   api,
   onGesture,
@@ -871,6 +907,7 @@ function TowerInspector({
         >
           {TYPE_INFO[TOWER_TYPE[tower.kind]].name} · {TOWERS[tower.kind].role}
           {tower.kind === "bombard" && api.roostOf(tower.id) ? <span className="text-[#8fc0ff]"> · {ROOST_STAGES[api.roostOf(tower.id)!.stage]}</span> : null}
+          {tower.studyMarks ? <span className="text-parchment"> · Studied {tower.studyMarks}/{DOCTOR.maxMarks}</span> : null}
         </p>
         {!column && aims ? (
           <div className="mt-1 w-full max-w-[7.5rem] sm:hidden">
@@ -948,6 +985,7 @@ function TowerInspector({
           </button>
         ) : null}
         <DragonButtons api={api} towerId={tower.id} onGesture={onGesture} />
+        {tower.kind === "dig" ? <DigButtons api={api} onGesture={onGesture} /> : null}
         {canFit ? (
           <button
             type="button"

@@ -74,7 +74,8 @@ export const KEEPER_SHEETS: Record<
     rules: [
       "Every upgrade shelf has a fourth card, the Doctor's pick: a real upgrade from further along the shelves.",
       "No cannon of his own to start with. He is the hardest keeper, on purpose.",
-      "History Lectern (50): the kind of fruit that got furthest walks a quarter slower next wave.",
+      "History Lectern (35): the kind of fruit that got furthest walks a quarter slower next wave. Two waves in it publishes, and every kind it noted stays slower.",
+      "The Study (90) marks his best nearby tower each wave; the Dig (60) turns up a find every third wave.",
     ],
     suits: "Experienced players who like choosing their upgrades with care.",
   },
