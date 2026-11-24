@@ -18,6 +18,7 @@ npm run sim -- --strategies human   # the same, played by the human-like test bo
 npm run sim:scenario -- scripts/scenarios/lamp-three-melons.json   # one question, A against B (see Tuning)
 npm run sim:abuse   # which tower, spammed with everything aimed at it, wins the most? (see Tuning)
 npm run sim:abuse -- --pairs   # which pair of towers, spammed together, wins the most? (see Tuning)
+npm run sim:newplayer   # a first-time player in a real browser: where do newcomers get stuck? (see New-player bot)
 npm run animate  # tower and enemy animations via Blender (add -- towers, -- enemies, -- pops, -- builds, or -- trebuchet melon)
 ```
 
@@ -248,6 +249,12 @@ All sound is synthesized in `src/game/audio.ts`; the engine raises cues in `worl
 - `tests/` – engine tests (`node --test`)
 - `docs/balance-baseline.md` – simulator report before any rebalancing
 - `docs/balance-current.md` – simulator report for the current numbers
+
+## New-player bot
+
+`npm run sim:newplayer` (`scripts/new-player.ts`) plays the game in a real browser as someone who has never seen it, to find where a newcomer gets confused, not to win. It starts its own dev server on a free port and a fresh browser profile (empty storage, developer mode off; your own browser's save is never touched), then: reads the title screen and hovers every button, clicks the locked New night, opens How to play, Settings and the Grand Catalogue, starts the guided first night (trying Back to setup on the poster), follows Mynxi's lessons by reading them (taps the carpet once by mistake, builds beside it by looking at the board's pixels), plays a few more waves, leaves to the title and walks through Setup. It only uses what's on screen (buttons, labels, tooltips, lessons, tips, the log line) and only presses keys the UI has mentioned.
+
+It writes `sim-results/new-player/<time>/report.md` (plus `report.json` and screenshots): friction points worst first (blocker, major, minor, note), each with the screen, what it tried, what it expected and what it saw; words met on screen before anything explained them; and a timeline with each step's words and reading time. Options: `--url http://localhost:5173/` (use a running server), `--headed` (watch it), `--waves 6`, `--viewport 390x844`, `--browser msedge`, `--seed 3`, `--out DIR`. Needs Chrome or Edge installed (it drives them through `playwright-core`, no browser download).
 
 ## Tuning
 
