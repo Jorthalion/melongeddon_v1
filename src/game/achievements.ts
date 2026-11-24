@@ -80,6 +80,8 @@ export interface RunLog {
   roostPeak: number;
   hoardSpent: number;
   greats: number;
+  /** The Loop: fruit that cut across after one lap. */
+  shortcuts: number;
   /** Asser: highest Sisu in percent, and whether it reached its cap. */
   sisuPeak: number;
   sisuCapped: boolean;
@@ -144,6 +146,7 @@ export function emptyRunLog(): RunLog {
     roostPeak: 0,
     hoardSpent: 0,
     greats: 0,
+    shortcuts: 0,
     sisuPeak: 0,
     sisuCapped: false,
     wentGolden: false,

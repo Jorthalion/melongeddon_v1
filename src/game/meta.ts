@@ -157,7 +157,7 @@ export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebook
  * named (`--only <id>`), until they're confirmed. Empty for now: the bigger Archive and Mezzanine became their rooms'
  * layout B (`Board.variantOf`).
  */
-export const TEST_MAPS: MapId[] = [];
+export const TEST_MAPS: MapId[] = ["loop"];
 
 /** Maps the restored rooms have opened. */
 export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {

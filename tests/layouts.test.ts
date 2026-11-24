@@ -24,7 +24,7 @@ test("the Archive and the Mezzanine each have a layout B; it isn't a room of its
   assert.equal(baseMap("archiveB"), "archive");
   assert.equal(baseMap("mezzanineB"), "mezzanine");
   for (const id of ["archiveB", "mezzanineB"] as const) assert.ok(!PICKABLE_MAPS.includes(id), `${id} isn't on the room list`);
-  assert.deepEqual(TEST_MAPS, [], "no test rooms left");
+  for (const id of ["archiveB", "mezzanineB"] as const) assert.ok(!TEST_MAPS.includes(id), `${id} isn't a test room any more`);
   assert.equal(BOARDS.archiveB.look, "archive");
   assert.equal(BOARDS.mezzanineB.look, "mezzanine");
   assert.equal(BOARDS.archiveB.dark, true, "the Archive's layout B is still dark");
