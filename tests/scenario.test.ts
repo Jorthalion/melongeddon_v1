@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { compare, flagsOf, progress, type Game } from "../scripts/scenario-stats.ts";
+import { compare, flagsOf, pairByArmour, progress, type Game } from "../scripts/scenario-stats.ts";
 import { simulateRun } from "../scripts/sim-core.ts";
 
 const game = (key: string, won: boolean, wave = 21, livesLeft = 6): Game => ({ key, won, wave, waves: 21, livesLeft, maxLives: 12 });
@@ -31,6 +31,14 @@ test("scenario sums: identical games, or a single flip in many, are no clear dif
   assert.match(compare(a, b).verdict, /No clear difference/);
   // Games only in one variant are left out.
   assert.equal(compare(a, [game("other", true)]).paired, 0);
+});
+
+test("scenario pairing: variants that are each one armour still pair the same games; shared armours stay in the key", () => {
+  // --armours azure against --armours wyrm: drop armour, or no game would pair.
+  assert.equal(pairByArmour([["azure", "azure"], ["wyrm", "wyrm"]]), false);
+  // Every variant plays all four (or none): keep it, so Azure pairs with Azure.
+  assert.equal(pairByArmour([["azure", "wyrm", undefined], [undefined, "wyrm", "azure"]]), true);
+  assert.equal(pairByArmour([[undefined], [undefined]]), true);
 });
 
 test("scenario flags read as a string or a list", () => {

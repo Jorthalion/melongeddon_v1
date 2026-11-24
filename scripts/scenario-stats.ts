@@ -5,7 +5,7 @@
 
 /** One finished game, reduced to what a scenario compares. */
 export interface Game {
-  /** Keeper, difficulty, night, map, seed and armour: the same key means the same game played another way. */
+  /** Keeper, difficulty, night, map, seed (and armour, see pairByArmour): the same key means the same game played another way. */
   key: string;
   won: boolean;
   /** Wave the game ended on (the night's length on a win), and the night's length. */
@@ -20,6 +20,15 @@ export interface Game {
  * 1 plus the share of stacks kept on a win. One number that still ranks a close win above a scrape.
  */
 export const progress = (g: Game) => (g.won ? 1 + g.livesLeft / Math.max(1, g.maxLives) : (g.wave - 1) / Math.max(1, g.waves));
+
+/**
+ * Whether armour belongs in the pairing key. Only when every variant plays the same armours: when the variants ARE
+ * the armours (one each), the same keeper, map and seed in Azure Plate and in Wyrmrider Harness is the same game.
+ */
+export function pairByArmour(armoursPerVariant: Array<Array<string | undefined>>): boolean {
+  const sets = armoursPerVariant.map((xs) => [...new Set(xs.map((x) => x ?? ""))].sort().join(","));
+  return sets.every((x) => x === sets[0]);
+}
 
 /** Mean and the half-width of a 95% interval (normal approximation), for paired differences. */
 export function meanCI(xs: number[]) {

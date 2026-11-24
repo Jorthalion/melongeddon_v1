@@ -19,7 +19,7 @@
  * `base` and each variant are ordinary `npm run sim` flags (sim.ts header): bots, keepers, maps, difficulties, seeds,
  * --set rule changes, --opener, --avoid, --max-towers, --no-great, --keeper-at, --armours, --perks.
  * The first variant is the baseline; each other one is compared with it game by game (same keeper, difficulty,
- * night, map, seed and armour). `focus` (optional): a tower kind to report how often it was built and what it did.
+ * night, map, seed, and armour when every variant plays the same ones). `focus` (optional): a tower kind to report how often it was built and what it did.
  *
  * Output: sim-results/scenario-<file name>/report.md, plus each variant's full sim report in a folder of its own.
  */
@@ -29,7 +29,7 @@ import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RunResult } from "./sim-core.ts";
 import { PASSIVE, nightLength, type TowerKind } from "../src/game/engine.ts";
-import { compare, flagsOf, progress, type Game } from "./scenario-stats.ts";
+import { compare, flagsOf, pairByArmour, progress, type Game } from "./scenario-stats.ts";
 
 interface Scenario {
   question: string;
@@ -71,7 +71,9 @@ for (const name of names) {
 }
 
 // ---------- report ----------
-const keyOf = (r: RunResult) => [r.config.hero, r.config.difficulty, r.config.night, r.config.map, r.config.seed, r.config.armour ?? ""].join("|");
+// Variants that differ only by armour still pair game by game: armour leaves the key when the variants play different ones.
+const byArmour = pairByArmour(names.map((n) => runs.get(n)!.map((r) => r.config.armour)));
+const keyOf = (r: RunResult) => [r.config.hero, r.config.difficulty, r.config.night, r.config.map, r.config.seed, byArmour ? (r.config.armour ?? "") : ""].join("|");
 const gameOf = (r: RunResult): Game => ({
   key: keyOf(r),
   won: r.won,
