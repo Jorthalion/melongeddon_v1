@@ -98,7 +98,8 @@ export interface HumanKit {
   /** "abuse": find the strongest thing and spam it (see ABUSE below). Default: the decent player. */
   mode?: "human" | "abuse";
   /** The abuse bot: spam this kind from the start instead of finding the strongest (--abuse KIND). Two or more
-   * (--abuse fire,freeze): a combo, cannons split evenly between them, fittings and upgrades aimed at all of them. */
+   * (--abuse fire,freeze): a combo, cannons split evenly between them (a kind named twice gets twice the share:
+   * --abuse freeze,fire,fire), fittings and upgrades aimed at all of them. */
   abuseKind?: TowerKind | TowerKind[];
 }
 
@@ -471,10 +472,12 @@ export function makeHuman(kit: HumanKit) {
   const measured = (k: TowerKind) => score.get(k) ?? null;
   const abuseWant = (skip: Set<TowerKind>): Want | null => {
     if (pinned.length) {
-      // A combo: the one it has fewest of (ties: the first named), so the cannons split evenly.
-      const open = pinned.filter((k) => !skip.has(k));
+      // A combo: the one furthest below its share (ties: the first named). A kind named twice gets twice the
+      // cannons (--abuse freeze,fire,fire: one Freeze for every two Fires); each named once: an even split.
+      const open = [...new Set(pinned)].filter((k) => !skip.has(k));
       if (!open.length) return null;
-      focus = open.reduce((a, b) => (count(b) < count(a) ? b : a));
+      const share = (k: TowerKind) => count(k) / pinned.filter((p) => p === k).length;
+      focus = open.reduce((a, b) => (share(b) < share(a) ? b : a));
       return { kind: focus, place: "cover", why: "abuse" };
     }
     if (!candidates) {

@@ -72,3 +72,10 @@ test("the abuse bot pinned to a pair splits its cannons between the two and aims
   assert.ok(ice + fire > others, `the pair ${ice + fire} against ${others} other cannons`);
   for (const k of fitted) assert.ok(k === "freeze" || k === "fire", `a fitting went to ${k}`);
 });
+
+test("a kind named twice in a combo gets twice the cannons", () => {
+  const r = simulateRun({ hero: "elf", difficulty: "hard", strategy: "abuse", abuse: ["freeze", "fire", "fire"], night: "midnight", map: "stacks", seed: 3 });
+  const [ice, fire] = [r.builtBy.freeze ?? 0, r.builtBy.fire ?? 0];
+  assert.ok(ice >= 2, `freeze ${ice}`);
+  assert.ok(Math.abs(fire - 2 * ice) <= 2, `two Fires a Freeze: freeze ${ice}, fire ${fire}`);
+});
