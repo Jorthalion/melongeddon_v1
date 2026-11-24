@@ -404,6 +404,8 @@ interface Tower {
   mendReady?: boolean;
   /** Anti-Geese Protocol: fire on its own (auto, the default) or only when Engage is pressed (manual). */
   trigger?: "auto" | "manual";
+  /** Anti-Geese Protocol: the world time it has recharged (see `CANNON.geeseRecharge`). */
+  geeseReady?: number;
   /** A Honker honked close by: this tower skips its next shot. */
   honked?: boolean;
   /** Sir Michael's Great tower: the second tile it covers (it stands between the two). */
@@ -681,6 +683,8 @@ export interface Hud {
   tagTeam: boolean;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
   geeseSpent: boolean;
+  /** Quackarot's power level: kills toward the Quack-Liber's full-power blast (`CANNON.quackKiNeed` fills it). */
+  ki: number;
   /** Ooze's Copycat was put down this wave: free, so only once a wave (a sold one can't be rebuilt until the wave is over). */
   copycatPlaced: boolean;
   /** Asser's Sisu right now, in percent (0 for everyone else). */
@@ -1271,6 +1275,7 @@ export function createWorld(
       plugged: false,
       tagTeam: false,
       geeseSpent: false,
+      ki: 0,
       copycatPlaced: false,
       sisu: 0,
       keepers: emptyProgress(),
@@ -2217,6 +2222,8 @@ export function createWorld(
    * Quackarot's Quack-Liber: every other tower within its reach fires faster while it stands (the best one
    * counts; two don't stack). Quack-hameha: faster again for a moment after one of its kills.
    */
+  /** Training arc: the aura's extra speed from the waves cleared tonight. */
+  const trainingArc = () => Math.min(CANNON.quackArcMax, CANNON.quackArcPer * Math.max(0, world.hud.wave - 1));
   const quackHaste = (tower: Tower) => {
     if (tower.kind === "quackliber") return 1;
     const reach = CANNON.quackAura * fx.auraReach;
@@ -2224,7 +2231,7 @@ export function createWorld(
     for (const q of world.towers) {
       if (q.kind !== "quackliber" || soaked(q)) continue;
       if ((q.x - tower.x) ** 2 + (q.y - tower.y) ** 2 > reach * reach) continue;
-      best = Math.max(best, (CANNON.quackHaste + fx.auraHaste) * ((q.rally ?? 0) > 0 ? CANNON.quackRally : 1));
+      best = Math.max(best, (CANNON.quackHaste + fx.auraHaste + trainingArc()) * ((q.rally ?? 0) > 0 ? CANNON.quackRally : 1));
     }
     return best;
   };
@@ -2416,7 +2423,9 @@ export function createWorld(
     const aura = quackHaste(tower) * (world.hud.golden > 0 ? CANNON.overQuackHaste : 1);
     const haste = aura;
     const hasted = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true, powered: aura > 1 } : studied;
-    const base = dragonStats(tower, hasted);
+    // The aura adds punch, too: towers in it hit harder.
+    const punched = CANNON.quackPunch > 0 && quackHaste(tower) > 1 ? { ...hasted, dmg: Math.round(hasted.dmg * (1 + CANNON.quackPunch)) } : hasted;
+    const base = dragonStats(tower, punched);
     if (base.range >= GLOBAL_RANGE) return base;
     // Reading Lamp: the best lamp in reach boosts this cannon (lamps do not stack).
     let boost: { range: number; pace: number } | null = null;
@@ -3374,6 +3383,7 @@ export function createWorld(
       jammed: [],
       tagTeam: false,
       geeseSpent: false,
+      ki: 0,
       copycatPlaced: false,
       sisu: 0,
     };
@@ -3688,10 +3698,19 @@ export function createWorld(
     float(tower.x, tower.y - 28, "PROTOCOL", "#f3ce78");
     cue("fire", "trebuchet");
     world.shake = Math.max(world.shake, 0.25);
+    const thrown = inRange.filter((e) => !e.boss).length;
+    if (CANNON.geeseRecharge > 0) {
+      // It recharges instead of being used up.
+      tower.cd = CANNON.geeseRecharge;
+      tower.geeseReady = world.anim + CANNON.geeseRecharge;
+      world.hud.log = `Quackarot: “Anti-Geese Protocol, go!” ${thrown} thrown back. It recharges in ${CANNON.geeseRecharge} s.`;
+      syncPrice();
+      return;
+    }
     world.towers = world.towers.filter((t) => t !== tower);
     if (world.hud.selected === tower.id) world.hud.selected = null;
     world.hud.geeseSpent = true;
-    world.hud.log = `Quackarot: “Anti-Geese Protocol, go!” ${inRange.filter((e) => !e.boss).length} thrown back. It can be rebuilt after this wave.`;
+    world.hud.log = `Quackarot: “Anti-Geese Protocol, go!” ${thrown} thrown back. It can be rebuilt after this wave.`;
     syncPrice();
   };
 
@@ -3703,6 +3722,8 @@ export function createWorld(
       const by = credit != null ? towerKinds.get(credit) : undefined;
       log.kills += 1;
       if (by) log.killsBy[by] = (log.killsBy[by] ?? 0) + 1;
+      // Quackarot's power level: every kill while a Quack-Liber stands fills it.
+      if (CANNON.quackKiNeed > 0 && world.hud.hero === "quack" && world.towers.some((t) => t.kind === "quackliber")) world.hud.ki = Math.min(CANNON.quackKiNeed, world.hud.ki + 1);
       if (e.kind === "karl") {
         log.karlKills += 1;
         if (by) log.karlKilledBy.push(by);
@@ -4171,6 +4192,8 @@ export function createWorld(
     if (e.native === "gargoyle" && (world.bell?.quiet ?? 0) <= 0) amount *= NATIVES.gargoyleSkin;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
+    // Rewind combo: a fruit the Instant Quackmission is walking back takes more from everything.
+    if ((e.driven ?? 0) > 0 && world.hud.hero === "quack") amount *= CANNON.driverAmp;
     // A report filed by the Underlings: every tower is hers while she's the keeper.
     if ((e.reportT ?? 0) > 0 && world.hud.hero === "vael") amount *= VAEL_VALUES.reportAmp;
     // Black Ice (a Freeze cannon fitting): frozen fruit take more from everything.
@@ -4371,6 +4394,8 @@ export function createWorld(
       for (const other of world.enemies)
         hurt(other, e, Math.max(6, Math.round(shot.dmg * shot.splashRatio)), shot.splash, "splash");
     }
+    // Ki finisher: a ki blast also takes a share of its target's full health (bosses: less).
+    if (shot.splashChill && CANNON.quackPct > 0 && e.hp > 0) hurt(e, null, e.maxHp * (e.boss ? CANNON.quackPctBoss : CANNON.quackPct), 0, "shot");
     if (shot.splashChill) {
       // Quack-Liber rocket: everything in the burst is slowed for a moment (husks shrug it off).
       for (const other of world.enemies) {
@@ -5164,6 +5189,24 @@ export function createWorld(
         if ((tower.trigger ?? "auto") === "auto" && geeseShouldFire(inRange)) fireGeese(tower, inRange);
         continue;
       }
+      // Full power: with the meter full, this Quack-Liber's next shot is one huge blast on everything around it.
+      if (tower.kind === "quackliber" && CANNON.quackKiNeed > 0 && world.hud.ki >= CANNON.quackKiNeed) {
+        world.hud.ki = 0;
+        tower.cd = stats.interval;
+        const reach = stats.range * CANNON.quackKiReach;
+        credit = tower.id;
+        for (const o of world.enemies) {
+          if (o.hp <= 0 || Math.hypot(o.x - tower.x, o.y - tower.y) > reach + o.r) continue;
+          hurt(o, null, o.maxHp * (o.boss ? CANNON.quackKiBoss : CANNON.quackKiShare), 0, "splash");
+        }
+        credit = null;
+        world.rings.push({ x: tower.x, y: tower.y, r: reach, life: 0.8, max: 0.8, color: "255,214,90" });
+        world.rings.push({ x: tower.x, y: tower.y, r: reach * 0.7, life: 0.6, max: 0.6, color: "255,240,200", fill: true });
+        float(tower.x, tower.y - 30, "FULL POWER!", "#ffd65a");
+        cue("fire", "trebuchet");
+        world.shake = Math.max(world.shake, world.reduced ? 0 : 6);
+        continue;
+      }
       if (tower.kind === "driver") {
         // The fruit furthest along its own way, not one already walking back.
         let pick: Enemy | null = null;
@@ -5905,6 +5948,11 @@ export function createWorld(
       if (!tower || tower.kind !== "geese" || world.hud.phase !== "combat") return;
       const range = statsFor(tower).range;
       const inRange = world.enemies.filter((e) => e.hp > 0 && (e.x - tower.x) ** 2 + (e.y - tower.y) ** 2 <= range * range);
+      if ((tower.geeseReady ?? 0) > world.anim) {
+        world.hud.log = `Still recharging: ${Math.ceil((tower.geeseReady ?? 0) - world.anim)} s.`;
+        notify();
+        return;
+      }
       if (!inRange.length) {
         world.hud.log = "Nothing in the ring yet. Wait for them.";
         notify();

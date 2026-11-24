@@ -287,7 +287,8 @@ test("the Anti-Geese Protocol on Auto goes off for a fruit near any exit", () =>
     const k = 1.5 * CELL / Math.hypot(last.x - before.x, last.y - before.y);
     Object.assign(e, { route, wp: pts.length - 1, hp: 9999, maxHp: 9999, speed: 0, x: last.x + (before.x - last.x) * k, y: last.y + (before.y - last.y) * k });
     for (let i = 0; i < 30; i++) stepWorld(w, 1 / 60);
-    assert.equal(w.hud.geeseSpent, true, `went off by the ${exit}`);
+    const fired = w.towers.find((t) => t.kind === "geese");
+    assert.ok(fired ? fired.cd > 0 : w.hud.geeseSpent, `went off by the ${exit}`);
   }
 });
 

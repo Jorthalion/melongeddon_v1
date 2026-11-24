@@ -820,7 +820,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   quackliber: {
     name: "Quack-Liber",
-    blurb: "Quackarot's own. A two-barrel backpack turret that charges up and fires glowing ki blasts: they burst over a small area and daze what they hit. Its power-up aura makes every other tower within three tiles fire 15% faster while it stands.",
+    blurb: "Quackarot's own. A two-barrel backpack turret that charges up and fires glowing ki blasts: they burst over a small area and daze what they hit. Its power-up aura makes every other tower within three tiles fire 15% faster and hit 10% harder, and the speed-up grows with every wave you clear. Each blast also takes a bite of its target's full health. Kills fill its power meter: when it's full, the next shot hits everything around it hard.",
     cost: 95,
     role: "Ki blasts",
   },
@@ -838,13 +838,13 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   driver: {
     name: "Instant Quackmission",
-    blurb: "Quackarot's fourth. Two feathers to the forehead: every 4 s the fruit furthest along in reach blinks and walks back the way it came for 2.5 s. Everything else keeps walking. Husks are steered too: this is not cold. Karl only turns for a moment. A fruit it has just turned can't be turned again for a few seconds.",
+    blurb: "Quackarot's fourth. Two feathers to the forehead: every 4 s the fruit furthest along in reach blinks and walks back the way it came for 2.5 s. Everything else keeps walking. Husks are steered too: this is not cold. Karl only turns for a moment. A fruit walking back takes 25% more damage from everything. A fruit it has just turned can't be turned again for a few seconds.",
     cost: 50,
     role: "Blink back",
   },
   geese: {
     name: "Anti-Geese Protocol",
-    blurb: "Quackarot's second. One use. It goes off on its own when fruit crowd into its ring or get near the door (or only when you press Engage, if you set it to Manual): every fruit within about two and a half tiles is thrown three tiles back down the carpet. Karl only takes the knock. Then it's gone, and it can be rebuilt after the wave. Geese are thrown twice as far, and panic.",
+    blurb: "Quackarot's second. It goes off on its own when fruit crowd into its ring or get near the door (or only when you press Engage, if you set it to Manual): every fruit within about two and a half tiles is thrown three tiles back down the carpet. Karl only takes the knock. Then it recharges for 20 s. Geese are thrown twice as far, and panic.",
 
     cost: 60,
     role: "One shot",
@@ -1133,6 +1133,24 @@ export const CANNON = {
   /** Quack-Liber: towers within this reach (px) fire this much faster (1.15 = +15% attack speed). */
   quackAura: 144,
   quackHaste: 1.15,
+  /** Training arc: the aura gets this much faster again per wave cleared tonight (0.01 = +1%), up to `quackArcMax`. */
+  quackArcPer: 0.01,
+  quackArcMax: 0.15,
+  /** The aura adds punch: towers in it hit this much harder (0.1 = +10%). */
+  quackPunch: 0.1,
+  /** Ki finisher: a ki blast also takes this share of its target's full health (Karl and the other bosses: `quackPctBoss`). */
+  quackPct: 0.02,
+  quackPctBoss: 0.01,
+  /** Power level: this many kills while a Quack-Liber stands (0: off) fill the meter; the next Quack-Liber shot is a blast
+   * on everything within `quackKiReach` of its reach, for `quackKiShare` of each fruit's full health (bosses `quackKiBoss`). */
+  quackKiNeed: 30,
+  quackKiReach: 1.5,
+  quackKiShare: 0.15,
+  quackKiBoss: 0.05,
+  /** Rewind combo: a fruit the Instant Quackmission is walking back takes this much more damage from everything. */
+  driverAmp: 1.25,
+  /** Anti-Geese Protocol: seconds until it can go off again (0: one use, rebuilt after the wave). */
+  geeseRecharge: 20,
   /** Quack-hameha: after a Quack-Liber kill, its aura is this much faster again for this long (s). */
   quackRally: 1.2,
   quackRallyTime: 2,

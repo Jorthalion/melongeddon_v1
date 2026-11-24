@@ -126,6 +126,14 @@ export function GameHeader({
                   Sisu +{hud.sisu}%
                 </span>
               ) : null}
+              {hud.hero === "quack" && CANNON.quackKiNeed > 0 ? (
+                <span
+                  className={`text-[0.8125rem] font-semibold whitespace-nowrap ${hud.ki >= CANNON.quackKiNeed ? "text-[#ffd65a] [text-shadow:0_0_8px_rgba(255,214,90,0.8)]" : "text-[#f3ce78]"}`}
+                  title={`Power level: every kill while a Quack-Liber stands fills it. Full at ${CANNON.quackKiNeed}: the next ki blast hits everything around the turret for ${Math.round(CANNON.quackKiShare * 100)}% of its health`}
+                >
+                  Power {hud.ki}/{CANNON.quackKiNeed}
+                </span>
+              ) : null}
               {hud.hero === "michael" ? (
                 <span
                   className="text-[0.8125rem] font-semibold whitespace-nowrap text-[#8fc0ff]"

@@ -533,7 +533,7 @@ test("the Anti-Geese Protocol: a goose is thrown twice as far as a cat and walks
   const boss = add("goose", 15, 6, 7, { matriarch: true, boss: true, rallyCd: 99, hp: 1000, maxHp: 1000 });
   const before = { cat: along(api, cat), goose: along(api, goose), boss: along(api, boss) };
   api.engage();
-  assert.ok(!w.towers.includes(protocol), "spent");
+  assert.ok(w.towers.includes(protocol) ? protocol.cd > 0 : w.hud.geeseSpent, "spent (recharging)");
   assert.ok(Math.abs(before.cat - along(api, cat) - CANNON.geeseShove) < 0.5, "a cat goes three tiles");
   assert.ok(Math.abs(before.goose - along(api, goose) - CANNON.geeseShove * SIEGE.protocolThrow) < 0.5, "a goose twice as far");
   assert.ok(Math.abs(before.boss - along(api, boss)) < 0.5, "the Matriarch isn't moved");

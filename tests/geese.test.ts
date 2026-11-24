@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CANNON, CELL, EMPTY_META, KEEPER_TOWERS, TOWERS, carpetAlong, createWorld, stepWorld } from "../src/game/engine.ts";
 
+// These check the one-use Protocol (CANNON.geeseRecharge 0); the recharge is tested in quack-buffs.test.ts.
+CANNON.geeseRecharge = 0;
+
 function start() {
   const api = createWorld(() => {}, { meta: EMPTY_META });
   api.openSetup();
