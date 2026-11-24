@@ -19,6 +19,7 @@
  *                               # lamps and ink beside its cannons, saves for what's next, buys fittings when they beat a
  *                               # cannon, and uses each keeper's own towers. It always picks shelf upgrades the smart way.
  *   npm run sim -- --strategies human --heroes michael --avoid bombard --no-great --keeper-at gourdgate=10
+ *   npm run sim -- --strategies human --ban juicy,reach   # never pick the Juicy shelf upgrade or buy the reach fitting
  *                               # human bot probes: never build these kinds; Sir Michael makes no Great towers;
  *                               # build a keeper extra only once this many cannons are down
  *   npm run sim -- --opener melon,melon,melon,lantern --max-towers 4   # build these first (any bot); stop at 4 towers
@@ -59,6 +60,10 @@ const DIFF_ONLY = argOf("--diffs")?.split(",").filter(Boolean) ?? [];
 const PICKS = argOf("--picks") === "smart" ? "smart" : "random";
 const AVOID = (argOf("--avoid")?.split(",").filter(Boolean) ?? []) as ENGINE.TowerKind[];
 for (const k of AVOID) if (!(k in ENGINE.TOWERS)) throw new Error(`--avoid: no tower ${k}`);
+// --ban juicy,reach: shelf upgrades no bot picks while anything else is offered, and fittings the human bot never buys.
+const BAN = argOf("--ban")?.split(",").filter(Boolean) ?? [];
+const KNOWN = new Set<string>([...Object.values(ENGINE.UPGRADES).map((u) => u.id), ...Object.values(ENGINE.MODS).map((m) => m.id)]);
+for (const id of BAN) if (!KNOWN.has(id)) throw new Error(`--ban: no shelf upgrade or fitting ${id}`);
 const NO_GREAT = args.includes("--no-great");
 // --opener melon,melon,lantern: every bot builds these first, in order. --max-towers N: and stops at N towers.
 const OPENER = (argOf("--opener")?.split(",").filter(Boolean) ?? []) as ENGINE.TowerKind[];
@@ -174,6 +179,7 @@ for (const hero of HEROES)
               seed,
               picks: PICKS,
               ...(AVOID.length ? { avoid: AVOID } : {}),
+              ...(BAN.length ? { ban: BAN } : {}),
               ...(NO_GREAT ? { noGreat: true } : {}),
               ...(OPENER.length ? { opener: OPENER } : {}),
               ...(MAX_TOWERS != null ? { maxTowers: MAX_TOWERS } : {}),

@@ -79,3 +79,14 @@ test("a kind named twice in a combo gets twice the cannons", () => {
   assert.ok(ice >= 2, `freeze ${ice}`);
   assert.ok(Math.abs(fire - 2 * ice) <= 2, `two Fires a Freeze: freeze ${ice}, fire ${fire}`);
 });
+
+test("--ban keeps a shelf upgrade and a back-room fitting out of the human bot's run", () => {
+  const game = { hero: "elf", difficulty: "hard", strategy: "human", night: "midnight", map: "stacks", seed: 2 } as const;
+  const before = simulateRun(game);
+  const up = before.upgrades[0];
+  const fit = before.fitted?.[0]?.split(":")[1];
+  assert.ok(up && fit, `the plain run took an upgrade (${up}) and a fitting (${fit})`);
+  const after = simulateRun({ ...game, ban: [up, fit] });
+  assert.ok(!after.upgrades.includes(up), `${up} was banned but taken`);
+  assert.ok(!(after.fitted ?? []).some((f) => f.endsWith(`:${fit}`)), `${fit} was banned but bought`);
+});

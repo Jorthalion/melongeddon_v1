@@ -84,6 +84,9 @@ export interface RunConfig {
   keeperAt?: Partial<Record<TowerKind, number>>;
   /** Sir Michael's bots never merge Great towers (--no-great). */
   noGreat?: boolean;
+  /** Shelf upgrades no bot picks while the shelf offers anything else, and back-room fittings the human bot never
+   * buys (--ban juicy,reach): to measure what one is worth. */
+  ban?: string[];
   /** The abuse bot: spam this kind from the start instead of finding the strongest (--abuse KIND), or a combo of kinds
    * split evenly (--abuse fire,freeze). */
   abuse?: TowerKind | TowerKind[];
@@ -108,6 +111,8 @@ export interface RunResult {
   simSeconds: number;
   /** Upgrades held at the end of the run. */
   upgrades: UpgradeId[];
+  /** Back-room fittings bought by the end of the run, as "kind:fitting". */
+  fitted?: string[];
   /** How often the status combos went off (from the run log), and the most stings / afflictions on one fruit. */
   combos: { shatters: number; thermals: number; wildfires: number; contagion: number; maxStung: number; maxAfflictions: number };
   /** The Hall of Doors: fruit that got out by each exit. */
@@ -562,6 +567,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
           },
           dragonChores,
           avoid: config.avoid,
+          ban: config.ban,
           keeperAt: config.keeperAt,
           noGreat: config.noGreat,
           opener: config.opener,
@@ -648,7 +654,9 @@ function play(config: RunConfig, rng: () => number): RunResult {
     } else if (phase === "consequence") {
       api.startWave();
     } else if (phase === "upgrade") {
-      const ids = world.hud.offer.map((u) => u.id);
+      const offered = world.hud.offer.map((u) => u.id);
+      const allowed = offered.filter((id) => !(config.ban ?? []).includes(id));
+      const ids = allowed.length ? allowed : offered;
       api.pickUpgrade(
         config.pickUpgrade
           ? config.pickUpgrade(ids)
@@ -693,6 +701,7 @@ function play(config: RunConfig, rng: () => number): RunResult {
     kinds: [...new Set(world.towers.map((x) => x.kind))],
     simSeconds: Math.round(t),
     upgrades: [...world.hud.upgrades],
+    fitted: Object.entries(world.hud.fitted).flatMap(([k, mods]) => (mods ?? []).map((m) => `${k}:${m}`)),
     combos: {
       shatters: world.runLog.shatters,
       thermals: world.runLog.thermals,

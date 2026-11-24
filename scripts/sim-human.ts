@@ -91,6 +91,8 @@ export interface HumanKit {
   avoid?: TowerKind[];
   keeperAt?: Partial<Record<TowerKind, number>>;
   noGreat?: boolean;
+  /** Tests: back-room fittings it never buys (--ban; shelf upgrades are banned in sim-core). */
+  ban?: string[];
   /** Scenarios: towers to build first, in this order, each where it belongs (a lamp by the cannons...); --avoid doesn't stop them. */
   opener?: TowerKind[];
   /** Scenarios: never more towers than this on the board. */
@@ -554,7 +556,7 @@ export function makeHuman(kit: HumanKit) {
     let best: { kind: TowerKind; mod: ModId; price: number; perSeed: number } | null = null;
     for (const kind of new Set(sh.map((t) => t.kind))) {
       if (abuser && aimed().length && !aimed().includes(kind)) continue; // every fitting goes to the kind(s) it spams
-      const left = fittingsFor(kind).filter((m) => !(world.hud.fitted[kind] ?? []).includes(m.id));
+      const left = fittingsFor(kind).filter((m) => !(world.hud.fitted[kind] ?? []).includes(m.id) && !(kit.ban ?? []).includes(m.id));
       if (!left.length) continue;
       const price = api.shopPriceFor(kind);
       const share = total > 0 ? (dmg.get(kind) ?? 0) / total : count(kind) / sh.length;
