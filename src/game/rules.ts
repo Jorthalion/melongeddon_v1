@@ -1684,7 +1684,9 @@ export type MapId =
   | "basement"
   // Layout B of the Archive and the Mezzanine: bigger versions, picked on the room's own Setup card.
   | "archiveB"
-  | "mezzanineB";
+  | "mezzanineB"
+  // A test room (dev only): the Circulation Desk, where the carpet runs round a ring twice.
+  | "loop";
 
 /** A board with more than one way in: each door's carpet runs to where it joins the board's own carpet (the trunk). */
 export type DoorId = "north" | "west" | "stairs" | "lift";
@@ -1713,6 +1715,13 @@ export interface Exit {
   bossOnly?: boolean;
 }
 export const EXIT_NAME: Record<ExitId, string> = { reading: "Reading Room", kitchens: "Kitchens", restricted: "Restricted Section" };
+/** The Loop (the Circulation Desk): a fruit this fast (base speed) takes the shortcut after the first lap. */
+export const LOOP = { fastSpeed: 60 };
+/** Whether a fruit at the end of the Loop's first lap cuts across: fast or never hit, and never a boss. */
+export function takesShortcut(e: { kind: EnemyKind; hp: number; maxHp: number; boss?: boolean }) {
+  if (e.boss) return false;
+  return STATS[e.kind].speed >= LOOP.fastSpeed || e.hp >= e.maxHp;
+}
 /** Each exit's colour: its door mark on the Coming up chips, its lamp and its door. */
 export const EXIT_COLOR: Record<ExitId, string> = { reading: "#5fae6e", kitchens: "#9aa3ad", restricted: "#b4453c" };
 /** The Hall of Doors' numbers (tune with the simulator). */
@@ -1933,6 +1942,12 @@ export interface Board {
    * room is, and counted as that room for wins and achievements (`baseMap`).
    */
   variantOf?: MapId;
+  /**
+   * The Loop: a second way out that leaves the carpet at corner `from` (the end of the first lap) and runs to
+   * the door along `corners` (which start on that corner). Fast fruit and fruit nobody has hit yet take it
+   * (`takesShortcut`); everyone else walks the whole carpet.
+   */
+  shortcut?: { from: number; corners: Array<[number, number]> };
   /** The Rotunda's round desk: furniture on a floor tile beside where the carpets meet (no building on it). */
   desk?: [number, number];
   /** A board with doors: the carpet tile where the doors' carpets meet, marked with a brass compass inlay. */
@@ -2232,6 +2247,44 @@ export const BOARDS: Record<MapId, Board> = {
       [17, 0], [18, 0], [19, 0], [20, 0], [21, 0],
       [0, 13], [1, 13], [2, 13], [3, 13], [8, 13], [9, 13], [10, 13], [16, 13], [17, 13],
       [21, 9], [21, 10], [21, 11], [0, 5], [0, 6], [0, 7], [9, 6], [10, 6],
+    ],
+  },
+  // The Circulation Desk (a test room, dev only): in from the west, round the ring twice (clockwise), then across
+  // the middle and out of the east door. After the first lap, fast fruit and fruit nobody has hit yet cut straight
+  // across instead (Board.shortcut), so the second lap only counts if every fruit is touched on the first.
+  loop: {
+    id: "loop",
+    name: "The Circulation Desk",
+    blurb: "Test room. The carpet runs round the ring twice. Fast fruit, and any fruit nobody has hit yet, cut across after one lap.",
+    look: "readingroom",
+    cols: 22,
+    rows: 14,
+    carpet: "path",
+    // Two laps give towers a lot of time: the human bot won every night at 1.3 and at 2 (the Reading Room:
+    // 100/100/100/56%); at 3 it won 94% on Melongeddon and 56% on Overdue.
+    hp: 3,
+    corners: [
+      [0, 6],
+      [6, 6],
+      [6, 4],
+      [15, 4],
+      [15, 9],
+      [6, 9],
+      [6, 6],
+      [6, 4],
+      [15, 4],
+      [15, 9],
+      [6, 9],
+      [6, 6],
+      [21, 6],
+    ],
+    // Corner 6 is (6, 6) at the end of the first lap: the shortcut runs straight across the middle to the door.
+    shortcut: { from: 6, corners: [[6, 6], [21, 6]] },
+    michaelCannon: [3, 2],
+    shelves: [
+      [0, 0], [1, 0], [2, 0], [7, 0], [8, 0], [9, 0], [12, 0], [13, 0], [14, 0], [19, 0], [20, 0], [21, 0],
+      [0, 13], [1, 13], [2, 13], [7, 13], [8, 13], [9, 13], [12, 13], [13, 13], [14, 13], [19, 13], [20, 13], [21, 13],
+      [0, 10], [0, 11], [21, 10], [21, 11], [18, 2], [18, 3],
     ],
   },
   greathall: {
@@ -2948,6 +3001,29 @@ export function combineRoutes(doors: number[][] | undefined, exits: number[][] |
  */
 export function buildRoutes(board: Board) {
   const base = buildBoard(board.corners);
+  if (!board.doors?.length && board.shortcut) {
+    // The Loop: route 0 is the whole carpet, route 1 the same carpet to the end of the first lap, then the
+    // shortcut. They share every point up to the junction, so a fruit can switch there without moving.
+    const { from, corners } = board.shortcut;
+    const [c0, r0] = corners[0];
+    if (board.corners[from]?.[0] !== c0 || board.corners[from]?.[1] !== r0) throw new Error("The shortcut has to start on its corner of the carpet");
+    const own = buildBoard(corners);
+    return {
+      ...base,
+      cells: new Set([...base.cells, ...own.cells]),
+      verge: new Set([...base.verge, ...own.verge]),
+      turns: base.turns.map((t) => ({ ...t, door: undefined as DoorId | undefined })),
+      routes: [base.points, [...base.points.slice(0, from + 1), ...own.points.slice(1)]],
+      // Each tile once: the first lap, then the crossing (the second lap walks the first lap's carpet again).
+      segments: [base.points.slice(0, from + 1), own.points],
+      doorOf: [null, null] as Array<DoorId | null>,
+      exitOf: [] as ExitId[],
+      routeDoor: [0, 0],
+      routeExit: [] as number[],
+      doorCells: [] as Array<Set<string>>,
+      exitCells: [] as Array<Set<string>>,
+    };
+  }
   if (!board.doors?.length) {
     return {
       ...base,

@@ -1,5 +1,5 @@
 import {
-  CELL, BOARDS, baseMap, withLayouts, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
+  CELL, BOARDS, baseMap, withLayouts, takesShortcut, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
   BALANCE, DROWSY, softenSlow, flyMiss, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
@@ -1382,6 +1382,8 @@ export function createWorld(
   let cleared = 0;
   /** A stack was lost this wave (Sir Michael's In the Zone only grows on clean waves). */
   let waveLost = false;
+  /** The Loop's one-time note about the shortcut (once a night). */
+  let shortcutNoted = false;
   /** Seconds of combat so far (trick-shot hit timing). */
   let clock = 0;
   let queue: QueueItem[] = [];
@@ -5265,7 +5267,19 @@ export function createWorld(
           }
         } else {
           e.wp += 1;
-          if (e.wp >= route.length) {
+          // The Loop: at the end of the first lap, fast fruit and fruit nobody has hit cut across to the door.
+          const cut = BOARDS[world.hud.map].shortcut;
+          if (cut && (e.route ?? 0) === 0 && e.wp === cut.from + 1 && takesShortcut(e)) {
+            e.route = 1;
+            world.runLog.shortcuts += 1;
+            float(e.x, e.y - 18, "shortcut!", "#e6c36a");
+            if (!shortcutNoted) {
+              shortcutNoted = true;
+              world.hud.log = "A fruit cut across the middle. Fast fruit, and any fruit nobody has hit yet, skip the second lap.";
+              notify();
+            }
+          }
+          if (e.wp >= routeOf(e).length) {
             noteReach(e, 1);
             if (e.borrower) borrow(e);
             else leakAt(e);
@@ -6308,6 +6322,7 @@ export function createWorld(
       world.hud.selected = null;
       absurdDrops = 0;
       materialNoted = false;
+      shortcutNoted = false;
       windUsed = false;
       goldenUsed = false;
       objectedWave = 0;
