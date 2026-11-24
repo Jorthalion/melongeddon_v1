@@ -128,7 +128,7 @@ test("Card Catalogue shots chain into more fruit", () => {
   assert.ok(runWave(api, () => api.world.shots.some((s) => s.bounces === 2)), "a catalogue shot carries two chains");
 });
 
-test("Bubbling Cauldron leaves a poison puddle", () => {
+test("The R&D Cauldron leaves a poison puddle", () => {
   const api = start("vael");
   build(api, "cauldron");
   assert.ok(runWave(api, () => api.world.pools.some((p) => (p.toxic ?? 0) > 0)));

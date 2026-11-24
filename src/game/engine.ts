@@ -501,7 +501,7 @@ interface Pool {
   max: number;
   hot: boolean;
   burn: number;
-  /** Bubbling Cauldron puddle: damage per second to anything in it (it also slows). */
+  /** R&D Cauldron puddle: damage per second to anything in it (it also slows). */
   toxic?: number;
   /** Honeyed Heel footprint: sticky (slows even husks), the way it points, and the tower that left it. */
   honey?: boolean;

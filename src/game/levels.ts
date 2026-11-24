@@ -61,7 +61,7 @@ export interface PerkFx {
   /** Card Catalogue: extra fruit per chain, and damage kept per chain hit. */
   chains?: number;
   chainRatio?: number;
-  /** Bubbling Cauldron: puddle lifetime and width multipliers. */
+  /** R&D Cauldron: puddle lifetime and width multipliers. */
   poolLife?: number;
   poolWide?: number;
   /** Vaelithra: how long her slow lasts, multiplier. */
@@ -151,7 +151,7 @@ export const PERKS: Record<HeroId, Array<[Perk, Perk] | [Perk]>> = {
       { name: "Quick Stir", blurb: "The Cauldron fires 25% faster.", fx: { sigPace: 0.75 } },
     ],
     [
-      { name: "Second Cauldron", blurb: "You can build two Bubbling Cauldrons.", fx: { sigExtra: 1 } },
+      { name: "Second Cauldron", blurb: "You can build two R&D Cauldrons.", fx: { sigExtra: 1 } },
       { name: "Philosopher's Tip", blurb: "+15 seeds after every wave.", fx: { waveSeeds: 15 } },
     ],
   ],

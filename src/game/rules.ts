@@ -771,8 +771,8 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
     role: "Lights Out",
   },
   cauldron: {
-    name: "Bubbling Cauldron",
-    blurb: "Vael's own. Lobs a potion that leaves a green puddle: it slows and it eats. Its poison stacks, and it catches fire.",
+    name: "R&D Cauldron",
+    blurb: "Vaelithra's own, straight out of R&D. Lobs a potion that leaves a green puddle: it slows and it eats. Its poison stacks, and it catches fire. On a sleeping fruit the poison all goes off at once (Nightmare).",
     cost: 85,
     role: "Poison",
   },

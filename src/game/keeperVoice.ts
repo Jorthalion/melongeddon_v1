@@ -26,11 +26,11 @@ export const KEEPER_VOICE: Record<HeroId, Voice> = {
     lose: "“I'm not speaking to you. I'm speaking to the carpet, and the carpet knows what it did.”",
   },
   vael: {
-    open: "“My shots slow them down. They don't hit any harder, so don't ask.”",
-    overflow: "“The damp won't bother my mixture. It'll bother everything else.”",
-    siege: "“Geese and cats. Neither of them has read my notes on slowing agents.”",
-    win: "“The formula held. I'll write it up properly later.”",
-    lose: "“Interesting. Wrong, but interesting.”",
+    open: "“Welcome to Potions. My shots make them drowsy; my towers do the rest. Upgrade properly and I'll approve more.”",
+    overflow: "“A flooded floor. Facilities will hear about this. My puddles won't mind.”",
+    siege: "“Geese and cats. Outside contractors. Nobody approved them.”",
+    win: "“Quarterly targets met. Nobody take that as permission to relax.”",
+    lose: "“This meeting never happened. We restructure and go again.”",
   },
   michael: {
     open: "Sir Michael is still choosing his armour.",

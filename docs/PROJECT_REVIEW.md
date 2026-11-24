@@ -179,7 +179,7 @@ There are seven keepers. Each has a starting kit, a perk and a signature tower t
 | Keeper | Start | Perk | Signature tower |
 |---|---|---|---|
 | Mynxi | 12 stacks, 150 seeds | First build costs 40; longer reach | Card Catalogue (90): shots chain into 2 more fruit at 70% |
-| Vaelithra | 11 stacks, 120 seeds | Shots slow | Bubbling Cauldron (85): a puddle that slows and deals 18/s for 3 s |
+| Vaelithra | 11 stacks, 120 seeds | Shots slow | R&D Cauldron (85): a puddle that slows and deals 18/s for 3 s |
 | Sir Michael | 10 stacks, 110 seeds, a free cannon | Shots hit harder | Pumpkin Trebuchet (110): a huge splash that knocks non-boss fruit back 34 px |
 | Legal Elf | 12 stacks, 150 seeds | Back room costs 30% less | Scales of Justice (95): damage plus 12% of the target's max health (4% on Karl); kills pay a 5-seed fee |
 | Ooze Clues | 13 stacks, 140 seeds | Absorbs the first single-fruit leak each wave | Mimic Chest (100): swallows one nearby fruit whole about every 4 s (Karl only loses a 120 bite) |

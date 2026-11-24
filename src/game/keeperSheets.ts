@@ -27,7 +27,7 @@ export const KEEPER_SHEETS: Record<
     rules: [
       "Her shots make fruit drowsy: half speed for a moment, and the third hit puts one to sleep for a second. Not ice, so no frost; fire wakes them.",
       "The first tower of each kind costs her 20 more each night; her back-room upgrades cost less.",
-      "Bubbling Cauldron: a slowing, poisoned puddle. Its potion on a sleeping fruit sets the poison off at once (Nightmare).",
+      "R&D Cauldron: a slowing, poisoned puddle. Its potion on a sleeping fruit sets the poison off at once (Nightmare).",
       "Her other towers open during the night: Unstoppered with 2 fully upgraded towers, the Underlings with 4, the Nexus Spire with 6. A fully upgraded tower has every back-room upgrade for its kind.",
       "Unstoppered: fruit asleep in her puddles sleep longer, and its fumes put drowsy fruit to sleep. The Underlings: interns throw sleeping draughts; a sleeping fruit they hit takes 30% more. The Spire: every 15 s, every drowsy fruit falls asleep.",
     ],

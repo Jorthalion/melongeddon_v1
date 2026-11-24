@@ -701,7 +701,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       ctx.fill();
       ctx.restore();
     } else if (pool.toxic) {
-      // Bubbling Cauldron puddle.
+      // R&D Cauldron puddle.
       ctx.fillStyle = `rgba(80,190,90,${0.32 * a})`;
       ctx.beginPath();
       ctx.arc(pool.x, pool.y, pool.r, 0, Math.PI * 2);

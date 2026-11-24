@@ -28,7 +28,7 @@ export const KEEPERS: Array<{
     id: "vael",
     name: "Vaelithra",
     role: "Potions division",
-    flavor: "“Hold still. This only stings if you're a melon.”",
+    flavor: "“Sign here. The side effects are the fruit's problem.”",
     line: "Her shots make fruit drowsy, then asleep. Fully upgrade her towers and three more of her own open during the night.",
     toneHz: 250,
     portrait: asset("sprites/portrait-vael.webp"),
