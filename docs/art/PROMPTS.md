@@ -30,7 +30,7 @@ Every image here is optional: the game already draws a stand-in for each one. Se
 | Status overlays (2) | ice block, flame tongues |
 | Animations (90) | build and idle strips for 30 towers; walk and pop strips for 15 fruit and enemies |
 
-**Still needed:** three images for the Flooded Basement: `fruit-watermelon.png`, `fruit-draingourd.png` and `sig-pump.png` (§2a6). The game draws code stand-ins until they arrive.
+**Still needed:** nothing. Every image asked for in this file is in the game.
 
 ---
 
@@ -287,7 +287,7 @@ A storeroom of rolling library shelving on steel tracks: two bays of grey-green 
 | `fruit-wormqueen.png` | The **Bookworm Queen**: the same gourd but bigger and longer, five segments, darker green with gold flecks, **spectacles and a small gold crown**. Side view facing right. Transparent background, 512 × 512. |
 | `prop-cocoon.png` | A **cocoon of shredded book pages** bound in silk, pale cream with faint lines of print showing, a little green glow inside. Seen from slightly above. Transparent background, 256 × 256. |
 
-### 2a6. The Flooded Basement (six of nine done: the three floors, the water, the gauge and the pipe are in `public/sprites/`; still needed: `fruit-watermelon`, `fruit-draingourd` and `sig-pump`)
+### 2a6. The Flooded Basement (done: all nine are in `public/sprites/`, with walk, pop, idle and build animations for the two fruit and the pump)
 A library cellar with a burst pipe: three floor heights (damp low flagstones, lighter middle flags, wooden pallets for the high floor), water that rises over them during each wave, a painted water gauge, and its own room fruit and Sump Pump. Everything is drawn by code for now, and each file replaces its code drawing as soon as it's in `public/sprites/` as a `.webp` with the same name: each floor tile fills one board square, the water surface tiles over flooded squares (and drifts slowly), the gauge and pipe fill their own square (the game still lays the water level over the gauge and the spray over the pipe), and the pump is drawn like the other towers (no aim).
 
 | File name | Prompt (after the style line) |

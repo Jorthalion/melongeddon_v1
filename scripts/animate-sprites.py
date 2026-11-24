@@ -81,7 +81,7 @@ TOWER_PAINTINGS = {
     "roost1": "sig-roost-whelp.webp", "roost2": "sig-roost-drake.webp", "roost3": "sig-roost-dragon.webp",
     "boomerang": "trick-boomerang.webp", "orrery": "trick-orrery.webp", "plane": "trick-plane.webp",
     "quill": "trick-quill.webp", "globe": "trick-globe.webp",
-    "underlings": "sig-underlings.webp", "spire": "sig-spire.webp",
+    "underlings": "sig-underlings.webp", "spire": "sig-spire.webp", "pump": "sig-pump.webp",
 }
 # Enemy look -> its painting (the fruit drawn by code have no painting to animate yet).
 ENEMY_PAINTINGS = {
@@ -92,7 +92,7 @@ ENEMY_PAINTINGS = {
     "whiskers": "enemy-whiskers.webp", "boxcat": "enemy-boxcat.webp", "para": "enemy-para.webp",
     "tank": "enemy-tank.webp", "general": "enemy-general.webp",
     # The Compact Stacks.
-    "wormgourd": "fruit-wormgourd.webp", "wormqueen": "fruit-wormqueen.webp",
+    "wormgourd": "fruit-wormgourd.webp", "wormqueen": "fruit-wormqueen.webp", "watermelon": "fruit-watermelon.webp", "draingourd": "fruit-draingourd.webp",
     # The Sorting Room, the Greenhouse and the Bell Tower.
     "express": "enemy-express.webp", "parcel": "enemy-parcel.webp", "sprout": "enemy-sprout.webp",
     "squash": "enemy-squash.webp", "chimer": "enemy-chimer.webp", "gargoyle": "enemy-gargoyle.webp",
