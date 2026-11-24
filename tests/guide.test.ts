@@ -188,3 +188,34 @@ test("tests, the simulator and developer mode never see the guide", () => {
   assert.equal(createWorld(() => {}).world.hud.guideDone, true);
   assert.equal(createWorld(() => {}, { dev: true }).world.hud.guideDone, true);
 });
+
+test("the guided night's poster goes back to the title, not into the locked Setup", () => {
+  const api = createWorld(() => {}, { guide: true });
+  api.continueRun();
+  assert.equal(api.world.hud.phase, "poster");
+  api.backToSetup();
+  assert.equal(api.world.hud.phase, "coldopen");
+  assert.equal(api.world.hud.guide, null);
+});
+
+test("after the support lesson the Melon cannon is picked again", () => {
+  const api = guided();
+  for (let i = 0; i < 3; i++) api.guideNext();
+  build(api, "melon");
+  api.guideNext();
+  assert.equal(api.world.hud.guide, "support");
+  build(api, "still");
+  assert.equal(api.world.hud.guide, "tabs");
+  assert.equal(api.world.hud.build, "melon", "the next floor tap builds damage, not another Still");
+  assert.match(api.world.hud.log, /Melon cannon is picked again/);
+});
+
+test("tapping the carpet says why nothing was built", () => {
+  const api = guided();
+  const [key] = api.world.pathCells;
+  const [c, r] = key.split(",").map(Number);
+  const towers = api.world.towers.length;
+  api.pointer(center(c), center(r), "down");
+  assert.equal(api.world.towers.length, towers);
+  assert.match(api.world.hud.log, /carpet/i);
+});

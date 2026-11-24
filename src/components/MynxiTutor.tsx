@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { GUIDE_STEPS, GUIDE_TALK, TOWERS, type GuideStep, type Hud } from "@/game/engine";
+import { HEAVY_SEEDS, HEAVY_WAVE } from "@/game/rules";
 import { asset } from "@/lib/asset";
 import type { GameApi } from "@/components/ui";
 
@@ -51,8 +52,8 @@ const LESSON: Record<GuideStep, { mood: Mood; title: string; text: string }> = {
   },
   tabs: {
     mood: "talk",
-    title: "Five tabs, five jobs",
-    text: "Damage pops, Control slows, Support makes the rest better. R is my own Card Catalogue: long reach, and every shot chains into two more fruit. Trick cannons (T) open as I level up.",
+    title: "Six tabs, six jobs",
+    text: `Damage pops, Control slows, Support makes the rest better. R is my own Card Catalogue: long reach, and every shot chains into two more fruit. Trick cannons (T) open as I level up, and Heavy cannons (Y) at wave ${HEAVY_WAVE}, or once you hold ${HEAVY_SEEDS} seeds.`,
   },
   start: {
     mood: "point",

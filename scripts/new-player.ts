@@ -490,7 +490,12 @@ async function tapFloor(why: string, opts: { onCarpet?: boolean } = {}) {
     steps.push({ screen: before.screen, what: `tap board at ${Math.round(pick.x)},${Math.round(pick.y)} (${why})`, ms: 600, words: 0 });
     const spent = before.seeds != null && after.seeds != null && after.seeds < before.seeds;
     if (spent) {
-      built.push(picked);
+      // What the tap really built: the build card marked as picked (falls back to what the learner believes).
+      const onScreen = await page.evaluate(() => {
+        const card = [...document.querySelectorAll("button[aria-pressed=true][title]")].find((e) => / \(\d\) · /.test(e.getAttribute("title") ?? ""));
+        return card ? (card.getAttribute("title") ?? "").split(" (")[0] : null;
+      });
+      built.push(onScreen ?? picked);
       return { ok: true, log: after.log !== before.log ? after.log : "", why: "" };
     }
     // Tapped a tower that's already there: its card opened. Close it and try somewhere else.
@@ -613,8 +618,21 @@ async function guidedNight() {
         expected: "Either no Absurdity counter yet, or a tooltip saying what it is.",
         saw: `Top bar: ${seen.text.split("\n").slice(0, 6).join(" · ")}`,
       });
-    // Curious: what does Back to setup do on the very first night, when setup is still locked?
-    if (seen.buttons.some((b) => /^Back to setup$/.test(b.name))) {
+    // Curious: the poster's way back. During the guide it should say (and go to) the title.
+    if (seen.buttons.some((b) => /^Back to title$/.test(b.name))) {
+      await press(/^Back to title$/, "Curious: clicked Back to title on the first-night poster.");
+      const back = await look();
+      if (back.screen !== "Title")
+        await friction({
+          severity: "major",
+          screen: "Room poster",
+          title: `"Back to title" on the first night goes to ${back.screen}`,
+          tried: "Clicked Back to title on the poster of the guided first night.",
+          expected: "The title screen.",
+          saw: `Landed on: ${back.screen}.`,
+        });
+      else await press(/^(Start|Continue)$/, "Pressed Start again.");
+    } else if (seen.buttons.some((b) => /^Back to setup$/.test(b.name))) {
       await press(/^Back to setup$/, "Curious: clicked Back to setup on the first-night poster.");
       const back = await look();
       if (back.screen !== "Setup") {

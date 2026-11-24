@@ -390,6 +390,7 @@ export function MelonGame() {
               gesture();
               api.backToSetup();
             }}
+            backLabel={hud.guide != null && !hud.guideDone ? "Back to title" : undefined}
             armours={
               hud.hero === "michael"
                 ? {

@@ -1605,7 +1605,17 @@ export function createWorld(
   const guideAfter = (step: GuideStep) => GUIDE_STEPS[GUIDE_STEPS.indexOf(step) + 1] ?? null;
   /** Tutorial: a building step is done once the board has what it asks for. */
   const syncGuide = () => {
-    if (world.hud.guide === "damage" || world.hud.guide === "support") guideTo(world.hud.guide);
+    if (world.hud.guide === "damage") guideTo("damage");
+    else if (world.hud.guide === "support") {
+      guideTo("support");
+      // The support lesson is done: pick the Melon cannon again, so the next floor tap (the lesson
+      // before said another tap builds another) adds damage, not a second Still.
+      if (world.hud.guide !== "support" && world.hud.build !== "melon") {
+        world.hud.build = "melon";
+        syncPrice();
+        world.hud.log = `${world.hud.log} The Melon cannon is picked again.`.trim();
+      }
+    }
   };
   /** Tutorial: the wave has started or the speed changed, so move past the speed lesson. */
   const guideSpeed = () => {
@@ -5624,7 +5634,11 @@ export function createWorld(
         notify();
         return;
       }
-      if (path) return;
+      if (path) {
+        world.hud.log = "That's the carpet: the fruit walk there. Build on the floor beside it.";
+        notify();
+        return;
+      }
       if (verge) {
         world.hud.log = VERGE_NOTE;
         notify();
@@ -6385,6 +6399,8 @@ export function createWorld(
     },
     backToSetup() {
       if (world.hud.phase !== "poster") return;
+      // Setup stays locked until the guided first night is done: back goes to the title instead.
+      if (world.hud.guide != null && !world.hud.guideDone) return api.toTitle();
       resetRunState();
       world.hud.phase = "select";
       world.hud.setupPage = world.hud.hero ? "night" : "who";

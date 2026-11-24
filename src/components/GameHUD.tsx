@@ -368,6 +368,7 @@ export function BuildFooter({
               <button
                 key={id}
                 type="button"
+                aria-pressed={on}
                 title={
                   goal
                     ? `${TOWERS[id].name}: locked. ${goal} ${TOWERS[id].blurb}`

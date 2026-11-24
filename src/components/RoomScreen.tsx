@@ -38,6 +38,7 @@ export function RoomScreen({
   action,
   onAction,
   onBack,
+  backLabel = "Back to setup",
   armours,
 }: {
   map: MapId;
@@ -47,6 +48,8 @@ export function RoomScreen({
   action: string;
   onAction: () => void;
   onBack: () => void;
+  /** The guided first night has no Setup to go back to, so its poster says "Back to title". */
+  backLabel?: string;
   armours?: { isOpen: (armour: ArmourId) => boolean; onWear: (armour: ArmourId) => void };
 }) {
   if (armours)
@@ -72,7 +75,7 @@ export function RoomScreen({
           className="mt-3 block w-full text-sm text-muted underline-offset-4 hover:text-parchment hover:underline"
           onClick={onBack}
         >
-          Back to setup
+          {backLabel}
         </button>
       </div>
     </div>
