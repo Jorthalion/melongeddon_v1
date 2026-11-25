@@ -885,7 +885,15 @@ function TowerInspector({
 }) {
   const hud = api.world.hud;
   const tower = api.world.towers.find((t) => t.id === hud.selected);
+  // Sell has no undo, so a tap arms it and a second tap sells. It disarms after a few seconds.
+  const [sellArmed, setSellArmed] = useState<unknown>(null);
+  useEffect(() => {
+    if (sellArmed == null) return;
+    const t = window.setTimeout(() => setSellArmed(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [sellArmed]);
   if (!tower) return null;
+  const armed = sellArmed === tower.id;
   const read = api.statsOf(tower.id) ?? towerReadout(hud.hero, tower.kind, tower.mods, hud.upgrades);
   const canFit = fittingsFor(tower.kind).length > 0;
   const aims = api.targetOf(tower.id) != null;
@@ -1002,14 +1010,16 @@ function TowerInspector({
         ) : null}
         <button
           type="button"
-          title="Sell (S)"
-          className="h-9 rounded-lg border border-flesh px-3 text-sm text-flesh"
+          title={armed ? "Tap again to sell: there's no undo" : "Sell (S)"}
+          className={`h-9 rounded-lg border border-flesh px-3 text-sm ${armed ? "bg-flesh font-semibold text-ink" : "text-flesh"}`}
           onClick={() => {
             onGesture();
+            if (!armed) return setSellArmed(tower.id);
+            setSellArmed(null);
             api.sellSelected();
           }}
         >
-          Sell {refundFor(tower.kind, tower.paid) + (tower.bank ?? 0)}
+          {armed ? "Sure? Sell" : "Sell"} {refundFor(tower.kind, tower.paid) + (tower.bank ?? 0)}
         </button>
       </div>
       <button

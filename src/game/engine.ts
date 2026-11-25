@@ -1395,6 +1395,8 @@ export function createWorld(
   let absurdDrops = 0;
   /** Has a Still been built this night? (The Unstoppered's unlock.) */
   let stillBuilt = false;
+  /** The card picked before the current one: a one-at-a-time tower hands the pick back to it once placed. */
+  let prevPick: TowerKind = "melon";
   /**
    * This night's damage and pops for each tower, by id. `credit` is the tower acting right now: its
    * shots, throws, puddles and burrows carry its id, and set it again when they hit later.
@@ -2592,6 +2594,9 @@ export function createWorld(
   /** A keeper tower can be built only by its keeper, and only one of each at a time. */
   /** A room tower (the Sump Pump) can only be built on its own map. */
   const roomLocked = (kind: TowerKind) => ROOM_TOWER_KINDS.includes(kind) && !(ROOM_TOWERS[world.hud.map] ?? []).includes(kind);
+  /** A card the next floor tap could build (no lock, not spent): somewhere to hand the pick back to. */
+  const pickable = (kind: TowerKind) =>
+    !signatureBlocked(kind) && !levelLocked(kind) && !heavyLocked(kind) && !vaelLocked(kind) && !goalLocked(kind);
   const signatureBlocked = (kind: TowerKind) =>
     roomLocked(kind) ||
     (kind === "geese" && world.hud.geeseSpent) ||
@@ -6041,6 +6046,15 @@ export function createWorld(
       // (Tap a built tower to open its stats.)
       world.hud.selected = null;
       world.hud.log = `${TOWERS[buildKind].name} set.`;
+      // A one-at-a-time tower can't be placed again, so the pick goes back to the card before it
+      // (else every later tap on the floor would only say "Only one … at a time").
+      if (signatureBlocked(buildKind)) {
+        const back = prevPick !== buildKind && pickable(prevPick) ? prevPick : "melon";
+        if (back !== buildKind) {
+          world.hud.build = back;
+          world.hud.log += ` The ${TOWERS[back].name} is picked again.`;
+        }
+      }
       // Vaelithra: a tower that tips her ladder says so after the usual line.
       syncVael();
       syncGuide();
@@ -6406,6 +6420,7 @@ export function createWorld(
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       if (isSignature(kind) && !own(kind)) return;
       if (roomLocked(kind)) return;
+      if (kind !== world.hud.build) prevPick = world.hud.build;
       world.hud.build = kind;
       world.hud.log = vaelLocked(kind) ? vaelLockText(kind) : TOWERS[kind].blurb;
       syncPrice();

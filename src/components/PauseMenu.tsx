@@ -82,7 +82,8 @@ export function PauseMenu({
             <div className="mt-3">
               <SettingsPanel api={api} muted={muted} music={music} onMute={onMute} onMusic={onMusic} onGesture={onGesture} />
             </div>
-            <div className="mt-4">
+            {/* Pinned to the bottom of the scrolling panel, so the way out is in view on a short screen. */}
+            <div className="sticky -bottom-5 -mx-4 mt-4 -mb-5 border-t border-[#d7b56a]/25 bg-[#100c0e] px-4 pt-3 pb-5">
               <MenuButton onClick={() => { onGesture(); api.menuSettings(false); }}>Back</MenuButton>
             </div>
           </>

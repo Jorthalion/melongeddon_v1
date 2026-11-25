@@ -770,6 +770,7 @@ async function guidedNight() {
       });
       // Way out, like a frustrated player.
       await press(/^Skip$/, "Gave up and pressed Skip on the lesson.", { quietIfMissing: true });
+      await press(/^Skip the guide$/, "Said yes, skip the guide.", { quietIfMissing: true });
       break;
     }
     // Curious: wander off for a moment before doing what she says (never on the upgrade pick).
@@ -1016,7 +1017,13 @@ async function pokeTower() {
     // The classic slip: Sell instead of Upgrade.
     const seeds = card.seeds ?? 0;
     await press(new RegExp(`^${escapeRe(sell.name)}$`), `Curious (or a slip): pressed "${sell.name}" on my ${t.kind}.`);
-    const after = await look();
+    let after = await look();
+    const asked = after.buttons.find((b) => /^Sure\? Sell \d/.test(b.name));
+    if (asked) {
+      // It asks once; a curious player says yes to see what happens.
+      await press(new RegExp(`^${escapeRe(asked.name)}$`), `Sell asked once; pressed "${asked.name}".`);
+      after = await look();
+    }
     const back = (after.seeds ?? 0) - seeds;
     builtAt.splice(builtAt.indexOf(t), 1);
     noted(before.screen, `sold my ${t.kind}`, back > 0 ? `got ${back} seeds back${after.log !== card.log ? `, log: "${after.log}"` : ""}` : "seeds didn't go up");
@@ -1024,7 +1031,7 @@ async function pokeTower() {
       await friction({ severity: "major", screen: before.screen, title: "Selling a tower gave nothing back", tried: `Pressed "${sell.name}".`, expected: "The seeds it says.", saw: `Seeds ${seeds} → ${after.seeds}.` });
     if (!pokesDone.has("sell-note")) {
       pokesDone.add("sell-note");
-      if (!after.buttons.some((b) => /^Undo/i.test(b.name)))
+      if (!asked && !after.buttons.some((b) => /^Undo/i.test(b.name)))
         await friction(
           {
             severity: "note",
@@ -1273,9 +1280,19 @@ async function pokeSkip() {
   if (skippedGuide || !seen.mynxi || seen.mynxi.lesson === "tip") return false;
   skippedGuide = true;
   await press(/^Skip$/, `Slip: tapped Skip on lesson "${seen.mynxi.title}".`);
-  const after = await look();
+  let after = await look();
+  const asked = after.buttons.some((b) => /^Keep the lessons$/.test(b.name));
+  if (asked) {
+    // It asked first: the slip is caught, so keep the lessons.
+    await press(/^Keep the lessons$/, "It asked first; kept the lessons.");
+    after = await look();
+  }
   const gone = !after.mynxi || after.mynxi.lesson === "tip";
-  noted(seen.screen, `tapped Skip on "${seen.mynxi.title}"`, gone ? "the whole guide ended at once" : "a confirmation or the next lesson");
+  noted(
+    seen.screen,
+    `tapped Skip on "${seen.mynxi.title}"`,
+    asked ? (gone ? "it asked first, but the lessons were gone after Keep" : "it asked first; I kept the lessons") : gone ? "the whole guide ended at once" : "the next lesson",
+  );
   if (gone)
     await friction({
       severity: "minor",
