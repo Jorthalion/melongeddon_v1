@@ -17,6 +17,7 @@ export const ROOM_JOKE: Partial<Record<MapId, string>> = {
   halldoors: "Three ways out of the hall, and the fruit want all of them.",
   compact: "The shelves roll. The carpet follows. The bookworms jam the works.",
   basement: "Fix the burst pipe. Well, mostly.",
+  loop: "Round the courtyard twice. The quick ones cut across the grass.",
   belltower: "The clock strikes on the hour. The hour is whenever it likes.",
   overflow: "The chute is open. The returns have opinions.",
   courtyard: "The geese want the courtyard. The cats want the geese out of it.",

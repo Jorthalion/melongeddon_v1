@@ -117,7 +117,7 @@ test("every board stays inside its own size and keeps fixed spots off the carpet
 });
 
 test("big maps are bigger, and whole-board range still covers them", () => {
-  // Test rooms (dev only) can't be opened from a saved setup; tests/test-rooms.test.ts covers them.
+  // Test rooms (dev only) can't be opened from a saved setup.
   const big = Object.values(BOARDS).filter((b) => (b.cols ?? COLS) > COLS && !TEST_MAPS.includes(b.id));
   assert.ok(big.length >= 2);
   for (const b of big) {

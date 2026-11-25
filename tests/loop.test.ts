@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_UNLOCKED, BOARDS, CELL, EMPTY_META, LOOP, PICKABLE_MAPS, STATS, TEST_MAPS, boardSize, buildRoutes, createWorld, shelfCells, stepWorld, takesShortcut } from "../src/game/engine.ts";
+import { ALL_UNLOCKED, BOARDS, CELL, EMPTY_META, LOOP, PICKABLE_MAPS, STATS, TEST_MAPS, boardSize, buildRoutes, createWorld, openMaps, roomFor, shelfCells, stepWorld, takesShortcut } from "../src/game/engine.ts";
 
 const centre = (c: number, r: number) => ({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2 });
 const tiles = (points: Array<{ x: number; y: number }>) => {
@@ -9,7 +9,7 @@ const tiles = (points: Array<{ x: number; y: number }>) => {
   return d / CELL;
 };
 
-/** A night on the Loop (the simulator's way in: everything open), at prep with plenty of stacks. */
+/** A night on the Cloister (the simulator's way in: everything open), at prep with plenty of stacks. */
 function start() {
   const api = createWorld(() => {}, { meta: ALL_UNLOCKED, allTricks: true });
   api.openSetup();
@@ -41,14 +41,22 @@ function atJunction(api: Api, e: Fruit) {
   for (let i = 0; i < 30 && e.wp <= from; i++) stepWorld(api.world, 1 / 60);
 }
 
-test("the Loop is a dev-only test room, 22 x 14, out of the game", () => {
-  assert.ok(TEST_MAPS.includes("loop"));
-  assert.ok(!PICKABLE_MAPS.includes("loop"));
+test("the Cloister is a room of its own: 22 x 14, opened by restoring it in the Grand Catalogue", () => {
+  assert.equal(BOARDS.loop.name, "The Cloister");
+  assert.ok(PICKABLE_MAPS.includes("loop"));
+  assert.ok(!TEST_MAPS.includes("loop"), "not a test room any more");
   assert.deepEqual(Object.values(boardSize("loop")).slice(0, 2), [22, 14]);
-  const player = createWorld(() => {}, { meta: EMPTY_META });
-  player.openSetup();
-  player.chooseMap("loop");
-  assert.notEqual(player.world.hud.map, "loop", "a player can't pick it");
+  assert.equal(roomFor("map", "loop")?.id, "loop");
+  assert.ok(openMaps(["stacks", "loop"]).includes("loop"));
+  assert.ok(!openMaps(["stacks"]).includes("loop"));
+  const locked = createWorld(() => {}, { meta: EMPTY_META, rooms: ["stacks"] as never });
+  locked.openSetup();
+  locked.chooseMap("loop");
+  assert.notEqual(locked.world.hud.map, "loop", "locked until the room is restored");
+  const open = createWorld(() => {}, { meta: EMPTY_META, rooms: ["stacks", "loop"] as never });
+  open.openSetup();
+  open.chooseMap("loop");
+  assert.equal(open.world.hud.map, "loop");
 });
 
 test("two routes: the whole carpet (two laps) and the shortcut after one lap, sharing every point to the junction", () => {

@@ -323,6 +323,8 @@ The Hall of Doors, the Compact Stacks and the Flooded Basement each have a resto
 | `cat-room-compact-ruined.png` | The same storeroom **seized up**: shelf units jammed crooked off their rusted tracks, a crank wheel snapped off on the floor, boxes spilled, **pale silk cocoons of shredded pages** in the corners, cobwebs between the shelves. |
 | `cat-room-basement.png` | A **library cellar**, dry and mended: stone flagstones and wooden pallets stacked with crates of books, an iron pipe along the wall **with a neat new brass patch and a little drip**, a painted water gauge on the wall at its lowest mark, a hand pump in the corner, candles on the crates. |
 | `cat-room-basement-ruined.png` | The same cellar **flooded**: dark water knee-deep over the flagstones, the **burst pipe spraying** from the wall, crates and books floating, the water gauge half under water, ripples catching the cold light. |
+| `cat-room-loop.png` | A **library cloister**: a square covered walkway of stone arches round a small sunlit **grass courtyard**, a worn red carpet runner laid along the walk, bookcases set into the inner wall between the arches, a stone path straight across the grass to a far door. Swept and tidy, warm afternoon light. |
+| `cat-room-loop-ruined.png` | The same cloister **overgrown**: dead leaves drifted along the walk, the carpet runner rolled up and mouldy, ivy over the arches, the courtyard grass knee-high and a **trampled shortcut** worn straight across it, books left out in the rain. Grey light. |
 
 ### 2a4. The Mezzanine's ruined painting (done: `cat-room-mezzanine-ruined.webp`)
 

@@ -145,6 +145,7 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "halldoors" },
   { night: "midnight", map: "compact" },
   { night: "midnight", map: "basement" },
+  { night: "midnight", map: "loop" },
   { night: "overflow", map: "overflow" },
   { night: "siege", map: "courtyard" },
   // Test rooms and rooms' layout B run only when asked for by name: --only archiveB,mezzanineB.

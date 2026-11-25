@@ -1685,7 +1685,7 @@ export type MapId =
   // Layout B of the Archive and the Mezzanine: bigger versions, picked on the room's own Setup card.
   | "archiveB"
   | "mezzanineB"
-  // A test room (dev only): the Circulation Desk, where the carpet runs round a ring twice.
+  // The Cloister: the carpet runs round a ring twice.
   | "loop";
 
 /** A board with more than one way in: each door's carpet runs to where it joins the board's own carpet (the trunk). */
@@ -1715,7 +1715,7 @@ export interface Exit {
   bossOnly?: boolean;
 }
 export const EXIT_NAME: Record<ExitId, string> = { reading: "Reading Room", kitchens: "Kitchens", restricted: "Restricted Section" };
-/** The Loop (the Circulation Desk): a fruit this fast (base speed) takes the shortcut after the first lap. */
+/** The Loop (the Cloister): a fruit this fast (base speed) takes the shortcut after the first lap. */
 export const LOOP = { fastSpeed: 60 };
 /** Whether a fruit at the end of the Loop's first lap cuts across: fast or never hit, and never a boss. */
 export function takesShortcut(e: { kind: EnemyKind; hp: number; maxHp: number; boss?: boolean }) {
@@ -2249,13 +2249,13 @@ export const BOARDS: Record<MapId, Board> = {
       [21, 9], [21, 10], [21, 11], [0, 5], [0, 6], [0, 7], [9, 6], [10, 6],
     ],
   },
-  // The Circulation Desk (a test room, dev only): in from the west, round the ring twice (clockwise), then across
+  // The Cloister: in from the west, round the ring twice (clockwise), then across
   // the middle and out of the east door. After the first lap, fast fruit and fruit nobody has hit yet cut straight
   // across instead (Board.shortcut), so the second lap only counts if every fruit is touched on the first.
   loop: {
     id: "loop",
-    name: "The Circulation Desk",
-    blurb: "Test room. The carpet runs round the ring twice. Fast fruit, and any fruit nobody has hit yet, cut across after one lap.",
+    name: "The Cloister",
+    blurb: "The carpet runs round the courtyard twice. Fast fruit, and any fruit nobody has hit yet, cut across after one lap.",
     look: "readingroom",
     cols: 22,
     rows: 14,

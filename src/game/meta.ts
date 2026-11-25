@@ -144,20 +144,21 @@ export const MAP_GOALS: Partial<Record<MapId, { goal: string }>> = {
   halldoors: { goal: restoreText("map", "halldoors") },
   compact: { goal: restoreText("map", "compact") },
   basement: { goal: restoreText("map", "basement") },
+  loop: { goal: restoreText("map", "loop") },
   greenhouse: { goal: restoreText("map", "greenhouse") },
   belltower: { goal: restoreText("map", "belltower") },
 };
 
 /** Maps the player can pick on the setup screen (the Overflow is night two's, never picked). */
-export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom", "sorting", "rotunda", "halldoors", "compact", "basement", "greenhouse", "belltower"];
+export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom", "sorting", "rotunda", "halldoors", "compact", "basement", "loop", "greenhouse", "belltower"];
 
 
 /**
  * Test rooms: boards playable only in developer mode (Setup shows them in their own row) and in the simulator when
  * named (`--only <id>`), until they're confirmed. Empty for now: the bigger Archive and Mezzanine became their rooms'
- * layout B (`Board.variantOf`).
+ * layout B (`Board.variantOf`), and the Loop became the Cloister.
  */
-export const TEST_MAPS: MapId[] = ["loop"];
+export const TEST_MAPS: MapId[] = [];
 
 /** Maps the restored rooms have opened. */
 export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {
