@@ -90,3 +90,10 @@ test("--ban keeps a shelf upgrade and a back-room fitting out of the human bot's
   assert.ok(!after.upgrades.includes(up), `${up} was banned but taken`);
   assert.ok(!(after.fitted ?? []).some((f) => f.endsWith(`:${fit}`)), `${fit} was banned but bought`);
 });
+
+test("Overflow late slips reach the sim's games: Short Shelf starts four stacks down", () => {
+  const base = { hero: "elf", difficulty: "normal", strategy: "human", night: "overflow", map: "overflow", seed: 1, picks: "random" } as const;
+  const plain = simulateRun({ ...base });
+  const short = simulateRun({ ...base, slips: ["short"] });
+  assert.equal(short.maxLives, plain.maxLives - 4);
+});
