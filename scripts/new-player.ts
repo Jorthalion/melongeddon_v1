@@ -13,6 +13,13 @@
  * hovers fruit, looks in the Back room, tries to build what it can't afford, may hit Skip by mistake),
  * --curiosity 0..1 (how often it wanders off, default 0.4).
  *
+ * Testing one game mode: --mode <name> finds a button, tab or choice by that name (on the title, then on
+ * each Setup page), picks it and plays it for --mode-waves <n> waves (default --waves), instead of the
+ * plain Setup tour. --skip-guide skips the guided first night (from the title link) to get there fast;
+ * --dev turns on Developer mode in Settings first, so a mode that is still locked can be opened;
+ * --keeper <name> picks that keeper on Setup (default: the first open one).
+ *   npm run sim:newplayer -- --url http://localhost:5293/ --skip-guide --mode Acquisitions --mode-waves 8
+ *
  * Fresh profile: every run launches a new browser context, so storage starts empty and developer
  * mode is off. The context is thrown away at the end; the user's own browser save is never touched.
  *
@@ -44,6 +51,13 @@ const HEADED = arg("headed") != null;
 const STYLE = arg("style") === "careful" ? "careful" : "curious";
 /** How often the curious learner wanders off (0..1, default 0.4). */
 const CURIOSITY = Math.max(0, Math.min(1, Number(arg("curiosity") ?? 0.4)));
+/** A game mode to find and play after the first night (by its name on screen), or none. */
+const MODE = arg("mode");
+const MODE_WAVES = Number(arg("mode-waves") ?? arg("waves") ?? 4);
+const SKIP_GUIDE = arg("skip-guide") != null;
+const DEV = arg("dev") != null;
+/** The keeper to pick on Setup when testing a mode (default: the first open one). */
+const KEEPER = arg("keeper");
 /** How likely a wander during the lessons is a slip onto Skip (relative weight; most runs keep the guide). */
 const SKIP_WEIGHT = 0.3;
 let seed = Number(arg("seed") ?? 1) >>> 0;
@@ -1334,7 +1348,7 @@ async function curiousPoke(context: "guide" | "prep" | "combat") {
 }
 
 /** The rest of the first night: what a newcomer does once Mynxi lets go. */
-async function freePlay() {
+async function freePlay(maxWaves = WAVES) {
   const started = Date.now();
   let lastWave = 0;
   const guideBuilds = built.length;
@@ -1380,7 +1394,7 @@ async function freePlay() {
       continue;
     }
     if (seen.screen === "Board (between waves)") {
-      if (wave > WAVES) break;
+      if (wave > maxWaves) break;
       // Spend: build cannons while seeds last (a learner builds 1-2 per wave).
       for (let n = 0; n < 2; n++) {
         const now = await look();
@@ -1439,7 +1453,8 @@ async function freePlay() {
 }
 
 /** After the first night: back to the title and into the full Setup. */
-async function setupTour() {
+/** From wherever the night is, back to the title (Menu, Leave to title). False if it couldn't. */
+async function toTitle(): Promise<boolean> {
   let seen = await look();
   if (seen.screen !== "Title") {
     if (!(await press(/^Menu$/, "Opened the menu to leave the night.", { quietIfMissing: true })) && knownKeys.has("Esc")) await key("Esc", "open the menu");
@@ -1461,8 +1476,14 @@ async function setupTour() {
       expected: "The title screen.",
       saw: seen.buttons.map((b) => b.name).filter(Boolean).slice(0, 12).join(", "),
     });
-    return;
+    return false;
   }
+  return true;
+}
+
+async function setupTour() {
+  if (!(await toTitle())) return;
+  let seen = await look();
   await shot("title-after-first-night");
   const nn = seen.buttons.find((b) => /^New night/.test(b.name));
   if (!nn?.enabled) {
@@ -1526,6 +1547,174 @@ async function setupTour() {
   }
 }
 
+// ---------------------------------------------------------------- one game mode (--mode)
+
+/** What happened while finding and playing --mode, for the report. */
+const modeLog: string[] = [];
+
+/** Title, Settings, Developer mode on (it reloads the game), so every mode and room is open. */
+async function turnOnDev() {
+  await press(/^Settings$/, "Opened Settings to turn on Developer mode (--dev).");
+  const ok = await press(/^Developer mode: off$/, "Turned on Developer mode.", { quietIfMissing: true });
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: /^(Start|Continue)$/ }).waitFor({ timeout: 60_000 }).catch(() => {});
+  if ((await look()).screen !== "Title") await press(/^Back$/, "Closed Settings.", { quietIfMissing: true });
+  modeLog.push(ok ? "Developer mode on." : "Couldn't find Developer mode: off in Settings.");
+}
+
+/** Title: "Played before? Skip the guide" (--skip-guide). */
+async function skipGuideFromTitle() {
+  const ok = await press(/^Played before\? Skip the guide$/, "Skipped the guide from the title (--skip-guide).", { quietIfMissing: true });
+  modeLog.push(ok ? "Skipped the guided first night." : "No skip link on the title (the guide was already done?).");
+}
+
+/** A control named like the mode: a title button, a Setup tab or a night or room choice. Spaces optional. */
+const modeRe = () => new RegExp(MODE!.trim().split(/\s+/).map(escapeRe).join("\\s*"), "i");
+
+/** Find --mode on the title or a Setup page, pick it, and play it like a newcomer for --mode-waves waves. */
+async function playMode() {
+  const name = MODE!;
+  console.log(`Mode: ${name}`);
+  if (!(await toTitle())) return;
+  let seen = await look();
+  await shot("title-before-mode");
+  const re = modeRe();
+  let found = false;
+  const onTitle = seen.buttons.find((b) => re.test(b.name));
+  if (onTitle?.enabled) {
+    await press(new RegExp(`^${escapeRe(onTitle.name)}$`), `Pressed "${onTitle.name}" on the title to start ${name}.`);
+    found = true;
+    modeLog.push(`Found on the title: "${onTitle.name}".`);
+  } else {
+    if (onTitle) modeLog.push(`On the title but disabled: "${onTitle.name}"${onTitle.tip ? ` (hint: ${onTitle.tip})` : ""}.`);
+    const nn = seen.buttons.find((b) => /^New night/.test(b.name) && b.enabled);
+    if (!nn) {
+      await friction({
+        severity: "blocker",
+        screen: "Title",
+        title: `Couldn't start ${name}: no way in from the title`,
+        tried: `Looked for "${name}" and for New night.`,
+        expected: `A way to start ${name}.`,
+        saw: seen.buttons.map((b) => `${b.name}${b.enabled ? "" : " (disabled)"}`).join(", "),
+      });
+      return;
+    }
+    await press(/^New night$/, `Opened New night to look for ${name}.`);
+  }
+  // Through Setup to the board, picking the mode wherever it shows up.
+  let onBoard = false;
+  for (let depth = 0; depth < 8; depth++) {
+    seen = await look();
+    noticeTerms(seen);
+    if (/^Board/.test(seen.screen)) {
+      onBoard = true;
+      break;
+    }
+    await shot(`mode-setup-${depth}`);
+    if (seen.screen === "Room poster") {
+      await readScreen(seen, `the ${name} poster`);
+      // Each room words it its own way ("To the carpet", "Cover the chute"...): the one button that isn't Back or sound.
+      const go =
+        seen.buttons.find((b) => b.enabled && /^(To the carpet|Start|Begin|Play)/i.test(b.name)) ??
+        seen.buttons.find((b) => b.enabled && b.name && !/^(Mute|Unmute|Back|Menu|Grand Catalogue)/i.test(b.name));
+      if (!go) {
+        await friction({
+          severity: "major",
+          screen: seen.screen,
+          title: `No way onto the board from the poster (${name})`,
+          tried: "Looked for To the carpet or Start.",
+          expected: "One button that starts the night.",
+          saw: seen.buttons.map((b) => b.name).join(", "),
+        });
+        return;
+      }
+      await press(new RegExp(`^${escapeRe(go.name)}$`), `Pressed "${go.name}" on the poster.`);
+      continue;
+    }
+    if (!found) {
+      const pick = seen.buttons.find((b) => re.test(b.name));
+      if (pick && !pick.enabled) {
+        await friction({
+          severity: "major",
+          screen: seen.screen,
+          title: `${name} is locked`,
+          tried: `Tapped "${pick.name}".`,
+          expected: `${name} playable${DEV ? " in Developer mode" : ""}, or a line saying how to open it.`,
+          saw: pick.tip ? `Hint: "${pick.tip}"` : "No hint about how to open it.",
+        });
+        await press(new RegExp(`^${escapeRe(pick.name)}$`), `Tapped the locked "${pick.name}" to see what it says.`, { quietIfMissing: true });
+        modeLog.push(`Locked on ${seen.screen}: "${pick.name}". Try --dev.`);
+        return;
+      }
+      if (pick) {
+        await press(new RegExp(`^${escapeRe(pick.name)}$`), `Picked "${pick.name}" on ${seen.screen}.`);
+        found = true;
+        modeLog.push(`Found on ${seen.screen} (page ${depth + 1}): "${pick.name}".`);
+        const after = await look();
+        if (after.log) read(`${name}: what picking it says`, after.log);
+        if (/^Board/.test(after.screen)) continue;
+      }
+    }
+    const fwdRe = /^(Next|Continue|Choose|Play|Begin|To the)|→$/i;
+    let page_ = await look();
+    if (!page_.buttons.some((b) => b.enabled && fwdRe.test(b.name) && !/^Back/.test(b.name))) {
+      // Next is off until something is chosen ("Pick a keeper."): choose the asked-for keeper, or the first open choice.
+      const radios = page_.buttons.filter((b) => b.role === "radio" && b.enabled);
+      const want = KEEPER ? radios.find((b) => new RegExp(escapeRe(KEEPER), "i").test(b.name)) : undefined;
+      const choice = want ?? radios[0];
+      if (choice) {
+        await press(new RegExp(`^${escapeRe(choice.name)}$`), `Next was off, so picked "${choice.name}".`);
+        modeLog.push(`Picked "${choice.name}" on ${seen.screen} (Next needed a choice).`);
+        page_ = await look();
+      }
+    }
+    const fwd = page_.buttons.find((b) => b.enabled && fwdRe.test(b.name) && !/^Back/.test(b.name));
+    if (!fwd) {
+      await friction({
+        severity: "major",
+        screen: seen.screen,
+        title: `Stuck in setup on the way to ${name}`,
+        tried: "Looked for a button that moves on.",
+        expected: "One clearly primary button.",
+        saw: seen.buttons.filter((b) => b.enabled).map((b) => b.name).filter(Boolean).slice(0, 14).join(", "),
+      });
+      return;
+    }
+    if (!found && /^Begin/i.test(fwd.name)) {
+      await friction({
+        severity: "major",
+        screen: seen.screen,
+        title: `Couldn't find ${name} anywhere in setup`,
+        tried: `Looked for "${name}" on the title and every Setup page.`,
+        expected: `A button, tab or choice named ${name}.`,
+        saw: seen.buttons.map((b) => b.name).filter(Boolean).slice(0, 20).join(", "),
+      });
+      return;
+    }
+    await press(new RegExp(`^${escapeRe(fwd.name)}$`), `Pressed "${fwd.name}" to move on.`);
+  }
+  if (!onBoard) {
+    const now = await look();
+    await friction({
+      severity: "major",
+      screen: now.screen,
+      title: `Never reached the board in ${name}`,
+      tried: "Went through setup.",
+      expected: "The board.",
+      saw: now.buttons.map((b) => b.name).slice(0, 12).join(", "),
+    });
+    return;
+  }
+  const t0 = Date.now();
+  const lives0 = (await look()).lives;
+  await shot("mode-board");
+  console.log(`  playing ${name} for ${MODE_WAVES} waves`);
+  await freePlay(MODE_WAVES);
+  const end = await look();
+  await shot("mode-end");
+  modeLog.push(`Played ${Math.round((Date.now() - t0) / 1000)} s; ended on ${end.screen}; stacks ${lives0 ?? "?"} to ${end.lives ?? "?"}, seeds ${end.seeds ?? "?"}.`);
+}
+
 // ---------------------------------------------------------------- report
 
 function report(meta: Record<string, string>) {
@@ -1542,6 +1731,12 @@ function report(meta: Record<string, string>) {
   L.push("");
   L.push(`Keys the UI taught: ${[...knownKeys].sort().join(", ") || "none"}.`);
   L.push("");
+  if (MODE) {
+    L.push(`## Mode: ${MODE}`);
+    L.push("");
+    for (const m of modeLog) L.push(`- ${m}`);
+    L.push("");
+  }
   L.push("## Friction, worst first");
   L.push("");
   for (const [i, f] of sorted.entries()) {
@@ -1643,12 +1838,19 @@ async function main() {
 
     console.log("Title screen");
     await titleTour();
-    console.log("Guided first night");
-    await guidedNight();
-    console.log("Free play");
-    await freePlay();
-    console.log("Setup");
-    await setupTour();
+    if (DEV) await turnOnDev();
+    if (SKIP_GUIDE) await skipGuideFromTitle();
+    else {
+      console.log("Guided first night");
+      await guidedNight();
+      console.log("Free play");
+      await freePlay();
+    }
+    if (MODE) await playMode();
+    else {
+      console.log("Setup");
+      await setupTour();
+    }
   } catch (e) {
     await friction({
       severity: "blocker",
