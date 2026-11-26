@@ -24,6 +24,9 @@ import { drawBasement, drawBasementFloor, drawBasementFruit, drawSoaked } from "
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
 /** The picture for a Coming up chip: the enemy's own sprite (its look, as the board draws it). */
+/** Carry (TRICKS): the trail colour of a trick shot carrying fire, a puddle, frost or ink. */
+const CARRY_TRAIL = { fire: "255,140,50", wet: "90,170,120", cold: "190,228,245", ink: "60,40,110" } as const;
+
 export function enemySpriteSrc(g: { kind: string; pit?: boolean; borrower?: boolean; native?: string | null; siege?: string | null }): string {
   const src = SPRITE_SRC as Record<string, string>;
   const look =
@@ -1345,10 +1348,13 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     if (f.trail.length > 1) {
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      // Carry: a shot carrying something trails its colour (fire, puddle, frost, ink) instead of its own.
+      const carried = f.carry ? CARRY_TRAIL[f.carry] : null;
       for (let i = 1; i < f.trail.length; i++) {
         const a = i / f.trail.length;
-        ctx.strokeStyle =
-          f.kind === "plane"
+        ctx.strokeStyle = carried
+          ? `rgba(${carried},${0.75 * a})`
+          : f.kind === "plane"
             ? `rgba(246,239,226,${0.6 * a})`
             : f.kind === "quill"
               ? `rgba(40,58,120,${0.8 * a})`

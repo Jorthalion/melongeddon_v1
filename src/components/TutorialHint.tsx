@@ -118,18 +118,20 @@ export function TutorialHint({ api }: { api: ReturnType<typeof createWorld> }) {
 }
 
 export const CHUTE_TIP_KEY = "melongeddon:chute-tip";
-/** One-time combo tips: the first shatter, thermal shock, fruit with two afflictions, and contagion. */
+/** One-time combo tips: the first shatter, thermal shock, fruit with two afflictions, contagion, and a trick shot's carry. */
 export const COMBO_TIP_KEYS = {
   shatter: "melongeddon:combo-tip:shatter",
   thermal: "melongeddon:combo-tip:thermal",
   mixed: "melongeddon:combo-tip:mixed",
   contagion: "melongeddon:combo-tip:contagion",
+  carry: "melongeddon:combo-tip:carry",
 } as const;
 const COMBO_TIPS: Record<keyof typeof COMBO_TIP_KEYS, { title: string; body: string }> = {
   shatter: { title: "Frozen fruit shatter.", body: "Hit them with something that explodes: a fruit with two frost takes half again, and its ice flies into its neighbours." },
   thermal: { title: "Ice first, then fire.", body: "Fire on a frosted fruit thaws it with a burst. Freezing a burning fruit puts the fire out instead." },
   mixed: { title: "Damage over time adds up.", body: "Stings, poison and fire all stack on the same fruit. The little shapes under it show what it's carrying, and how many." },
   contagion: { title: "A fruit that dies loaded spreads it.", body: "With three of anything on it, it passes one of each to the fruit around it." },
+  carry: { title: "Trick shots carry things.", body: "A bookend, plane, quill or globe that passes through fire, a puddle, a frozen fruit or ink takes it along, and leaves it on every fruit it hits next. Watch its trail change colour." },
 };
 
 /** One-time tips the first time each combo happens. "Got it" hides it for good. */

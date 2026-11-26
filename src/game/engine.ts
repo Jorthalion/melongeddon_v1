@@ -10,7 +10,7 @@ import {
   assignExits, combineRoutes, EXIT_NAME, HALL, type Exit, type ExitId,
   pathFor, trackCells, type Bay, BASEMENT, deepWave, waterFor, underWater, heightTiles, type Height, ROOM_TOWERS, ROOM_TOWER_KINDS,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
-  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, hiveCrowd, fittingName, ballistaPierce,
+  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, TRICKS, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
   SIEGE, type SiegeVariant, DOCTOR, type DigFind,
 } from "./rules.ts";
@@ -127,6 +127,8 @@ interface Enemy {
   /** Ink Well mark: seconds left, and the damage multiplier while marked. */
   ink?: number;
   inkMul?: number;
+  /** Long Reader's Read through: seconds left taking TRICKS.readThrough× (Infinity: for good). */
+  readT?: number;
   /** Honeyed Heel: seconds left sticky (takes more damage from everything). */
   honeyed?: number;
   /** Objection!'s fine print: seconds left walking a little faster after being overruled. */
@@ -454,6 +456,9 @@ export interface Flyer {
   hits: Map<number, number>;
   /** Recent positions, for the curved trail. */
   trail: Array<{ x: number; y: number }>;
+  /** Carry (TRICKS): the last thing it passed through, left on every fruit it hits; a fire's burn per second. */
+  carry?: "fire" | "wet" | "cold" | "ink";
+  carryBurn?: number;
   /** The tower that threw it (for its damage count). */
   owner?: number;
 }
@@ -671,7 +676,7 @@ export interface Hud {
   dropWave: number[];
   /** The Siege: goose-and-cat fights tonight, and whether a paratrooper drop has started (for the one-time tips). */
   feuds: number;
-  /** Status combos seen tonight (for their one-time tips): "shatter", "thermal", "mixed", "contagion". */
+  /** Status combos seen tonight (for their one-time tips): "shatter", "thermal", "mixed", "contagion", "carry". */
   comboTips: string[];
   dropSeen: boolean;
   /** Quack-Liber speed-up reach in px for the run in play (perks can widen it), for drawing it. */
@@ -2109,6 +2114,16 @@ export function createWorld(
   const moveFlyer = (f: Flyer, dt: number) => {
     f.t += dt;
     credit = f.owner ?? null;
+    // Carry: it takes on the fire patch or puddle it is passing over (a globe only once it's rolling).
+    if (TRICKS.on && f.kind !== "sheet" && (f.kind !== "globe" || f.rolling)) {
+      for (const pool of world.pools) {
+        if (pool.crater || (f.x - pool.x) ** 2 + (f.y - pool.y) ** 2 > pool.r * pool.r) continue;
+        if (pool.hot) {
+          f.carry = "fire";
+          f.carryBurn = pool.burn;
+        } else f.carry = "wet";
+      }
+    }
     if (f.kind === "boomerang") {
       // An elliptical loop: out along the throw, curving to one side, and back home.
       const p = Math.min(1, f.t / f.dur);
@@ -2123,7 +2138,7 @@ export function createWorld(
         if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 12) ** 2) continue;
         if (f.hits.get(e.id) === pass) continue;
         f.hits.set(e.id, pass);
-        hurt(e, null, f.dmg);
+        trickHit(f, e);
         burst(e.x, e.y, "#d8b878", 4);
       }
     } else if (f.kind === "quill") {
@@ -2141,7 +2156,7 @@ export function createWorld(
         if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 11) ** 2) continue;
         if (f.hits.has(e.id)) continue;
         f.hits.set(e.id, 1);
-        hurt(e, null, f.dmg);
+        trickHit(f, e);
         burst(e.x, e.y, "#3b4f8f", 4);
       }
     } else if (f.kind === "sheet") {
@@ -2188,7 +2203,7 @@ export function createWorld(
           for (const e of world.enemies) {
             if (e.hp <= 0 || (e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + CANNON.globeThud) ** 2) continue;
             f.hits.set(e.id, 1);
-            hurt(e, null, f.dmg);
+            trickHit(f, e);
           }
         }
       } else {
@@ -2217,7 +2232,7 @@ export function createWorld(
           if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 14) ** 2) continue;
           if (f.hits.has(e.id)) continue;
           f.hits.set(e.id, 1);
-          hurt(e, null, f.dmg);
+          trickHit(f, e);
           burst(e.x, e.y, "#c9a46a", 5);
         }
       }
@@ -2251,7 +2266,7 @@ export function createWorld(
         if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 10) ** 2) continue;
         if ((f.hits.get(e.id) ?? -1) > now) continue;
         f.hits.set(e.id, now + CANNON.planeGap);
-        hurt(e, null, f.dmg);
+        trickHit(f, e);
         burst(e.x, e.y, "#f3e2c4", 4);
       }
     }
@@ -4311,6 +4326,8 @@ export function createWorld(
     // A Gargoyle Gourd has stone skin until the clock strikes.
     if (e.native === "gargoyle" && (world.bell?.quiet ?? 0) <= 0) amount *= NATIVES.gargoyleSkin;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
+    // Read through (Long Reader): it takes more from everything.
+    if (TRICKS.on && (e.readT ?? 0) > 0) amount *= TRICKS.readThrough;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
     // Rewind combo: a fruit the Instant Quackmission is walking back takes more from everything.
     if ((e.driven ?? 0) > 0 && world.hud.hero === "quack") amount *= CANNON.driverAmp;
@@ -4367,6 +4384,42 @@ export function createWorld(
       onDeath(e);
       deathVia = null;
     }
+  };
+
+  /**
+   * A trick shot's hit (TRICKS). The globe's counts as an explosion on a fruit with 2+ frost, so it shatters it.
+   * Then Carry: it leaves what it's carrying, and takes on frost from a frozen fruit or ink from an inked one.
+   */
+  const trickHit = (f: Flyer, e: Enemy) => {
+    const husk = e.guard === "husk";
+    const icy = !husk && (frozen(e) || (e.frost ?? 0) >= 2);
+    const inked = (e.ink ?? 0) > 0;
+    hurt(e, null, f.dmg, 0, TRICKS.on && COMBO.on && f.kind === "globe" && icy ? "splash" : "shot");
+    if (!TRICKS.on) return;
+    if (e.hp > 0 && f.carry) {
+      if (f.carry === "fire") {
+        // Ice, then fire: a carried flame on a frosted fruit thaws it with a burst, as a Fire cannon's would.
+        if (COMBO.on && !husk && frosted(e) && (e.doused ?? 0) <= 0) {
+          thaw(e);
+          hurt(e, null, f.dmg * COMBO.thermalBonus, 0, "shock");
+        }
+        if (e.hp > 0 && (e.doused ?? 0) <= 0) {
+          e.burnT = Math.max(e.burnT ?? 0, TRICKS.carryBurnTime);
+          e.burnDps = Math.max(e.burnDps ?? 0, f.carryBurn || 22);
+          e.burnBy = f.owner;
+          wake(e);
+        }
+      } else if (f.carry === "wet") {
+        if (!husk) e.chill = Math.max(e.chill, TRICKS.carryChill);
+      } else if (f.carry === "cold") addFrost(e, TRICKS.carryFrost);
+      else {
+        e.ink = Math.max(e.ink ?? 0, CANNON.inkTime);
+        e.inkMul = Math.max(e.inkMul ?? 1, CANNON.inkBonus);
+      }
+      comboSeen("carry");
+    }
+    if (icy) f.carry = "cold";
+    else if (inked) f.carry = "ink";
   };
 
   /** Seconds a shot lives: the trip at SHOT_SPEED plus a second for a moving target, and never under 1.6. */
@@ -5127,6 +5180,7 @@ export function createWorld(
       credit = dotBy ?? null;
       if (dot) hurt(e, null, dot * dt, 0, "pulp");
       if ((e.ink ?? 0) > 0) e.ink = (e.ink ?? 0) - dt;
+      if ((e.readT ?? 0) > 0 && e.readT !== Infinity) e.readT = (e.readT ?? 0) - dt;
       if ((e.honeyed ?? 0) > 0) e.honeyed = (e.honeyed ?? 0) - dt;
       if ((e.overruled ?? 0) > 0) e.overruled = (e.overruled ?? 0) - dt;
       if ((e.worm ?? 0) > 0) {
@@ -5663,6 +5717,10 @@ export function createWorld(
             target.inkMul = Math.max(target.inkMul ?? 1, CANNON.inkBonus);
           }
           hurt(target, null, stats.dmg);
+          if (TRICKS.on && target.hp > 0) {
+            if ((target.readT ?? 0) <= 0) float(target.x, target.y - 22, "read through", "#f3e2c4");
+            target.readT = target.boss ? Math.max(target.readT ?? 0, TRICKS.readBossTime) : Infinity;
+          }
           world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.22, max: 0.22, color: "243,226,196", width: 2 });
           burst(target.x, target.y, "#f3e2c4", 8);
         } else {

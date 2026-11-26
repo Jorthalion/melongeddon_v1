@@ -829,7 +829,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   reader: {
     name: "Long Reader",
-    blurb: "Sees the whole board. One huge, slow shot at the toughest thing on the carpet.",
+    blurb: "Sees the whole board. One huge, slow shot at the toughest thing on the carpet. What it hits is read through: it takes 20% more damage from everything for good (a boss: for 10 s).",
     cost: 95,
     role: "Sniper",
   },
@@ -901,7 +901,7 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   boomerang: {
     name: "Boomerang Bookend",
-    blurb: "Throws a bookend in a wide loop out to the lead fruit and back. Hits everything it passes, both ways.",
+    blurb: "Throws a bookend in a wide loop out to the lead fruit and back. Hits everything it passes, both ways It carries what it passes through: fire, a puddle, frost from a frozen fruit, or ink, onto everything it hits next.",
     cost: 70,
     role: "Loop",
   },
@@ -913,19 +913,19 @@ export const TOWERS: Record<TowerKind, { name: string; blurb: string; cost: numb
   },
   plane: {
     name: "Paper Plane",
-    blurb: "Launches a paper plane that swoops in wide arcs for a few seconds, cutting through fruit as it turns.",
+    blurb: "Launches a paper plane that swoops in wide arcs for a few seconds, cutting through fruit as it turns It carries what it passes through: fire, a puddle, frost from a frozen fruit, or ink, onto everything it hits next.",
     cost: 85,
     role: "Glide",
   },
   quill: {
     name: "Serpent Quill",
-    blurb: "Flicks an enchanted quill that writes a wavy line through the fruit: it snakes out and back across the carpet, hitting each fruit it crosses.",
+    blurb: "Flicks an enchanted quill that writes a wavy line through the fruit: it snakes out and back across the carpet, hitting each fruit it crosses It carries what it passes through: fire, a puddle, frost from a frozen fruit, or ink, onto everything it hits next.",
     cost: 75,
     role: "Wave",
   },
   globe: {
     name: "Rolling Globe",
-    blurb: "Lobs a library globe onto the carpet ahead of the lead fruit. It lands with a thud and rolls back toward the entrance, flattening everything in its way.",
+    blurb: "Lobs a library globe onto the carpet ahead of the lead fruit. It lands with a thud and rolls back toward the entrance, flattening everything in its way. It shatters frozen fruit, and carries fire, puddles, frost or ink onto what it hits next.",
     cost: 100,
     role: "Roll",
   },
@@ -4423,6 +4423,26 @@ export const COMBO = {
   flare: 1.5,
   /** Electrified Rounds: the spark reaches × as far to a fruit with frost. */
   sparkFrost: 2,
+};
+
+/**
+ * Trick shots, their own combos. `on: false` turns all three off (the simulator compares with and without).
+ * - Read through: a fruit the Long Reader hits takes `readThrough`× from everything for the rest of its life
+ *   (a boss: for `readBossTime` s).
+ * - Globe shatter: the Rolling Globe's thud and roll count as an explosion on a fruit with 2+ frost (see COMBO).
+ * - Carry: a bookend, plane, quill or globe takes on the last thing it passed through (a fire patch, a puddle, a
+ *   frozen fruit or an inked one) and leaves it on every fruit it hits for the rest of its flight.
+ */
+export const TRICKS = {
+  on: true,
+  readThrough: 1.2,
+  readBossTime: 10,
+  /** Fire: burning this long, at the patch's own burn. */
+  carryBurnTime: 2,
+  /** Puddle: slowed this long (like Barbed bolts' slow; husks shrug it off). */
+  carryChill: 1.5,
+  /** Frost: this many stacks (one, like Cold rind). */
+  carryFrost: 1,
 };
 
 /**
