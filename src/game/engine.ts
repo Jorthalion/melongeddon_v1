@@ -1,6 +1,6 @@
 import {
   CELL, BOARDS, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
-  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  BALANCE, softenSlow, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, DRAFT, draftStart, draftPool, drawTowers, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
@@ -479,6 +479,10 @@ export interface Hud {
   lockedTowers: TowerKind[];
   /** The Heavy tab opens at wave 6, or once you have held 200 seeds tonight. */
   heavyOpen: boolean;
+  /** Acquisitions: the towers in your lineup (only these can be built). Empty on every other night. */
+  drafted: TowerKind[];
+  /** Acquisitions: the tower cards on the draft in front of you (beside the upgrade cards in `offer`). */
+  draftOffer: TowerKind[];
   /**
    * Dr. Samodovol's shelves: the "Doctor's pick" on the current shelf, an extra real upgrade from
    * further along the shelves (two with Second Opinion). Empty for everyone else.
@@ -606,7 +610,7 @@ export interface SetupRecord {
 }
 
 const SETUP_KEY = "melongeddon-setup";
-const NIGHTS: NightId[] = ["midnight", "overflow", "siege", "endless"];
+const NIGHTS: NightId[] = ["midnight", "overflow", "siege", "endless", "draft"];
 
 export const DEFAULT_SETUP: SetupRecord = {
   night: "midnight",
@@ -799,6 +803,8 @@ export function createWorld(
   pointer: (x: number, y: number, kind: "move" | "down") => void;
   startWave: () => void;
   pickUpgrade: (id: UpgradeId) => void;
+  /** Acquisitions: take a tower card from the draft into the lineup. */
+  draftTower: (kind: TowerKind) => void;
   chooseHero: (hero: HeroId) => void;
   chooseMap: (map: MapId) => void;
   chooseBuild: (kind: TowerKind) => void;
@@ -953,6 +959,8 @@ export function createWorld(
       runLevel: 1,
       lockedTowers: [],
       heavyOpen: false,
+      drafted: [],
+      draftOffer: [],
       setupPage: "who",
       builtKinds: [],
       pickCards: [],
@@ -1087,6 +1095,28 @@ export function createWorld(
     world.hud.pickCards = picks.map((u) => u.id as UpgradeId);
     world.runLog.doctorOffered += picks.length;
     return [...real, ...picks];
+  };
+  /**
+   * Acquisitions: the upgrade cards on a draft. One drawn from the shelf the run is on, then the
+   * Doctor's pick for Dr. Samodovol. With no towers left to draft, the whole shelf.
+   */
+  const draftUpgrades = (step: 1 | 2 | 3): UpgradeDef[] => {
+    const shelf = buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds());
+    const towersLeft = draftPool(world.hud.hero, world.hud.drafted, draftOpts()).length > 0;
+    const want = towersLeft ? DRAFT.upgrades : DRAFT.size;
+    const pool = [...shelf];
+    const real: UpgradeDef[] = [];
+    while (real.length < want && pool.length) real.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    return withDoctorsPick(real, step);
+  };
+  const draftOpts = () => {
+    syncHeavy();
+    return { runLevel: world.hud.runLevel, lockedTowers: world.hud.lockedTowers, heavyOpen: world.hud.heavyOpen, allTricks: options.allTricks };
+  };
+  /** Acquisitions: the tower cards on a draft, topping the draft up to its size when upgrades run short. */
+  const draftTowers = (upgradeCards: number): TowerKind[] => {
+    const want = Math.max(DRAFT.towers, DRAFT.size - upgradeCards);
+    return drawTowers(draftPool(world.hud.hero, world.hud.drafted, draftOpts()), want);
   };
   /** Ooze Clues: leaks absorbed this wave (one a wave, more with perks). */
   let absorbed = 0;
@@ -1257,6 +1287,8 @@ export function createWorld(
   };
   /** A keeper tower whose unlock goal hasn't been met. */
   const goalLocked = (kind: TowerKind) => world.hud.lockedTowers.includes(kind);
+  /** Acquisitions: a tower that isn't in the lineup yet. */
+  const draftLocked = (kind: TowerKind) => world.hud.night === "draft" && !world.hud.drafted.includes(kind);
   /** The Reserve Desk has to sit right beside the carpet, so melons really do walk past it. */
   const offCarpet = (kind: TowerKind, c: number, r: number) =>
     kind === "pamphlet"
@@ -2359,6 +2391,8 @@ export function createWorld(
       fitted: {},
       workshop: null,
       heavyOpen: false,
+      drafted: [],
+      draftOffer: [],
       setupPage: "who",
       builtKinds: [],
       pickCards: [],
@@ -3145,12 +3179,29 @@ export function createWorld(
       notify();
       return;
     }
-    const step = cleared === 1 ? 1 : cleared === 2 ? 2 : 3;
-    const offer =
-      beat === "upgrade"
-        ? withDoctorsPick(buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds()), step)
-        : [];
-    if (beat === "upgrade" && offer.length) {
+    const draft = world.hud.night === "draft";
+    // Acquisitions counts shelves by upgrades taken, since towers share the draft.
+    const taken = world.hud.upgrades.length;
+    const step: 1 | 2 | 3 = draft ? (taken === 0 ? 1 : taken === 1 ? 2 : 3) : cleared === 1 ? 1 : cleared === 2 ? 2 : 3;
+    const offer = beat !== "upgrade" ? [] : draft ? draftUpgrades(step) : withDoctorsPick(buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds()), step);
+    if (draft && beat === "upgrade") {
+      world.hud.draftOffer = draftTowers(offer.length);
+      if (world.hud.draftOffer.length || offer.length) {
+        world.hud.offer = offer;
+        world.hud.phase = "upgrade";
+        world.hud.log =
+          cleared === nightLength("draft") - 1
+            ? "The last acquisition. Then the last wave."
+            : world.hud.draftOffer.length
+              ? "Acquisitions: a new tower for the lineup, or an upgrade."
+              : "Every tower is in the lineup. Upgrades only from here.";
+      } else {
+        world.hud.phase = "prep";
+        world.hud.blurb = upcoming.blurb;
+        world.hud.waveName = upcoming.name;
+        world.hud.log = `Wave ${cleared} cleared. The shelves are empty.`;
+      }
+    } else if (beat === "upgrade" && offer.length) {
       world.hud.offer = offer;
       world.hud.phase = "upgrade";
       if (world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "upgrade";
@@ -3988,6 +4039,11 @@ export function createWorld(
         notify();
         return;
       }
+      if (draftLocked(buildKind)) {
+        world.hud.log = `The ${TOWERS[buildKind].name} isn't in your lineup. Draft it between waves.`;
+        notify();
+        return;
+      }
       if (offCarpet(buildKind, c, r)) {
         world.hud.log =
           buildKind === "pamphlet"
@@ -4111,12 +4167,30 @@ export function createWorld(
       if (upgradeId === "seeds") world.hud.seeds += 55;
       syncPrice();
       world.hud.offer = [];
+      world.hud.draftOffer = [];
       world.hud.phase = "prep";
       const next = waveAt(cleared, world.hud.night);
       world.hud.blurb = next.blurb;
       world.hud.waveName = next.name;
       world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.`;
       if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
+      notify();
+    },
+    draftTower(kind: TowerKind) {
+      if (world.hud.phase !== "upgrade" || world.hud.checkout || world.hud.night !== "draft") return;
+      if (!world.hud.draftOffer.includes(kind)) return;
+      world.hud.drafted = [...world.hud.drafted, kind];
+      world.hud.draftOffer = [];
+      world.hud.offer = [];
+      world.hud.pickCards = [];
+      world.hud.phase = "prep";
+      world.hud.build = kind;
+      const next = waveAt(cleared, world.hud.night);
+      world.hud.blurb = next.blurb;
+      world.hud.waveName = next.name;
+      world.hud.log = `The ${TOWERS[kind].name} joins the lineup.`;
+      cue("build");
+      syncPrice();
       notify();
     },
     otherStraight() {
@@ -4221,6 +4295,9 @@ export function createWorld(
       world.hud.cardPicks = [];
       world.hud.checkout = false;
       world.hud.offer = [];
+      // Acquisitions: the lineup starts with the Melon cannon and the keeper's signature.
+      world.hud.drafted = world.hud.night === "draft" ? draftStart(hero) : [];
+      world.hud.draftOffer = [];
       world.hud.branch = null;
       world.hud.absurdity = 0;
       world.hud.selected = null;
@@ -4327,8 +4404,8 @@ export function createWorld(
         kind ??
         (picked && fittingsFor(picked.kind).length ? picked.kind : null) ??
         world.towers.find((t) => fittingsFor(t.kind).length)?.kind ??
-        (fittingsFor(world.hud.build).length ? world.hud.build : "melon");
-      world.hud.workshop = shown;
+        (fittingsFor(world.hud.build).length && !draftLocked(world.hud.build) ? world.hud.build : "melon");
+      world.hud.workshop = draftLocked(shown) ? "melon" : shown;
       notify();
     },
     shopKind(kind: TowerKind) {
@@ -4345,6 +4422,11 @@ export function createWorld(
       const mod = fittingsFor(kind).find((m) => m.id === modId);
       const owned = world.hud.fitted[kind] ?? [];
       if (!mod || owned.includes(modId)) return;
+      if (draftLocked(kind)) {
+        world.hud.log = `The ${TOWERS[kind].name} isn't in your lineup yet.`;
+        notify();
+        return;
+      }
       if (world.hud.phase !== "prep") {
         world.hud.log = "The back room only sells between waves.";
         notify();
@@ -4435,7 +4517,9 @@ export function createWorld(
         world.hud.log =
           night === "endless"
             ? `No last wave. Best so far: ${world.hud.endlessBest} waves.`
-            : "Choose who holds the stacks.";
+            : night === "draft"
+              ? "Acquisitions: start with the Melon cannon and your keeper's own tower. Draft the rest between waves."
+              : "Choose who holds the stacks.";
       }
       notify();
     },

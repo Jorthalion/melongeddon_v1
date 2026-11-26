@@ -1191,7 +1191,11 @@ export function floorPace(kind: FloorKind | undefined, back: boolean) {
   const fwd = kind === "belt" ? FLOOR.belt : kind === "up" ? FLOOR.up : kind === "down" ? FLOOR.down : 1;
   return back ? 1 / fwd : fwd;
 }
-export type NightId = "midnight" | "overflow" | "siege" | "endless";
+/**
+ * Nights. `draft` is Acquisitions, a separate mode: Midnight's 21 waves on any open room, but you
+ * start with only the Melon cannon and your keeper's signature tower and draft the rest between waves.
+ */
+export type NightId = "midnight" | "overflow" | "siege" | "endless" | "draft";
 
 export interface Board {
   id: MapId;
@@ -2450,10 +2454,59 @@ export function reachShape(kind: TowerKind, range: number): { mode: "carpet" | "
 /** Midnight has a third act: six more waves after Unchaperoned. */
 export const MIDNIGHT_WAVES = 21;
 
-/** Waves in a night: Midnight 21, the Overflow and the Siege 15, endless 0 (no last wave). */
+/** Waves in a night: Midnight and Acquisitions 21, the Overflow and the Siege 15, endless 0 (no last wave). */
 export function nightLength(night: NightId): number {
   if (night === "endless") return 0;
-  return night === "midnight" ? MIDNIGHT_WAVES : WAVE_COUNT;
+  return night === "midnight" || night === "draft" ? MIDNIGHT_WAVES : WAVE_COUNT;
+}
+
+// ---------- Acquisitions (the draft mode) ----------
+
+/** Acquisitions: tower cards and upgrade cards on each between-wave draft. */
+export const DRAFT = {
+  /** Tower cards on a draft while any are left to draw. */
+  towers: 2,
+  /** Upgrade cards beside them (keeper perks that add a book add to this). */
+  upgrades: 1,
+  /** Cards on a draft in all, filled from whichever kind is left. */
+  size: 3,
+} as const;
+
+/** The towers an Acquisitions run starts with: the Melon cannon and the keeper's signature. */
+export function draftStart(hero: HeroId | null): TowerKind[] {
+  const sig = hero ? SIGNATURE[hero] : null;
+  return sig && sig !== "melon" ? ["melon", sig] : ["melon"];
+}
+
+/**
+ * Towers that can still turn up on an Acquisitions draft: every shared tower and the keeper's own,
+ * minus the ones already drafted and the ones this keeper hasn't opened (trick cannons by level,
+ * keeper towers by their goal). Heavy cannons join once the Heavy tab would be open.
+ */
+export function draftPool(
+  hero: HeroId | null,
+  drafted: TowerKind[],
+  opts: { runLevel: number; lockedTowers: TowerKind[]; heavyOpen: boolean; allTricks?: boolean },
+): TowerKind[] {
+  const groups = groupsFor(hero);
+  const kinds = groups.flatMap((g) => g.kinds.map((k) => ({ k, heavy: g.id === "heavy" })));
+  return kinds
+    .filter(({ k, heavy }) => {
+      if (drafted.includes(k)) return false;
+      if (opts.allTricks) return true;
+      if ((TRICK_LEVEL[k] ?? 0) > opts.runLevel) return false;
+      if (opts.lockedTowers.includes(k)) return false;
+      return !heavy || opts.heavyOpen;
+    })
+    .map(({ k }) => k);
+}
+
+/** Draw up to `n` different towers from the pool (random order; `rand` is for tests). */
+export function drawTowers(pool: TowerKind[], n: number, rand: () => number = Math.random): TowerKind[] {
+  const left = [...pool];
+  const out: TowerKind[] = [];
+  while (out.length < n && left.length) out.push(left.splice(Math.floor(rand() * left.length), 1)[0]);
+  return out;
 }
 
 // ---------- endless ----------
@@ -2528,6 +2581,10 @@ export function hpScaleFor(night: NightId, cleared: number) {
 export type Beat = "upgrade" | "consequence" | "victory" | "prep";
 
 export function nextBeat(cleared: number, night: NightId = "midnight"): Beat {
+  if (night === "draft") {
+    // Acquisitions: a draft after every wave, and no finale card before the last one.
+    return cleared >= nightLength(night) ? "victory" : "upgrade";
+  }
   if (night === "endless") {
     // No story and no last wave: a pick after waves 1, 2 and 6, then every fifth wave.
     if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";

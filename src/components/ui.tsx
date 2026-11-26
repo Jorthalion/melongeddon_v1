@@ -10,7 +10,7 @@ export interface ScreenProps {
   onGesture: () => void;
 }
 
-export const NIGHT_LABEL: Record<Hud["night"], string> = { midnight: "Midnight", overflow: "The Overflow", siege: "The Siege", endless: "Endless" };
+export const NIGHT_LABEL: Record<Hud["night"], string> = { midnight: "Midnight", overflow: "The Overflow", siege: "The Siege", endless: "Endless", draft: "Acquisitions" };
 /** One line for the Title's Continue: night, map, keeper, difficulty, bookmark. */
 export function setupSummary(hud: Hud) {
   const level = DIFFICULTIES.find((d) => d.id === hud.difficulty)?.name ?? "";

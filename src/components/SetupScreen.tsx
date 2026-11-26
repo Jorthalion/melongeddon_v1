@@ -231,6 +231,8 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
                     ? "Night three. No fruit: geese and cats, and they hate each other."
                   : hud.night === "endless"
                     ? `No last wave. Your best: ${hud.endlessBest} wave${hud.endlessBest === 1 ? "" : "s"}.`
+                  : hud.night === "draft"
+                    ? "Acquisitions: 21 waves with the Melon cannon and your keeper's own tower. After every wave, draft a new tower or an upgrade."
                     : "Pick the room. The carpet does not care."}
               </p>
             </div>
@@ -257,13 +259,14 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
           {/* Night */}
           <div className="mt-4 sm:mt-5">
             <p className={label}>Night</p>
-            <div className="mt-1.5 grid grid-cols-4 overflow-hidden rounded-lg border border-line/70 sm:max-w-xl" role="radiogroup" aria-label="Night">
+            <div className="mt-1.5 grid grid-cols-3 overflow-hidden rounded-lg border border-line/70 sm:max-w-2xl sm:grid-cols-5" role="radiogroup" aria-label="Night">
               {(
                 [
                   ["midnight", "Midnight"],
                   ["overflow", "The Overflow"],
                   ["siege", "The Siege"],
                   ["endless", "Endless"],
+                  ["draft", "Acquisitions"],
                 ] as const
               ).map(([id, text]) => {
                 const on = hud.night === id;

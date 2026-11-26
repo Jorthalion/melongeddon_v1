@@ -43,7 +43,8 @@ export function BackRoomTab({ api, onGesture }: ScreenProps) {
 
   // The same tabs as the build bar (Damage, Control, Support, Trick, Heavy), each folding open to
   // its kinds that take upgrades. Keeper towers have none, so their tab isn't here.
-  const has = (k: TowerKind) => fittingsFor(k).length > 0 && (TRICK_LEVEL[k] ?? 0) <= hud.runLevel;
+  const has = (k: TowerKind) =>
+    fittingsFor(k).length > 0 && (TRICK_LEVEL[k] ?? 0) <= hud.runLevel && (hud.night !== "draft" || hud.drafted.includes(k));
   const tabs = groupsFor(hud.hero)
     .map((g) => ({ ...g, kinds: g.kinds.filter(has) }))
     .filter((g) => g.kinds.length > 0);
