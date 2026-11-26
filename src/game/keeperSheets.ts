@@ -39,7 +39,7 @@ export const KEEPER_SHEETS: Record<
     difficulty: "Medium",
     rules: [
       "Before each night he chooses his armour: more stacks, a fuller Hoard, fiercer Great towers, or a Roost that starts hatched.",
-      "The Dragon's Hoard: a quarter of what he spends on ordinary towers is saved, and pays first for his big things.",
+      "The Dragon's Hoard: a fifth of what he spends on ordinary towers is saved, and pays first for his big things.",
       "Two of the same tower side by side can merge into one Great tower: two and a half times the damage, farther reach.",
       "The Dragon's Roost (200) grows from an egg into a Great Dragon over the night; the Dragon Gate (300) holds the carpet. Waves with no stack lost put him In the Zone.",
     ],

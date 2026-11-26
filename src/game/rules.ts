@@ -3548,7 +3548,7 @@ export function armourFrom(v: unknown): ArmourId | null {
  *   up to `zoneCap`. A lost stack resets it.
  */
 export const DRAGON = {
-  hoardShare: 0.25,
+  hoardShare: 0.2,
   greatDmg: 2.5,
   greatRange: 1.25,
   greatCost: 0.6,
@@ -3570,7 +3570,7 @@ export const ARMOUR_VALUES = {
   azureSeeds: 10,
   /** Dragonscale Mail: the Hoard starts full and takes a bigger share; two stacks down. */
   scaleHoard: 60,
-  scaleShare: 0.3,
+  scaleShare: 0.25,
   scaleLives: 2,
   /** Emberforged Armour: Great towers and the Roost hit harder and leave blue fire; merging costs more. */
   emberDmg: 1.2,
