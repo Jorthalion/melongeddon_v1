@@ -636,6 +636,13 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.globalAlpha = 1;
   }
 
+  // Serpent Quill's Written line: fading ink dots.
+  for (const w of world.writing ?? []) {
+    ctx.fillStyle = `rgba(59,79,143,${0.5 * Math.min(1, w.life)})`;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
   for (const pool of world.pools) {
     const a = Math.max(0, pool.life / pool.max);
     if (pool.crater) {

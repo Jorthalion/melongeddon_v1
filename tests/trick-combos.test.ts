@@ -131,3 +131,47 @@ test("Carry: a quill that hits an inked fruit inks the fruit after it", () => {
     assert.ok(spread, "the quill carried the ink to another fruit");
   });
 });
+
+test("Written: the quill's line stays on the carpet and marks fruit crossing it (tricks off: no line)", () => {
+  for (const on of [true, false]) {
+    withTricks(on, () => {
+      const { api } = withTower("quill");
+      run(api, 25, () => tough(api), () => api.world.enemies.some((e) => (e.writT ?? 0) > 0));
+      const marked = api.world.enemies.filter((e) => (e.writT ?? 0) > 0);
+      if (on) {
+        assert.ok(api.world.writing.length > 0, "the line is on the carpet");
+        assert.ok(marked.length, "a fruit crossing it is written");
+      } else {
+        assert.equal(api.world.writing.length, 0);
+        assert.equal(marked.length, 0);
+      }
+    });
+  }
+});
+
+test("Dizzy: a fruit the globe flattens is knocked back along the carpet (tricks off: it isn't)", () => {
+  const backs = (on: boolean) =>
+    withTricks(on, () => {
+      const { api } = withTower("globe");
+      // Track how far each fruit has walked; a knock-back shows as walking backwards between two steps.
+      let knocked = 0;
+      const prog = new Map<number, number>();
+      run(
+        api,
+        25,
+        () => {
+          tough(api);
+          for (const e of api.world.enemies) {
+            const was = prog.get(e.id);
+            const now = e.wp * 1e4 - Math.hypot(e.x - api.world.points[Math.min(e.wp, api.world.points.length - 1)].x, e.y - api.world.points[Math.min(e.wp, api.world.points.length - 1)].y);
+            if (was !== undefined && now < was - 2) knocked += 1;
+            prog.set(e.id, now);
+          }
+        },
+        () => knocked > 0,
+      );
+      return knocked;
+    });
+  assert.ok(backs(true) > 0, "a flattened fruit stumbled back");
+  assert.equal(backs(false), 0);
+});

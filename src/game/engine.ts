@@ -129,6 +129,8 @@ interface Enemy {
   inkMul?: number;
   /** Long Reader's Read through: seconds left taking TRICKS.readThrough× (Infinity: for good). */
   readT?: number;
+  /** Serpent Quill's Written: seconds left taking TRICKS.writtenMul×. */
+  writT?: number;
   /** Honeyed Heel: seconds left sticky (takes more damage from everything). */
   honeyed?: number;
   /** Objection!'s fine print: seconds left walking a little faster after being overruled. */
@@ -1001,6 +1003,8 @@ export interface World {
   pools: Pool[];
   sparks: Spark[];
   lines: Line[];
+  /** Serpent Quill's Written line (TRICKS): ink dots on the carpet, each with seconds left. */
+  writing: { x: number; y: number; life: number }[];
   rings: Ring[];
   stomps: Stomp[];
   /** Carpet cells the Unstoppered's spills have soaked ("c,r"), for the rest of the night. */
@@ -1340,6 +1344,7 @@ export function createWorld(
     pools: [],
     sparks: [],
     lines: [],
+    writing: [],
     rings: [],
     stomps: [],
     wet: new Set<string>(),
@@ -2151,6 +2156,11 @@ export function createWorld(
       // Face along the curve (for drawing).
       const slope = f.width * k * Math.cos(along * k) * f.side;
       f.heading = Math.atan2(f.uy + f.ux * slope, f.ux - f.uy * slope);
+      // Written: leave the line behind, a dot every 12 px.
+      if (TRICKS.on) {
+        const last = world.writing.length ? world.writing[world.writing.length - 1] : null;
+        if (!last || (last.x - f.x) ** 2 + (last.y - f.y) ** 2 > 144) world.writing.push({ x: f.x, y: f.y, life: TRICKS.writtenLine });
+      }
       for (const e of world.enemies) {
         if (e.hp <= 0) continue;
         if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 11) ** 2) continue;
@@ -3422,6 +3432,7 @@ export function createWorld(
     drainPlugged = false;
     world.sparks = [];
     world.lines = [];
+    world.writing = [];
     world.rings = [];
     world.stomps = [];
     world.flyers = [];
@@ -4328,6 +4339,8 @@ export function createWorld(
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
     // Read through (Long Reader): it takes more from everything.
     if (TRICKS.on && (e.readT ?? 0) > 0) amount *= TRICKS.readThrough;
+    // Written (Serpent Quill): it crossed the quill's line.
+    if (TRICKS.on && (e.writT ?? 0) > 0) amount *= TRICKS.writtenMul;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
     // Rewind combo: a fruit the Instant Quackmission is walking back takes more from everything.
     if ((e.driven ?? 0) > 0 && world.hud.hero === "quack") amount *= CANNON.driverAmp;
@@ -4396,6 +4409,8 @@ export function createWorld(
     const inked = (e.ink ?? 0) > 0;
     hurt(e, null, f.dmg, 0, TRICKS.on && COMBO.on && f.kind === "globe" && icy ? "splash" : "shot");
     if (!TRICKS.on) return;
+    // Dizzy: the globe knocks what it flattens back along the carpet.
+    if (f.kind === "globe" && e.hp > 0 && !e.boss) pushBack(e, TRICKS.dizzyBack * CELL);
     if (e.hp > 0 && f.carry) {
       if (f.carry === "fire") {
         // Ice, then fire: a carried flame on a frosted fruit thaws it with a burst, as a Fire cannon's would.
@@ -5040,6 +5055,15 @@ export function createWorld(
 
     for (const pool of world.pools) pool.life -= dt;
     world.pools = world.pools.filter((p) => p.life > 0);
+    // Written: a fruit on the quill's line is marked.
+    if (world.writing.length) {
+      for (const w of world.writing) w.life -= dt;
+      world.writing = world.writing.filter((w) => w.life > 0);
+      for (const e of world.enemies) {
+        if (e.hp <= 0) continue;
+        if (world.writing.some((w) => (e.x - w.x) ** 2 + (e.y - w.y) ** 2 < (e.r + 6) ** 2)) e.writT = TRICKS.writtenTime;
+      }
+    }
     tickBell(dt);
     tickVines(dt);
 
@@ -5181,6 +5205,7 @@ export function createWorld(
       if (dot) hurt(e, null, dot * dt, 0, "pulp");
       if ((e.ink ?? 0) > 0) e.ink = (e.ink ?? 0) - dt;
       if ((e.readT ?? 0) > 0 && e.readT !== Infinity) e.readT = (e.readT ?? 0) - dt;
+      if ((e.writT ?? 0) > 0) e.writT = (e.writT ?? 0) - dt;
       if ((e.honeyed ?? 0) > 0) e.honeyed = (e.honeyed ?? 0) - dt;
       if ((e.overruled ?? 0) > 0) e.overruled = (e.overruled ?? 0) - dt;
       if ((e.worm ?? 0) > 0) {
