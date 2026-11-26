@@ -350,7 +350,7 @@ export function BuildFooter({
           column={column}
         />
       ) : (
-        <div className={column ? "flex shrink-0 flex-col gap-1.5" : `grid h-[5.5rem] ${tabKinds(groupOf(hud.build), hud.map).length > 5 ? "grid-cols-6" : "grid-cols-5"} gap-2`}>
+        <div className={column ? "flex shrink-0 flex-col gap-1.5" : `grid h-[5.5rem] ${tabKinds(groupOf(hud.build), hud.map).length > 5 || (groupOf(hud.build).id === "keeper" && tabKinds(groupOf(hud.build), hud.map).length >= 4) ? "grid-cols-6" : "grid-cols-5"} gap-2`}>
           {tabKinds(groupOf(hud.build), hud.map).map((id, slot) => {
             const placed = api.world.towers.length;
             const cost = Math.max(0, buildCost(hud.hero, placed, id, hud.builtKinds) - (hud.bookmark === "discount" ? 5 : 0));
@@ -416,9 +416,10 @@ export function BuildFooter({
               </button>
             );
           })}
+          {/* The keeper box takes the rest of the row: four keeper towers (Vaelithra, Quackarot) share six columns with it. */}
           {groupOf(hud.build).id === "keeper" ? (
             <div
-              className={`${column ? "" : ["col-span-4", "col-span-4", "col-span-3", "col-span-2"][Math.min(3, groupOf(hud.build).kinds.length)]} flex min-w-0 flex-col justify-center rounded-lg border border-line/50 px-3 py-1.5`}
+              className={`${column ? "" : ["col-span-4", "col-span-3", "col-span-2", "col-span-2"][Math.min(4, Math.max(1, tabKinds(groupOf(hud.build), hud.map).length)) - 1]} flex min-w-0 flex-col justify-center rounded-lg border border-line/50 px-3 py-1.5`}
             >
               <p className="truncate font-display text-sm font-semibold text-gold">{TOWERS[hud.build].name}</p>
               <BuildLine api={api} kind={hud.build} />
