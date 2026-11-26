@@ -154,7 +154,7 @@ export function CardOverlay({
         {hudPhase === "victory" ? (
           <EndCard
             title={hud.night === "overflow" ? "The chute holds." : hud.night === "siege" ? "The courtyard holds." : "The stacks hold."}
-            body={`${hud.blurb} Absurdity ${hud.absurdity}. ${winLine(hud.hero ?? "mynxi", hud.map)}`}
+            body={`${hud.blurb}${hud.night === "overflow" ? ` Absurdity ${hud.absurdity}.` : ""} ${winLine(hud.hero ?? "mynxi", hud.map)}`}
             action={victoryAction(hud.night)}
 
             unlocks={hud.newUnlocks}

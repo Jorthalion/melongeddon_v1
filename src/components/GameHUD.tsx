@@ -153,7 +153,14 @@ export function GameHeader({
               ) : null}
             </span>
             {menuable ? <CheckoutButton api={api} onGesture={gesture} /> : null}
-            <span className="hidden text-[0.8125rem] text-muted sm:inline">Absurdity {hud.absurdity}</span>
+            {hud.night === "overflow" ? (
+              <span
+                className="hidden text-[0.8125rem] text-muted sm:inline"
+                title="Absurdity: rises with every fruit popped tonight. In the Overflow's last two waves, every 25 Absurdity sends one more shelled melon up the chute."
+              >
+                Absurdity {hud.absurdity}
+              </span>
+            ) : null}
             <div className="flex items-center gap-1">
               {showPlace ? (
               <>

@@ -349,10 +349,21 @@ function NightPage({ api, onGesture }: { api: GameApi; onGesture: () => void }) 
                       <span className={`block px-3 pt-2 font-display text-base font-semibold ${locked ? "text-muted" : ""}`}>{board.name}</span>
                       <span className="line-clamp-3 block px-3 pb-3 text-xs text-muted sm:line-clamp-none">
                         {locked ? (
-                          <>
-                            <span className="text-flesh">Locked. {unlockNote("map", id, hud.rooms, hud.fragments)?.text ?? MAP_GOALS[id]?.goal ?? ""}</span>{" "}
-                            <span className="font-semibold text-gold underline decoration-gold/50 underline-offset-2">Tap to open the Catalogue.</span>
-                          </>
+                          (() => {
+                            // Short on the card (every locked room says it), the full line on hover.
+                            const note = unlockNote("map", id, hud.rooms, hud.fragments);
+                            const short = note
+                              ? note.ready
+                                ? `Locked: ${note.room.name} is ready to restore.`
+                                : `Locked: ${note.room.name}, ${hud.fragments}/${note.room.cost} fragments.`
+                              : `Locked. ${MAP_GOALS[id]?.goal ?? ""}`;
+                            return (
+                              <span title={note ? `${note.text} Tap to open the Catalogue.` : undefined}>
+                                <span className="text-flesh">{short}</span>{" "}
+                                <span className="font-semibold text-gold underline decoration-gold/50 underline-offset-2">Open</span>
+                              </span>
+                            );
+                          })()
                         ) : (
                           board.blurb
                         )}
@@ -584,7 +595,7 @@ function KeeperSheet({ hud, hero }: { hud: Hud; hero: HeroId }) {
           label="Difficulty"
           title="How hard this keeper is to play well: Easy, Medium, Advanced or Expert."
         />
-        <SheetStat icon={<Star className="size-4 text-gold" />} value={`Level ${level}`} label="Keeper" title="This keeper's level. New perks open as it rises." />
+        <SheetStat icon={<Star className="size-4 text-gold" />} value={`Level ${level}`} label="Keeper" title="Keeper level: every night you play gives this keeper XP. Each new level opens a perk, and some open new towers." />
       </div>
       <p className="mt-2.5 text-[0.625rem] tracking-[0.22em] text-gold uppercase">How they play</p>
       <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-5 text-sm leading-snug marker:text-gold/70">
