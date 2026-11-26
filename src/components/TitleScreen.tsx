@@ -116,6 +116,10 @@ export function TitleScreen({
                   type="button"
                   className="-mt-1 rounded bg-black/55 px-2 py-1 text-xs text-[#f4ead8] underline underline-offset-2"
                   onClick={guide.onSkip}
+                  onPointerEnter={(e) => e.pointerType === "mouse" && hintFor(SKIP_HINT)(e.currentTarget)}
+                  onPointerLeave={() => setHint(null)}
+                  onFocus={(e) => e.currentTarget.matches(":focus-visible") && hintFor(SKIP_HINT)(e.currentTarget)}
+                  onBlur={() => setHint(null)}
                 >
                   Played before? Skip the guide
                 </button>
@@ -198,9 +202,16 @@ const GUIDE_URL =
     ? "https://jorthalion.github.io/melongeddon_v1/how-to-play.html"
     : "how-to-play.html";
 
-/** Title › How to play: controls, cannon tabs, keepers, nights and rooms. */
+const SKIP_HINT = "Skip Mynxi's guided first night and go straight to setting up your own: keeper, room and difficulty. You can replay it later from Tutorial.";
+
+/**
+ * Title › How to play: the basics open, then the long reference lists (cannons, keepers, nights,
+ * rooms) folded shut, so a newcomer meets a short page and opens only what they want.
+ */
 export function HowToPlay() {
   const h = "mt-4 mb-1 text-[0.625rem] tracking-[0.22em] text-gold uppercase first:mt-0";
+  const fold = "mt-2 rounded-md border border-line/60 bg-ink/30 px-3 py-1.5 [&[open]]:pb-3";
+  const sum = "cursor-pointer py-1 text-[0.6875rem] tracking-[0.22em] text-gold uppercase";
   return (
     <div className="text-left">
       <a
@@ -219,8 +230,18 @@ export function HowToPlay() {
       <p className="mt-1">
         Tap a cannon to see its stats or sell it. The Back room (B) upgrades every cannon of a kind (between waves). Esc or the ☰ button pauses.
       </p>
+      <p className="mt-1">
+        Some fruit wear armour: a shell or a rind soaks a few hits before it cracks. Hover a fruit on the carpet to see what it
+        wears and what beats it.
+      </p>
+      <p className="mt-1">
+        Your keeper gains XP every night. Each keeper level opens a perk, and some open new towers (the Trick tab says which level).
+      </p>
 
-      <p className={h}>Tower types</p>
+      <p className={h}>More, when you want it</p>
+
+      <details className={fold}>
+        <summary className={sum}>Tower types</summary>
       <p className="text-muted">The tabs say what a tower is for. Its type says how it does damage, and which shared upgrades change it. Every upgrade card says what it affects.</p>
       <ul className="mt-1 space-y-1">
         {(Object.keys(TYPE_INFO) as Array<keyof typeof TYPE_INFO>).map((t) => (
@@ -229,8 +250,10 @@ export function HowToPlay() {
           </li>
         ))}
       </ul>
+      </details>
 
-      <p className={h}>Cannons</p>
+      <details className={fold}>
+        <summary className={sum}>Cannons</summary>
       <ul className="space-y-1">
         {TOWER_GROUPS.map((g) => (
           <li key={g.id}>
@@ -243,8 +266,10 @@ export function HowToPlay() {
           </li>
         ))}
       </ul>
+      </details>
 
-      <p className={h}>Keeper towers (R)</p>
+      <details className={fold}>
+        <summary className={sum}>Keeper towers (R)</summary>
       <p className="text-muted">Each keeper has towers only they can build, one of each at a time.</p>
       <ul className="mt-1 space-y-1">
         {KEEPERS.flatMap((k) =>
@@ -258,8 +283,10 @@ export function HowToPlay() {
           )),
         )}
       </ul>
+      </details>
 
-      <p className={h}>Keepers</p>
+      <details className={fold}>
+        <summary className={sum}>Keepers</summary>
       <ul className="space-y-1">
         {KEEPERS.map((k) => (
           <li key={k.id}>
@@ -268,8 +295,10 @@ export function HowToPlay() {
           </li>
         ))}
       </ul>
+      </details>
 
-      <p className={h}>Nights</p>
+      <details className={fold}>
+        <summary className={sum}>Nights</summary>
       <ul className="space-y-1 text-muted">
         <li>
           <span className="font-semibold text-parchment">Midnight:</span> the first night. Twenty-one waves, and a
@@ -277,7 +306,8 @@ export function HowToPlay() {
         </li>
         <li>
           <span className="font-semibold text-parchment">The Overflow:</span> night two, under the returns chute. Fruit come up it and
-          walk the carpet backwards. Take up to three late slips for a harder night and more keeper XP.
+          walk the carpet backwards. Take up to three late slips for a harder night and more keeper XP. Its Absurdity meter
+          fills as you pop fruit; in the last two waves, every 25 of it sends one more shelled melon up the chute.
         </li>
         <li>
           <span className="font-semibold text-parchment">The Siege:</span> night three, in the courtyard, once you've won the
@@ -287,8 +317,10 @@ export function HowToPlay() {
           <span className="font-semibold text-parchment">Endless:</span> no last wave. Survive as long as you can.
         </li>
       </ul>
+      </details>
 
-      <p className={h}>Rooms</p>
+      <details className={fold}>
+        <summary className={sum}>Rooms</summary>
       <ul className="space-y-1">
         {PICKABLE_MAPS.map((id) => (
           <li key={id}>
@@ -300,9 +332,12 @@ export function HowToPlay() {
           </li>
         ))}
       </ul>
+      </details>
 
-      <p className={h}>Keys</p>
+      <details className={fold}>
+        <summary className={sum}>Keys</summary>
       <p className="text-muted">{HOTKEY_HELP}</p>
+      </details>
     </div>
   );
 }

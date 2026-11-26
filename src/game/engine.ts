@@ -1,21 +1,21 @@
 import {
   CELL, BOARDS, baseMap, withLayouts, takesShortcut, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
-  BALANCE, DROWSY, softenSlow, flyMiss, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  BALANCE, DROWSY, PICKS, canTake, isTowerPick, softenSlow, flyMiss, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
   ARMOURS, ARMOUR_TEXT, ARMOUR_VALUES, ARMOUR_LEVEL, ARMOUR_FOR_OATH, DRAGON, BIG_KINDS, ROOST_STAGES, canBeGreat, roostStageFor, type ArmourId, type OathId,
-  ASSER_VALUES, carpetAlong,
+  ASSER_VALUES, ELF_VALUES, UNHINGED, promptOffer, carpetAlong,
   nearestOnCarpet, gateStrip, VAEL_VALUES, VAEL_LADDER, vaelLockLine, buildRoutes, assignDoors, carpetInReachAll, nearestSegment, type DoorId,
   assignExits, combineRoutes, EXIT_NAME, HALL, type Exit, type ExitId,
   pathFor, trackCells, type Bay, BASEMENT, deepWave, waterFor, underWater, heightTiles, type Height, ROOM_TOWERS, ROOM_TOWER_KINDS,
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
-  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, hiveCrowd, fittingName, ballistaPierce,
+  FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, TRICKS, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
-  SIEGE, type SiegeVariant,
+  SIEGE, type SiegeVariant, DOCTOR, type DigFind,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
-import { KEEPER_VOICE, openingLine } from "./keeperVoice.ts";
+import { ELF_LINES, KEEPER_VOICE, loseLine, openingLine } from "./keeperVoice.ts";
 import { STATUS_LOOK } from "./drawStatus.ts";
 
 export * from "./rules.ts";
@@ -127,8 +127,12 @@ interface Enemy {
   /** Ink Well mark: seconds left, and the damage multiplier while marked. */
   ink?: number;
   inkMul?: number;
+  /** Long Reader's Read through: seconds left taking TRICKS.readThrough× (Infinity: for good). */
+  readT?: number;
   /** Honeyed Heel: seconds left sticky (takes more damage from everything). */
   honeyed?: number;
+  /** Objection!'s fine print: seconds left walking a little faster after being overruled. */
+  overruled?: number;
   /** Bookworm burrow: seconds left, and damage per second. */
   worm?: number;
   wormDps?: number;
@@ -373,8 +377,10 @@ interface Tower {
   spill?: Array<{ c: number; r: number; x: number; y: number; cd: number }>;
   /** Seeds spent on this tower (build + shop mods). Sell refunds a share of it. */
   paid: number;
-  /** Waves cleared when it was built (the History Lectern grows with each wave since). */
+  /** Waves cleared when it was built (the History Lectern publishes and the Dig digs by the waves since). */
   born?: number;
+  /** Dr. Samodovol's Study marks on this tower (each: DOCTOR.markDmg more damage, DOCTOR.markRange more reach). */
+  studyMarks?: number;
   /** The Compact Stacks: a carpet-side tower whose carpet rolled away; it does nothing until carpet is beside it again. */
   idle?: boolean;
   /** Orrery: the planets' current angle and orbit radius. */
@@ -450,6 +456,9 @@ export interface Flyer {
   hits: Map<number, number>;
   /** Recent positions, for the curved trail. */
   trail: Array<{ x: number; y: number }>;
+  /** Carry (TRICKS): the last thing it passed through, left on every fruit it hits; a fire's burn per second. */
+  carry?: "fire" | "wet" | "cold" | "ink";
+  carryBurn?: number;
   /** The tower that threw it (for its damage count). */
   owner?: number;
 }
@@ -537,6 +546,8 @@ export interface Stomp {
   y: number;
   life: number;
   max: number;
+  /** It landed on honey: drawn with amber drips. */
+  honey?: boolean;
 }
 
 /** Expanding rings (bell shush, compost payout). */
@@ -632,6 +643,8 @@ export interface Hud {
   zone: number;
   /** The Dragon's Roost was fed this break (once between waves). */
   roostFed: boolean;
+  /** Dr. Samodovol's Archaeological Dig: finds dug up and not chosen yet (the Dig's inspector chooses). */
+  digFinds: number;
   branch: UpgradeId | null;
   map: MapId;
   build: TowerKind;
@@ -663,7 +676,7 @@ export interface Hud {
   dropWave: number[];
   /** The Siege: goose-and-cat fights tonight, and whether a paratrooper drop has started (for the one-time tips). */
   feuds: number;
-  /** Status combos seen tonight (for their one-time tips): "shatter", "thermal", "mixed", "contagion". */
+  /** Status combos seen tonight (for their one-time tips): "shatter", "thermal", "mixed", "contagion", "carry". */
   comboTips: string[];
   dropSeen: boolean;
   /** Quack-Liber speed-up reach in px for the run in play (perks can widen it), for drawing it. */
@@ -683,6 +696,10 @@ export interface Hud {
   tagTeam: boolean;
   /** Anti-Geese Protocol went off this wave: it can't be rebuilt until the wave is over. */
   geeseSpent: boolean;
+  /** The Legal Elf: Objection! presses left this wave (0 for everyone else). */
+  objections: number;
+  /** Whether Objection! would hit anything right now ("" if it would, else the reason it can't). */
+  objectionWhy: string;
   /** Quackarot's power level: kills toward the Quack-Liber's full-power blast (`CANNON.quackKiNeed` fills it). */
   ki: number;
   /** Ooze's Copycat was put down this wave: free, so only once a wave (a sold one can't be rebuilt until the wave is over). */
@@ -944,7 +961,7 @@ function writeBest(n: number, key = BEST_KEY) {
 }
 
 /** Sound cues the engine raises; the UI drains and plays them. Ignored headless. */
-export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak" | "rumble" | "slosh";
+export type SfxKind = "fire" | "pop" | "bossPop" | "leak" | "build" | "sell" | "wave" | "clear" | "victory" | "defeat" | "boss" | "golden" | "creak" | "rumble" | "slosh" | "objection";
 
 /** The Flooded Basement: is this tile under water now? A Sump Pump keeps its own tile and the eight round it dry. */
 export function floodedTile(world: Pick<World, "water" | "heights" | "towers">, c: number, r: number) {
@@ -1109,6 +1126,8 @@ export function createWorld(
   setTrigger: (mode: "auto" | "manual") => void;
   /** Anti-Geese Protocol (selected): set it off now (needs a fruit in the ring). */
   engage: () => void;
+  /** The Legal Elf: Objection! Returns how many fruit it overruled (0: nothing to hit, not spent). */
+  objection: () => number;
   dismissSelection: () => void;
   nudgeSpeed: (dir: -1 | 1) => void;
   togglePause: () => void;
@@ -1144,6 +1163,8 @@ export function createWorld(
   greatOffer: (towerId: number) => { cost: number; partner: number; why: string } | { cost: 0; partner: null; why: string };
   /** Sir Michael: feed the Dragon's Roost (once between waves): one more wave of growth. */
   feedRoost: () => void;
+  /** Dr. Samodovol: choose what the Dig's waiting find is (two stacks, seeds, or a Study mark on the best tower). */
+  digFind: (find: DigFind) => void;
   /** The Dragon's Roost's stage (0 egg … 3 Great Dragon) and waves grown, for a tower id. */
   roostOf: (towerId: number) => { stage: number; grown: number; next: number | null } | null;
   /** Setup: pick the keeper (kept in the HUD so it survives a return to Setup). */
@@ -1245,6 +1266,7 @@ export function createWorld(
       hoard: 0,
       zone: 0,
       roostFed: false,
+      digFinds: 0,
       map: "stacks",
       build: "melon",
       shopVisits: 0,
@@ -1275,6 +1297,8 @@ export function createWorld(
       plugged: false,
       tagTeam: false,
       geeseSpent: false,
+      objections: 0,
+      objectionWhy: "",
       ki: 0,
       copycatPlaced: false,
       sisu: 0,
@@ -1376,6 +1400,8 @@ export function createWorld(
   let absurdDrops = 0;
   /** Has a Still been built this night? (The Unstoppered's unlock.) */
   let stillBuilt = false;
+  /** The card picked before the current one: a one-at-a-time tower hands the pick back to it once placed. */
+  let prevPick: TowerKind = "melon";
   /**
    * This night's damage and pops for each tower, by id. `credit` is the tower acting right now: its
    * shots, throws, puddles and burrows carry its id, and set it again when they hit later.
@@ -1398,6 +1424,18 @@ export function createWorld(
    */
   let lecture: { kind: EnemyKind; waves: number } | null = null;
   let lectureNow: EnemyKind | null = null;
+  /** Every kind a Lectern has noted tonight, and whether a published Lectern stands this wave (those kinds walk slower). */
+  const archive = new Set<EnemyKind>();
+  let archiveNow = false;
+  /** The Doctor's wave-end lines, kept past a shelf so the pick's message doesn't hide them. */
+  let doctorCarry = "";
+  /** The Study: each tower's night damage when the last wave ended, so it can tell what each did this wave. */
+  const dmgAtWave = new Map<number, number>();
+  /** How much a fruit of this kind is slowed by the Doctor's notes: last wave's note, else the published archive. */
+  const lectureFactor = (kind: EnemyKind) =>
+    lectureNow === kind ? CANNON.lectureSlow - fx.lectureSlow : archiveNow && archive.has(kind) ? DOCTOR.archiveSlow : 1;
+  /** A History Lectern that has stood `DOCTOR.publishAfter` waves has published. */
+  const published = (t: Tower) => t.kind === "lectern" && cleared - (t.born ?? cleared) >= DOCTOR.publishAfter;
   const reached = new Map<EnemyKind, number>();
   /** The route a fruit (or a globe or sheet rolling back along one) walks. */
   const routeOf = (e: { route?: number }) => world.routes[e.route ?? 0] ?? world.points;
@@ -1597,7 +1635,11 @@ export function createWorld(
   const roomPrice = (kind: TowerKind) =>
     world.hud.guide === "backroom"
       ? 0
-      : backRoomPrice(world.hud.hero, world.hud.fitted[kind]?.length ?? 0, world.hud.shopVisits, world.hud.bookmark, fx.shopOff);
+      : Math.round(
+          backRoomPrice(world.hud.hero, world.hud.fitted[kind]?.length ?? 0, world.hud.shopVisits, world.hud.bookmark) *
+            // Malpractice Insurance's fine print: the back room costs more.
+            (has("malpractice") ? ELF_VALUES.malpracticeMarkup : 1),
+        );
   /** Move the tutorial to `step`, skipping building steps the board already satisfies. */
   const guideTo = (step: GuideStep | null) => {
     const mine = world.towers.map((t) => groupOf(t.kind).id);
@@ -1645,7 +1687,9 @@ export function createWorld(
   const offCarpet = (kind: TowerKind, c: number, r: number) =>
     kind === "pamphlet"
       ? bindLeg(legsNow(), c, r) < 0
-      : (kind === "desk" || kind === "gourdgate") && !besideCarpet(world, c, r);
+      : kind === "dig"
+        ? besideCarpet(world, c, r)
+        : (kind === "desk" || kind === "gourdgate") && !besideCarpet(world, c, r);
   /**
    * The carpet's straights for the current board (worked out once per board): every segment's, in order, so a
    * board with doors numbers each straight once. `routeLegs(i)` are route i's straights with each one's number here.
@@ -1805,7 +1849,7 @@ export function createWorld(
     if (PASSIVE.includes(kind)) return read;
     // Signature perks name one tower ("The Scales fire 25% faster"), so a keeper's extra towers skip them.
     const sig = ownSignature(kind);
-    const dmgMul = fx.allDmg * (sig ? fx.sigDmg : 1) * sisuMul();
+    const dmgMul = fx.allDmg * (sig ? fx.sigDmg : 1) * sisuMul() * (has("cyberpop") ? ELF_VALUES.cyberpopDmg : 1);
     const rangeMul = fx.allRange * (sig ? fx.sigRange : 1);
     return {
       ...read,
@@ -2070,6 +2114,16 @@ export function createWorld(
   const moveFlyer = (f: Flyer, dt: number) => {
     f.t += dt;
     credit = f.owner ?? null;
+    // Carry: it takes on the fire patch or puddle it is passing over (a globe only once it's rolling).
+    if (TRICKS.on && f.kind !== "sheet" && (f.kind !== "globe" || f.rolling)) {
+      for (const pool of world.pools) {
+        if (pool.crater || (f.x - pool.x) ** 2 + (f.y - pool.y) ** 2 > pool.r * pool.r) continue;
+        if (pool.hot) {
+          f.carry = "fire";
+          f.carryBurn = pool.burn;
+        } else f.carry = "wet";
+      }
+    }
     if (f.kind === "boomerang") {
       // An elliptical loop: out along the throw, curving to one side, and back home.
       const p = Math.min(1, f.t / f.dur);
@@ -2084,7 +2138,7 @@ export function createWorld(
         if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 12) ** 2) continue;
         if (f.hits.get(e.id) === pass) continue;
         f.hits.set(e.id, pass);
-        hurt(e, null, f.dmg);
+        trickHit(f, e);
         burst(e.x, e.y, "#d8b878", 4);
       }
     } else if (f.kind === "quill") {
@@ -2102,7 +2156,7 @@ export function createWorld(
         if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 11) ** 2) continue;
         if (f.hits.has(e.id)) continue;
         f.hits.set(e.id, 1);
-        hurt(e, null, f.dmg);
+        trickHit(f, e);
         burst(e.x, e.y, "#3b4f8f", 4);
       }
     } else if (f.kind === "sheet") {
@@ -2149,7 +2203,7 @@ export function createWorld(
           for (const e of world.enemies) {
             if (e.hp <= 0 || (e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + CANNON.globeThud) ** 2) continue;
             f.hits.set(e.id, 1);
-            hurt(e, null, f.dmg);
+            trickHit(f, e);
           }
         }
       } else {
@@ -2178,7 +2232,7 @@ export function createWorld(
           if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 14) ** 2) continue;
           if (f.hits.has(e.id)) continue;
           f.hits.set(e.id, 1);
-          hurt(e, null, f.dmg);
+          trickHit(f, e);
           burst(e.x, e.y, "#c9a46a", 5);
         }
       }
@@ -2212,7 +2266,7 @@ export function createWorld(
         if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > (e.r + 10) ** 2) continue;
         if ((f.hits.get(e.id) ?? -1) > now) continue;
         f.hits.set(e.id, now + CANNON.planeGap);
-        hurt(e, null, f.dmg);
+        trickHit(f, e);
         burst(e.x, e.y, "#f3e2c4", 4);
       }
     }
@@ -2259,6 +2313,66 @@ export function createWorld(
     const route = routeOf(e);
     const { along, total } = carpetAlong(route, e.x, e.y, e.wp, e.reverse);
     return total - along <= 3 * CELL;
+  };
+  /** How wide the Foot of the Law lands (Heavy Footed: wider). */
+  const stompRadius = () => CANNON.stompRadius * fx.stompWide;
+  /** The Legal Elf's court: a fruit that is stopped (stomped or halted) or honeyed. */
+  const inCourt = (e: Enemy) => (e.stomped ?? 0) > 0 || (e.halt ?? 0) > 0 || (e.honeyed ?? 0) > 0;
+  /** Objection!: the living fruit on the last few tiles before the door, along each one's own carpet. */
+  const objectionZone = () =>
+    world.enemies.filter((e) => {
+      if (e.hp <= 0 || (e.descend ?? 0) > 0) return false;
+      const { along, total } = carpetAlong(routeOf(e), e.x, e.y, e.wp, e.reverse);
+      return total - along <= ELF_VALUES.objectionZone * CELL;
+    });
+  /** Prompt Drop: what follows its shelf ("shelf": it waits behind the usual shelf). */
+  let promptNext: "shelf" | "prep" | "consequence" | null = null;
+  /** Objection! presses this wave, and tonight (for the lines). */
+  let objectedWave = 0;
+  let objectedNight = 0;
+  /** Why Objection! can't be pressed right now ("" when it can). */
+  const objectionBlock = () => {
+    if (world.hud.hero !== "elf") return "Only the Legal Elf can object.";
+    if (world.hud.phase !== "combat") return "Objections are for during a wave.";
+    if (world.hud.objections <= 0) return "Spent this wave. It's back next wave.";
+    if (!objectionZone().length) return ELF_LINES.noGrounds;
+    return "";
+  };
+  /** Objection!: overrule every fruit near the door. Non-bosses are thrown back and honeyed; bosses only budge a tile. */
+  const objection = () => {
+    const why = objectionBlock();
+    if (why) {
+      world.hud.log = why === ELF_LINES.noGrounds ? `Legal Elf: “${ELF_LINES.noGrounds}”` : why;
+      world.hud.objectionWhy = why;
+      return 0;
+    }
+    const zone = objectionZone();
+    world.hud.objections -= 1;
+    for (const e of zone) {
+      pushBack(e, (e.boss ? ELF_VALUES.objectionBossBack : ELF_VALUES.objectionBack) * CELL);
+      e.honeyed = Math.max(e.honeyed ?? 0, CANNON.honeyTime);
+      e.overruled = ELF_VALUES.finePrintTime;
+      float(e.x, e.y - 22, "overruled", "#f3ce78");
+    }
+    // A gold flash over the last tiles of every carpet, and the big word in the middle of the board.
+    for (const route of world.routes.length ? world.routes : [world.points]) {
+      const end = route[route.length - 1];
+      if (end) world.rings.push({ x: end.x, y: end.y, r: ELF_VALUES.objectionZone * CELL, life: 0.6, max: 0.6, color: "243,206,120", fill: true });
+    }
+    world.floaters.push({ x: (world.cols * CELL) / 2, y: (world.rows * CELL) / 2, text: "OBJECTION!", life: 1.4, color: "#f3ce78", size: 44 });
+    cue("objection");
+    world.shake = world.reduced ? 0 : Math.max(world.shake, 5);
+    const n = zone.length;
+    // A second press in one wave (Sustained) gets its own line; otherwise they take turns.
+    const line = objectedWave > 0 ? ELF_LINES.sustained : ELF_LINES.objection[objectedNight % ELF_LINES.objection.length];
+    objectedWave += 1;
+    objectedNight += 1;
+    world.hud.log = `Legal Elf: “${line}” ${n} overruled.`;
+    syncObjection();
+    return n;
+  };
+  const syncObjection = () => {
+    world.hud.objectionWhy = world.hud.hero === "elf" ? objectionBlock() : "";
   };
   /** Tag Team: with two Quack-Libers standing, fruit near the line between them walk slower. */
   const perimeterAt = (e: Enemy) => {
@@ -2419,9 +2533,12 @@ export function createWorld(
     // A Copycat's copy of a heavy cannon hits for a share of the original.
     const read = tower.copied && COPY_HEAVY_KINDS.includes(tower.kind) ? { ...plain, dmg: Math.max(1, Math.round(plain.dmg * CANNON.copyHeavyDmg)) } : plain;
     if (PASSIVE.includes(tower.kind)) return read;
+    // Dr. Samodovol's Study marks: more damage and reach, per mark.
+    const marks = tower.studyMarks ?? 0;
+    const marked = marks > 0 ? { ...read, dmg: Math.max(1, Math.round(read.dmg * (1 + DOCTOR.markDmg * marks))), range: read.range >= GLOBAL_RANGE ? read.range : Math.round(read.range * (1 + DOCTOR.markRange * marks)) } : read;
     // Dr. Samodovol's Close Reading: each Doctor's pick taken tonight makes his cannons fire a little faster.
     const read2 = fx.closeReading ? Math.min(3, world.runLog.doctorTaken) * fx.closeReading : 0;
-    const studied = read2 > 0 ? { ...read, interval: read.interval / (1 + read2) } : read;
+    const studied = read2 > 0 ? { ...marked, interval: marked.interval / (1 + read2) } : marked;
     const aura = quackHaste(tower) * (world.hud.golden > 0 ? CANNON.overQuackHaste : 1);
     const haste = aura;
     const hasted = haste > 1 ? { ...studied, interval: studied.interval / haste, quick: true, powered: aura > 1 } : studied;
@@ -2492,12 +2609,15 @@ export function createWorld(
   /** A keeper tower can be built only by its keeper, and only one of each at a time. */
   /** A room tower (the Sump Pump) can only be built on its own map. */
   const roomLocked = (kind: TowerKind) => ROOM_TOWER_KINDS.includes(kind) && !(ROOM_TOWERS[world.hud.map] ?? []).includes(kind);
+  /** A card the next floor tap could build (no lock, not spent): somewhere to hand the pick back to. */
+  const pickable = (kind: TowerKind) =>
+    !signatureBlocked(kind) && !levelLocked(kind) && !heavyLocked(kind) && !vaelLocked(kind) && !goalLocked(kind);
   const signatureBlocked = (kind: TowerKind) =>
     roomLocked(kind) ||
     (kind === "geese" && world.hud.geeseSpent) ||
     (kind === "copycat" && world.hud.copycatPlaced) ||
     isSignature(kind) &&
-    (!own(kind) || world.towers.filter((t) => t.kind === kind).length >= 1 + (ownSignature(kind) ? fx.sigExtra : 0));
+    (!own(kind) || world.towers.filter((t) => t.kind === kind).length >= 1 + (ownSignature(kind) ? fx.sigExtra : 0) + (kind === "stomp" ? fx.stompExtra : 0));
   const hasMod = (tower: Tower, id: ModId) => tower.mods.includes(id);
   /** What a tower reaches: a Copycat reaches what its copy does. */
   const towerRange = (tower: Tower) => statsFor(tower.kind === "copycat" && tower.copy ? tower.copy : tower).range;
@@ -3285,6 +3405,9 @@ export function createWorld(
     world.wet = new Set();
     lecture = null;
     lectureNow = null;
+    archive.clear();
+    archiveNow = false;
+    dmgAtWave.clear();
     reached.clear();
     world.hud.vaelOpen = 0;
     world.hud.fullyUpgraded = 0;
@@ -3318,6 +3441,9 @@ export function createWorld(
     materialNoted = false;
     windUsed = false;
     goldenUsed = false;
+    objectedWave = 0;
+    objectedNight = 0;
+    promptNext = null;
     world.hud.golden = 0;
     absurdDrops = 0;
     stillBuilt = false;
@@ -3348,6 +3474,7 @@ export function createWorld(
       hoard: 0,
       zone: 0,
       roostFed: false,
+      digFinds: 0,
       build: "melon",
       shopVisits: 0,
       fitted: {},
@@ -3385,6 +3512,8 @@ export function createWorld(
       jammed: [],
       tagTeam: false,
       geeseSpent: false,
+      objections: 0,
+      objectionWhy: "",
       ki: 0,
       copycatPlaced: false,
       sisu: 0,
@@ -3475,7 +3604,7 @@ export function createWorld(
     if (world.hud.lives <= 0) {
       cue("defeat");
       world.hud.phase = "defeat";
-      world.hud.log = `The stacks are pulp. ${world.hud.hero ? `${KEEPER_NAMES[world.hud.hero].short}: ${KEEPER_VOICE[world.hud.hero].lose}` : ""}`.trim();
+      world.hud.log = `The stacks are pulp. ${world.hud.hero ? loseLine(world.hud.hero, world.hud.map) : ""}`.trim();
       bumpBest();
       finishNight(false);
       notify();
@@ -3738,7 +3867,11 @@ export function createWorld(
     }
     contagion(e);
     // What fell out of a Parcel pays nothing.
-    if (!e.contents) world.hud.seeds += e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
+    if (!e.contents) {
+      const pay = e.gold + (has("fines") ? PICKS.fines : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
+      // Billable in Advance's fine print: every kill pays less (never below nothing).
+      world.hud.seeds += has("advance") ? Math.max(0, pay - ELF_VALUES.advanceKill) : pay;
+    }
     if (e.native === "parcel") openParcel(e);
     if (e.native === "wormqueen") world.cocoons.push({ x: e.x, y: e.y, wp: e.wp, route: e.route, left: NATIVES.cocoonTime });
     world.hud.absurdity = Math.min(100, world.hud.absurdity + (e.boss ? 18 : 3));
@@ -4193,6 +4326,8 @@ export function createWorld(
     // A Gargoyle Gourd has stone skin until the clock strikes.
     if (e.native === "gargoyle" && (world.bell?.quiet ?? 0) <= 0) amount *= NATIVES.gargoyleSkin;
     if ((e.ink ?? 0) > 0) amount *= e.inkMul ?? CANNON.inkBonus;
+    // Read through (Long Reader): it takes more from everything.
+    if (TRICKS.on && (e.readT ?? 0) > 0) amount *= TRICKS.readThrough;
     if ((e.honeyed ?? 0) > 0) amount *= CANNON.honeyAmp;
     // Rewind combo: a fruit the Instant Quackmission is walking back takes more from everything.
     if ((e.driven ?? 0) > 0 && world.hud.hero === "quack") amount *= CANNON.driverAmp;
@@ -4249,6 +4384,42 @@ export function createWorld(
       onDeath(e);
       deathVia = null;
     }
+  };
+
+  /**
+   * A trick shot's hit (TRICKS). The globe's counts as an explosion on a fruit with 2+ frost, so it shatters it.
+   * Then Carry: it leaves what it's carrying, and takes on frost from a frozen fruit or ink from an inked one.
+   */
+  const trickHit = (f: Flyer, e: Enemy) => {
+    const husk = e.guard === "husk";
+    const icy = !husk && (frozen(e) || (e.frost ?? 0) >= 2);
+    const inked = (e.ink ?? 0) > 0;
+    hurt(e, null, f.dmg, 0, TRICKS.on && COMBO.on && f.kind === "globe" && icy ? "splash" : "shot");
+    if (!TRICKS.on) return;
+    if (e.hp > 0 && f.carry) {
+      if (f.carry === "fire") {
+        // Ice, then fire: a carried flame on a frosted fruit thaws it with a burst, as a Fire cannon's would.
+        if (COMBO.on && !husk && frosted(e) && (e.doused ?? 0) <= 0) {
+          thaw(e);
+          hurt(e, null, f.dmg * COMBO.thermalBonus, 0, "shock");
+        }
+        if (e.hp > 0 && (e.doused ?? 0) <= 0) {
+          e.burnT = Math.max(e.burnT ?? 0, TRICKS.carryBurnTime);
+          e.burnDps = Math.max(e.burnDps ?? 0, f.carryBurn || 22);
+          e.burnBy = f.owner;
+          wake(e);
+        }
+      } else if (f.carry === "wet") {
+        if (!husk) e.chill = Math.max(e.chill, TRICKS.carryChill);
+      } else if (f.carry === "cold") addFrost(e, TRICKS.carryFrost);
+      else {
+        e.ink = Math.max(e.ink ?? 0, CANNON.inkTime);
+        e.inkMul = Math.max(e.inkMul ?? 1, CANNON.inkBonus);
+      }
+      comboSeen("carry");
+    }
+    if (icy) f.carry = "cold";
+    else if (inked) f.carry = "ink";
   };
 
   /** Seconds a shot lives: the trip at SHOT_SPEED plus a second for a moving target, and never under 1.6. */
@@ -4366,11 +4537,11 @@ export function createWorld(
     }
     if (shot.element === "potion") {
       // Puddle upgrades (Alchemy) reach the cauldron: Sticky spreads it, Vial and Distilled make it bite.
-      const life = CANNON.cauldronLife * (has("sticky") ? 1.4 : 1) * fx.poolLife * (wetAt(e.x, e.y) ? CANNON.wetPuddle : 1);
+      const life = CANNON.cauldronLife * (has("sticky") ? PICKS.stickyLife : 1) * fx.poolLife * (wetAt(e.x, e.y) ? CANNON.wetPuddle : 1);
       world.pools.push({
         x: e.x,
         y: e.y,
-        r: Math.round((CANNON.cauldronRadius + (has("sticky") ? 12 : 0)) * fx.poolWide * (world.heights.size && floodedAt(e.x, e.y) ? BASEMENT.puddleWide : 1)),
+        r: Math.round((CANNON.cauldronRadius + (has("sticky") ? PICKS.stickyRadius : 0)) * fx.poolWide * (world.heights.size && floodedAt(e.x, e.y) ? BASEMENT.puddleWide : 1)),
         life,
         max: life,
         hot: false,
@@ -4381,14 +4552,14 @@ export function createWorld(
       });
     }
     if (shot.procs && has("juicy")) {
-      for (const other of world.enemies) hurt(other, e, 8, 46, "splash");
-      splashFx(e.x, e.y, 46, "226,59,74");
-      explode(e.x, e.y, 46);
+      for (const other of world.enemies) hurt(other, e, PICKS.juicyDmg, PICKS.juicyRadius, "splash");
+      splashFx(e.x, e.y, PICKS.juicyRadius, "226,59,74");
+      explode(e.x, e.y, PICKS.juicyRadius);
     }
     if (has("splatter") && shot.procs) {
-      for (const other of world.enemies) hurt(other, e, 9, 40, "splash");
-      splashFx(e.x, e.y, 40, "226,59,74");
-      explode(e.x, e.y, 40);
+      for (const other of world.enemies) hurt(other, e, PICKS.splatterDmg, PICKS.splatterRadius, "splash");
+      splashFx(e.x, e.y, PICKS.splatterRadius, "226,59,74");
+      explode(e.x, e.y, PICKS.splatterRadius);
     }
     if (shot.splash > 0) {
       if (!shot.knock) splashFx(e.x, e.y, shot.splash, "232,136,58");
@@ -4452,7 +4623,7 @@ export function createWorld(
         }
       }
       if (best) {
-        hurt(best, null, 14);
+        hurt(best, null, PICKS.sparkDmg);
         world.sparks.push({ x: e.x, y: e.y, x2: best.x, y2: best.y, life: 0.18 });
         float(best.x, best.y - 8, "zap", "#e6c36a");
       }
@@ -4533,6 +4704,55 @@ export function createWorld(
     const base = waveXp(world.hud.difficulty) + (won ? winXp(world.hud.difficulty) : 0);
     const bonus = world.hud.night === "overflow" ? slipXp(world.hud.slips) : 0;
     giveXp(Math.round(base * (1 + bonus)));
+  };
+
+  /** A tower the Study can mark: one that hits fruit, isn't a Copycat, and has room for another mark. */
+  const markable = (t: Tower) => !PASSIVE.includes(t.kind) && t.kind !== "copycat" && (t.studyMarks ?? 0) < DOCTOR.maxMarks && statsCore(t).dmg > 0;
+  const giveMark = (t: Tower) => {
+    t.studyMarks = (t.studyMarks ?? 0) + 1;
+    world.runLog.studyMarks += 1;
+    float(t.x, t.y - 34, "Studied", "#e6c36a");
+  };
+  /**
+   * Dr. Samodovol's Study, after each wave: the tower in its reach that did the most damage that wave (the
+   * nearest on a tie) gets one Study mark. One mark a wave, and none on a tower already at DOCTOR.maxMarks.
+   */
+  const studyAfterWave = () => {
+    const did = new Map<number, number>();
+    for (const t of world.towers) {
+      const now = tally.get(t.id)?.dmg ?? 0;
+      did.set(t.id, now - (dmgAtWave.get(t.id) ?? 0));
+      dmgAtWave.set(t.id, now);
+    }
+    let line = "";
+    for (const study of world.towers) {
+      if (study.kind !== "study" || soaked(study) || line) continue;
+      const reach = DOCTOR.studyReach;
+      const near = world.towers
+        .filter((t) => t !== study && markable(t) && (t.x - study.x) ** 2 + (t.y - study.y) ** 2 <= reach * reach)
+        .sort((a, b) => (did.get(b.id) ?? 0) - (did.get(a.id) ?? 0) || Math.hypot(a.x - study.x, a.y - study.y) - Math.hypot(b.x - study.x, b.y - study.y));
+      const best = near[0];
+      if (!best || (did.get(best.id) ?? 0) <= 0) continue;
+      giveMark(best);
+      line = `The Study: the ${TOWERS[best.kind].name} is studied (${best.studyMarks}/${DOCTOR.maxMarks} marks).`;
+    }
+    return line;
+  };
+  /** The Archaeological Dig: every DOCTOR.digEvery waves after it's built, a find waits to be chosen. */
+  const digAfterWave = () => {
+    let found = 0;
+    for (const dig of world.towers) {
+      if (dig.kind !== "dig" || soaked(dig)) continue;
+      const since = cleared - (dig.born ?? cleared);
+      if (since > 0 && since % DOCTOR.digEvery === 0) {
+        found += 1;
+        float(dig.x, dig.y - 40, "A find!", "#e6c36a");
+      }
+    }
+    if (!found) return "";
+    world.hud.digFinds += found;
+    world.runLog.digFinds += found;
+    return "The Dig turned something up: open the Dig to choose what it is.";
   };
 
   const endWave = () => {
@@ -4618,12 +4838,16 @@ export function createWorld(
     lectureNow = null;
     let lectureLine = "";
     if (world.towers.some((t) => t.kind === "lectern")) {
-      const bar = fx.midpoint ? 0.5 : CANNON.lectureAt;
+      // A published Lectern notes the furthest kind whatever its reach. `fresh`: it published this very wave.
+      const isOut = world.towers.some(published);
+      const fresh = isOut && !world.towers.some((t) => t.kind === "lectern" && cleared - (t.born ?? cleared) > DOCTOR.publishAfter);
+      const bar = isOut ? 0 : fx.midpoint ? 0.5 : CANNON.lectureAt;
       let best: EnemyKind | null = null;
       let far = -1;
       for (const [kind, p] of reached) if (p >= bar && p > far) [best, far] = [kind, p];
       if (best) {
         lecture = { kind: best, waves: 1 + fx.carriedNote };
+        archive.add(best);
         const name = {
           melon: ["The melons", "They"],
           corn: ["The corn", "They"],
@@ -4633,6 +4857,7 @@ export function createWorld(
           cat: ["The cats", "They"],
         }[best];
         lectureLine = `The Doctor: “${name[0]} got furthest. I've taken notes. ${name[1]} will be slower next time.”`;
+        if (fresh) lectureLine += " The Lectern's notes are published: every kind it has noted walks slower for the rest of the night.";
       } else {
         lectureLine = "The Doctor: “Nothing got far. I have nothing to add.”";
       }
@@ -4646,6 +4871,9 @@ export function createWorld(
       desk.bank = (desk.bank ?? 0) + CANNON.deskBank;
       float(desk.x, desk.y - 50, `+${CANNON.deskBank}`, "#e6c36a");
     }
+    const studyLine = studyAfterWave();
+    const digLine = digAfterWave();
+    doctorCarry = [lectureLine, studyLine, digLine].filter(Boolean).join(" ");
     if (world.heights.size) drainWater();
     const beat = nextBeat(cleared, world.hud.night);
     const upcoming = waveAt(endless ? cleared : Math.min(cleared, nightLength(world.hud.night) - 1), world.hud.night);
@@ -4681,7 +4909,24 @@ export function createWorld(
       beat === "upgrade"
         ? withDoctorsPick(buildOffer(world.hud.hero, step, world.hud.upgrades, world.hud.branch, builtKinds()), step)
         : [];
-    if (beat === "upgrade" && offer.length) {
+    // Pro Bono: a stack back for every wave cleared.
+    if (has("probono") && world.hud.lives > 0) world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + ELF_VALUES.probonoLives);
+    // The Legal Elf's Prompt Drop: every fifth wave, an extra shelf with one unhinged card (after the usual one, if any).
+    promptNext = null;
+    const drop = world.hud.hero === "elf" && fx.promptDrop > 0 && cleared % ELF_VALUES.promptEvery === 0 ? promptOffer(world.hud.upgrades, world.hud.branch, builtKinds()) : [];
+    if (drop.length) {
+      if (beat === "upgrade" && offer.length) promptNext = "shelf";
+      else {
+        promptNext = beat === "consequence" ? "consequence" : "prep";
+        world.hud.pickCards = [];
+        world.hud.offer = drop;
+        world.hud.phase = "upgrade";
+        world.hud.log = `Legal Elf: “${ELF_LINES.promptDrop}”`;
+      }
+    }
+    if (promptNext && promptNext !== "shelf") {
+      // The drop's shelf is up; the rest happens after the pick.
+    } else if (beat === "upgrade" && offer.length) {
       world.hud.offer = offer;
       world.hud.phase = "upgrade";
       if (world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "upgrade";
@@ -4718,6 +4963,8 @@ export function createWorld(
     if (spilled) world.hud.log = `${world.hud.log} Vaelithra: “That was not in the notes.”`;
     if (world.hud.plugged) world.hud.log = `${world.hud.log} A Drain Gourd's plugged the drain.`;
     if (lectureLine) world.hud.log = `${world.hud.log} ${lectureLine}`;
+    if (studyLine) world.hud.log = `${world.hud.log} ${studyLine}`;
+    if (digLine) world.hud.log = `${world.hud.log} ${digLine}`;
     if (mendLine) world.hud.log = `${world.hud.log} ${mendLine}`;
     // A board with doors: a door opening in two waves is heard first; then it opens.
     for (const d of BOARDS[world.hud.map].doors ?? []) {
@@ -4933,7 +5180,9 @@ export function createWorld(
       credit = dotBy ?? null;
       if (dot) hurt(e, null, dot * dt, 0, "pulp");
       if ((e.ink ?? 0) > 0) e.ink = (e.ink ?? 0) - dt;
+      if ((e.readT ?? 0) > 0 && e.readT !== Infinity) e.readT = (e.readT ?? 0) - dt;
       if ((e.honeyed ?? 0) > 0) e.honeyed = (e.honeyed ?? 0) - dt;
+      if ((e.overruled ?? 0) > 0) e.overruled = (e.overruled ?? 0) - dt;
       if ((e.worm ?? 0) > 0) {
         e.worm = (e.worm ?? 0) - dt;
         credit = e.wormBy ?? null;
@@ -5038,7 +5287,7 @@ export function createWorld(
           const bx = back.x - e.x;
           const by = back.y - e.y;
           const bd = Math.hypot(bx, by);
-          const studiedBack = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
+          const studiedBack = lectureFactor(e.kind);
           const stepBack = e.speed * e.slow * studiedBack * perimeterAt(e) * paceOf(e, !e.reverse) * awake(e) * dt;
           if (!driven) e.panic = Math.max(0, (e.panic ?? 0) - stepBack);
           if (bd <= stepBack + 0.5) {
@@ -5059,9 +5308,11 @@ export function createWorld(
       const dy = wp.y - e.y;
       const dist = Math.hypot(dx, dy);
       // The History Lectern's note: the kind that got furthest last wave walks slower.
-      const studied = lectureNow === e.kind ? CANNON.lectureSlow - fx.lectureSlow : 1;
+      const studied = lectureFactor(e.kind);
       const rush = (e.rallied ?? 0) > 0 ? SIEGE.rallySpeed : 1;
-      const step = e.speed * e.slow * studied * rush * perimeterAt(e) * paceOf(e, Boolean(e.reverse)) * awake(e) * dt;
+      // Objection!'s fine print: an overruled fruit walks a little faster for a moment.
+      const appeal = (e.overruled ?? 0) > 0 ? ELF_VALUES.finePrintHaste : 1;
+      const step = e.speed * e.slow * studied * rush * appeal * perimeterAt(e) * paceOf(e, Boolean(e.reverse)) * awake(e) * dt;
       if (dist <= step + 0.5) {
         e.x = wp.x;
         e.y = wp.y;
@@ -5189,6 +5440,16 @@ export function createWorld(
         continue;
       }
       if (tower.kind === "hive") target = inRange[Math.floor(Math.random() * inRange.length)] ?? target;
+      // The Scales on Strong: between two fruit about as heavy, weigh the one in court.
+      if (tower.kind === "scales" && mode === "strong" && !inCourt(target)) {
+        const heavy = target.hp;
+        const rival = inRange
+          .filter((e) => inCourt(e) && e.hp >= heavy * (1 - CANNON.scalesTie))
+          .sort((a, b) => b.hp - a.hp)[0];
+        if (rival) target = rival;
+      }
+      // Unhinged Cyberpop's fine print: the towers stop listening to their aim.
+      if (has("cyberpop") && inRange.length) target = inRange[Math.floor(Math.random() * inRange.length)] ?? target;
       tower.aimAt = target.id;
       tower.aim = Math.atan2(target.y - tower.y, target.x - tower.x);
       if (tower.cd > 0) continue;
@@ -5296,13 +5557,16 @@ export function createWorld(
         const fx2 = d > 0 ? target.x + ((next.x - target.x) / d) * lead : target.x;
         const fy2 = d > 0 ? target.y + ((next.y - target.y) / d) * lead : target.y;
         const mine = world.pools.filter((p) => p.owner === tower.id);
-        if (mine.length >= CANNON.honeyMax) world.pools = world.pools.filter((p) => p !== mine[0]);
+        // Sticky Situation: more prints down at once, and they last longer.
+        const prints = fx.sticky ? ELF_VALUES.stickyMax : CANNON.honeyMax;
+        const printLife = fx.sticky ? ELF_VALUES.stickyLife : CANNON.honeyLife;
+        if (mine.length >= prints) world.pools = world.pools.filter((p) => p !== mine[0]);
         world.pools.push({
           x: fx2,
           y: fy2,
           r: CANNON.honeyRadius,
-          life: CANNON.honeyLife,
-          max: CANNON.honeyLife,
+          life: printLife,
+          max: printLife,
           hot: false,
           burn: 0,
           honey: true,
@@ -5375,11 +5639,12 @@ export function createWorld(
         // Foot of the Law: land on the fruit with the most company, then pin and bruise everything under the sole.
         tower.cd = stats.interval;
         cue("fire", "stomp");
+        const footR = stompRadius();
         let spot = target;
         let crowd = -1;
         for (const e of inRange) {
           let n = 0;
-          for (const o of inRange) if (Math.hypot(o.x - e.x, o.y - e.y) <= CANNON.stompRadius) n++;
+          for (const o of inRange) if (Math.hypot(o.x - e.x, o.y - e.y) <= footR) n++;
           if (n > crowd) {
             crowd = n;
             spot = e;
@@ -5387,13 +5652,26 @@ export function createWorld(
         }
         const sx = spot.x;
         const sy = spot.y;
-        for (const e of world.enemies) {
-          if (e.hp <= 0 || Math.hypot(e.x - sx, e.y - sy) > CANNON.stompRadius) continue;
-          e.stomped = Math.max(e.stomped ?? 0, e.boss ? CANNON.stompStunBoss : CANNON.stompStun);
+        const under = world.enemies.filter((e) => e.hp > 0 && Math.hypot(e.x - sx, e.y - sy) <= footR);
+        const sticky = under.some((e) => (e.honeyed ?? 0) > 0);
+        for (const e of under) {
+          // The court: a fruit already honeyed is stuck fast (twice as long); a plain one is blocked.
+          const stop = (e.boss ? CANNON.stompStunBoss : CANNON.stompStun) * ((e.honeyed ?? 0) > 0 ? CANNON.stompStuck : 1);
+          if ((e.honeyed ?? 0) > 0) float(e.x, e.y - 18, "stuck fast", "#e8b84a");
+          else float(e.x, e.y - 18, "blocked", "#f4f1e8");
+          e.stomped = Math.max(e.stomped ?? 0, stop);
           hurt(e, null, stats.dmg, 0, "splash");
         }
-        world.stomps.push({ x: sx, y: sy, life: 0.45, max: 0.45 });
-        world.rings.push({ x: sx, y: sy, r: CANNON.stompRadius, life: 0.4, max: 0.4, color: "201,162,90" });
+        // The honey spreads to everything under the sole (Contempt of Court: honey or not).
+        if (sticky || fx.stompHoney) for (const e of under) if (e.hp > 0) e.honeyed = Math.max(e.honeyed ?? 0, CANNON.honeyTime);
+        // Billable Steps: each fruit it stomps pays a seed, up to a few a stomp.
+        const billed = Math.min(under.length * CANNON.stompFee, CANNON.stompFeeMax);
+        if (billed > 0) {
+          world.hud.seeds += billed;
+          float(sx, sy - 40, `+${billed}`, "#e6c36a");
+        }
+        world.stomps.push({ x: sx, y: sy, life: 0.45, max: 0.45, honey: sticky });
+        world.rings.push({ x: sx, y: sy, r: footR, life: 0.4, max: 0.4, color: sticky ? "232,184,74" : "201,162,90" });
         world.shake = world.reduced ? 0 : Math.max(world.shake, 4);
         float(sx, sy - 26, "STOMP", "#e6c36a");
         continue;
@@ -5402,10 +5680,16 @@ export function createWorld(
         // A share of the heaviest fruit's health, and a fee if the verdict kills it.
         tower.cd = stats.interval;
         cue("fire", "scales");
-        const share = target.boss ? CANNON.scalesBossShare : CANNON.scalesShare + fx.share;
+        // The sentence: a fruit stopped or honeyed is in court, and the Scales take more (and double the fee).
+        const court = inCourt(target);
+        const share = target.boss
+          ? court ? CANNON.scalesCourtBossShare : CANNON.scalesBossShare
+          : (court ? CANNON.scalesCourtShare : CANNON.scalesShare) + fx.share;
         hurt(target, null, stats.dmg + target.maxHp * share);
-        if (target.hp <= 0) {
-          const fee = CANNON.scalesFee + fx.fee;
+        if (court) float(target.x, target.y - 40, "guilty", "#e6c36a");
+        // Pro Bono's fine print: the Scales work for free.
+        if (target.hp <= 0 && !has("probono")) {
+          const fee = (CANNON.scalesFee + (hasMod(tower, "billable") ? CANNON.scalesBillable : 0)) * (court ? CANNON.scalesCourtFee : 1);
           world.hud.seeds += fee;
           float(target.x, target.y - 26, `fee +${fee}`, "#e6c36a");
         }
@@ -5433,6 +5717,10 @@ export function createWorld(
             target.inkMul = Math.max(target.inkMul ?? 1, CANNON.inkBonus);
           }
           hurt(target, null, stats.dmg);
+          if (TRICKS.on && target.hp > 0) {
+            if ((target.readT ?? 0) <= 0) float(target.x, target.y - 22, "read through", "#f3e2c4");
+            target.readT = target.boss ? Math.max(target.readT ?? 0, TRICKS.readBossTime) : Infinity;
+          }
           world.lines.push({ x: tower.x, y: tower.y, x2: target.x, y2: target.y, life: 0.22, max: 0.22, color: "243,226,196", width: 2 });
           burst(target.x, target.y, "#f3e2c4", 8);
         } else {
@@ -5595,6 +5883,7 @@ export function createWorld(
     if (world.hud.phase === "combat" && queueCursor >= queue.length && world.enemies.length === 0 && drops.length === 0 && world.cocoons.length === 0) {
       endWave();
     }
+    if (world.hud.hero === "elf") syncObjection();
   };
 
   const tickFx = (dt: number) => {
@@ -5743,6 +6032,8 @@ export function createWorld(
         world.hud.log =
           buildKind === "pamphlet"
             ? "The Post has to stand beside a straight."
+            : buildKind === "dig"
+            ? "The Dig needs quiet ground: not right beside the carpet."
             : `The ${TOWERS[buildKind].name} goes right beside the carpet.`;
         notify();
         return;
@@ -5813,6 +6104,15 @@ export function createWorld(
       // (Tap a built tower to open its stats.)
       world.hud.selected = null;
       world.hud.log = `${TOWERS[buildKind].name} set.`;
+      // A one-at-a-time tower can't be placed again, so the pick goes back to the card before it
+      // (else every later tap on the floor would only say "Only one … at a time").
+      if (signatureBlocked(buildKind)) {
+        const back = prevPick !== buildKind && pickable(prevPick) ? prevPick : "melon";
+        if (back !== buildKind) {
+          world.hud.build = back;
+          world.hud.log += ` The ${TOWERS[back].name} is picked again.`;
+        }
+      }
       // Vaelithra: a tower that tips her ladder says so after the usual line.
       syncVael();
       syncGuide();
@@ -5838,6 +6138,9 @@ export function createWorld(
       }
       world.hud.paused = false;
       absorbed = 0;
+      // Objection! recharges at the start of every wave (Sustained: two).
+      world.hud.objections = world.hud.hero === "elf" ? 1 + fx.objections : 0;
+      objectedWave = 0;
       world.marks = [];
       // Lion Blades standing now will mend when this wave is cleared; ones built mid-wave won't.
       for (const blade of world.towers) if (blade.kind === "lionblade") blade.mendReady = true;
@@ -5845,6 +6148,7 @@ export function createWorld(
       for (const roost of world.towers) if (roost.kind === "bombard") roost.roostReady = true;
       waveLost = false;
       lectureNow = lecture && lecture.waves > 0 ? lecture.kind : null;
+      archiveNow = world.towers.some(published);
       reached.clear();
       syncMimics(true);
       const spec = waveAt(cleared, world.hud.night);
@@ -5873,6 +6177,15 @@ export function createWorld(
       notify();
     },
     pickUpgrade(upgradeId: UpgradeId) {
+      const cardName = (id: UpgradeId) => world.hud.offer.find((u) => u.id === id)?.name ?? UPGRADES[id].name;
+      if (world.hud.phase === "upgrade" && !world.hud.checkout && UNHINGED.includes(upgradeId) && world.hud.offer.some((u) => u.id === upgradeId)) {
+        // An unhinged card: its boost lands now (the drawback is in the rules from here on).
+        if (upgradeId === "advance") world.hud.seeds += ELF_VALUES.advanceSeeds;
+        if (upgradeId === "malpractice") {
+          world.hud.lives += ELF_VALUES.malpracticeLives;
+          world.hud.maxLives += ELF_VALUES.malpracticeLives;
+        }
+      }
       if (world.hud.phase !== "upgrade" || world.hud.checkout) return;
       if (!world.hud.offer.some((u) => u.id === upgradeId)) return;
       // The Doctor's pick is a real upgrade like any other; it is only counted (Close Reading, Annotated, achievements).
@@ -5883,20 +6196,50 @@ export function createWorld(
         world.runLog.doctorTaken += 1;
         if (fx.annotated) world.hud.seeds += fx.annotated;
       }
-      if (!has(upgradeId)) {
+      // Tower picks (and Seed Cache) can be taken again: each copy is one more rank.
+      if (canTake(world.hud.upgrades, upgradeId)) {
+        if (!has(upgradeId)) world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, pick: doctors }];
         world.hud.upgrades = [...world.hud.upgrades, upgradeId];
-        world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, pick: doctors }];
       }
-      // Cannon upgrades don't choose the keeper's path (see buildOffer).
-      if (!world.hud.branch && !Object.values(CANNON_UPGRADES).includes(upgradeId)) world.hud.branch = upgradeId;
-      if (upgradeId === "seeds") world.hud.seeds += 55;
+      // Cannon upgrades and tower picks don't choose the keeper's path (see buildOffer).
+      if (!world.hud.branch && !isTowerPick(upgradeId) && !Object.values(CANNON_UPGRADES).includes(upgradeId)) world.hud.branch = upgradeId;
+      if (upgradeId === "seeds") world.hud.seeds += PICKS.seeds;
       syncPrice();
       world.hud.offer = [];
+      // Prompt Drop: its shelf comes after the usual one.
+      if (promptNext === "shelf") {
+        const drop = promptOffer(world.hud.upgrades, world.hud.branch, builtKinds());
+        promptNext = "prep";
+        if (drop.length) {
+          world.hud.offer = drop;
+          world.hud.log = `${cardName(upgradeId)} locked in. Legal Elf: “${ELF_LINES.promptDrop}”`;
+          notify();
+          return;
+        }
+      }
+      if (promptNext === "consequence") {
+        promptNext = null;
+        const last = waveAt(cleared, world.hud.night);
+        world.hud.phase = "consequence";
+        world.hud.waveName = last.name;
+        world.hud.blurb = last.blurb;
+        world.hud.log = `${cardName(upgradeId)} locked in. ${
+          world.hud.night === "overflow"
+            ? "Karl is not using the door."
+            : world.hud.night === "siege"
+              ? "Both of them, at once. They still hate each other."
+              : "Everything left in the library is on the carpet."
+        }`;
+        notify();
+        return;
+      }
+      promptNext = null;
       world.hud.phase = "prep";
       const next = waveAt(cleared, world.hud.night);
       world.hud.blurb = next.blurb;
       world.hud.waveName = next.name;
-      world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.`;
+      world.hud.log = `${cardName(upgradeId)} locked in for this run.${doctorCarry ? ` ${doctorCarry}` : ""}`;
+      doctorCarry = "";
       if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
       notify();
     },
@@ -5956,6 +6299,13 @@ export function createWorld(
       cue("build");
       world.hud.log = mode === "auto" ? "Anti-Geese Protocol: on Auto. It goes off when they crowd in or near the door." : "Anti-Geese Protocol: on Manual. Press Engage.";
       notify();
+    },
+    /** The Legal Elf's Objection!: returns how many fruit it overruled (0: nothing happened, and it isn't spent). */
+    objection() {
+      if (world.hud.menu || world.hud.checkout) return 0;
+      const n = objection();
+      notify();
+      return n;
     },
     engage() {
       const tower = world.towers.find((t) => t.id === world.hud.selected);
@@ -6049,6 +6399,9 @@ export function createWorld(
       shortcutNoted = false;
       windUsed = false;
       goldenUsed = false;
+      objectedWave = 0;
+      objectedNight = 0;
+      promptNext = null;
       world.hud.golden = 0;
       if (hero === "mynxi") {
         world.hud.seeds = 150;
@@ -6127,6 +6480,7 @@ export function createWorld(
       if (world.hud.phase !== "prep" && world.hud.phase !== "combat") return;
       if (isSignature(kind) && !own(kind)) return;
       if (roomLocked(kind)) return;
+      if (kind !== world.hud.build) prevPick = world.hud.build;
       world.hud.build = kind;
       world.hud.log = vaelLocked(kind) ? vaelLockText(kind) : TOWERS[kind].blurb;
       syncPrice();
@@ -6362,6 +6716,33 @@ export function createWorld(
       float(t.x, t.y - 34, "Great!", "#8fc0ff");
       world.hud.log = `Great ${TOWERS[t.kind].name}: two became one, twice the size.${fromHoard ? ` The Hoard paid ${fromHoard}.` : ""}`;
       world.hud.range = towerRange(t);
+      syncPrice();
+      notify();
+    },
+    digFind(find: DigFind) {
+      if (world.hud.digFinds <= 0) return;
+      if (world.hud.phase === "victory" || world.hud.phase === "defeat") return;
+      if (find === "mark") {
+        // The best tower: the most damage tonight among those with room for a mark.
+        const best = world.towers.filter(markable).sort((a, b) => (tally.get(b.id)?.dmg ?? 0) - (tally.get(a.id)?.dmg ?? 0) || b.paid - a.paid)[0];
+        if (!best) {
+          world.hud.log = "No tower has room for another Study mark.";
+          notify();
+          return;
+        }
+        giveMark(best);
+        world.hud.log = `The find is a lost treatise: the ${TOWERS[best.kind].name} is studied (${best.studyMarks}/${DOCTOR.maxMarks} marks).`;
+      } else if (find === "stacks") {
+        const before = world.hud.lives;
+        world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + DOCTOR.digStacks);
+        const got = world.hud.lives - before;
+        world.hud.log = got > 0 ? `The find is a box of old books: ${got} stack${got > 1 ? "s" : ""} back.` : "The find is a box of old books, but the stacks are already full.";
+        syncSisu();
+      } else {
+        world.hud.seeds += DOCTOR.digSeeds;
+        world.hud.log = `The find is a jar of old seeds: +${DOCTOR.digSeeds}.`;
+      }
+      world.hud.digFinds -= 1;
       syncPrice();
       notify();
     },

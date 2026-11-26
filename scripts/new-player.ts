@@ -7,7 +7,18 @@
  *
  * Options: --url (use a running server), --out <dir> (default sim-results/new-player/<time>),
  * --waves <n> waves to play on the first night (default 4), --viewport 1366x768, --browser chrome|msedge,
- * --headed, --seed <n> (the learner's small random choices).
+ * --headed, --seed <n> (the learner's small random choices), --style curious|careful (default curious:
+ * between instructions the learner pokes at things: taps its towers and sometimes sells one, taps the
+ * board at random, browses tabs and locked cards, pauses, changes speed, opens the menu, mashes keys,
+ * hovers fruit, looks in the Back room, tries to build what it can't afford, may hit Skip by mistake),
+ * --curiosity 0..1 (how often it wanders off, default 0.4).
+ *
+ * Testing one game mode: --mode <name> finds a button, tab or choice by that name (on the title, then on
+ * each Setup page), picks it and plays it for --mode-waves <n> waves (default --waves), instead of the
+ * plain Setup tour. --skip-guide skips the guided first night (from the title link) to get there fast;
+ * --dev turns on Developer mode in Settings first, so a mode that is still locked can be opened;
+ * --keeper <name> picks that keeper on Setup (default: the first open one).
+ *   npm run sim:newplayer -- --url http://localhost:5293/ --skip-guide --mode Acquisitions --mode-waves 8
  *
  * Fresh profile: every run launches a new browser context, so storage starts empty and developer
  * mode is off. The context is thrown away at the end; the user's own browser save is never touched.
@@ -36,6 +47,19 @@ const WAVES = Number(arg("waves") ?? 4);
 const [VW, VH] = (arg("viewport") ?? "1366x768").split("x").map(Number);
 const BROWSER = arg("browser") ?? "chrome";
 const HEADED = arg("headed") != null;
+/** curious (default): pokes at things between instructions, like a real learner. careful: only follows instructions. */
+const STYLE = arg("style") === "careful" ? "careful" : "curious";
+/** How often the curious learner wanders off (0..1, default 0.4). */
+const CURIOSITY = Math.max(0, Math.min(1, Number(arg("curiosity") ?? 0.4)));
+/** A game mode to find and play after the first night (by its name on screen), or none. */
+const MODE = arg("mode");
+const MODE_WAVES = Number(arg("mode-waves") ?? arg("waves") ?? 4);
+const SKIP_GUIDE = arg("skip-guide") != null;
+const DEV = arg("dev") != null;
+/** The keeper to pick on Setup when testing a mode (default: the first open one). */
+const KEEPER = arg("keeper");
+/** How likely a wander during the lessons is a slip onto Skip (relative weight; most runs keep the guide). */
+const SKIP_WEIGHT = 0.3;
 let seed = Number(arg("seed") ?? 1) >>> 0;
 /** The learner's dice (mulberry32). */
 function rand() {
@@ -149,7 +173,10 @@ async function look(scope?: string): Promise<Seen> {
     const mynxiText = status.find((s) => /^MYNXI|^Mynxi/i.test(s.trim()));
     const header = document.querySelector("header");
     const nums = header ? [...header.querySelectorAll(".font-display")].map((e) => (e as HTMLElement).innerText.trim()) : [];
-    const footerLog = [...document.querySelectorAll("footer > p, aside p")].filter(vis).map((p) => (p as HTMLElement).innerText.trim());
+    // The game's message line: the footer, or the build column's last line on wide screens (not the tips column).
+    const footerLog = [...document.querySelectorAll("footer > p, aside p")]
+      .filter((p) => vis(p) && !p.closest('[aria-label="Back room column"], [data-tip-dock], [role=status]'))
+      .map((p) => (p as HTMLElement).innerText.trim());
     const tooltip = [...document.querySelectorAll("[role=tooltip]")].filter(vis).map((t) => (t as HTMLElement).innerText.trim()).join(" ");
     return {
       text: document.body.innerText,
@@ -162,6 +189,13 @@ async function look(scope?: string): Promise<Seen> {
       tooltip,
       hasCanvas: !!document.querySelector("canvas") && vis(document.querySelector("canvas")!),
       dialogs: [...document.querySelectorAll("[aria-label]")].filter(vis).map((d) => d.getAttribute("aria-label")!),
+      /** The title of an open modal dialog (role=dialog with aria-modal or aria-labelledby), if any. */
+      modal: (() => {
+        const d = [...document.querySelectorAll("[role=dialog]")].filter(vis).find((e) => e.getAttribute("aria-modal") === "true" || e.hasAttribute("aria-labelledby"));
+        if (!d) return "";
+        const id = d.getAttribute("aria-labelledby");
+        return ((id && document.getElementById(id)?.innerText) || d.getAttribute("aria-label") || "dialog").trim();
+      })(),
     };
   }, scope);
   let mynxi: Seen["mynxi"];
@@ -184,10 +218,12 @@ async function look(scope?: string): Promise<Seen> {
   else if (raw.dialogs.includes("Grand Catalogue")) screen = "Grand Catalogue";
   else if (has(/^(To the carpet|Cover the chute|Hold the courtyard)$/)) screen = "Room poster";
   else if (has(/^Leave to title$/) || raw.headings.includes("Paused") && has(/^Resume$/)) screen = "Pause menu";
+  else if (raw.modal === "Settings") screen = "Settings (from the menu)";
   else if (/Between the waves/.test(text)) screen = "Upgrade pick";
   else if (raw.dialogs.includes("Back room") && raw.headings.includes("Back room")) screen = "Back room";
   else if (raw.dialogs.includes("Keeper") || raw.dialogs.includes("Night") || raw.dialogs.includes("Difficulty")) screen = "Setup";
   else if (/\b(Victory|held|Defeat|The carpet won)\b/i.test(raw.headings.join(" ")) && !has(/^Start wave/)) screen = "Night over";
+  else if (raw.modal) screen = `Dialog: ${raw.modal.slice(0, 40)}`;
   else if (raw.hasCanvas && (has(/^Start (wave|the last wave)/) || /Wave \d+\/\d+/.test(text))) screen = has(/^Start (wave|the last wave)/) ? "Board (between waves)" : "Board (wave running)";
   if (!screensSeen.has(screen)) screensSeen.set(screen, secs());
   return {
@@ -250,7 +286,7 @@ function read(where: string, text: string) {
   if (!text) return;
   readSoFar.push(text);
   for (const { term, re } of TERMS) if (!termExplained.has(term) && re.test(text)) termExplained.set(term, { where, at: secs() });
-  for (const m of text.matchAll(/\((?:press )?([A-Z]|Space|Esc|Enter)\)|press ([A-Z]|Space|Esc)\b|\b([A-Z]|Esc) (?:pauses|puts|cycles)/g)) {
+  for (const m of text.matchAll(/\((?:press )?([A-Z]|Space|Esc|Enter)\)|press ([A-Z]|Space|Esc)\b|\b([A-Z]|Esc) (?:pauses|puts|cycles|is my)/g)) {
     knownKeys.add(m[1] ?? m[2] ?? m[3]);
   }
 }
@@ -300,8 +336,30 @@ async function press(
   why: string,
   opts: { expectChange?: boolean; quietIfMissing?: boolean; wait?: number; scope?: string } = {},
 ): Promise<boolean> {
-  const seen = await look(opts.scope);
-  const target = seen.buttons.find((b) => re.test(b.name) && b.enabled) ?? seen.buttons.find((b) => re.test(b.name));
+  let seen = await look(opts.scope);
+  let target = seen.buttons.find((b) => re.test(b.name) && b.enabled) ?? seen.buttons.find((b) => re.test(b.name));
+  if (!target) {
+    // Not in view: scroll to it if it's on the page at all (inside a scrolling panel).
+    const hidden = (opts.scope ? page.locator(opts.scope).first() : page.locator("body")).getByRole("button", { name: re }).first();
+    if ((await hidden.count().catch(() => 0)) && (await hidden.scrollIntoViewIfNeeded({ timeout: 2000 }).then(() => true, () => false))) {
+      await page.waitForTimeout(250);
+      const scrolled = await look(opts.scope);
+      target = scrolled.buttons.find((b) => re.test(b.name));
+      if (target)
+        await friction(
+          {
+            severity: "minor",
+            screen: seen.screen,
+            title: `"${target.name}" is below the fold: I had to scroll to find it`,
+            tried: why,
+            expected: `"${target.name}" in view without scrolling (it's how you leave this screen).`,
+            saw: `Not visible at ${VW}×${VH} until the panel was scrolled.`,
+          },
+          false,
+        );
+      seen = scrolled;
+    }
+  }
   if (!target) {
     if (!opts.quietIfMissing)
       await friction({
@@ -496,6 +554,7 @@ async function tapFloor(why: string, opts: { onCarpet?: boolean } = {}) {
         return card ? (card.getAttribute("title") ?? "").split(" (")[0] : null;
       });
       built.push(onScreen ?? picked);
+      builtAt.push({ x: pick.x, y: pick.y, kind: onScreen ?? picked });
       return { ok: true, log: after.log !== before.log ? after.log : "", why: "" };
     }
     // Tapped a tower that's already there: its card opened. Close it and try somewhere else.
@@ -512,6 +571,8 @@ async function tapFloor(why: string, opts: { onCarpet?: boolean } = {}) {
 /** What the learner last picked to build (they don't re-check it), and what each tap built. */
 let picked = "Melon cannon";
 const built: string[] = [];
+/** Where the learner's towers are (page pixels), for tapping them later. */
+const builtAt: Array<{ x: number; y: number; kind: string }> = [];
 
 // ---------------------------------------------------------------- phases
 
@@ -723,7 +784,14 @@ async function guidedNight() {
       });
       // Way out, like a frustrated player.
       await press(/^Skip$/, "Gave up and pressed Skip on the lesson.", { quietIfMissing: true });
+      await press(/^Skip the guide$/, "Said yes, skip the guide.", { quietIfMissing: true });
       break;
+    }
+    // Curious: wander off for a moment before doing what she says (never on the upgrade pick).
+    if (seen.screen !== "Upgrade pick") {
+      await curiousPoke(seen.screen === "Board (wave running)" ? "combat" : "guide");
+      const again = await look();
+      if (!again.mynxi || again.mynxi.lesson === "tip" || `${again.mynxi.lesson}: ${again.mynxi.title}` !== id) continue;
     }
     if (m.action === "Next" || m.action === "Let's go") {
       // On the speed lesson, try what it says first.
@@ -785,6 +853,8 @@ async function guidedNight() {
           });
         else if (!r.ok) steps.push({ screen: seen.screen, what: `carpet tap answered: "${r.log}"`, ms: 0, words: wordsIn(r.log) });
       }
+      // The lesson says the Melon cannon is picked; a learner who wandered off to other tabs goes back to it.
+      if (/Melon cannon/.test(t) && picked !== "Melon cannon") await pickMelon();
       const r = await tapFloor("build beside the carpet");
       if (!r.ok) {
         const msg = r.log || "";
@@ -868,8 +938,417 @@ async function backRoom(why: string) {
   if (!closed && knownKeys.has("Esc")) await key("Esc", "close the Back room");
 }
 
+// ---------------------------------------------------------------- curious learner (--style curious)
+
+/** What a curious newcomer pokes at between the things they're told to do, and what came of it. */
+interface Poke {
+  at: number;
+  screen: string;
+  what: string;
+  result: string;
+}
+const pokes: Poke[] = [];
+const pokesDone = new Set<string>();
+let skippedGuide = false;
+
+function noted(screen: string, what: string, result: string) {
+  pokes.push({ at: secs(), screen, what, result });
+  steps.push({ screen, what: `curious: ${what} → ${result}`, ms: 0, words: 0 });
+}
+
+const onBoard = (s: string) => s.startsWith("Board");
+const cardOpen = (s: Seen) => s.buttons.some((b) => /^Sell \d/.test(b.name));
+
+/** Find the way back to the board from wherever the poke left us. A person would use Close, Back, Resume or Esc. */
+async function recover(after: string) {
+  for (let i = 0; i < 5; i++) {
+    const seen = await look();
+    if (onBoard(seen.screen) && !cardOpen(seen)) return true;
+    if (["Upgrade pick", "Night over", "Title", "Room poster"].includes(seen.screen)) return true;
+    if (cardOpen(seen) && (await press(/^Close \(Esc\)$/, "Closed the tower card.", { quietIfMissing: true, expectChange: false }))) continue;
+    if (/Settings/.test(seen.headings.join(" ")) && (await press(/^Back$/, "Left Settings.", { quietIfMissing: true, expectChange: false }))) continue;
+    if (seen.buttons.some((b) => /^Resume$/.test(b.name)) && (await press(/^Resume$/, "Resumed.", { quietIfMissing: true, expectChange: false }))) continue;
+    if (seen.screen === "Back room" && (await press(/^(Close|Close \(Esc\))$/i, "Closed the Back room.", { quietIfMissing: true, expectChange: false, scope: BACK_ROOM }))) continue;
+    // Last resort, the key everyone tries.
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
+  }
+  const seen = await look();
+  if (onBoard(seen.screen) && !cardOpen(seen)) return true;
+  await friction({
+    severity: "major",
+    screen: seen.screen,
+    title: `Couldn't get back to the board after: ${after}`,
+    tried: "Close, Back, Resume and Esc, five times.",
+    expected: "An obvious way back to the night.",
+    saw: `Buttons: ${seen.buttons.map((b) => b.name).filter(Boolean).slice(0, 12).join(", ")}`,
+  });
+  return false;
+}
+
+/** The colour under a page point on the board: carpet, margin (outside the board), covered, or floor/shelf. */
+async function pixelAt(x: number, y: number) {
+  return page.evaluate(([x, y]) => {
+    const c = document.querySelector("canvas") as HTMLCanvasElement | null;
+    if (!c) return "none";
+    const r = c.getBoundingClientRect();
+    if (document.elementFromPoint(x, y) !== c) return "covered";
+    const d = c.getContext("2d")!.getImageData(Math.floor(((x - r.left) * c.width) / r.width), Math.floor(((y - r.top) * c.height) / r.height), 1, 1).data;
+    if (d[0] + d[1] + d[2] < 70) return "margin"; // the canvas fill around the board is #140e12
+    return d[0] > 80 && d[0] > d[1] * 1.9 && d[0] > d[2] * 1.9 ? "carpet" : "floor or shelf";
+  }, [x, y] as const);
+}
+
+const pickMelon = async () => {
+  await press(/^Damage/, "Back to the Damage tab.", { quietIfMissing: true, expectChange: false });
+  const melon = (await look()).buttons.find((b) => /^Melon\b/.test(b.name));
+  if (melon) {
+    await press(new RegExp(`^${escapeRe(melon.name)}$`), "Picked the Melon cannon again.", { expectChange: false });
+    picked = "Melon cannon";
+  }
+};
+
+/** Tap something already built, read its card, then do what a curious person does with it. */
+async function pokeTower() {
+  if (!builtAt.length) return false;
+  const t = builtAt[Math.floor(rand() * builtAt.length)];
+  const before = await look();
+  await page.mouse.click(t.x, t.y);
+  await page.waitForTimeout(450);
+  const card = await look();
+  const sell = card.buttons.find((b) => /^Sell \d/.test(b.name));
+  if (!sell) {
+    noted(before.screen, `tapped my ${t.kind}`, card.log !== before.log ? `log: "${card.log}"` : "no card opened");
+    await recover("tapping a tower");
+    return true;
+  }
+  read("Tower card", card.text.slice(0, 600));
+  const extra = card.buttons.filter(
+    (b) => b.enabled && b.role === "button" && b.name.length > 2 && !/^(Sell \d|Close)/.test(b.name) && !/^(Slow down|Speed up|Pause|Resume|Menu|Start wave|Back room|Mute|Unmute|Checkout)/.test(b.name) && !/^\d+$/.test(b.name) && b.name !== "−" && b.name !== "+" && !/\(\d\) · /.test(b.tip),
+  );
+  const roll = rand();
+  if (roll < 0.2) {
+    // The classic slip: Sell instead of Upgrade.
+    const seeds = card.seeds ?? 0;
+    await press(new RegExp(`^${escapeRe(sell.name)}$`), `Curious (or a slip): pressed "${sell.name}" on my ${t.kind}.`);
+    let after = await look();
+    const asked = after.buttons.find((b) => /^Sure\? Sell \d/.test(b.name));
+    if (asked) {
+      // It asks once; a curious player says yes to see what happens.
+      await press(new RegExp(`^${escapeRe(asked.name)}$`), `Sell asked once; pressed "${asked.name}".`);
+      after = await look();
+    }
+    const back = (after.seeds ?? 0) - seeds;
+    builtAt.splice(builtAt.indexOf(t), 1);
+    noted(before.screen, `sold my ${t.kind}`, back > 0 ? `got ${back} seeds back${after.log !== card.log ? `, log: "${after.log}"` : ""}` : "seeds didn't go up");
+    if (back <= 0)
+      await friction({ severity: "major", screen: before.screen, title: "Selling a tower gave nothing back", tried: `Pressed "${sell.name}".`, expected: "The seeds it says.", saw: `Seeds ${seeds} → ${after.seeds}.` });
+    if (!pokesDone.has("sell-note")) {
+      pokesDone.add("sell-note");
+      if (!asked && !after.buttons.some((b) => /^Undo/i.test(b.name)))
+        await friction(
+          {
+            severity: "note",
+            screen: before.screen,
+            title: "Sell happens on one tap, with no undo",
+            tried: "Opened a tower's card and pressed Sell (the button sits right in the card).",
+            expected: "A newcomer who meant Upgrade gets a way back, or Sell asks once.",
+            saw: `The ${t.kind} was gone at once; ${back} seeds back.`,
+          },
+          false,
+        );
+    }
+  } else if (roll < 0.5 && extra.length) {
+    const b = extra[Math.floor(rand() * extra.length)];
+    const ok = await press(new RegExp(`^${escapeRe(b.name)}$`), `Curious: pressed "${b.name.slice(0, 40)}" on a tower's card.`);
+    const after = await look();
+    noted(before.screen, `pressed "${b.name.slice(0, 40)}" on my ${t.kind}'s card`, ok ? `changed${after.log !== card.log ? `; log: "${after.log}"` : ""} (now on ${after.screen})` : "nothing changed");
+  } else if (roll < 0.75 && knownKeys.has("Esc")) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(350);
+    const closed = !cardOpen(await look());
+    noted(before.screen, `opened my ${t.kind}'s card, read it, pressed Esc`, closed ? "card closed" : "card stayed open");
+    if (!closed)
+      await friction({ severity: "minor", screen: before.screen, title: "Esc didn't close a tower's card", tried: "Opened a tower's card and pressed Esc (lesson 5 says Esc puts it down).", expected: "The card closes.", saw: "Still open." });
+  } else {
+    // Tap somewhere else on the board to close it, like any other app.
+    const { spots } = await floorSpots();
+    const s = spots[spots.length - 1 - Math.floor(rand() * Math.min(10, spots.length))];
+    if (s) {
+      await page.mouse.click(s.x, s.y);
+      await page.waitForTimeout(400);
+      const after = await look();
+      noted(before.screen, `opened my ${t.kind}'s card, then tapped elsewhere`, `${cardOpen(after) ? "card stayed open" : "card closed"}${after.seeds !== card.seeds ? `; seeds ${card.seeds} → ${after.seeds} (it built something)` : ""}`);
+    }
+  }
+  await recover(`poking my ${t.kind}`);
+  return true;
+}
+
+/** Tap a random point on the board: carpet, shelf, wall, margin. Every tap that lands on the board should answer. */
+async function pokeRandomTap() {
+  const box = await page.locator("canvas").first().boundingBox();
+  if (!box) return false;
+  const x = box.x + 8 + rand() * (box.width - 16);
+  const y = box.y + 8 + rand() * (box.height - 16);
+  const kind = await pixelAt(x, y);
+  if (kind === "covered" || kind === "none") return false;
+  const before = await look();
+  const sig = await signature();
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(450);
+  const after = await look();
+  const changed = sig !== (await signature());
+  const spent = (before.seeds ?? 0) > (after.seeds ?? 0);
+  if (spent) builtAt.push({ x, y, kind: picked });
+  const said = after.log !== before.log ? `log: "${after.log}"` : "";
+  noted(before.screen, `tapped the board at random (${kind})`, spent ? `built something (${before.seeds} → ${after.seeds} seeds)` : said || (changed ? "something changed" : "nothing happened"));
+  // A repeated reply ("Not enough seeds", "Only one … at a time") leaves the screen the same but still answers.
+  if (!changed && kind !== "margin" && !/carpet|shelf|floor|seeds|track|build|opens|close|only one|too close/i.test(after.log))
+    await friction({
+      severity: "minor",
+      screen: before.screen,
+      title: `A tap on the ${kind === "carpet" ? "carpet" : "board"} got no answer`,
+      tried: `Tapped a random ${kind} spot.`,
+      expected: "Something built, or a line saying why not.",
+      saw: `Nothing changed. Log line: "${after.log}"`,
+    });
+  await recover("a random tap");
+  return true;
+}
+
+/** Click a random tab and a random card in it (locked ones too), read what it says, maybe try to build it. */
+async function pokeTabs() {
+  const seen = await look();
+  const tabs = seen.buttons.filter((b) => b.role === "tab" && b.enabled);
+  if (!tabs.length) return false;
+  const tab = tabs[Math.floor(rand() * tabs.length)];
+  await press(new RegExp(`^${escapeRe(tab.name)}$`), `Curious: opened the ${tab.name} tab.`, { expectChange: false });
+  const now = await look();
+  const cards = now.buttons.filter((b) => b.role === "button" && b.tip && (/\(\d\) · /.test(b.tip) || /locked|opens at|opens when|opens once/i.test(b.tip)));
+  if (!cards.length) {
+    noted(seen.screen, `opened the ${tab.name} tab`, "no cards I could read");
+    return true;
+  }
+  const card = cards[Math.floor(rand() * cards.length)];
+  read(`Card hover: ${card.name}`, card.tip);
+  const locked = /locked|opens at|opens when|opens once/i.test(card.tip);
+  await press(new RegExp(`^${escapeRe(card.name)}$`), `Curious: picked "${card.name.slice(0, 30)}" on ${tab.name}.`, { expectChange: false });
+  const after = await look();
+  if (after.screen === "Grand Catalogue") {
+    noted(seen.screen, `picked a locked card (${card.name.slice(0, 30)}) on ${tab.name}`, "it opened the Grand Catalogue");
+    await press(/^Back$/, "Closed the Catalogue.", { scope: '[aria-label="Grand Catalogue"]', quietIfMissing: true });
+    await recover("a locked card's Catalogue page");
+    return true;
+  }
+  picked = card.name.replace(/^\d+\s*/, "").split(/ \d| No /)[0];
+  let result = locked ? `locked; hover says: "${card.tip.slice(0, 90)}"` : "picked";
+  // Half the time, try to build it right away.
+  if (rand() < 0.5 && onBoard(after.screen)) {
+    const r = await tapFloor(`build the ${picked} I just picked`);
+    result += r.ok ? `; built one${r.log ? ` (log: "${r.log}")` : ""}` : `; tapped the floor: ${r.log ? `log: "${r.log}"` : "nothing built, nothing said"}`;
+    if (!r.ok && !r.log)
+      await friction({
+        severity: locked ? "major" : "minor",
+        screen: seen.screen,
+        title: `Tried to build a ${locked ? "locked" : "picked"} card and nothing said why not`,
+        tried: `Picked ${picked} on the ${tab.name} tab and tapped the floor beside the carpet.`,
+        expected: "It builds, or a line says why not (locked, not enough seeds).",
+        saw: "No tower, no message.",
+      });
+  }
+  noted(seen.screen, `picked "${card.name.slice(0, 30)}" on ${tab.name}`, result);
+  // Half the time the learner goes back to their trusty first cannon.
+  if (rand() < 0.5) await pickMelon();
+  return true;
+}
+
+/** Pause, speed up, slow down: the header buttons. */
+async function pokeSpeed() {
+  const seen = await look();
+  const what = ["Pause", "Speed up", "Slow down"][Math.floor(rand() * 3)];
+  if (!seen.buttons.some((b) => b.name === what)) return false;
+  await press(new RegExp(`^${what}$`), `Curious: pressed ${what}.`);
+  const after = await look();
+  if (what === "Pause") {
+    noted(seen.screen, "pressed Pause", /\bPaused\b/.test(after.text) ? "the board says Paused" : "paused, but nothing on the board says so");
+    await page.waitForTimeout(800);
+    if (!(await press(/^Resume$/, "Pressed the same button again to resume.", { quietIfMissing: true })))
+      await friction({ severity: "major", screen: seen.screen, title: "After Pause, no Resume button", tried: "Paused from the top bar.", expected: "The same button turns into Resume.", saw: after.buttons.map((b) => b.name).filter(Boolean).slice(0, 10).join(", ") });
+  } else noted(seen.screen, `pressed ${what}`, "speed changed");
+  return true;
+}
+
+/** The menu, Settings inside it, and back. */
+async function pokeMenu() {
+  const seen = await look();
+  if (!(await press(/^Menu$/, "Curious: opened the Menu.", { quietIfMissing: true }))) return false;
+  const menu = await look();
+  read("Pause menu", menu.text.slice(0, 400));
+  let result = `menu has: ${menu.buttons.map((b) => b.name).filter(Boolean).slice(0, 8).join(", ")}`;
+  if (rand() < 0.5 && (await press(/^Settings$/, "Opened Settings from the menu.", { quietIfMissing: true }))) {
+    result += "; opened Settings";
+    await press(/^Back$/, "Back from Settings.", { quietIfMissing: true });
+  }
+  noted(seen.screen, "opened the Menu mid-night", result);
+  await recover("the menu");
+  return true;
+}
+
+/** Mash a key a gamer would try. Keys nothing has mentioned that do something are noted. */
+async function pokeKeys() {
+  const seen = await look();
+  const pool = ["1", "2", "3", "4", "5", "Escape", " ", "p", "b", "q", "w", "e", "r", "t", "y", "s", "Enter", "h", "m", "u", "Tab"];
+  const k = pool[Math.floor(rand() * pool.length)];
+  const name = k === " " ? "Space" : k === "Escape" ? "Esc" : k.length === 1 ? k.toUpperCase() : k;
+  const sig = await signature();
+  await page.keyboard.press(k);
+  await page.waitForTimeout(400);
+  const after = await look();
+  const changed = sig !== (await signature());
+  noted(seen.screen, `mashed ${name}`, changed ? `something changed (now ${after.screen}${after.log !== seen.log ? `, log: "${after.log}"` : ""})` : "nothing");
+  // Only between waves: during a wave the screen changes by itself.
+  if (changed && seen.screen === "Board (between waves)" && after.screen === seen.screen && !knownKeys.has(name) && !/^[1-9]$/.test(name) && !["Tab", "Enter"].includes(name) && !pokesDone.has(`key-${name}`)) {
+    pokesDone.add(`key-${name}`);
+    await friction(
+      {
+        severity: "note",
+        screen: seen.screen,
+        title: `Key ${name} does something nothing told me about`,
+        tried: `Pressed ${name} out of habit.`,
+        expected: "Keys that do things are mentioned somewhere I'd read early (a lesson or a tooltip).",
+        saw: `Screen after: ${after.screen}. Log: "${after.log}"`,
+      },
+      false,
+    );
+  }
+  await recover(`pressing ${name}`);
+  return true;
+}
+
+/** Hover over the carpet during a wave to see what the fruit are. */
+async function pokeHoverFruit() {
+  const { carpet } = await floorSpots();
+  if (!carpet.length) return false;
+  const seen = await look();
+  for (let i = 0; i < 14; i++) {
+    const p = carpet[Math.floor(rand() * carpet.length)];
+    await page.mouse.move(p.x, p.y);
+    await page.waitForTimeout(120);
+    const tip = (await look()).tooltip;
+    if (tip) {
+      read("Fruit card (hover)", tip);
+      noted(seen.screen, "hovered the fruit on the carpet", `a card: "${tip.slice(0, 90)}"`);
+      return true;
+    }
+  }
+  noted(seen.screen, "hovered the fruit on the carpet", "no fruit card caught (fruit move fast)");
+  return true;
+}
+
+/** Look around the Back room without buying, then leave. */
+async function pokeBackRoom() {
+  const seen = await look();
+  if (!(await press(/^Back room/, "Curious: opened the Back room just to look.", { quietIfMissing: true }))) return false;
+  const inside = await look(BACK_ROOM);
+  read("Back room", inside.text.slice(0, 500));
+  const tabs = inside.buttons.filter((b) => (b.role === "tab" || b.role === "radio") && b.enabled);
+  if (tabs.length) {
+    const t = tabs[Math.floor(rand() * tabs.length)];
+    await press(new RegExp(`^${escapeRe(t.name)}$`), `Looked at ${t.name} in the Back room.`, { scope: BACK_ROOM, expectChange: false });
+  }
+  const viaEsc = rand() < 0.5;
+  if (viaEsc) await page.keyboard.press("Escape");
+  else await press(/^(Close|Close \(Esc\))$/i, "Closed the Back room.", { scope: BACK_ROOM, quietIfMissing: true, expectChange: false });
+  await page.waitForTimeout(400);
+  const after = await look();
+  noted(seen.screen, `browsed the Back room and left with ${viaEsc ? "Esc" : "Close"}`, after.screen === "Back room" ? "still open" : "closed");
+  if (viaEsc && after.screen === "Back room")
+    await friction({ severity: "minor", screen: "Back room", title: "Esc didn't close the Back room", tried: "Pressed Esc to leave the Back room.", expected: "It closes, like the tower card.", saw: "Still open." });
+  await recover("the Back room");
+  return true;
+}
+
+/** Without the seeds for it, pick the priciest card and try to build it anyway. */
+async function pokeBroke() {
+  const seen = await look();
+  const cards = seen.buttons
+    .filter((b) => b.role === "button" && /\(\d\) · /.test(b.tip))
+    .map((b) => ({ b, cost: Number(b.name.match(/(\d+)(?!.*\d)/)?.[1] ?? 0) }))
+    .filter((c) => c.cost > (seen.seeds ?? 0));
+  if (!cards.length) return false;
+  const c = cards.sort((a, b) => b.cost - a.cost)[0];
+  await press(new RegExp(`^${escapeRe(c.b.name)}$`), `Picked ${c.b.name.slice(0, 20)} though I can't afford it.`, { expectChange: false });
+  picked = c.b.name.replace(/^\d+\s*/, "").split(/ \d| No /)[0];
+  const r = await tapFloor(`build the ${picked} I can't afford`);
+  noted(seen.screen, `tried to build ${picked} (${c.cost}) with ${seen.seeds} seeds`, r.ok ? "it built (!)" : r.log ? `log: "${r.log}"` : "nothing built, nothing said");
+  if (!r.ok && !r.log)
+    await friction({ severity: "major", screen: seen.screen, title: "Building without enough seeds says nothing", tried: `Picked a ${c.cost}-seed card with ${seen.seeds} seeds and tapped the floor.`, expected: '"Not enough seeds" or similar.', saw: "No message." });
+  await pickMelon();
+  return true;
+}
+
+/** Hit Skip on a lesson by accident (it's right there in the box). */
+async function pokeSkip() {
+  const seen = await look();
+  if (skippedGuide || !seen.mynxi || seen.mynxi.lesson === "tip") return false;
+  skippedGuide = true;
+  await press(/^Skip$/, `Slip: tapped Skip on lesson "${seen.mynxi.title}".`);
+  let after = await look();
+  const asked = after.buttons.some((b) => /^Keep the lessons$/.test(b.name));
+  if (asked) {
+    // It asked first: the slip is caught, so keep the lessons.
+    await press(/^Keep the lessons$/, "It asked first; kept the lessons.");
+    after = await look();
+  }
+  const gone = !after.mynxi || after.mynxi.lesson === "tip";
+  noted(
+    seen.screen,
+    `tapped Skip on "${seen.mynxi.title}"`,
+    asked ? (gone ? "it asked first, but the lessons were gone after Keep" : "it asked first; I kept the lessons") : gone ? "the whole guide ended at once" : "the next lesson",
+  );
+  if (gone)
+    await friction({
+      severity: "minor",
+      screen: seen.screen,
+      title: "One tap on Skip ends the whole guide, with no confirm",
+      tried: `Tapped Skip on lesson ${seen.mynxi.lesson} (it sits by the lesson title).`,
+      expected: "Skip asks once, or there's a way to bring the lessons back mid-night.",
+      saw: `Mynxi's lessons were gone. ${after.buttons.some((b) => /Mynxi|tutorial|lesson/i.test(b.name)) ? "A replay button is on screen." : "Nothing on the board brings them back."}`,
+    });
+  return true;
+}
+
+type PokeFn = () => Promise<boolean>;
+/** Now and then, one random poke that fits this moment. */
+async function curiousPoke(context: "guide" | "prep" | "combat") {
+  if (STYLE !== "curious" || rand() > CURIOSITY) return;
+  const choices: Array<[PokeFn, number]> = [
+    [pokeTower, 3],
+    [pokeRandomTap, 3],
+    [pokeKeys, 2],
+    [pokeMenu, 1],
+  ];
+  if (context !== "combat") choices.push([pokeTabs, 3], [pokeBroke, 1]);
+  if (context === "prep") choices.push([pokeBackRoom, 1]);
+  if (context === "combat") choices.push([pokeSpeed, 2], [pokeHoverFruit, 2]);
+  if (context === "guide") choices.push([pokeSkip, SKIP_WEIGHT]);
+  const total = choices.reduce((s, [, w]) => s + w, 0);
+  let roll = rand() * total;
+  for (const [fn, w] of choices) {
+    if ((roll -= w) > 0) continue;
+    try {
+      await fn();
+    } catch (e) {
+      noted((await look()).screen, `poke ${fn.name}`, `bot error: ${String(e).slice(0, 120)}`);
+      await recover(fn.name);
+    }
+    return;
+  }
+}
+
 /** The rest of the first night: what a newcomer does once Mynxi lets go. */
-async function freePlay() {
+async function freePlay(maxWaves = WAVES) {
   const started = Date.now();
   let lastWave = 0;
   const guideBuilds = built.length;
@@ -915,7 +1394,7 @@ async function freePlay() {
       continue;
     }
     if (seen.screen === "Board (between waves)") {
-      if (wave > WAVES) break;
+      if (wave > maxWaves) break;
       // Spend: build cannons while seeds last (a learner builds 1-2 per wave).
       for (let n = 0; n < 2; n++) {
         const now = await look();
@@ -926,6 +1405,8 @@ async function freePlay() {
         const r = await tapFloor(`spend seeds before wave ${wave}`);
         if (!r.ok) break;
       }
+      await curiousPoke("prep");
+      if ((await look()).screen !== "Board (between waves)") continue;
       if (wave !== lastWave) {
         lastWave = wave;
         console.log(`  wave ${wave}: seeds ${seen.seeds}, stacks ${seen.lives}`);
@@ -937,6 +1418,7 @@ async function freePlay() {
     if (seen.screen === "Board (wave running)") {
       idle++;
       if (idle % 6 === 0 && seen.seeds != null && seen.seeds >= 60) await tapFloor("build mid-wave");
+      else if (idle % 3 === 0) await curiousPoke("combat");
       await page.waitForTimeout(1000);
       continue;
     }
@@ -971,7 +1453,8 @@ async function freePlay() {
 }
 
 /** After the first night: back to the title and into the full Setup. */
-async function setupTour() {
+/** From wherever the night is, back to the title (Menu, Leave to title). False if it couldn't. */
+async function toTitle(): Promise<boolean> {
   let seen = await look();
   if (seen.screen !== "Title") {
     if (!(await press(/^Menu$/, "Opened the menu to leave the night.", { quietIfMissing: true })) && knownKeys.has("Esc")) await key("Esc", "open the menu");
@@ -993,8 +1476,14 @@ async function setupTour() {
       expected: "The title screen.",
       saw: seen.buttons.map((b) => b.name).filter(Boolean).slice(0, 12).join(", "),
     });
-    return;
+    return false;
   }
+  return true;
+}
+
+async function setupTour() {
+  if (!(await toTitle())) return;
+  let seen = await look();
   await shot("title-after-first-night");
   const nn = seen.buttons.find((b) => /^New night/.test(b.name));
   if (!nn?.enabled) {
@@ -1058,6 +1547,174 @@ async function setupTour() {
   }
 }
 
+// ---------------------------------------------------------------- one game mode (--mode)
+
+/** What happened while finding and playing --mode, for the report. */
+const modeLog: string[] = [];
+
+/** Title, Settings, Developer mode on (it reloads the game), so every mode and room is open. */
+async function turnOnDev() {
+  await press(/^Settings$/, "Opened Settings to turn on Developer mode (--dev).");
+  const ok = await press(/^Developer mode: off$/, "Turned on Developer mode.", { quietIfMissing: true });
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: /^(Start|Continue)$/ }).waitFor({ timeout: 60_000 }).catch(() => {});
+  if ((await look()).screen !== "Title") await press(/^Back$/, "Closed Settings.", { quietIfMissing: true });
+  modeLog.push(ok ? "Developer mode on." : "Couldn't find Developer mode: off in Settings.");
+}
+
+/** Title: "Played before? Skip the guide" (--skip-guide). */
+async function skipGuideFromTitle() {
+  const ok = await press(/^Played before\? Skip the guide$/, "Skipped the guide from the title (--skip-guide).", { quietIfMissing: true });
+  modeLog.push(ok ? "Skipped the guided first night." : "No skip link on the title (the guide was already done?).");
+}
+
+/** A control named like the mode: a title button, a Setup tab or a night or room choice. Spaces optional. */
+const modeRe = () => new RegExp(MODE!.trim().split(/\s+/).map(escapeRe).join("\\s*"), "i");
+
+/** Find --mode on the title or a Setup page, pick it, and play it like a newcomer for --mode-waves waves. */
+async function playMode() {
+  const name = MODE!;
+  console.log(`Mode: ${name}`);
+  if (!(await toTitle())) return;
+  let seen = await look();
+  await shot("title-before-mode");
+  const re = modeRe();
+  let found = false;
+  const onTitle = seen.buttons.find((b) => re.test(b.name));
+  if (onTitle?.enabled) {
+    await press(new RegExp(`^${escapeRe(onTitle.name)}$`), `Pressed "${onTitle.name}" on the title to start ${name}.`);
+    found = true;
+    modeLog.push(`Found on the title: "${onTitle.name}".`);
+  } else {
+    if (onTitle) modeLog.push(`On the title but disabled: "${onTitle.name}"${onTitle.tip ? ` (hint: ${onTitle.tip})` : ""}.`);
+    const nn = seen.buttons.find((b) => /^New night/.test(b.name) && b.enabled);
+    if (!nn) {
+      await friction({
+        severity: "blocker",
+        screen: "Title",
+        title: `Couldn't start ${name}: no way in from the title`,
+        tried: `Looked for "${name}" and for New night.`,
+        expected: `A way to start ${name}.`,
+        saw: seen.buttons.map((b) => `${b.name}${b.enabled ? "" : " (disabled)"}`).join(", "),
+      });
+      return;
+    }
+    await press(/^New night$/, `Opened New night to look for ${name}.`);
+  }
+  // Through Setup to the board, picking the mode wherever it shows up.
+  let onBoard = false;
+  for (let depth = 0; depth < 8; depth++) {
+    seen = await look();
+    noticeTerms(seen);
+    if (/^Board/.test(seen.screen)) {
+      onBoard = true;
+      break;
+    }
+    await shot(`mode-setup-${depth}`);
+    if (seen.screen === "Room poster") {
+      await readScreen(seen, `the ${name} poster`);
+      // Each room words it its own way ("To the carpet", "Cover the chute"...): the one button that isn't Back or sound.
+      const go =
+        seen.buttons.find((b) => b.enabled && /^(To the carpet|Start|Begin|Play)/i.test(b.name)) ??
+        seen.buttons.find((b) => b.enabled && b.name && !/^(Mute|Unmute|Back|Menu|Grand Catalogue)/i.test(b.name));
+      if (!go) {
+        await friction({
+          severity: "major",
+          screen: seen.screen,
+          title: `No way onto the board from the poster (${name})`,
+          tried: "Looked for To the carpet or Start.",
+          expected: "One button that starts the night.",
+          saw: seen.buttons.map((b) => b.name).join(", "),
+        });
+        return;
+      }
+      await press(new RegExp(`^${escapeRe(go.name)}$`), `Pressed "${go.name}" on the poster.`);
+      continue;
+    }
+    if (!found) {
+      const pick = seen.buttons.find((b) => re.test(b.name));
+      if (pick && !pick.enabled) {
+        await friction({
+          severity: "major",
+          screen: seen.screen,
+          title: `${name} is locked`,
+          tried: `Tapped "${pick.name}".`,
+          expected: `${name} playable${DEV ? " in Developer mode" : ""}, or a line saying how to open it.`,
+          saw: pick.tip ? `Hint: "${pick.tip}"` : "No hint about how to open it.",
+        });
+        await press(new RegExp(`^${escapeRe(pick.name)}$`), `Tapped the locked "${pick.name}" to see what it says.`, { quietIfMissing: true });
+        modeLog.push(`Locked on ${seen.screen}: "${pick.name}". Try --dev.`);
+        return;
+      }
+      if (pick) {
+        await press(new RegExp(`^${escapeRe(pick.name)}$`), `Picked "${pick.name}" on ${seen.screen}.`);
+        found = true;
+        modeLog.push(`Found on ${seen.screen} (page ${depth + 1}): "${pick.name}".`);
+        const after = await look();
+        if (after.log) read(`${name}: what picking it says`, after.log);
+        if (/^Board/.test(after.screen)) continue;
+      }
+    }
+    const fwdRe = /^(Next|Continue|Choose|Play|Begin|To the)|→$/i;
+    let page_ = await look();
+    if (!page_.buttons.some((b) => b.enabled && fwdRe.test(b.name) && !/^Back/.test(b.name))) {
+      // Next is off until something is chosen ("Pick a keeper."): choose the asked-for keeper, or the first open choice.
+      const radios = page_.buttons.filter((b) => b.role === "radio" && b.enabled);
+      const want = KEEPER ? radios.find((b) => new RegExp(escapeRe(KEEPER), "i").test(b.name)) : undefined;
+      const choice = want ?? radios[0];
+      if (choice) {
+        await press(new RegExp(`^${escapeRe(choice.name)}$`), `Next was off, so picked "${choice.name}".`);
+        modeLog.push(`Picked "${choice.name}" on ${seen.screen} (Next needed a choice).`);
+        page_ = await look();
+      }
+    }
+    const fwd = page_.buttons.find((b) => b.enabled && fwdRe.test(b.name) && !/^Back/.test(b.name));
+    if (!fwd) {
+      await friction({
+        severity: "major",
+        screen: seen.screen,
+        title: `Stuck in setup on the way to ${name}`,
+        tried: "Looked for a button that moves on.",
+        expected: "One clearly primary button.",
+        saw: seen.buttons.filter((b) => b.enabled).map((b) => b.name).filter(Boolean).slice(0, 14).join(", "),
+      });
+      return;
+    }
+    if (!found && /^Begin/i.test(fwd.name)) {
+      await friction({
+        severity: "major",
+        screen: seen.screen,
+        title: `Couldn't find ${name} anywhere in setup`,
+        tried: `Looked for "${name}" on the title and every Setup page.`,
+        expected: `A button, tab or choice named ${name}.`,
+        saw: seen.buttons.map((b) => b.name).filter(Boolean).slice(0, 20).join(", "),
+      });
+      return;
+    }
+    await press(new RegExp(`^${escapeRe(fwd.name)}$`), `Pressed "${fwd.name}" to move on.`);
+  }
+  if (!onBoard) {
+    const now = await look();
+    await friction({
+      severity: "major",
+      screen: now.screen,
+      title: `Never reached the board in ${name}`,
+      tried: "Went through setup.",
+      expected: "The board.",
+      saw: now.buttons.map((b) => b.name).slice(0, 12).join(", "),
+    });
+    return;
+  }
+  const t0 = Date.now();
+  const lives0 = (await look()).lives;
+  await shot("mode-board");
+  console.log(`  playing ${name} for ${MODE_WAVES} waves`);
+  await freePlay(MODE_WAVES);
+  const end = await look();
+  await shot("mode-end");
+  modeLog.push(`Played ${Math.round((Date.now() - t0) / 1000)} s; ended on ${end.screen}; stacks ${lives0 ?? "?"} to ${end.lives ?? "?"}, seeds ${end.seeds ?? "?"}.`);
+}
+
 // ---------------------------------------------------------------- report
 
 function report(meta: Record<string, string>) {
@@ -1066,7 +1723,7 @@ function report(meta: Record<string, string>) {
   const L: string[] = [];
   L.push(`# New-player walkthrough`);
   L.push("");
-  L.push(`Run ${meta.when}, ${meta.browser}, ${VW}×${VH}, seed ${meta.seed}, ${meta.duration} s. Fresh browser profile (no save, developer mode off).`);
+  L.push(`Run ${meta.when}, ${meta.browser}, ${VW}×${VH}, seed ${meta.seed}, ${meta.duration} s. Fresh browser profile (no save, developer mode off). Style: ${STYLE}${STYLE === "curious" ? ` (curiosity ${CURIOSITY})` : ""}.`);
   L.push("");
   L.push(`**Friction:** ${count("blocker")} blocker, ${count("major")} major, ${count("minor")} minor, ${count("note")} notes.`);
   L.push("");
@@ -1074,6 +1731,12 @@ function report(meta: Record<string, string>) {
   L.push("");
   L.push(`Keys the UI taught: ${[...knownKeys].sort().join(", ") || "none"}.`);
   L.push("");
+  if (MODE) {
+    L.push(`## Mode: ${MODE}`);
+    L.push("");
+    for (const m of modeLog) L.push(`- ${m}`);
+    L.push("");
+  }
   L.push("## Friction, worst first");
   L.push("");
   for (const [i, f] of sorted.entries()) {
@@ -1084,6 +1747,14 @@ function report(meta: Record<string, string>) {
     L.push(`- **Expected:** ${f.expected}`);
     L.push(`- **Saw:** ${f.saw}`);
     if (f.shot) L.push(`\n![${f.title}](${f.shot})`);
+    L.push("");
+  }
+  if (pokes.length) {
+    L.push(`## Curious pokes (${pokes.length})`);
+    L.push("");
+    L.push("| At | Screen | What I tried | What happened |");
+    L.push("|---|---|---|---|");
+    for (const p of pokes) L.push(`| ${p.at} s | ${p.screen} | ${p.what.replace(/\|/g, "/")} | ${p.result.replace(/\|/g, "/")} |`);
     L.push("");
   }
   L.push("## Words met before they were explained");
@@ -1107,7 +1778,7 @@ function report(meta: Record<string, string>) {
   writeFileSync(join(OUT, "report.md"), md);
   writeFileSync(
     join(OUT, "report.json"),
-    JSON.stringify({ meta, frictions: sorted, steps, screens: Object.fromEntries(screensSeen), terms: { seen: Object.fromEntries(termSeen), explained: Object.fromEntries(termExplained) }, keys: [...knownKeys] }, null, 2),
+    JSON.stringify({ meta, style: STYLE, curiosity: CURIOSITY, frictions: sorted, pokes, steps, screens: Object.fromEntries(screensSeen), terms: { seen: Object.fromEntries(termSeen), explained: Object.fromEntries(termExplained) }, keys: [...knownKeys] }, null, 2),
   );
   return sorted;
 }
@@ -1167,12 +1838,19 @@ async function main() {
 
     console.log("Title screen");
     await titleTour();
-    console.log("Guided first night");
-    await guidedNight();
-    console.log("Free play");
-    await freePlay();
-    console.log("Setup");
-    await setupTour();
+    if (DEV) await turnOnDev();
+    if (SKIP_GUIDE) await skipGuideFromTitle();
+    else {
+      console.log("Guided first night");
+      await guidedNight();
+      console.log("Free play");
+      await freePlay();
+    }
+    if (MODE) await playMode();
+    else {
+      console.log("Setup");
+      await setupTour();
+    }
   } catch (e) {
     await friction({
       severity: "blocker",

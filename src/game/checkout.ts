@@ -3,7 +3,7 @@
  * bookmark, the keeper's own rules, late slips, fittings), as plain data for the panel and tests.
  * A view only: every total comes from the numbers the engine reads, never from blurb text.
  */
-import { ARMOUR_TEXT, ARMOUR_VALUES, ASSER_VALUES, BALANCE, DRAGON, KEEPER_NAMES, SIGNATURE, TOWERS, UPGRADES } from "./rules.ts";
+import { ARMOUR_TEXT, ARMOUR_VALUES, ASSER_VALUES, BALANCE, DRAGON, KEEPER_NAMES, SIGNATURE, TOWERS, UPGRADES, isTowerPick, rankOf, towerPickDef } from "./rules.ts";
 import { activePerks, levelFor, perkFx } from "./levels.ts";
 import { BOOKMARK, BOOKMARK_VALUES } from "./meta.ts";
 import { SLIP, SLIP_VALUES } from "./slips.ts";
@@ -27,7 +27,7 @@ export interface CheckoutCard {
 }
 
 /** Shown while nothing is checked out. The pick waves are the same on every night (see nextBeat). */
-export const CHECKOUT_EMPTY = "Nothing checked out yet. Cards come after waves 1, 2 and 6.";
+export const CHECKOUT_EMPTY = "Nothing checked out yet. Cards come after waves 1 and 2, then every second wave.";
 
 const pct = (mul: number) => Math.round((mul - 1) * 100);
 const signed = (n: number) => (n > 0 ? `+${n}` : `−${-n}`);
@@ -49,7 +49,8 @@ export function checkoutCard(hud: Hud, keeperLine?: string): CheckoutCard {
   for (const pick of hud.cardPicks) {
     if (seen.has(pick.id)) continue;
     seen.add(pick.id);
-    const u = UPGRADES[pick.id];
+    // A tower pick shows the rank it has reached (one line however many times it was taken).
+    const u = isTowerPick(pick.id) ? towerPickDef(pick.id, rankOf(hud.upgrades, pick.id)) : UPGRADES[pick.id];
     cards.push({ name: u.name, blurb: u.blurb, tone: "buff", ...(pick.pick ? { note: "Doctor's pick" } : {}) });
   }
   if (cards.length) groups.push({ id: "cards", title: "Cards", entries: cards });

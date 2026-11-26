@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Crosshair, BookOpen, Coins, Heart, IdCard, Lock, Menu, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
+import { Check, ChevronDown, Crosshair, BookOpen, Coins, Gavel, Heart, IdCard, Lock, Menu, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
 import {
   BOARDS,
   CANNON,
@@ -35,6 +35,7 @@ import {
   COPY_STEP_KINDS,
   COPY_HEAVY_KINDS,
   DRAGON,
+  DOCTOR,
   GLOBAL_RANGE,
   ROOST_STAGES,
 } from "@/game/engine";
@@ -152,7 +153,14 @@ export function GameHeader({
               ) : null}
             </span>
             {menuable ? <CheckoutButton api={api} onGesture={gesture} /> : null}
-            <span className="hidden text-[0.8125rem] text-muted sm:inline">Absurdity {hud.absurdity}</span>
+            {hud.night === "overflow" ? (
+              <span
+                className="hidden text-[0.8125rem] text-muted sm:inline"
+                title="Absurdity: rises with every fruit popped tonight. In the Overflow's last two waves, every 25 Absurdity sends one more shelled melon up the chute."
+              >
+                Absurdity {hud.absurdity}
+              </span>
+            ) : null}
             <div className="flex items-center gap-1">
               {showPlace ? (
               <>
@@ -179,6 +187,7 @@ export function GameHeader({
               >
                 {hud.paused ? <Play className="size-4" /> : <Pause className="size-4" />}
               </button>
+              {hud.hero === "elf" ? <ObjectionButton api={api} onGesture={gesture} /> : null}
               <button
                 type="button"
                 aria-label="Speed up"
@@ -477,6 +486,8 @@ const SHORT_NAME: Record<TowerKind, string> = {
   mimic: "Memec",
   copycat: "Copycat",
   lectern: "Lectern",
+  study: "Study",
+  dig: "Dig",
   quackliber: "Quack-Liber",
   geese: "Anti-Geese",
   lionblade: "Lion Blade",
@@ -619,7 +630,9 @@ export function describeStats(kind: TowerKind, read: { dmg: number; range: numbe
   if (kind === "spire") return `No damage · Lights Out every ${VAEL_VALUES.lightsOutEvery}s: every drowsy fruit falls asleep`;
   if (kind === "flask") return `No shot · puddle every ${read.interval.toFixed(1)}s from each tile · ${tiles} · spills to ${CANNON.flaskMaxTiles} tiles`;
   if (kind === "desk") return `No shot · banks ${CANNON.deskBank} a wave · melons within ${tiles} eat it`;
-  if (kind === "lectern") return "No shot · notes the fruit that got furthest; that kind is slower next wave";
+  if (kind === "lectern") return `No shot · notes the fruit that got furthest; that kind is slower next wave · publishes after ${DOCTOR.publishAfter} waves`;
+  if (kind === "study") return `No shot · each wave marks its best tower within ${tiles}: +${Math.round(DOCTOR.markDmg * 100)}% damage, +${Math.round(DOCTOR.markRange * 100)}% reach (${DOCTOR.maxMarks} at most)`;
+  if (kind === "dig") return `No shot · a find every ${DOCTOR.digEvery} waves: ${DOCTOR.digStacks} stacks, ${DOCTOR.digSeeds} seeds, or a Study mark`;
   if (kind === "mimic") return `Swallows one fruit · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "scales") return `DMG ${read.dmg} + ${Math.round(CANNON.scalesShare * 100)}% of max health · ${tiles} · ${read.interval.toFixed(1)}s`;
   if (kind === "catalogue") return `DMG ${read.dmg} · chains ×${CANNON.catalogueChains} · ${tiles} · ${read.interval.toFixed(1)}s${lit}`;
@@ -835,6 +848,37 @@ function DragonButtons({ api, towerId, onGesture }: { api: GameApi; towerId: num
   );
 }
 
+/** Dr. Samodovol's Archaeological Dig: choose what a waiting find is. */
+function DigButtons({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+  const hud = api.world.hud;
+  if (hud.digFinds <= 0) return <span className="self-center text-[0.8125rem] text-muted">Digging…</span>;
+  const finds = [
+    { id: "stacks" as const, label: `+${DOCTOR.digStacks} stacks`, title: `A box of old books: ${DOCTOR.digStacks} stacks back (up to your most).`, off: hud.lives >= hud.maxLives },
+    { id: "seeds" as const, label: `+${DOCTOR.digSeeds} seeds`, title: `A jar of old seeds: ${DOCTOR.digSeeds} seeds.`, off: false },
+    { id: "mark" as const, label: "Study mark", title: `A lost treatise: a Study mark on your best tower tonight (+${Math.round(DOCTOR.markDmg * 100)}% damage, +${Math.round(DOCTOR.markRange * 100)}% reach).`, off: false },
+  ];
+  return (
+    <span className="flex flex-wrap gap-1" role="group" aria-label={`Dig find${hud.digFinds > 1 ? `s (${hud.digFinds})` : ""}`}>
+      {finds.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          title={f.title}
+          disabled={f.off}
+          className="h-9 cursor-pointer rounded-lg border border-[#e6c36a] bg-[#e6c36a]/10 px-2 text-[0.8125rem] text-parchment disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => {
+            onGesture();
+            tone(320, 0.08, "triangle", 0.04);
+            api.digFind(f.id);
+          }}
+        >
+          {f.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 function TowerInspector({
   api,
   onGesture,
@@ -849,7 +893,15 @@ function TowerInspector({
 }) {
   const hud = api.world.hud;
   const tower = api.world.towers.find((t) => t.id === hud.selected);
+  // Sell has no undo, so a tap arms it and a second tap sells. It disarms after a few seconds.
+  const [sellArmed, setSellArmed] = useState<unknown>(null);
+  useEffect(() => {
+    if (sellArmed == null) return;
+    const t = window.setTimeout(() => setSellArmed(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [sellArmed]);
   if (!tower) return null;
+  const armed = sellArmed === tower.id;
   const read = api.statsOf(tower.id) ?? towerReadout(hud.hero, tower.kind, tower.mods, hud.upgrades);
   const canFit = fittingsFor(tower.kind).length > 0;
   const aims = api.targetOf(tower.id) != null;
@@ -871,6 +923,7 @@ function TowerInspector({
         >
           {TYPE_INFO[TOWER_TYPE[tower.kind]].name} · {TOWERS[tower.kind].role}
           {tower.kind === "bombard" && api.roostOf(tower.id) ? <span className="text-[#8fc0ff]"> · {ROOST_STAGES[api.roostOf(tower.id)!.stage]}</span> : null}
+          {tower.studyMarks ? <span className="text-parchment"> · Studied {tower.studyMarks}/{DOCTOR.maxMarks}</span> : null}
         </p>
         {!column && aims ? (
           <div className="mt-1 w-full max-w-[7.5rem] sm:hidden">
@@ -948,6 +1001,7 @@ function TowerInspector({
           </button>
         ) : null}
         <DragonButtons api={api} towerId={tower.id} onGesture={onGesture} />
+        {tower.kind === "dig" ? <DigButtons api={api} onGesture={onGesture} /> : null}
         {canFit ? (
           <button
             type="button"
@@ -964,14 +1018,16 @@ function TowerInspector({
         ) : null}
         <button
           type="button"
-          title="Sell (S)"
-          className="h-9 rounded-lg border border-flesh px-3 text-sm text-flesh"
+          title={armed ? "Tap again to sell: there's no undo" : "Sell (S)"}
+          className={`h-9 rounded-lg border border-flesh px-3 text-sm ${armed ? "bg-flesh font-semibold text-ink" : "text-flesh"}`}
           onClick={() => {
             onGesture();
+            if (!armed) return setSellArmed(tower.id);
+            setSellArmed(null);
             api.sellSelected();
           }}
         >
-          Sell {refundFor(tower.kind, tower.paid) + (tower.bank ?? 0)}
+          {armed ? "Sure? Sell" : "Sell"} {refundFor(tower.kind, tower.paid) + (tower.bank ?? 0)}
         </button>
       </div>
       <button
@@ -987,5 +1043,39 @@ function TowerInspector({
         <X className="size-4" />
       </button>
     </div>
+  );
+}
+
+/**
+ * The Legal Elf's Objection!, next to Pause: ready (gold), spent or with nothing to hit (grey, the reason
+ * as its title). O does the same.
+ */
+function ObjectionButton({ api, onGesture }: { api: GameApi; onGesture: () => void }) {
+  const hud = api.world.hud;
+  const why = hud.phase === "combat" ? hud.objectionWhy : "Objections are for during a wave.";
+  const ready = !why;
+  const spent = hud.phase === "combat" && hud.objections <= 0;
+  return (
+    <button
+      type="button"
+      aria-label={ready ? `Objection! (O), ${hud.objections} left this wave` : `Objection! ${why}`}
+      aria-disabled={!ready}
+      title={ready ? `Objection! Throw back what's at the door (O). ${hud.objections} left this wave.` : why}
+      className={`relative grid h-8 sm:h-11 place-items-center rounded-lg border px-2 text-[0.8125rem] font-semibold ${
+        ready ? "border-[#e6c36a] bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-ink" : "border-line/70 text-muted opacity-50"
+      }`}
+      onClick={() => {
+        onGesture();
+        api.objection();
+      }}
+    >
+      <span className="flex items-center gap-1">
+        <Gavel className="size-4" />
+        <span className="hidden sm:inline">{spent ? "Spent" : "Objection!"}</span>
+      </span>
+      {hud.objections > 1 && hud.phase === "combat" ? (
+        <span className="absolute -top-1.5 -right-1.5 rounded-full bg-ink px-1 text-[0.625rem] leading-4 text-gold">×{hud.objections}</span>
+      ) : null}
+    </button>
   );
 }

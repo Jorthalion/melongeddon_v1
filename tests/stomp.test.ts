@@ -73,10 +73,10 @@ test("the stomp stops fruit under it, husks included, and only bruises them", ()
   assert.ok(CANNON.stompStun > 30 / 60, "pinned longer than this check");
 });
 
-test("the Legal Elf's Scales perks don't carry over to the Foot", () => {
+test("the Legal Elf's Second Foot is a second Foot, not a second Scales", () => {
   const keepers = emptyProgress();
-  // Level 10 with "Swift Ruling" (Scales fire 25% faster) and "Second Scales".
-  keepers.elf = { xp: xpForLevel(MAX_LEVEL), picks: [0, 0, 0, 1, 0] };
+  // Level 10 with "Second Foot".
+  keepers.elf = { xp: xpForLevel(MAX_LEVEL), picks: [0, 0, 0, 0, 1] };
   const api = createWorld(() => {}, { keepers });
   api.openSetup();
   api.chooseHero("elf");
@@ -86,7 +86,8 @@ test("the Legal Elf's Scales perks don't carry over to the Foot", () => {
   assert.ok(foot);
   assert.equal(api.statsOf(foot.id)?.interval.toFixed(2), (0.9 * 3.6).toFixed(2), "the foot keeps its own pace");
   const scales = build(api, "scales");
-  assert.ok(scales && build(api, "scales"), "two Scales");
-  assert.equal(api.statsOf(scales.id)?.interval.toFixed(2), (0.9 * 1.4 * 0.75).toFixed(2), "while the Scales get Swift Ruling");
-  assert.equal(build(api, "stomp"), undefined, "still one Foot");
+  assert.ok(scales, "one Scales");
+  assert.equal(build(api, "scales"), undefined, "still one Scales");
+  assert.ok(build(api, "stomp"), "a second Foot");
+  assert.equal(build(api, "stomp"), undefined, "but not a third");
 });

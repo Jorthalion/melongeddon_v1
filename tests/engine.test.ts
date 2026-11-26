@@ -117,7 +117,7 @@ test("every board stays inside its own size and keeps fixed spots off the carpet
 });
 
 test("big maps are bigger, and whole-board range still covers them", () => {
-  // Test rooms (dev only) can't be opened from a saved setup; tests/test-rooms.test.ts covers them.
+  // Test rooms (dev only) can't be opened from a saved setup.
   const big = Object.values(BOARDS).filter((b) => (b.cols ?? COLS) > COLS && !TEST_MAPS.includes(b.id));
   assert.ok(big.length >= 2);
   for (const b of big) {
@@ -174,22 +174,25 @@ test("act three: one lesson per wave, and none of it on the Overflow", () => {
     assert.ok(!waveAt(i, "endless").spawns.some((s) => s.pit || s.gall || s.borrower), `endless wave ${i + 1}`);
 });
 
-test("beats: picks after 1, 2 and 6 (and 15 on Midnight), the finale card before the last wave", () => {
+test("beats: picks after 1, 2 and every second wave (and 15 on Midnight), the finale card before the last wave", () => {
   for (const night of ["midnight", "overflow"] as const) {
     const length = nightLength(night);
     for (let c = 1; c <= length; c++) {
       const want =
         c >= length
           ? "victory"
-          : c === 1 || c === 2 || c === 6 || (night === "midnight" && c === WAVE_COUNT)
-            ? "upgrade"
-            : c === length - 1
-              ? "consequence"
+          : c === length - 1
+            ? "consequence"
+            : c === 1 || c === 2 || c % 2 === 0 || (night === "midnight" && c === WAVE_COUNT)
+              ? "upgrade"
               : "prep";
       assert.equal(nextBeat(c, night), want, `${night} after wave ${c}`);
     }
   }
-  assert.equal(nextBeat(14, "midnight"), "prep", "Midnight's old finale card is gone");
+  assert.equal(nextBeat(14, "midnight"), "upgrade", "Midnight's old finale card is gone: wave 14 is an ordinary shelf");
+  const shelves = (night: "midnight" | "overflow") => Array.from({ length: nightLength(night) }, (_, i) => nextBeat(i + 1, night)).filter((b) => b === "upgrade").length;
+  assert.equal(shelves("overflow"), 7, "a 15-wave night has 7 shelves");
+  assert.equal(shelves("midnight"), 11, "Midnight has 11");
   assert.equal(nextBeat(20, "midnight"), "consequence");
   assert.equal(nextBeat(14, "overflow"), "consequence");
 });
@@ -236,12 +239,13 @@ test("endless never ends and keeps generating valid, growing waves", () => {
   assert.equal(hpScaleFor("endless", 5), hpScaleFor("midnight", 5));
 });
 
-test("endless offers a pick every fifth wave after act one", () => {
+test("endless offers a pick after 1, 2, 4 and 6, then every third wave", () => {
   assert.equal(nextBeat(6, "endless"), "upgrade");
-  assert.equal(nextBeat(11, "endless"), "upgrade");
-  assert.equal(nextBeat(16, "endless"), "upgrade");
-  assert.equal(nextBeat(12, "endless"), "prep");
-  assert.equal(nextBeat(4, "endless"), "prep");
+  assert.equal(nextBeat(4, "endless"), "upgrade");
+  assert.equal(nextBeat(9, "endless"), "upgrade");
+  assert.equal(nextBeat(12, "endless"), "upgrade");
+  assert.equal(nextBeat(10, "endless"), "prep");
+  assert.equal(nextBeat(5, "endless"), "prep");
 });
 
 test("locked bookmarks cannot be equipped", () => {
@@ -506,7 +510,7 @@ test("Interest adds to each Compost Heap payout", () => {
     seedsAtEnd = api.world.hud.seeds;
     stepWorld(api.world, 1 / 60);
   }
-  assert.equal(api.world.hud.seeds - seedsAtEnd, 15 + 20 + 20, "5000 seeds held: interest hits its 20 cap");
+  assert.equal(api.world.hud.seeds - seedsAtEnd, 15 + 12 + 20, "5000 seeds held: interest (12) plus its 20 cap");
 });
 
 test("simulated runs reach an ending on every night", () => {

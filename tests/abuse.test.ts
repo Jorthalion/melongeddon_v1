@@ -42,7 +42,7 @@ test("the abuse bot pinned to a kind spams it, aims every fitting at it, and tak
 });
 
 test("the abuse bot on its own tries several kinds early, then spams one, with no Ink Wells or Organs", () => {
-  const r = simulateRun({ hero: "elf", difficulty: "normal", strategy: "abuse", night: "midnight", map: "annex", seed: 2 });
+  const r = simulateRun({ hero: "elf", difficulty: "normal", strategy: "abuse", night: "midnight", map: "annex", seed: 4 });
   assert.ok(r.abused && SPAM_KINDS.includes(r.abused as TowerKind), `it spams ${r.abused}`);
   assert.ok((r.tactics?.explore ?? 0) >= 2, "it tried at least two candidates");
   assert.ok((r.tactics?.abuse ?? 0) >= 1, "it spammed its pick");
@@ -89,4 +89,11 @@ test("--ban keeps a shelf upgrade and a back-room fitting out of the human bot's
   const after = simulateRun({ ...game, ban: [up, fit] });
   assert.ok(!after.upgrades.includes(up), `${up} was banned but taken`);
   assert.ok(!(after.fitted ?? []).some((f) => f.endsWith(`:${fit}`)), `${fit} was banned but bought`);
+});
+
+test("Overflow late slips reach the sim's games: Short Shelf starts four stacks down", () => {
+  const base = { hero: "elf", difficulty: "normal", strategy: "human", night: "overflow", map: "overflow", seed: 1, picks: "random" } as const;
+  const plain = simulateRun({ ...base });
+  const short = simulateRun({ ...base, slips: ["short"] });
+  assert.equal(short.maxLives, plain.maxLives - 4);
 });

@@ -152,6 +152,8 @@ export function MynxiTutor({ api, onGesture, docked = false }: { api: GameApi; o
   const hud = api.world.hud;
   const seen = useRef(new Set<string>());
   const [, setTick] = useState(0);
+  /** Skip during a lesson asks first: one stray tap shouldn't end the whole guide. */
+  const [asking, setAsking] = useState(false);
   if (!hud.tutorial && !hud.guide) return null;
 
   const step = hud.guide;
@@ -183,6 +185,38 @@ export function MynxiTutor({ api, onGesture, docked = false }: { api: GameApi; o
           <p className="text-[0.6875rem] tracking-[0.22em] text-gold uppercase">
             Mynxi{step ? ` · lesson ${at + 1} of ${GUIDE_STEPS.length}` : ""}
           </p>
+          {asking && step ? (
+            <>
+              <p className="mt-0.5 font-display text-base leading-tight font-semibold text-[#f6e7b4]">Skip the rest of the guide?</p>
+              <p className="mt-1 text-[0.8125rem] leading-snug text-parchment sm:text-sm">
+                My lessons stop for this night. You can play them again later from Tutorial on the title.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="min-h-8 rounded-md bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] px-3 text-sm font-semibold text-ink"
+                  onClick={() => {
+                    onGesture();
+                    setAsking(false);
+                  }}
+                >
+                  Keep the lessons
+                </button>
+                <button
+                  type="button"
+                  className="min-h-8 rounded-md border border-[#c6a15a]/70 px-3 text-sm text-parchment"
+                  onClick={() => {
+                    onGesture();
+                    setAsking(false);
+                    api.skipGuide();
+                  }}
+                >
+                  Skip the guide
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
           <p className="mt-0.5 font-display text-base leading-tight font-semibold text-[#f6e7b4]">{line.title}</p>
           <p className="mt-1 text-[0.8125rem] leading-snug text-parchment sm:text-sm">{line.text}</p>
           <div className="mt-2 flex items-center gap-2">
@@ -213,17 +247,22 @@ export function MynxiTutor({ api, onGesture, docked = false }: { api: GameApi; o
               <span className="shrink-0 text-[0.8125rem] text-muted italic">Your move</span>
             )}
           </div>
+            </>
+          )}
         </div>
-        <button
-          type="button"
-          className="shrink-0 rounded px-1.5 py-0.5 text-[0.8125rem] text-muted underline"
-          onClick={() => {
-            onGesture();
-            api.skipGuide();
-          }}
-        >
-          Skip
-        </button>
+        {asking && step ? null : (
+          <button
+            type="button"
+            className="shrink-0 rounded px-1.5 py-0.5 text-[0.8125rem] text-muted underline"
+            onClick={() => {
+              onGesture();
+              if (step) setAsking(true);
+              else api.skipGuide();
+            }}
+          >
+            Skip
+          </button>
+        )}
       </div>
     </div>
   );

@@ -30,6 +30,7 @@
  *   npm run sim -- --strategies abuse --abuse freeze,fire,fire,fire   # ...in a ratio: one Freeze for every three Fires
  *   npm run sim -- --picks smart  # bots choose shelf upgrades by what suits their board (default: random)
  *   npm run sim -- --heroes michael --armours azure,dragonscale,ember,wyrm   # Sir Michael once per armour (default: azure)
+ *   npm run sim -- --only overflow --slips damp,karl   # Overflow nights with these late slips (challenges) taken
  *   npm run sim -- --styles scripts/styles/playstyles.json   # play these named playstyles instead of the four strategies
  *                               # each: {"name", "strategy", "rotation"?: [tower kinds], "withKeeper"?: true}
  *   npm run sim -- --from sim-results/a/runs.json,sim-results/b/runs.json --out sim-results/ab
@@ -44,6 +45,7 @@ import { fileURLToPath } from "node:url";
 import { simulateRun, type RunConfig, type RunResult, type Strategy } from "./sim-core.ts";
 import * as ENGINE from "../src/game/engine.ts";
 import { MIDNIGHT_WAVES } from "../src/game/engine.ts";
+import { MAX_SLIPS, SLIP, type SlipId } from "../src/game/slips.ts";
 import type { ArmourId, Difficulty, HeroId, MapId, NightId } from "../src/game/engine.ts";
 
 const args = process.argv.slice(2);
@@ -65,6 +67,11 @@ const BAN = argOf("--ban")?.split(",").filter(Boolean) ?? [];
 const KNOWN = new Set<string>([...Object.values(ENGINE.UPGRADES).map((u) => u.id), ...Object.values(ENGINE.MODS).map((m) => m.id)]);
 for (const id of BAN) if (!KNOWN.has(id)) throw new Error(`--ban: no shelf upgrade or fitting ${id}`);
 const NO_GREAT = args.includes("--no-great");
+// --slips damp,karl: the Overflow's late slips (challenges) every Overflow night takes; other nights ignore them.
+const SLIPS_ARG = argOf("--slips")?.split(",").filter(Boolean) ?? [];
+for (const id of SLIPS_ARG) if (!SLIP[id as SlipId]) throw new Error(`--slips: no slip ${id}`);
+if (SLIPS_ARG.length > MAX_SLIPS) throw new Error(`--slips: at most ${MAX_SLIPS}`);
+const SLIPS = SLIPS_ARG as SlipId[];
 // --opener melon,melon,lantern: every bot builds these first, in order. --max-towers N: and stops at N towers.
 const OPENER = (argOf("--opener")?.split(",").filter(Boolean) ?? []) as ENGINE.TowerKind[];
 for (const k of OPENER) if (!(k in ENGINE.TOWERS)) throw new Error(`--opener: no tower ${k}`);
@@ -145,6 +152,7 @@ const SCENARIOS: Array<{ night: NightId; map: MapId }> = [
   { night: "midnight", map: "halldoors" },
   { night: "midnight", map: "compact" },
   { night: "midnight", map: "basement" },
+  { night: "midnight", map: "loop" },
   { night: "overflow", map: "overflow" },
   { night: "siege", map: "courtyard" },
   // Test rooms and rooms' layout B run only when asked for by name: --only archiveB,mezzanineB.
@@ -181,6 +189,7 @@ for (const hero of HEROES)
               ...(AVOID.length ? { avoid: AVOID } : {}),
               ...(BAN.length ? { ban: BAN } : {}),
               ...(NO_GREAT ? { noGreat: true } : {}),
+              ...(SLIPS.length && sc.night === "overflow" ? { slips: SLIPS } : {}),
               ...(OPENER.length ? { opener: OPENER } : {}),
               ...(MAX_TOWERS != null ? { maxTowers: MAX_TOWERS } : {}),
               ...(ABUSE_KIND ? { abuse: ABUSE_KIND } : {}),

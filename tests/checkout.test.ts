@@ -65,7 +65,7 @@ test("a fresh run: no cards, the empty message, and a levelled keeper's perks", 
   assert.equal(card.groups.find((g) => g.id === "cards"), undefined);
   assert.equal(card.count, 0);
   assert.equal(card.totals.length, 0, "no buffs, no totals");
-  assert.match(CHECKOUT_EMPTY, /waves 1, 2 and 6/);
+  assert.match(CHECKOUT_EMPTY, /waves 1 and 2, then every second wave/);
 
   const levelled = start("mynxi", at("mynxi", 4));
   const perks = group(levelled, "perks")!;

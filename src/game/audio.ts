@@ -286,6 +286,14 @@ export function playSfx(cue: Sfx) {
       voice({ freq: 140, to: 95, dur: 0.32, type: "sawtooth", gain: 0.03, attack: 0.02 });
       voice({ freq: 70, dur: 0.12, type: "triangle", gain: 0.05, at: 0.3 });
       break;
+    case "objection":
+      // A gavel crack: a sharp wooden knock, a second one, and a low thud under them.
+      hiss({ dur: 0.05, gain: 0.12, filter: "bandpass", freq: 2400, q: 2 });
+      voice({ freq: 220, to: 110, dur: 0.09, type: "triangle", gain: 0.09 });
+      hiss({ dur: 0.05, gain: 0.1, filter: "bandpass", freq: 2200, q: 2, at: 0.16 });
+      voice({ freq: 200, to: 100, dur: 0.1, type: "triangle", gain: 0.08, at: 0.16 });
+      voice({ freq: 70, dur: 0.3, type: "sine", gain: 0.1, at: 0.02 });
+      break;
     case "golden":
       // Powering up: a long rising roar under a bright chord.
       voice({ freq: 110, to: 440, dur: 1.1, type: "sawtooth", gain: 0.04, attack: 0.05 });

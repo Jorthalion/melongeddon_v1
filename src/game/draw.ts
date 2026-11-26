@@ -24,6 +24,9 @@ import { drawBasement, drawBasementFloor, drawBasementFruit, drawSoaked } from "
 import { drawBrawl, drawDropMarker, drawFountain, drawHedge, drawParachute, drawSiegeShape, drawStatue, flagstones, siegeLookOf } from "./drawSiege.ts";
 
 /** The picture for a Coming up chip: the enemy's own sprite (its look, as the board draws it). */
+/** Carry (TRICKS): the trail colour of a trick shot carrying fire, a puddle, frost or ink. */
+const CARRY_TRAIL = { fire: "255,140,50", wet: "90,170,120", cold: "190,228,245", ink: "60,40,110" } as const;
+
 export function enemySpriteSrc(g: { kind: string; pit?: boolean; borrower?: boolean; native?: string | null; siege?: string | null }): string {
   const src = SPRITE_SRC as Record<string, string>;
   const look =
@@ -1147,6 +1150,31 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
       continue;
     }
     drawTower(ctx, t.x, t.y, t.aim, t.kind, t.orange, t.id === world.hud.selected, art, world.anim, motionOf(t, world.anim));
+    // Dr. Samodovol's Study marks: a small gold pip per mark under the tower.
+    if (t.studyMarks) {
+      for (let i = 0; i < t.studyMarks; i++) {
+        ctx.fillStyle = "rgba(230,195,106,0.95)";
+        ctx.strokeStyle = "rgba(40,24,12,0.9)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(t.x - (t.studyMarks - 1) * 3.5 + i * 7, t.y + 20, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    // The Archaeological Dig: a find waiting to be chosen.
+    if (t.kind === "dig" && world.hud.digFinds > 0) {
+      const bob = world.reduced ? 0 : Math.sin(world.anim * 4) * 2;
+      ctx.fillStyle = "#e6c36a";
+      ctx.beginPath();
+      ctx.arc(t.x, t.y - 30 + bob, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#241418";
+      ctx.font = "bold 11px serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("!", t.x, t.y - 29.5 + bob);
+    }
     // The Nexus Spire: a ring of pips counting down to the next Lights Out.
     if (t.kind === "spire") {
       const every = t.mods.includes("overtime") ? VAEL_VALUES.overtimeEvery : VAEL_VALUES.lightsOutEvery;
@@ -1320,10 +1348,13 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     if (f.trail.length > 1) {
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      // Carry: a shot carrying something trails its colour (fire, puddle, frost, ink) instead of its own.
+      const carried = f.carry ? CARRY_TRAIL[f.carry] : null;
       for (let i = 1; i < f.trail.length; i++) {
         const a = i / f.trail.length;
-        ctx.strokeStyle =
-          f.kind === "plane"
+        ctx.strokeStyle = carried
+          ? `rgba(${carried},${0.75 * a})`
+          : f.kind === "plane"
             ? `rgba(246,239,226,${0.6 * a})`
             : f.kind === "quill"
               ? `rgba(40,58,120,${0.8 * a})`
@@ -1468,6 +1499,17 @@ export function drawWorld(ctx: CanvasRenderingContext2D, world: World) {
     ctx.beginPath();
     ctx.ellipse(st.x, st.y + 8, 30 * (0.6 + 0.4 * Math.min(1, k / 0.35)), 9, 0, 0, Math.PI * 2);
     ctx.fill();
+    // Landed on honey: amber drips run off the sole as it lifts.
+    if (st.honey) {
+      ctx.fillStyle = "rgba(232,184,74,0.9)";
+      for (let i = 0; i < 6; i++) {
+        const dx = (i - 2.5) * 9;
+        const len = 6 + ((i * 7) % 5) * 2 + k * 14;
+        ctx.beginPath();
+        ctx.ellipse(st.x + dx, st.y + 4 + len / 2, 2.6, len / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     if (ready(art.flyStomp)) {
       // The painted foot: its sole sits about a fifth of the way up from the bottom, so lift the centre to land it on the spot.
       blitFit(ctx, art.flyStomp, st.x, st.y - drop - 26, 104, 90);

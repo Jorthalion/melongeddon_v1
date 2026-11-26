@@ -144,20 +144,21 @@ export const MAP_GOALS: Partial<Record<MapId, { goal: string }>> = {
   halldoors: { goal: restoreText("map", "halldoors") },
   compact: { goal: restoreText("map", "compact") },
   basement: { goal: restoreText("map", "basement") },
+  loop: { goal: restoreText("map", "loop") },
   greenhouse: { goal: restoreText("map", "greenhouse") },
   belltower: { goal: restoreText("map", "belltower") },
 };
 
 /** Maps the player can pick on the setup screen (the Overflow is night two's, never picked). */
-export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom", "sorting", "rotunda", "halldoors", "compact", "basement", "greenhouse", "belltower"];
+export const PICKABLE_MAPS: MapId[] = ["stacks", "annex", "mezzanine", "rarebooks", "archive", "greathall", "readingroom", "sorting", "rotunda", "halldoors", "compact", "basement", "loop", "greenhouse", "belltower"];
 
 
 /**
  * Test rooms: boards playable only in developer mode (Setup shows them in their own row) and in the simulator when
  * named (`--only <id>`), until they're confirmed. Empty for now: the bigger Archive and Mezzanine became their rooms'
- * layout B (`Board.variantOf`).
+ * layout B (`Board.variantOf`), and the Loop became the Cloister.
  */
-export const TEST_MAPS: MapId[] = ["loop"];
+export const TEST_MAPS: MapId[] = [];
 
 /** Maps the restored rooms have opened. */
 export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {
@@ -169,7 +170,7 @@ export function unlockedMaps(rooms: readonly RoomId[]): MapId[] {
  * Back-room price for the next upgrade to a tower kind that already has `owned` of them.
  * `visits` is upgrades bought tonight for any kind (the Back-room Key makes the first one free).
  */
-export function backRoomPrice(hero: HeroId | null, owned: number, visits: number, bookmark: BookmarkId | null, extraOff = 0) {
+export function backRoomPrice(hero: HeroId | null, owned: number, visits: number, bookmark: BookmarkId | null) {
   if (bookmark === "backroom" && visits === 0) return 0;
-  return shopPrice(hero, owned, visits, extraOff);
+  return shopPrice(hero, owned, visits);
 }

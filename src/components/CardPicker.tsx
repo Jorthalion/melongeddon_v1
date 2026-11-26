@@ -3,7 +3,12 @@ import {
   UPGRADE_KIND,
   KEEPER_NAMES,
   UPGRADE_SCOPE,
+  UNHINGED,
   isKeeperUpgrade,
+  isTowerPick,
+  nextBeat,
+  nightLength,
+  pickParts,
   type BookmarkId,
   type Hud,
   type MapId,
@@ -58,15 +63,18 @@ export function CardOverlay({
               </button>
             </div>
             <p className="mt-1 text-sm text-muted">
-              {hud.night === "midnight" && hud.upgrades.length >= 3
-                ? "One more shelf. The fruit after this is not just thicker."
-                : hud.night === "overflow" && hud.upgrades.length >= 2
-                ? "One more shelf. Then the meter starts spending."
-                : hud.night === "siege" && hud.upgrades.length >= 2
-                ? "One more shelf. Then they come together."
-
-                : hud.upgrades.length >= 2
-                  ? "One more shelf. Then the last waves."
+              {hud.offer.some((u) => UNHINGED.includes(u.id as UpgradeId))
+                ? "Prompt Drop: an extra pick. One card is unhinged. Read the fine print."
+                : lastShelf(hud) && hud.night === "midnight"
+                ? "The last shelf. The fruit after this is not just thicker."
+                : lastShelf(hud) && hud.night === "overflow"
+                ? "The last shelf. Then the meter starts spending."
+                : lastShelf(hud) && hud.night === "siege"
+                ? "The last shelf. Then they come together."
+                : lastShelf(hud)
+                  ? "The last shelf. Then the last waves."
+                  : hud.upgrades.length >= 2
+                  ? "Small and specific. Another shelf comes in two waves."
                   : hud.branch
                     ? "The last pick opened this shelf. It lasts the rest of the run."
                     : `${KEEPER_NAMES[hud.hero ?? "mynxi"].short} picks first. It lasts the rest of the run.`}
@@ -102,6 +110,12 @@ export function CardOverlay({
                       {i + 1}
                     </kbd>
                     {/* Dr. Samodovol's extra book: a real upgrade from further along the shelves, marked as his. */}
+                    {/* The Legal Elf's Prompt Drop: a joke with teeth. */}
+                    {UNHINGED.includes(id) ? (
+                      <span className="pointer-events-none absolute bottom-1.5 right-2.5 rounded-sm border border-[#e86a8a]/70 bg-ink/50 px-1 font-display text-[0.625rem] text-[#f29ab0] italic">
+                        unhinged
+                      </span>
+                    ) : null}
                     {hud.pickCards.includes(id) ? (
                       <span className="pointer-events-none absolute bottom-1.5 right-2.5 rounded-sm border border-gold/60 bg-ink/50 px-1 font-display text-[0.625rem] text-gold italic">
                         Doctor's pick
@@ -145,7 +159,7 @@ export function CardOverlay({
         {hudPhase === "victory" ? (
           <EndCard
             title={hud.night === "overflow" ? "The chute holds." : hud.night === "siege" ? "The courtyard holds." : "The stacks hold."}
-            body={`${hud.blurb} Absurdity ${hud.absurdity}. ${winLine(hud.hero ?? "mynxi")}`}
+            body={`${hud.blurb}${hud.night === "overflow" ? ` Absurdity ${hud.absurdity}.` : ""} ${winLine(hud.hero ?? "mynxi", hud.map)}`}
             action={victoryAction(hud.night)}
 
             unlocks={hud.newUnlocks}
@@ -172,8 +186,8 @@ export function CardOverlay({
             title="The carpet won."
             body={
               hud.night === "endless"
-                ? `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your endless best is ${hud.endlessBest}. ${loseLine(hud.hero ?? "mynxi")}`
-                : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. ${loseLine(hud.hero ?? "mynxi")}`
+                ? `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your endless best is ${hud.endlessBest}. ${loseLine(hud.hero ?? "mynxi", hud.map)}`
+                : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. ${loseLine(hud.hero ?? "mynxi", hud.map)}`
             }
             action="Try again"
             unlocks={hud.newUnlocks}
@@ -271,8 +285,19 @@ const UPGRADE_GLYPH: Partial<Record<UpgradeId, LucideIcon>> = {
 };
 
 /** Every upgrade row's 40px mark: its tower's picture when it belongs to one, otherwise a drawn mark. */
+/** Is this the night's last shelf (no other shelf before its last wave)? Endless never has one. */
+function lastShelf(hud: Hud) {
+  const length = nightLength(hud.night);
+  if (!length) return false;
+  // On the pick screen hud.wave is already the next wave (cleared + 1).
+  for (let c = hud.wave; c < length; c++) if (nextBeat(c, hud.night) === "upgrade") return false;
+  return true;
+}
+
 function UpgradeMark({ id }: { id: UpgradeId }) {
-  const kind = UPGRADE_KIND[id] ?? (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === id);
+  const kind = isTowerPick(id)
+    ? pickParts(id).kind
+    : UPGRADE_KIND[id] ?? (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === id);
   if (kind) return <TowerIcon kind={kind} className="size-10 shrink-0" />;
   const Glyph = UPGRADE_GLYPH[id] ?? Sparkles;
   return (

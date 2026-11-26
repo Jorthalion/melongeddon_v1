@@ -48,6 +48,9 @@ export interface RunLog {
   /** Dr. Samodovol: Doctor's picks shown, and taken. */
   doctorOffered: number;
   doctorTaken: number;
+  /** Study marks given (the Study and the Dig), and finds the Dig turned up. */
+  studyMarks: number;
+  digFinds: number;
   kills: number;
   /** The tower whose hit or effect landed each kill. */
   killsBy: Partial<Record<TowerKind, number>>;
@@ -118,6 +121,8 @@ export function emptyRunLog(): RunLog {
     picks: 0,
     doctorOffered: 0,
     doctorTaken: 0,
+    studyMarks: 0,
+    digFinds: 0,
     kills: 0,
     killsBy: {},
     karlKills: 0,

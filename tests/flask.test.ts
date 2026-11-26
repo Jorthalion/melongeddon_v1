@@ -282,8 +282,8 @@ test("Vaelithra's back room: 25, then 15 more per upgrade the kind has; the Elf'
   assert.equal(backRoomPrice("vael", 0, 1, null), 25);
   assert.equal(backRoomPrice("vael", 1, 2, null), 40);
   assert.equal(backRoomPrice("vael", 2, 3, null), 55);
-  assert.equal(backRoomPrice("elf", 0, 1, null), Math.round(40 * 0.7));
-  assert.equal(backRoomPrice("elf", 1, 2, null), Math.round(70 * 0.7));
+  assert.equal(backRoomPrice("elf", 0, 1, null), 40, "the Legal Elf has no discount now");
+  assert.equal(backRoomPrice("elf", 1, 2, null), 70);
   assert.equal(backRoomPrice("scholar", 0, 1, null), 40);
   assert.equal(backRoomPrice("mynxi", 0, 0, null), 15, "Mynxi's first is still 15");
   assert.equal(backRoomPrice("vael", 0, 0, null), 25, "only Mynxi gets the 15");

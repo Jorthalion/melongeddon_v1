@@ -39,7 +39,7 @@ export const KEEPER_SHEETS: Record<
     difficulty: "Medium",
     rules: [
       "Before each night he chooses his armour: more stacks, a fuller Hoard, fiercer Great towers, or a Roost that starts hatched.",
-      "The Dragon's Hoard: a quarter of what he spends on ordinary towers is saved, and pays first for his big things.",
+      "The Dragon's Hoard: a fifth of what he spends on ordinary towers is saved, and pays first for his big things.",
       "Two of the same tower side by side can merge into one Great tower: two and a half times the damage, farther reach.",
       "The Dragon's Roost (200) grows from an egg into a Great Dragon over the night; the Dragon Gate (300) holds the carpet. Waves with no stack lost put him In the Zone.",
     ],
@@ -50,11 +50,11 @@ export const KEEPER_SHEETS: Record<
     seeds: 150,
     difficulty: "Medium",
     rules: [
-      "Back-room upgrades cost him 30% less.",
-      "Scales of Justice take a share of the heaviest fruit's health, and kills pay a fee.",
-      "Foot of the Law stamps a stretch of carpet still; Honeyed Heel makes fruit take 25% more damage.",
+      "Objection! (once a wave, O): every fruit on the last 3 tiles before the door is thrown back 3 tiles and honeyed (bosses: 1 tile). They walk 10% faster for 3 s after.",
+      "The court: Honeyed Heel makes fruit sticky; Foot of the Law holds a sticky fruit twice as long and spreads the honey; the Scales take 20% from a stopped or honeyed fruit instead of 12%, and double the fee.",
+      "Billable Steps: every fruit the Foot of the Law stomps pays 1 seed, up to 3 a stomp.",
     ],
-    suits: "Upgrading a few towers hard, and big, armoured fruit.",
+    suits: "Timing one big save a wave, and big, armoured fruit.",
   },
   ooze: {
     stacks: 13,
@@ -74,7 +74,8 @@ export const KEEPER_SHEETS: Record<
     rules: [
       "Every upgrade shelf has a fourth card, the Doctor's pick: a real upgrade from further along the shelves.",
       "No cannon of his own to start with. He is the hardest keeper, on purpose.",
-      "History Lectern (50): the kind of fruit that got furthest walks a quarter slower next wave.",
+      "History Lectern (35): the kind of fruit that got furthest walks a quarter slower next wave. Two waves in it publishes, and every kind it noted stays slower.",
+      "The Study (90) marks his best nearby tower each wave; the Dig (60) turns up a find every third wave.",
     ],
     suits: "Experienced players who like choosing their upgrades with care.",
   },
