@@ -597,20 +597,23 @@ Mynxi's first upgrade of the night costs 15, and the Back-room Key bookmark make
 
 ## Upgrade picks
 
-After waves **1**, **2** and **6**, you choose one upgrade from three. Dr. Samodovol's shelves show four: the fourth is the Doctor's pick, a real upgrade from further along (see [Keepers](#keepers)). Upgrades last for the whole night, and each choice shapes which ones come next.
+After waves **1** and **2**, then after every second wave (4, 6, 8 and so on; Midnight also has one after wave 15), you choose one upgrade from three: 7 shelves on a 15-wave night, 11 on Midnight. Each upgrade is small and specific. Dr. Samodovol's shelves show four: the fourth is the Doctor's pick, a real upgrade from further along (see [Keepers](#keepers)). Upgrades last for the whole night.
+
+- **The first two shelves** set your keeper's path with named cards (the table below), and each choice shapes which come next.
+- **From the third shelf on**, most cards are **tower picks** for the kinds you've built, most-built first: a kind *hits harder* (+10% damage), *fires faster* (+8%) or *reaches farther* (+7%). A tower pick can be taken up to **3 times** (the card shows II or III), and it only changes that one kind. A tower that does no damage (the Still, the Shush Bell) gets no damage pick, and one that already reaches the whole board gets no reach pick. Keeper towers, room towers and helpers (Reading Lamp, Compost Heap) get none. Each later shelf also has a cannon's own upgrade if you've built that cannon, and one named card.
 
 | Upgrade | What it does | Affects |
 |---|---|---|
-| Rapid Rind | Fire 30% faster | Cannon, Precision |
+| Rapid Rind | Fire 15% faster | Cannon, Precision |
 | Reading Lamp | See farther down the carpet | Cannon, Precision |
 | Heavy Caliber | Hit harder, reload slower | Cannon |
 | Juicy Explosions | Hits burst, splashing everyone close | Cannon (not the Melon cannon) |
 | Knight's Splatter | Each hit chips everyone near the target | Cannon (not the Melon cannon) |
 | Electrified Rounds | Impacts spark into a nearby fruit | Cannon (not the Melon cannon) |
-| Prize Melons | Melon cannons hit 30% harder | Melon cannon |
+| Prize Melons | Melon cannons hit 12% harder | Melon cannon |
 | Sticky Pulp / Trial Vial / Distilled Batch | Stronger, longer-lasting slowing puddles | Alchemy |
-| Seed Cache | +55 seeds now | Seeds |
-| Overdue Fines | Every kill pays 5 extra seeds | Seeds |
+| Seed Cache | +30 seeds now (can be taken again) | Seeds |
+| Overdue Fines | Every kill pays 3 extra seeds | Seeds |
 | Barbed Spears, Footnotes, Stinging Flies, Ink Blot, Interest | Each boosts one specific tower (Ballista, Long Reader, Fly Hive, Ink Well, Compost Heap). Offered only once you've built that tower | That tower |
 
 ### Checkout card
@@ -800,7 +803,7 @@ The Matriarch and General Mittens each pay **+2 stacks** when they fall, like Ka
 
 ### Endless
 
-No last wave. Waves keep coming and keep getting tougher, Karl arrives every fifth wave, and you get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Your best Endless wave is saved separately.
+No last wave. Waves keep coming and keep getting tougher, Karl arrives every fifth wave, and you get an upgrade pick after waves 1, 2, 4 and 6, then every third wave. Your best Endless wave is saved separately.
 
 ## Rooms (maps)
 

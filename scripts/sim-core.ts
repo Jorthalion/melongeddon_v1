@@ -36,6 +36,8 @@ import {
   boardLegs,
   VAEL_LADDER,
   PASSIVE,
+  isTowerPick,
+  pickParts,
 } from "../src/game/engine.ts";
 import { ELF_VALUES, carpetAlong, CELL as TILE, type World as SimWorld } from "../src/game/engine.ts";
 import { makeHuman } from "./sim-human.ts";
@@ -192,6 +194,11 @@ export function smartPick(offer: UpgradeId[], owned: UpgradeId[], board: TowerKi
   const puddles = owned.includes("vial") || owned.includes("distill") || count("still") > 0;
   const own: Partial<Record<UpgradeId, TowerKind>> = { barbed: "ballista", footnotes: "reader", stinging: "hive", blot: "ink", interest: "compost" };
   const score = (id: UpgradeId): number => {
+    // A tower pick: worth more the more of that kind are out (reach a little less than damage or pace).
+    if (isTowerPick(id)) {
+      const { kind: k, stat } = pickParts(id);
+      return (stat === "range" ? 1.5 : 2) + count(k) * (stat === "range" ? 0.7 : 0.9);
+    }
     const kind = own[id];
     if (kind) return 3 + 2 * count(kind);
     switch (id) {

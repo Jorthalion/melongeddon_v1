@@ -44,7 +44,8 @@ export const KEEPER_START: Partial<Record<HeroId, { seeds: number; lives: number
   asser: { seeds: 100, lives: 20 },
 };
 
-export type UpgradeId =
+/** The shelf's named cards (keeper paths, puddles, seeds, the cannons' own upgrades, the Elf's unhinged ones). */
+export type BaseUpgradeId =
   | "juicy"
   | "rapid"
   | "seeds"
@@ -68,6 +69,102 @@ export type UpgradeId =
   | "malpractice"
   | "probono";
 
+/** What a tower pick improves: damage, fire rate or reach. */
+export type PickStat = "dmg" | "rate" | "range";
+/** A small upgrade for one shared tower kind ("melon:dmg"). It can be taken up to `PICKS.maxRank` times. */
+export type TowerPickId = `${TowerKind}:${PickStat}`;
+export type UpgradeId = BaseUpgradeId | TowerPickId;
+
+/**
+ * The shelf: small, specific upgrades, offered often. A pick comes after waves 1 and 2, then after every
+ * `every`th wave (and Midnight's act-three shelf). The first two shelves keep each keeper's path (the
+ * named cards); from the third on, most cards are tower picks for the kinds you've built.
+ */
+export const PICKS = {
+  /** After the first two shelves, a shelf every this many waves. */
+  every: 2,
+  /** Endless: after wave 6, a shelf every this many waves. */
+  endlessEvery: 3,
+  /** Tower picks, per rank: damage +, fire rate + (interval ÷ 1 + this), reach +. */
+  dmg: 0.1,
+  rate: 0.08,
+  range: 0.07,
+  /** How many times one tower pick can be taken. */
+  maxRank: 3,
+  /** Seed Cache (can be taken again) and Overdue Fines (per kill). */
+  seeds: 30,
+  fines: 3,
+  /** Rapid Rind: the shared cannon interval (0.9 without it). Heavy Caliber: + damage, interval ×. */
+  rapidInterval: 0.78,
+  caliberDmg: 4,
+  caliberPace: 1.12,
+  /** Reading Lamp (card): + reach for cannons and precision towers (a Still gets the smaller one). */
+  lampReach: 26,
+  lampReachStill: 11,
+  /** Juicy Explosions and Knight's Splatter: splash damage and radius. Electrified Rounds: spark damage. */
+  juicyDmg: 5,
+  juicyRadius: 38,
+  splatterDmg: 6,
+  splatterRadius: 34,
+  sparkDmg: 9,
+  /** Sticky Pulp: puddle life × and extra radius. */
+  stickyLife: 1.2,
+  stickyRadius: 6,
+};
+
+/** Shared towers that get tower picks (keeper towers, room towers and helpers don't). */
+export const PICK_KINDS: TowerKind[] = [
+  "melon", "mortar", "still", "fire", "freeze",
+  "spitter", "ballista", "reader", "bell", "hive", "ink", "peeler", "bookworm",
+  "boomerang", "orrery", "plane", "quill", "globe",
+  "press", "organ", "scope",
+];
+const PICK_STATS: PickStat[] = ["dmg", "rate", "range"];
+
+/** Is this a tower pick ("melon:dmg")? */
+export function isTowerPick(id: string): id is TowerPickId {
+  return id.includes(":");
+}
+/** The tower and stat a tower pick improves. */
+export function pickParts(id: TowerPickId): { kind: TowerKind; stat: PickStat } {
+  const [kind, stat] = id.split(":") as [TowerKind, PickStat];
+  return { kind, stat };
+}
+/** How many times `id` has been taken tonight. */
+export function rankOf(owned: readonly UpgradeId[], id: UpgradeId) {
+  let n = 0;
+  for (const o of owned) if (o === id) n++;
+  return n;
+}
+/** Can `id` be offered again? Named cards once (Seed Cache any number of times), tower picks up to maxRank. */
+export function canTake(owned: readonly UpgradeId[], id: UpgradeId) {
+  if (id === "seeds") return true;
+  return isTowerPick(id) ? rankOf(owned, id) < PICKS.maxRank : !owned.includes(id);
+}
+const ROMAN = ["", "I", "II", "III", "IV", "V"];
+/** The card for a tower pick at the rank it would reach. */
+export function towerPickDef(id: TowerPickId, rank = 1): UpgradeDef {
+  const { kind, stat } = pickParts(id);
+  const name = TOWERS[kind].name;
+  const what =
+    stat === "dmg"
+      ? { title: "hits harder", line: `hit ${Math.round(PICKS.dmg * 100)}% harder` }
+      : stat === "rate"
+        ? { title: "fires faster", line: `fire ${Math.round(PICKS.rate * 100)}% faster` }
+        : { title: "reaches farther", line: `reach ${Math.round(PICKS.range * 100)}% farther` };
+  const many = name.endsWith("s") ? name : `${name}s`;
+  return {
+    id,
+    name: `${name} ${what.title}${rank > 1 ? ` ${ROMAN[rank] ?? rank}` : ""}`,
+    blurb: `Your ${many} ${what.line}. Stacks up to ${PICKS.maxRank} times${rank > 1 ? ` (this is ${rank} of ${PICKS.maxRank})` : ""}.`,
+  };
+}
+/** The stats worth picking for a tower kind: no damage pick for a tower that does none, no reach pick for one that reaches everywhere. */
+export function pickStatsFor(kind: TowerKind): PickStat[] {
+  const base = towerReadout(null, kind, [], []);
+  return PICK_STATS.filter((st) => (st === "dmg" ? base.dmg > 0 : st === "range" ? base.range > 0 && base.range < GLOBAL_RANGE : base.interval > 0));
+}
+
 /** The Siege brings two kinds that aren't fruit at all: geese and cats (every variant is a flag on one of them). */
 export type EnemyKind = "melon" | "corn" | "pumpkin" | "karl" | "goose" | "cat";
 
@@ -77,7 +174,7 @@ export interface UpgradeDef {
   blurb: string;
 }
 
-export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
+export const UPGRADES = {
   juicy: {
     id: "juicy",
     name: "Juicy Explosions",
@@ -86,12 +183,12 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   rapid: {
     id: "rapid",
     name: "Rapid Rind",
-    blurb: "Cannon and Precision towers cycle 30% faster. The carpet gets louder.",
+    blurb: "Cannon and Precision towers cycle 15% faster. The carpet gets louder.",
   },
   seeds: {
     id: "seeds",
     name: "Seed Cache",
-    blurb: "Someone kicks over a crate. +55 seeds. No new tricks.",
+    blurb: "Someone kicks over a crate. +30 seeds. You can take it again.",
   },
   sticky: {
     id: "sticky",
@@ -101,7 +198,7 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   bounce: {
     id: "bounce",
     name: "Prize Melons",
-    blurb: "Melon cannons hit 30% harder. Nothing fancy: just bigger melons.",
+    blurb: "Melon cannons hit 12% harder. Nothing fancy: just bigger melons.",
   },
   electric: {
     id: "electric",
@@ -111,7 +208,7 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
   fines: {
     id: "fines",
     name: "Overdue Fines",
-    blurb: "The ledger. Every kill pays 5 extra seeds.",
+    blurb: "The ledger. Every kill pays 3 extra seeds.",
   },
   caliber: {
     id: "caliber",
@@ -183,7 +280,7 @@ export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
     name: "Pro Bono",
     blurb: "Every wave cleared puts a stack back. Fine print: the Scales work for free (no fees).",
   },
-};
+} as Record<UpgradeId, UpgradeDef>;
 
 /** Upgrades tied to one cannon. They are only offered once you have built that cannon. */
 export const CANNON_UPGRADES: Partial<Record<TowerKind, UpgradeId>> = {
@@ -224,22 +321,57 @@ export function buildOffer(
     else if (branch === "vial") wanted = ["sticky", "electric", "distill"];
     else wanted = ["sticky", "bounce", "electric"];
   } else if (step === 3) {
-    wanted =
-["juicy", "sticky", "seeds", "rapid", "electric", "bounce"];
+    wanted = ["juicy", "sticky", "seeds", "rapid", "electric", "bounce"];
   }
-  const out: UpgradeId[] = [];
+  const named: UpgradeId[] = [];
   for (const id of [...wanted, ...PAD]) {
-    if (owned.includes(id) || out.includes(id)) continue;
+    if (!canTake(owned, id) || named.includes(id)) continue;
     if (step === 1 && (id === "lamp" || id === "splatter" || id === "distill")) continue;
-    out.push(id);
-    if (out.length === size) break;
+    named.push(id);
   }
-  // From the second pick on, a cannon upgrade for something you built takes the middle
-  // slot. The third slot holds the keeper's own pick, and the first pick sets the
-  // keeper's path, so neither is displaced.
+  // A cannon upgrade for something you built (from the second shelf on).
   const cannonPick = built.map((k) => CANNON_UPGRADES[k]).find((id): id is UpgradeId => !!id && !owned.includes(id));
-  if (step > 1 && cannonPick && out.length >= 3 && !out.includes(cannonPick)) out[1] = cannonPick;
-  return out.map((id) => UPGRADES[id]);
+  let out: UpgradeId[];
+  if (step < 3) {
+    // The first two shelves set the keeper's path: named cards. On the second, a cannon upgrade for
+    // something you built takes the middle slot (the third holds the keeper's own pick).
+    out = named.slice(0, size);
+    if (step > 1 && cannonPick && out.length >= 3 && !out.includes(cannonPick)) out[1] = cannonPick;
+  } else {
+    // Later shelves: a tower pick for what you've built most, the cannon upgrade if there is one,
+    // more tower picks, and one named card last.
+    const picks = towerPicksFor(owned, built);
+    out = [];
+    if (picks[0]) out.push(picks[0]);
+    if (cannonPick) out.push(cannonPick);
+    for (const id of picks.slice(1)) if (out.length < size - 1 && !out.includes(id)) out.push(id);
+    for (const id of named) if (out.length < size && !out.includes(id)) out.push(id);
+    for (const id of picks) if (out.length < size && !out.includes(id)) out.push(id);
+  }
+  return out.map((id) => (isTowerPick(id) ? towerPickDef(id, rankOf(owned, id) + 1) : UPGRADES[id]));
+}
+
+/**
+ * Tower picks worth offering: for each built kind that gets them (most-built first), the stat taken least so
+ * far (ties rotate with the number of picks taken, so shelves vary), then each kind's other stats.
+ */
+export function towerPicksFor(owned: readonly UpgradeId[], built: readonly TowerKind[]): TowerPickId[] {
+  const kinds = built.filter((k, i) => PICK_KINDS.includes(k) && built.indexOf(k) === i);
+  const firsts: TowerPickId[] = [];
+  const rest: TowerPickId[] = [];
+  const turn = owned.length;
+  for (const kind of kinds) {
+    const stats = pickStatsFor(kind);
+    const spin = (i: number) => (((i - turn) % stats.length) + stats.length) % stats.length;
+    const ids = stats
+      .map((st, i) => ({ id: `${kind}:${st}` as TowerPickId, i }))
+      .filter((o) => canTake(owned, o.id))
+      .sort((a, b) => rankOf(owned, a.id) - rankOf(owned, b.id) || spin(a.i) - spin(b.i))
+      .map((o) => o.id);
+    if (ids[0]) firsts.push(ids[0]);
+    rest.push(...ids.slice(1));
+  }
+  return [...firsts, ...rest];
 }
 export type TowerKind =
   | "melon"
@@ -476,6 +608,7 @@ export const UPGRADE_KIND: Partial<Record<UpgradeId, TowerKind>> = { bounce: "me
 
 /** Does upgrade `id` change tower `kind`? */
 export function upgradeAffects(id: UpgradeId, kind: TowerKind) {
+  if (isTowerPick(id)) return pickParts(id).kind === kind;
   if (CANNON_UPGRADES[kind] === id || UPGRADE_KIND[id] === kind) return true;
   if (kind === "melon" && MELON_SKIPS.includes(id)) return false;
   return UPGRADE_TARGETS[id]?.includes(TOWER_TYPE[kind]) ?? false;
@@ -485,10 +618,10 @@ export function upgradeAffects(id: UpgradeId, kind: TowerKind) {
  * What an upgrade card says it reaches, in player words, as one short chip on its title row
  * ("Melon cannons", "Cannons and precision", "The ledger").
  */
-export const UPGRADE_SCOPE: Record<UpgradeId, string> = {
+export const UPGRADE_SCOPE = {
   juicy: "Cannons, not melons",
   rapid: "Cannons and precision",
-  seeds: "Seeds, once",
+  seeds: "Seeds",
   sticky: "Puddles",
   bounce: "Melon cannons",
   electric: "Cannons, not melons",
@@ -507,7 +640,7 @@ export const UPGRADE_SCOPE: Record<UpgradeId, string> = {
   advance: "The ledger",
   malpractice: "Stacks and back room",
   probono: "Stacks and Scales",
-};
+} as Record<UpgradeId, string>;
 
 /** The Legal Elf's unhinged cards: only Prompt Drop ever offers them, one to a shelf. */
 export const UNHINGED: UpgradeId[] = ["cyberpop", "advance", "malpractice", "probono"];
@@ -537,6 +670,7 @@ export function isKeeperUpgrade(hero: HeroId | null, id: UpgradeId) {
 
 /** Short "affects" label for an upgrade card. */
 export function upgradeTargetLabel(id: UpgradeId) {
+  if (isTowerPick(id)) return TOWERS[pickParts(id).kind].name;
   const own = UPGRADE_KIND[id] ?? (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === id);
   if (own) return TOWERS[own].name;
   const types = UPGRADE_TARGETS[id];
@@ -1071,7 +1205,7 @@ export const CANNON = {
    * 2.4: tuned in the simulator after the melon cannon went to 2.9 (melons + mortars, Normal + Hard: 0.8 won 39%, 1.6 56%, 2.0 61%, 2.4 72%; melons alone 80%). */
   mortarDmg: 2.4,
   /** Prize Melons (card): melon cannon damage ×. Ripe core (back room): melon cannon damage ×. */
-  prizeMelon: 1.3,
+  prizeMelon: 1.12,
   ripeMelon: 1.2,
   bellStun: 0.9,
   /** Share of the Bell's stop a husk still feels (it stands still that long). */
@@ -1149,13 +1283,13 @@ export const CANNON = {
   wormTime: 4,
   /** Cannon upgrades. */
   /** Interval multiplier for a cannon whose cannon upgrade you own (0.75 = fires a third faster). */
-  upgradePace: 0.75,
-  readerUpgradePace: 0.6,
-  inkUpgradePace: 0.5,
+  upgradePace: 0.85,
+  readerUpgradePace: 0.72,
+  inkUpgradePace: 0.62,
   /** Ink Blot: extra damage taken on every ink mark (on top of inkBonus). */
   blotInkBonus: 0.2,
   /** Extra seeds per Compost Heap payout with Interest. */
-  interestBase: 20,
+  interestBase: 12,
   barbedSlow: 1.5,
   /** Shelf Ballista: the spear goes through this many fruit on its line, nearest first (Through and through: `ballistaPierceMore` more). */
   ballistaPierce: 4,
@@ -1315,11 +1449,26 @@ export function buildCost(hero: HeroId | null, placed: number, kind: TowerKind, 
 }
 
 export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]): { dmg: number; range: number; interval: number } {
+  const plain = baseReadout(hero, kind, mods, upgradesOwned);
+  // Tower picks: each rank of this kind's picks.
+  if (!PICK_KINDS.includes(kind) || !upgradesOwned.some((id) => isTowerPick(id))) return plain;
+  const dmg = rankOf(upgradesOwned, `${kind}:dmg`);
+  const rate = rankOf(upgradesOwned, `${kind}:rate`);
+  const range = rankOf(upgradesOwned, `${kind}:range`);
+  return {
+    dmg: dmg ? Math.round(plain.dmg * (1 + PICKS.dmg * dmg)) : plain.dmg,
+    range: range && plain.range > 0 && plain.range < GLOBAL_RANGE ? Math.round(plain.range * (1 + PICKS.range * range)) : plain.range,
+    interval: rate ? plain.interval / (1 + PICKS.rate * rate) : plain.interval,
+  };
+}
+
+/** A tower's numbers before tower picks. */
+function baseReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[], upgradesOwned: UpgradeId[]): { dmg: number; range: number; interval: number } {
   // The Post (pamphlet) hits each fruit on its straight for a share of the plain cannon base (14, Heavy Caliber 22), and has no reach circle.
   // It stays on the base, not the melon cannon's own boost, so its tuned hit didn't move when melons got stronger.
-  if (kind === "pamphlet") return { dmg: Math.round((14 + (upgradesOwned.includes("caliber") ? 8 : 0)) * CANNON.pamphletHit), range: 0, interval: 0 };
+  if (kind === "pamphlet") return { dmg: Math.round((14 + (upgradesOwned.includes("caliber") ? PICKS.caliberDmg : 0)) * CANNON.pamphletHit), range: 0, interval: 0 };
   // The Unstoppered drips like a Still from its own tile (its spills wet the carpet instead).
-  if (kind === "flask") return towerReadout(hero, "still", mods, upgradesOwned);
+  if (kind === "flask") return baseReadout(hero, "still", mods, upgradesOwned);
   // The Copycat itself does nothing; the copy it makes uses the copied kind's numbers.
   if (kind === "copycat") return { dmg: 0, range: 0, interval: 0 };
   // Only the upgrades that affect this tower's type count.
@@ -1337,16 +1486,16 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   if (profile) {
     const base = hero === "mynxi" ? 176 : 132;
     const far = mods.some((id) => id === "reach" || id === "loud" || id === "bigpipes");
-    const range = profile.range === 0 ? GLOBAL_RANGE : Math.round(base * profile.range) + (lamp ? 32 : 0) + (far ? 28 : 0);
+    const range = profile.range === 0 ? GLOBAL_RANGE : Math.round(base * profile.range) + (lamp ? PICKS.lampReach : 0) + (far ? 28 : 0);
     let pace = profile.pace;
     if (mods.includes("haste")) pace *= 0.85;
     // A cannon upgrade also speeds up the cannon it belongs to.
     const own = CANNON_UPGRADES[kind];
     if (own && upgrades.includes(own))
       pace *= kind === "reader" ? CANNON.readerUpgradePace : kind === "ink" ? CANNON.inkUpgradePace : CANNON.upgradePace;
-    const interval = (upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1) * pace;
+    const interval = (upgrades.includes("rapid") ? PICKS.rapidInterval : 0.9) * (upgrades.includes("caliber") ? PICKS.caliberPace : 1) * pace;
     let dmg = 14;
-    if (upgrades.includes("caliber")) dmg += 8;
+    if (upgrades.includes("caliber")) dmg += PICKS.caliberDmg;
     dmg = profile.dmg === 0 ? 0 : Math.max(1, Math.round(dmg * profile.dmg * (mods.includes("whetstone") ? 1.25 : 1)));
     // The Instant Quackmission buzzes on its own clock (card upgrades don't touch a utility tower anyway).
     if (kind === "driver") return { dmg: 0, range, interval: CANNON.driverEvery };
@@ -1354,15 +1503,15 @@ export function towerReadout(hero: HeroId | null, kind: TowerKind, mods: ModId[]
   }
   const farther = mods.some((id) => id === "reach" || id === "arc" || id === "flare" || id === "coldreach");
   const range =
-    (kind === "still" ? (hero === "mynxi" ? 118 : 96) + (lamp ? 20 : 0) : (hero === "mynxi" ? 176 : 132) + (lamp ? 32 : 0)) +
+    (kind === "still" ? (hero === "mynxi" ? 118 : 96) + (lamp ? PICKS.lampReachStill : 0) : (hero === "mynxi" ? 176 : 132) + (lamp ? PICKS.lampReach : 0)) +
     (farther ? 28 : 0) +
     (kind === "melon" && mods.includes("mimicstep") ? CANNON.mimicReach : 0);
   let pace = kind === "mortar" ? 1.8 : kind === "fire" ? 1.15 : kind === "freeze" ? 1.25 : 1;
   if (mods.includes("haste")) pace *= 0.85;
-  let interval = ((upgrades.includes("rapid") ? 0.62 : 0.9) * (upgrades.includes("caliber") ? 1.22 : 1)) * pace;
+  let interval = ((upgrades.includes("rapid") ? PICKS.rapidInterval : 0.9) * (upgrades.includes("caliber") ? PICKS.caliberPace : 1)) * pace;
   if (kind === "still") interval = (mods.includes("drip") ? 1 : 1.45) * (mods.includes("mimicstep") ? CANNON.mimicDrip : 1);
   let dmg = 14;
-  if (upgrades.includes("caliber")) dmg += 8;
+  if (upgrades.includes("caliber")) dmg += PICKS.caliberDmg;
   if (kind === "melon") dmg = Math.round(dmg * CANNON.melonDmg * (upgrades.includes("bounce") ? CANNON.prizeMelon : 1) * (mods.includes("ripe") ? CANNON.ripeMelon : 1));
   if (kind === "mortar") dmg = Math.round(dmg * CANNON.mortarDmg);
   if (kind === "fire") dmg = Math.round(dmg * 0.65);
@@ -3889,7 +4038,7 @@ export function nightLength(night: NightId): number {
 
 // ---------- endless ----------
 
-export const ENDLESS_PICK_EVERY = 5;
+export const ENDLESS_PICK_EVERY = 3;
 
 const ENDLESS_NAMES = [
   ["Late returns", "Everything that was checked out is coming back at once."],
@@ -3968,17 +4117,18 @@ export type Beat = "upgrade" | "consequence" | "victory" | "prep";
 
 export function nextBeat(cleared: number, night: NightId = "midnight"): Beat {
   if (night === "endless") {
-    // No story and no last wave: a pick after waves 1, 2 and 6, then every fifth wave.
-    if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
+    // No story and no last wave: a pick after waves 1, 2, 4 and 6, then every ENDLESS_PICK_EVERY waves.
+    if (cleared === 1 || cleared === 2 || cleared === 4 || cleared === 6) return "upgrade";
     if (cleared > 6 && (cleared - 6) % ENDLESS_PICK_EVERY === 0) return "upgrade";
     return "prep";
   }
   const length = nightLength(night);
   if (cleared >= length) return "victory";
-  if (cleared === 1 || cleared === 2 || cleared === 6) return "upgrade";
-  // Midnight's fourth shelf, before act three.
-  if (night === "midnight" && cleared === WAVE_COUNT) return "upgrade";
   if (cleared === length - 1) return "consequence";
+  // A shelf after waves 1 and 2, then every PICKS.every waves.
+  if (cleared === 1 || cleared === 2 || cleared % PICKS.every === 0) return "upgrade";
+  // Midnight's act-three shelf.
+  if (night === "midnight" && cleared === WAVE_COUNT) return "upgrade";
   return "prep";
 }
 
@@ -4309,3 +4459,11 @@ export const AFFLICT = {
   /** Most affliction damage a second on one fruit, before Ink and Honey. */
   cap: 60,
 };
+
+// Tower picks join the card and scope tables (the shelf itself shows the rank a pick would reach).
+for (const kind of PICK_KINDS)
+  for (const stat of PICK_STATS) {
+    const id: TowerPickId = `${kind}:${stat}`;
+    UPGRADES[id] = towerPickDef(id);
+    UPGRADE_SCOPE[id] = TOWERS[kind].name;
+  }

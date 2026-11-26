@@ -42,7 +42,7 @@ test("the abuse bot pinned to a kind spams it, aims every fitting at it, and tak
 });
 
 test("the abuse bot on its own tries several kinds early, then spams one, with no Ink Wells or Organs", () => {
-  const r = simulateRun({ hero: "elf", difficulty: "normal", strategy: "abuse", night: "midnight", map: "annex", seed: 2 });
+  const r = simulateRun({ hero: "elf", difficulty: "normal", strategy: "abuse", night: "midnight", map: "annex", seed: 4 });
   assert.ok(r.abused && SPAM_KINDS.includes(r.abused as TowerKind), `it spams ${r.abused}`);
   assert.ok((r.tactics?.explore ?? 0) >= 2, "it tried at least two candidates");
   assert.ok((r.tactics?.abuse ?? 0) >= 1, "it spammed its pick");

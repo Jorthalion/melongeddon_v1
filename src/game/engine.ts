@@ -1,6 +1,6 @@
 import {
   CELL, BOARDS, baseMap, withLayouts, takesShortcut, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
-  BALANCE, DROWSY, softenSlow, flyMiss, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  BALANCE, DROWSY, PICKS, canTake, isTowerPick, softenSlow, flyMiss, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
@@ -3853,7 +3853,7 @@ export function createWorld(
     contagion(e);
     // What fell out of a Parcel pays nothing.
     if (!e.contents) {
-      const pay = e.gold + (has("fines") ? 5 : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
+      const pay = e.gold + (has("fines") ? PICKS.fines : 0) + (bm("latefee") ? BOOKMARK_VALUES.latefee : 0) + fx.killSeeds;
       // Billable in Advance's fine print: every kill pays less (never below nothing).
       world.hud.seeds += has("advance") ? Math.max(0, pay - ELF_VALUES.advanceKill) : pay;
     }
@@ -4484,11 +4484,11 @@ export function createWorld(
     }
     if (shot.element === "potion") {
       // Puddle upgrades (Alchemy) reach the cauldron: Sticky spreads it, Vial and Distilled make it bite.
-      const life = CANNON.cauldronLife * (has("sticky") ? 1.4 : 1) * fx.poolLife * (wetAt(e.x, e.y) ? CANNON.wetPuddle : 1);
+      const life = CANNON.cauldronLife * (has("sticky") ? PICKS.stickyLife : 1) * fx.poolLife * (wetAt(e.x, e.y) ? CANNON.wetPuddle : 1);
       world.pools.push({
         x: e.x,
         y: e.y,
-        r: Math.round((CANNON.cauldronRadius + (has("sticky") ? 12 : 0)) * fx.poolWide * (world.heights.size && floodedAt(e.x, e.y) ? BASEMENT.puddleWide : 1)),
+        r: Math.round((CANNON.cauldronRadius + (has("sticky") ? PICKS.stickyRadius : 0)) * fx.poolWide * (world.heights.size && floodedAt(e.x, e.y) ? BASEMENT.puddleWide : 1)),
         life,
         max: life,
         hot: false,
@@ -4499,14 +4499,14 @@ export function createWorld(
       });
     }
     if (shot.procs && has("juicy")) {
-      for (const other of world.enemies) hurt(other, e, 8, 46, "splash");
-      splashFx(e.x, e.y, 46, "226,59,74");
-      explode(e.x, e.y, 46);
+      for (const other of world.enemies) hurt(other, e, PICKS.juicyDmg, PICKS.juicyRadius, "splash");
+      splashFx(e.x, e.y, PICKS.juicyRadius, "226,59,74");
+      explode(e.x, e.y, PICKS.juicyRadius);
     }
     if (has("splatter") && shot.procs) {
-      for (const other of world.enemies) hurt(other, e, 9, 40, "splash");
-      splashFx(e.x, e.y, 40, "226,59,74");
-      explode(e.x, e.y, 40);
+      for (const other of world.enemies) hurt(other, e, PICKS.splatterDmg, PICKS.splatterRadius, "splash");
+      splashFx(e.x, e.y, PICKS.splatterRadius, "226,59,74");
+      explode(e.x, e.y, PICKS.splatterRadius);
     }
     if (shot.splash > 0) {
       if (!shot.knock) splashFx(e.x, e.y, shot.splash, "232,136,58");
@@ -4570,7 +4570,7 @@ export function createWorld(
         }
       }
       if (best) {
-        hurt(best, null, 14);
+        hurt(best, null, PICKS.sparkDmg);
         world.sparks.push({ x: e.x, y: e.y, x2: best.x, y2: best.y, life: 0.18 });
         float(best.x, best.y - 8, "zap", "#e6c36a");
       }
@@ -6119,6 +6119,7 @@ export function createWorld(
       notify();
     },
     pickUpgrade(upgradeId: UpgradeId) {
+      const cardName = (id: UpgradeId) => world.hud.offer.find((u) => u.id === id)?.name ?? UPGRADES[id].name;
       if (world.hud.phase === "upgrade" && !world.hud.checkout && UNHINGED.includes(upgradeId) && world.hud.offer.some((u) => u.id === upgradeId)) {
         // An unhinged card: its boost lands now (the drawback is in the rules from here on).
         if (upgradeId === "advance") world.hud.seeds += ELF_VALUES.advanceSeeds;
@@ -6137,13 +6138,14 @@ export function createWorld(
         world.runLog.doctorTaken += 1;
         if (fx.annotated) world.hud.seeds += fx.annotated;
       }
-      if (!has(upgradeId)) {
+      // Tower picks (and Seed Cache) can be taken again: each copy is one more rank.
+      if (canTake(world.hud.upgrades, upgradeId)) {
+        if (!has(upgradeId)) world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, pick: doctors }];
         world.hud.upgrades = [...world.hud.upgrades, upgradeId];
-        world.hud.cardPicks = [...world.hud.cardPicks, { id: upgradeId, pick: doctors }];
       }
-      // Cannon upgrades don't choose the keeper's path (see buildOffer).
-      if (!world.hud.branch && !Object.values(CANNON_UPGRADES).includes(upgradeId)) world.hud.branch = upgradeId;
-      if (upgradeId === "seeds") world.hud.seeds += 55;
+      // Cannon upgrades and tower picks don't choose the keeper's path (see buildOffer).
+      if (!world.hud.branch && !isTowerPick(upgradeId) && !Object.values(CANNON_UPGRADES).includes(upgradeId)) world.hud.branch = upgradeId;
+      if (upgradeId === "seeds") world.hud.seeds += PICKS.seeds;
       syncPrice();
       world.hud.offer = [];
       // Prompt Drop: its shelf comes after the usual one.
@@ -6152,7 +6154,7 @@ export function createWorld(
         promptNext = "prep";
         if (drop.length) {
           world.hud.offer = drop;
-          world.hud.log = `${UPGRADES[upgradeId].name} locked in. Legal Elf: “${ELF_LINES.promptDrop}”`;
+          world.hud.log = `${cardName(upgradeId)} locked in. Legal Elf: “${ELF_LINES.promptDrop}”`;
           notify();
           return;
         }
@@ -6163,7 +6165,7 @@ export function createWorld(
         world.hud.phase = "consequence";
         world.hud.waveName = last.name;
         world.hud.blurb = last.blurb;
-        world.hud.log = `${UPGRADES[upgradeId].name} locked in. ${
+        world.hud.log = `${cardName(upgradeId)} locked in. ${
           world.hud.night === "overflow"
             ? "Karl is not using the door."
             : world.hud.night === "siege"
@@ -6178,7 +6180,7 @@ export function createWorld(
       const next = waveAt(cleared, world.hud.night);
       world.hud.blurb = next.blurb;
       world.hud.waveName = next.name;
-      world.hud.log = `${UPGRADES[upgradeId].name} locked in for this run.${doctorCarry ? ` ${doctorCarry}` : ""}`;
+      world.hud.log = `${cardName(upgradeId)} locked in for this run.${doctorCarry ? ` ${doctorCarry}` : ""}`;
       doctorCarry = "";
       if (world.hud.guide === "upgrade" || world.hud.guide === "speed" || world.hud.guide === "combat") world.hud.guide = "backroom";
       notify();

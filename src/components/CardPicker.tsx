@@ -5,6 +5,10 @@ import {
   UPGRADE_SCOPE,
   UNHINGED,
   isKeeperUpgrade,
+  isTowerPick,
+  nextBeat,
+  nightLength,
+  pickParts,
   type BookmarkId,
   type Hud,
   type MapId,
@@ -61,15 +65,16 @@ export function CardOverlay({
             <p className="mt-1 text-sm text-muted">
               {hud.offer.some((u) => UNHINGED.includes(u.id as UpgradeId))
                 ? "Prompt Drop: an extra pick. One card is unhinged. Read the fine print."
-                : hud.night === "midnight" && hud.upgrades.length >= 3
-                ? "One more shelf. The fruit after this is not just thicker."
-                : hud.night === "overflow" && hud.upgrades.length >= 2
-                ? "One more shelf. Then the meter starts spending."
-                : hud.night === "siege" && hud.upgrades.length >= 2
-                ? "One more shelf. Then they come together."
-
-                : hud.upgrades.length >= 2
-                  ? "One more shelf. Then the last waves."
+                : lastShelf(hud) && hud.night === "midnight"
+                ? "The last shelf. The fruit after this is not just thicker."
+                : lastShelf(hud) && hud.night === "overflow"
+                ? "The last shelf. Then the meter starts spending."
+                : lastShelf(hud) && hud.night === "siege"
+                ? "The last shelf. Then they come together."
+                : lastShelf(hud)
+                  ? "The last shelf. Then the last waves."
+                  : hud.upgrades.length >= 2
+                  ? "Small and specific. Another shelf comes in two waves."
                   : hud.branch
                     ? "The last pick opened this shelf. It lasts the rest of the run."
                     : `${KEEPER_NAMES[hud.hero ?? "mynxi"].short} picks first. It lasts the rest of the run.`}
@@ -280,8 +285,19 @@ const UPGRADE_GLYPH: Partial<Record<UpgradeId, LucideIcon>> = {
 };
 
 /** Every upgrade row's 40px mark: its tower's picture when it belongs to one, otherwise a drawn mark. */
+/** Is this the night's last shelf (no other shelf before its last wave)? Endless never has one. */
+function lastShelf(hud: Hud) {
+  const length = nightLength(hud.night);
+  if (!length) return false;
+  // On the pick screen hud.wave is already the next wave (cleared + 1).
+  for (let c = hud.wave; c < length; c++) if (nextBeat(c, hud.night) === "upgrade") return false;
+  return true;
+}
+
 function UpgradeMark({ id }: { id: UpgradeId }) {
-  const kind = UPGRADE_KIND[id] ?? (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === id);
+  const kind = isTowerPick(id)
+    ? pickParts(id).kind
+    : UPGRADE_KIND[id] ?? (Object.keys(CANNON_UPGRADES) as TowerKind[]).find((k) => CANNON_UPGRADES[k] === id);
   if (kind) return <TowerIcon kind={kind} className="size-10 shrink-0" />;
   const Glyph = UPGRADE_GLYPH[id] ?? Sparkles;
   return (

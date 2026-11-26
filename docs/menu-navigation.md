@@ -80,7 +80,7 @@ flowchart TD
   P -->|Start wave| W[Board: combat]
   P <-->|Back room| B[Back room]
   W -->|cleared| X{next beat}
-  X -->|after waves 1, 2 and 6, and 15 on Midnight| U[Upgrade pick] --> P
+  X -->|after waves 1, 2, then every second wave, and 15 on Midnight| U[Upgrade pick] --> P
   X -->|story nights, before the last wave| CQ[The last wave] --> W
   X -->|otherwise| P
   X -->|after the last wave, 21 on Midnight, 15 on the others| V[Victory]
@@ -99,7 +99,7 @@ flowchart TD
 
 The dotted Resume arrow returns to whichever screen the menu was opened from, not only to prep.
 
-**Pacing:** Midnight is 21 waves; the Overflow and the Siege are 15. Endless picks after waves 1, 2 and 6, then every fifth wave, and ends only in Defeat.
+**Pacing:** Midnight is 21 waves; the Overflow and the Siege are 15. Endless picks after waves 1, 2, 4 and 6, then every third wave, and ends only in Defeat.
 
 ### 1.4 Less obvious paths
 
