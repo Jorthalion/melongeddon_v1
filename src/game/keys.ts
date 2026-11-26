@@ -101,7 +101,8 @@ export function keyAction(hud: Hud, key: string): KeyAction | null {
 
     case "upgrade":
       if (key === "Escape") return { type: "openMenu" };
-      if (digit >= 0 && digit < hud.offer.length) return { type: "pickUpgrade", index: digit };
+      // Acquisitions lists its tower cards first, then the upgrades: the keys follow the cards.
+      if (digit >= 0 && digit < hud.draftOffer.length + hud.offer.length) return { type: "pickUpgrade", index: digit };
       return null;
 
     case "consequence":
@@ -182,7 +183,8 @@ export function runKeyAction(api: Api, action: KeyAction, onMute: () => void): b
       api.beginNight();
       return true;
     case "pickUpgrade":
-      api.pickUpgrade(hud.offer[action.index].id as UpgradeId);
+      if (action.index < hud.draftOffer.length) api.draftTower(hud.draftOffer[action.index]);
+      else api.pickUpgrade(hud.offer[action.index - hud.draftOffer.length].id as UpgradeId);
       return true;
     case "pickMod":
       if (hud.workshop) api.pickMod(fittingsFor(hud.workshop)[action.index].id);

@@ -68,7 +68,7 @@ export function GameHeader({
                 : hud.hero
                   ? KEEPER_NAMES[hud.hero].name
                   : "Midnight Library"}
-            {inRun ? ` · ${BOARDS[hud.map].name}${hud.night === "endless" ? " · Endless" : ""}` : ""}
+            {inRun ? ` · ${BOARDS[hud.map].name}${hud.night === "endless" ? " · Endless" : hud.night === "draft" ? " · Acquisitions" : ""}` : ""}
           </p>
         </div>
         {hud.dev ? (
@@ -288,7 +288,9 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
             const goal = hud.lockedTowers.includes(id) ? TOWER_GOALS[id]?.goal : undefined;
             // Heavy cannons wait for wave 6, or 200 seeds in hand tonight.
             const heavyWait = groupOf(id).id === "heavy" && !hud.heavyOpen;
-            const locked = needs > hud.runLevel || goal != null || heavyWait;
+            // Acquisitions: only the towers drafted into the lineup can be built.
+            const undrafted = hud.night === "draft" && !hud.drafted.includes(id);
+            const locked = needs > hud.runLevel || goal != null || heavyWait || undrafted;
             // Its numbers before you build it (with the upgrades you hold that reach it).
             const read = towerReadout(hud.hero, id, [], hud.upgrades);
             return (
@@ -296,7 +298,9 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
                 key={id}
                 type="button"
                 title={
-                  goal
+                  undrafted
+                    ? `${TOWERS[id].name}: not in your lineup. Draft it between waves. ${TOWERS[id].blurb}`
+                    : goal
                     ? `${TOWERS[id].name}: locked. ${goal} ${TOWERS[id].blurb}`
                     : heavyWait
                     ? `${TOWERS[id].name}: opens at wave ${HEAVY_WAVE}, or once you have ${HEAVY_SEEDS} seeds in hand. ${TOWERS[id].blurb}`
@@ -318,7 +322,7 @@ export function BuildFooter({ api, onGesture }: { api: GameApi; onGesture: () =>
                 <span className="mt-0.5 block truncate text-xs leading-tight font-semibold">{SHORT_NAME[id]}</span>
                 <span className="block truncate text-[11px] leading-tight text-parchment"><CardStat kind={id} read={read} /></span>
                 <span className="block truncate text-[11px] leading-tight text-muted">
-                  {goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : cost === 0 ? "Free" : cost}
+                  {undrafted ? "Draft" : goal ? "Locked" : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : cost === 0 ? "Free" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                 </span>
               </button>

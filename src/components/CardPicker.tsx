@@ -2,6 +2,9 @@ import {
   CANNON_UPGRADES,
   UPGRADE_KIND,
   KEEPER_NAMES,
+  TOWERS,
+  TOWER_TYPE,
+  TYPE_INFO,
   UPGRADE_SCOPE,
   isKeeperUpgrade,
   type BookmarkId,
@@ -42,7 +45,7 @@ export function CardOverlay({
         {hudPhase === "upgrade" ? (
           <>
             <div className="flex items-baseline justify-between gap-3">
-              <h2 id="card-title" className="font-display text-2xl font-semibold">Between the waves</h2>
+              <h2 id="card-title" className="font-display text-2xl font-semibold">{hud.night === "draft" ? "Acquisitions" : "Between the waves"}</h2>
               {/* Check what's already checked out before choosing (C). */}
               <button
                 type="button"
@@ -57,7 +60,11 @@ export function CardOverlay({
               </button>
             </div>
             <p className="mt-1 text-sm text-muted">
-              {hud.night === "midnight" && hud.upgrades.length >= 3
+              {hud.night === "draft"
+                ? hud.draftOffer.length
+                  ? `A new tower for the lineup, or an upgrade. ${hud.drafted.length} tower${hud.drafted.length === 1 ? "" : "s"} so far.`
+                  : "Every tower you can draft is in the lineup. Upgrades only from here."
+                : hud.night === "midnight" && hud.upgrades.length >= 3
                 ? "One more shelf. The fruit after this is not just thicker."
                 : hud.night === "overflow" && hud.upgrades.length >= 2
                 ? "One more shelf. Then the meter starts spending."
@@ -71,6 +78,34 @@ export function CardOverlay({
                     : `${KEEPER_NAMES[hud.hero ?? "mynxi"].short} picks first. It lasts the rest of the run.`}
             </p>
             <div className="mt-4 flex flex-col gap-2">
+              {/* Acquisitions: tower cards first. Taking one adds it to the lineup for the rest of the run. */}
+              {hud.draftOffer.map((kind, i) => (
+                <button
+                  key={kind}
+                  type="button"
+                  className="relative flex min-h-[4.5rem] items-center gap-3 rounded-xl border border-[#6fa8c6] bg-panel-2 py-3 pr-9 pl-3 text-left outline-none hover:border-[#c6a15a] focus-visible:border-[#c6a15a] focus-visible:ring-1 focus-visible:ring-[#c6a15a]"
+                  onClick={() => {
+                    onGesture();
+                    tone(420, 0.09, "triangle", 0.04);
+                    api.draftTower(kind);
+                  }}
+                >
+                  <TowerIcon kind={kind} className="size-10 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <span className="font-semibold">{TOWERS[kind].name}</span>
+                      <span className="text-xs font-semibold text-[#8fc3dd]">New tower</span>
+                      <span className="rounded-full border border-line/70 px-1.5 text-[11px] leading-4 text-muted">
+                        {TOWERS[kind].role} · {TYPE_INFO[TOWER_TYPE[kind]].name} · {TOWERS[kind].cost === 0 ? "Free" : `${TOWERS[kind].cost} seeds`}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-sm text-muted">{TOWERS[kind].blurb}</span>
+                  </span>
+                  <kbd className="absolute top-2 right-2 hidden min-w-[1.25rem] rounded-[4px] border border-b-2 border-line bg-ink/40 px-1 text-center font-sans text-[10px] leading-4 text-muted sm:block">
+                    {i + 1}
+                  </kbd>
+                </button>
+              ))}
               {hud.offer.map((u, i) => {
                 const id = u.id as UpgradeId;
                 const own = isKeeperUpgrade(hud.hero, id);
@@ -98,7 +133,7 @@ export function CardOverlay({
                     </span>
                     {/* The hotkey: a keycap in the corner, so it doesn't read as a step number. */}
                     <kbd className="absolute top-2 right-2 hidden min-w-[1.25rem] rounded-[4px] border border-b-2 border-line bg-ink/40 px-1 text-center font-sans text-[10px] leading-4 text-muted sm:block">
-                      {i + 1}
+                      {i + 1 + hud.draftOffer.length}
                     </kbd>
                     {/* Dr. Samodovol's extra book: a real upgrade from further along the shelves, marked as his. */}
                     {hud.pickCards.includes(id) ? (

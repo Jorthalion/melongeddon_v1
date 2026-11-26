@@ -73,6 +73,17 @@ Bots are not smart players, so read these as relative. Wins on Melongeddon and O
 
 Pick **Endless** as the night on the setup screen (New night). You play act one's six waves, then generated waves that cycle four themes (corn swarms, shelled melons, pumpkins, a mix), grow every other wave, and add armoured variants from wave 13. Karl comes every fifth wave. You get an upgrade pick after waves 1, 2 and 6, then every fifth wave. Enemy health follows the story curve to wave 10, then grows `BALANCE.endlessGrowth` (15%) per wave. In simulation, Normal runs end around waves 17–19 and Easy around 25. Best endless score is saved separately.
 
+## Acquisitions (draft mode)
+
+A separate mode: pick **Acquisitions** as the night on the setup screen (`NightId` `"draft"`). It plays Midnight's 21 waves and health curve on any open room, without Midnight's story, and ends in a victory. You start with only the Melon cannon and your keeper's signature tower (`draftStart`); every other build card shows **Draft** and can't be placed. After every wave (`nextBeat` returns `"upgrade"` for waves 1–20) a draft offers two new towers and one upgrade (`DRAFT` in `rules.ts`); you take one card. A drafted tower joins `hud.drafted` for the rest of the run and is selected for placing.
+
+- **The pool** (`draftPool`): every shared tower plus the playing keeper's own, minus what you have. Unlocks still count: trick cannons need the keeper's level, room-locked keeper towers stay out, and heavy cannons join once the Heavy tab would open (wave 6 or 200 seeds).
+- **Upgrades** come from the usual shelves, counted by upgrades taken rather than waves; one random card from the current shelf, plus the Doctor's pick for Dr. Samodovol. Once nothing is left to draft, the draft is three upgrades.
+- **The back room** only fits towers in your lineup.
+- A win counts like any other won night: keeper, room and difficulty wins, fragments, XP and achievements that ask for a story win.
+
+Tests: `tests/draft.test.ts`.
+
 ## Cannons
 
 23 cannons in five build tabs (`Q`/`W`/`E`/`T`/`Y`, then `1`–`5`; `R` is the keeper's own):
