@@ -1095,6 +1095,9 @@ export interface WorldOptions {
   siegeOpen?: boolean;
 }
 
+/** Touch taps (snapTap) reach this far, in tiles, for a tile they can use. */
+export const SNAP_REACH = 0.6;
+
 /** A night in play saved by `saveRun` (phones: so a reload, or the phone dropping the tab, doesn't lose it). */
 export const RUN_KEY = "melongeddon-run";
 /** Bump when the saved night's layout changes: an older one is then dropped, not misread. */
@@ -1160,6 +1163,12 @@ export function createWorld(
 ): {
   world: World;
   pointer: (x: number, y: number, kind: "move" | "down") => void;
+  /**
+   * Touch: where a tap at world point (x, y) should land. On carpet, a shelf or a track (a tile a tap can't use),
+   * it moves to the centre of the nearest tile within `reach` tiles that has a tower, a crank or the signpost, or
+   * that the picked cannon can be built on. Anywhere else (or with a tower open) it stays put.
+   */
+  snapTap: (x: number, y: number, reach?: number) => { x: number; y: number };
   startWave: () => void;
   /** The last-wave card's "Get ready first": back to the board between waves; the start button begins the finale. */
   prepareFinale: () => void;
@@ -6010,6 +6019,36 @@ export function createWorld(
 
   const api = {
     world,
+    snapTap(x: number, y: number, reach = SNAP_REACH) {
+      const c = Math.floor(x / CELL);
+      const r = Math.floor(y / CELL);
+      const bays = BOARDS[world.hud.map].bays ?? [];
+      const sign = BOARDS[world.hud.map].signpost;
+      /** Something a tap on this tile does: a tower, a crank, the signpost, or floor the picked cannon can go on. */
+      const useful = (cc: number, rr: number) => {
+        if (!inMap(cc, rr)) return false;
+        if (occupied(cc, rr)) return true;
+        if (bays.some((b) => b.crank[0] === cc && b.crank[1] === rr)) return true;
+        if (sign && sign[0] === cc && sign[1] === rr) return true;
+        const k = `${cc},${rr}`;
+        return !world.pathCells.has(k) && !world.vergeCells.has(k) && !world.shelfCells.has(k) && !world.trackCells.has(k) && !offCarpet(world.hud.build, cc, rr);
+      };
+      // A tower open: any tap closes it, so leave it where it is. Off the board, or on a tile that does something: as tapped.
+      if (world.hud.selected != null || !inMap(c, r) || useful(c, r)) return { x, y };
+      let best: { c: number; r: number; d: number } | null = null;
+      for (let dc = -1; dc <= 1; dc++)
+        for (let dr = -1; dr <= 1; dr++) {
+          const cc = c + dc;
+          const rr = r + dr;
+          if ((!dc && !dr) || !useful(cc, rr)) continue;
+          // Distance from the tap to the tile's nearest edge.
+          const ex = Math.max(cc * CELL - x, 0, x - (cc + 1) * CELL);
+          const ey = Math.max(rr * CELL - y, 0, y - (rr + 1) * CELL);
+          const d = Math.hypot(ex, ey);
+          if (d <= reach * CELL && (!best || d < best.d)) best = { c: cc, r: rr, d };
+        }
+      return best ? { x: (best.c + 0.5) * CELL, y: (best.r + 0.5) * CELL } : { x, y };
+    },
     pointer(x: number, y: number, kind: "move" | "down") {
       const c = Math.floor(x / CELL);
       const r = Math.floor(y / CELL);

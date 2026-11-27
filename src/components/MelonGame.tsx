@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ZoomIn, ZoomOut } from "lucide-react";
 import { BOARDS, KEEPER_NAMES, RUN_KEY, createWorld, runSummary, stepWorld } from "@/game/engine";
 import { coarsePointer } from "@/lib/inputMode";
 import { drop, load, save } from "@/lib/storage";
@@ -32,10 +33,64 @@ function fitBoard(w: number, h: number, bw: number, bh: number) {
   return { scale, x: (w - bw * scale) / 2, y: (h - bh * scale) / 2 };
 }
 
+/** Touch screens can zoom the board (pinch, or the zoom button): this far in at most. */
+const MAX_ZOOM = 3;
+/** The zoom button shows only if filling the box makes tiles at least this much bigger. */
+const FILL_GAIN = 1.15;
+/** A touch that moves further than this (CSS px) is a pan, not a tap. */
+const TAP_SLOP = 10;
+
+/** Zoom that fills the w×h box (one side of the board then runs off and pans). */
+function fillZoom(w: number, h: number, bw: number, bh: number) {
+  return Math.max(w / bw, h / bh) / Math.min(w / bw, h / bh);
+}
+
+/**
+ * The board in its box at a zoom (1 = the whole board, as fitBoard) looking at world point (cx, cy).
+ * A side that fits stays centred; a side that runs over is clamped so the board never leaves a gap.
+ * Writes the clamped centre back into `view`.
+ */
+function boardView(w: number, h: number, bw: number, bh: number, view: { zoom: number; cx: number; cy: number }) {
+  const base = fitBoard(w, h, bw, bh);
+  const zoom = Math.min(MAX_ZOOM, Math.max(1, view.zoom));
+  const scale = base.scale * zoom;
+  const axis = (box: number, size: number, c: number) => {
+    const drawn = size * scale;
+    if (drawn <= box + 0.5) return { off: (box - drawn) / 2, c: size / 2 };
+    const half = box / 2 / scale;
+    const cc = Math.min(size - half, Math.max(half, c));
+    return { off: box / 2 - cc * scale, c: cc };
+  };
+  const ax = axis(w, bw, view.cx);
+  const ay = axis(h, bh, view.cy);
+  view.zoom = zoom;
+  view.cx = ax.c;
+  view.cy = ay.c;
+  return { scale, x: ax.off, y: ay.off };
+}
+
 const phase0 = (p: string) => p === "coldopen";
 
 export function MelonGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** Touch zoom: 1 is the whole board; cx, cy the world point in the middle of the box. */
+  const viewRef = useRef({ zoom: 1, cx: 0, cy: 0 });
+  const [zoomed, setZoomed] = useState(false);
+  /** The canvas box (CSS px), for the zoom button. */
+  const [canvasBox, setCanvasBox] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const watch = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect();
+      setCanvasBox((b) => (Math.abs(b.width - r.width) < 1 && Math.abs(b.height - r.height) < 1 ? b : { width: r.width, height: r.height }));
+    });
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+  /** Touches on the board: where each finger is, and how the gesture started. */
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const gestureRef = useRef<{ tap: boolean; sx: number; sy: number; pinch: { d: number; zoom: number; wx: number; wy: number } | null; pan: { x: number; y: number } | null } | null>(null);
   const worldRef = useRef<ReturnType<typeof createWorld> | null>(null);
   const notifyRef = useRef<() => void>(() => {});
   const [, setTick] = useState(0);
@@ -114,7 +169,7 @@ export function MelonGame() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#140e12";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const view = fitBoard(rect.width, rect.height, api.world.w, api.world.h);
+      const view = boardView(rect.width, rect.height, api.world.w, api.world.h, viewRef.current);
       ctx.setTransform(view.scale * dpr, 0, 0, view.scale * dpr, view.x * dpr, view.y * dpr);
       ctx.save();
       ctx.beginPath();
@@ -136,11 +191,91 @@ export function MelonGame() {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    const view = fitBoard(rect.width, rect.height, api.world.w, api.world.h);
+    const view = boardView(rect.width, rect.height, api.world.w, api.world.h, viewRef.current);
     return {
       x: (clientX - rect.left - view.x) / view.scale,
       y: (clientY - rect.top - view.y) / view.scale,
     };
+  };
+
+  // Touch on the board. A tap acts when the finger lifts, on the nearest tile it can use (api.snapTap), so a
+  // thumb a little off a 20 px tile still lands. Two fingers pinch the board bigger; one finger pans it while zoomed.
+  const setZoom = (zoom: number) => {
+    viewRef.current.zoom = Math.min(MAX_ZOOM, Math.max(1, zoom));
+    setZoomed(viewRef.current.zoom > 1.01);
+  };
+  const touchDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = [...touches.current.values()];
+    if (pts.length === 1) {
+      gestureRef.current = { tap: true, sx: e.clientX, sy: e.clientY, pinch: null, pan: null };
+      // Show where it would go (the build ghost and its reach) while the finger is down.
+      const p = toWorld(e.clientX, e.clientY);
+      const at = api.snapTap(p.x, p.y);
+      api.pointer(at.x, at.y, "move");
+    } else if (pts.length === 2 && gestureRef.current) {
+      const [a, b] = pts;
+      const mid = toWorld((a.x + b.x) / 2, (a.y + b.y) / 2);
+      gestureRef.current.tap = false;
+      gestureRef.current.pan = null;
+      gestureRef.current.pinch = { d: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), zoom: viewRef.current.zoom, wx: mid.x, wy: mid.y };
+    }
+  };
+  const touchMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const g = gestureRef.current;
+    if (!g || !touches.current.has(e.pointerId)) return;
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = [...touches.current.values()];
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    if (g.pinch && pts.length >= 2) {
+      const [a, b] = pts;
+      setZoom(g.pinch.zoom * (Math.hypot(a.x - b.x, a.y - b.y) / g.pinch.d));
+      // Keep the world point that started under the fingers there.
+      const base = fitBoard(rect.width, rect.height, api.world.w, api.world.h);
+      const scale = base.scale * viewRef.current.zoom;
+      const mx = (a.x + b.x) / 2 - rect.left;
+      const my = (a.y + b.y) / 2 - rect.top;
+      viewRef.current.cx = g.pinch.wx + (rect.width / 2 - mx) / scale;
+      viewRef.current.cy = g.pinch.wy + (rect.height / 2 - my) / scale;
+      return;
+    }
+    if (g.tap && Math.hypot(e.clientX - g.sx, e.clientY - g.sy) > TAP_SLOP) {
+      g.tap = false;
+      if (viewRef.current.zoom > 1.01) g.pan = { x: e.clientX, y: e.clientY };
+    }
+    if (g.pan) {
+      const scale = fitBoard(rect.width, rect.height, api.world.w, api.world.h).scale * viewRef.current.zoom;
+      viewRef.current.cx -= (e.clientX - g.pan.x) / scale;
+      viewRef.current.cy -= (e.clientY - g.pan.y) / scale;
+      g.pan = { x: e.clientX, y: e.clientY };
+      return;
+    }
+    if (g.tap) {
+      const p = toWorld(e.clientX, e.clientY);
+      const at = api.snapTap(p.x, p.y);
+      api.pointer(at.x, at.y, "move");
+    }
+  };
+  const touchUp = (e: React.PointerEvent<HTMLCanvasElement>, lifted: boolean) => {
+    if (!touches.current.delete(e.pointerId)) return;
+    const g = gestureRef.current;
+    if (touches.current.size > 0) {
+      // One finger of a pinch lifted: the other one pans from here (no tap).
+      if (g) {
+        g.pinch = null;
+        const [rest] = [...touches.current.values()];
+        g.pan = viewRef.current.zoom > 1.01 ? { x: rest.x, y: rest.y } : null;
+      }
+      return;
+    }
+    gestureRef.current = null;
+    if (!lifted || !g?.tap) return;
+    const p = toWorld(e.clientX, e.clientY);
+    const at = api.snapTap(p.x, p.y);
+    api.pointer(at.x, at.y, "down");
+    tone(240, 0.06, "square", 0.03);
   };
 
   const gesture = () => {
@@ -257,6 +392,9 @@ export function MelonGame() {
   }, [api]);
 
   const phase = hud.phase;
+  const coarse = coarsePointer();
+  /** How much bigger the tiles get when the board fills its box (the zoom button's step). */
+  const fillGain = canvasBox.width > 0 && canvasBox.height > 0 ? fillZoom(canvasBox.width, canvasBox.height, api.world.w, api.world.h) : 1;
   const showPlace = phase === "prep" || phase === "combat";
   /** The keeper is also set on Setup now, so "in a run" is decided by phase. */
   const inRun = hud.hero != null && phase !== "coldopen" && phase !== "select";
@@ -328,6 +466,7 @@ export function MelonGame() {
           ref={canvasRef}
           className="min-h-0 w-full flex-1 touch-none bg-ink sm:rounded-xl sm:border sm:border-line"
           onPointerMove={(e) => {
+            if (e.pointerType === "touch") return touchMove(e);
             const p = toWorld(e.clientX, e.clientY);
             api.pointer(p.x, p.y, "move");
             // Mouse over a fruit: show what it is and what's on it.
@@ -344,11 +483,37 @@ export function MelonGame() {
           onPointerLeave={() => setFoe(null)}
           onPointerDown={(e) => {
             gesture();
+            if (e.pointerType === "touch") return touchDown(e);
             const p = toWorld(e.clientX, e.clientY);
             api.pointer(p.x, p.y, "down");
             tone(240, 0.06, "square", 0.03);
           }}
+          onPointerUp={(e) => {
+            if (e.pointerType === "touch") touchUp(e, true);
+          }}
+          onPointerCancel={(e) => {
+            if (e.pointerType === "touch") touchUp(e, false);
+          }}
         />
+        {showPlace && !hud.menu && coarse && (zoomed || fillGain >= FILL_GAIN) ? (
+          <button
+            type="button"
+            aria-label={zoomed ? "Show the whole board" : "Zoom the board in"}
+            aria-pressed={zoomed}
+            className="absolute bottom-2 left-2 z-10 grid size-11 place-items-center rounded-full border border-line bg-ink/85 text-parchment shadow-lg"
+            onClick={() => {
+              gesture();
+              if (zoomed) setZoom(1);
+              else {
+                viewRef.current.cx = api.world.w / 2;
+                viewRef.current.cy = api.world.h / 2;
+                setZoom(fillGain);
+              }
+            }}
+          >
+            {zoomed ? <ZoomOut className="size-5" aria-hidden="true" /> : <ZoomIn className="size-5" aria-hidden="true" />}
+          </button>
+        ) : null}
         {foe && showPlace && !hud.menu ? <EnemyCard api={api} hover={foe} boxW={box.w - layout.left - layout.right} /> : null}
         {hud.paused && !hud.menu && !hud.checkout && showPlace ? (
           <div className="pointer-events-none absolute inset-3 grid place-items-center">
