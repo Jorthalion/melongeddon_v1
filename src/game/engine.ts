@@ -12,7 +12,7 @@ import {
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, TRICKS, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
-  SIEGE, type SiegeVariant, DOCTOR, type DigFind,
+  SIEGE, type SiegeVariant, DOCTOR, type DigFind, theName,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 import { ELF_LINES, KEEPER_VOICE, loseLine, openingLine } from "./keeperVoice.ts";
@@ -4697,7 +4697,7 @@ export function createWorld(
     const fromShelves = tierSum(settled.fresh);
     world.hud.newShelves = settled.fresh;
     world.hud.nightFragments = fromShelves
-      ? [...parts, { label: `${settled.fresh.length} shelf${settled.fresh.length === 1 ? "" : "s"} restored`, n: fromShelves }]
+      ? [...parts, { label: `${settled.fresh.length} ${settled.fresh.length === 1 ? "shelf" : "shelves"} restored`, n: fromShelves }]
       : parts;
     world.hud.canRestore = affordable(shelfSave.rooms, shelfSave.fragments)?.id ?? null;
     applyRooms();
@@ -4749,7 +4749,7 @@ export function createWorld(
       const best = near[0];
       if (!best || (did.get(best.id) ?? 0) <= 0) continue;
       giveMark(best);
-      line = `The Study: the ${TOWERS[best.kind].name} is studied (${best.studyMarks}/${DOCTOR.maxMarks} marks).`;
+      line = `The Study: ${theName(TOWERS[best.kind].name)} is studied (${best.studyMarks}/${DOCTOR.maxMarks} marks).`;
     }
     return line;
   };
@@ -6064,7 +6064,7 @@ export function createWorld(
         return;
       }
       if (world.hud.seeds < world.hud.towerCost) {
-        world.hud.log = `Not enough seeds: the ${TOWERS[buildKind].name} costs ${world.hud.towerCost}.`;
+        world.hud.log = `Not enough seeds: ${theName(TOWERS[buildKind].name)} costs ${world.hud.towerCost}.`;
         notify();
         return;
       }
@@ -6075,7 +6075,7 @@ export function createWorld(
             : buildKind === "copycat" && world.hud.copycatPlaced
             ? "The Copycat goes down once a wave. Place it again after this wave."
             : isSignature(buildKind)
-              ? `Only one ${TOWERS[buildKind].name} at a time.`
+              ? `Only one ${TOWERS[buildKind].name.replace(/^The /, "")} at a time.`
               : world.hud.log;
         notify();
         return;
@@ -6756,7 +6756,7 @@ export function createWorld(
           return;
         }
         giveMark(best);
-        world.hud.log = `The find is a lost treatise: the ${TOWERS[best.kind].name} is studied (${best.studyMarks}/${DOCTOR.maxMarks} marks).`;
+        world.hud.log = `The find is a lost treatise: ${theName(TOWERS[best.kind].name)} is studied (${best.studyMarks}/${DOCTOR.maxMarks} marks).`;
       } else if (find === "stacks") {
         const before = world.hud.lives;
         world.hud.lives = Math.min(world.hud.maxLives, world.hud.lives + DOCTOR.digStacks);

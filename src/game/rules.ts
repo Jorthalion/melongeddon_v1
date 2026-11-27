@@ -1810,6 +1810,11 @@ export function refundFor(kind: TowerKind, paid: number) {
   return sellValue(paid);
 }
 
+/** "the Melon cannon", but "The Dragon's Roost" (no "the The") for names that already start with The. */
+export function theName(name: string) {
+  return /^The /.test(name) ? name : `the ${name}`;
+}
+
 export function sellValue(paid: number) {
   return Math.round((paid * SELL_PERCENT) / 100); // integer math: 45 * 0.7 would round to 31
 }

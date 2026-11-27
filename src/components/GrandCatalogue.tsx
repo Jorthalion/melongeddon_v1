@@ -161,7 +161,7 @@ function EarnGuide({ open }: { open: boolean }) {
       </summary>
       <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs text-[#4a3428]">
         <li>
-          <b>Win a night:</b> {w.easy} on Easy, {w.normal} on Normal, {w.hard} on Hard, {w.overdue} on Overdue.
+          <b>Win a night:</b> {w.easy} on Story, {w.normal} on Normal, {w.hard} on Melongeddon, {w.overdue} on Overdue.
         </li>
         <li>
           <b>+{FRAGMENTS.overflowBonus}</b> for winning the Overflow, <b>+{FRAGMENTS.siegeBonus}</b> for winning the Siege.

@@ -38,6 +38,7 @@ import {
   DOCTOR,
   GLOBAL_RANGE,
   ROOST_STAGES,
+  theName,
 } from "@/game/engine";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { tone } from "@/game/audio";
@@ -836,7 +837,7 @@ function DragonButtons({ api, towerId, onGesture }: { api: GameApi; towerId: num
       title={
         offer.partner == null
           ? offer.why
-          : `Merge with the ${TOWERS[tower.kind].name} beside it into one Great tower (${DRAGON.greatDmg}× damage, +${Math.round((DRAGON.greatRange - 1) * 100)}% reach). Costs ${offer.cost}: ${fromHoard} from the Hoard, ${fromSeeds} seeds.`
+          : `Merge with ${theName(TOWERS[tower.kind].name)} beside it into one Great tower (${DRAGON.greatDmg}× damage, +${Math.round((DRAGON.greatRange - 1) * 100)}% reach). Costs ${offer.cost}: ${fromHoard} from the Hoard, ${fromSeeds} seeds.`
       }
       onClick={() => {
         onGesture();

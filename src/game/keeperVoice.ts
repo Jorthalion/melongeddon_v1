@@ -12,6 +12,8 @@ interface Voice {
   overflow?: string;
   siege?: string;
   win: string;
+  /** A win with every stack still standing, when the usual line would be wrong (it says "barely"). */
+  winClean?: string;
   lose: string;
 }
 
@@ -35,6 +37,7 @@ export const KEEPER_VOICE: Record<HeroId, Voice> = {
   michael: {
     open: "Sir Michael is still choosing his armour.",
     win: "“Held. Barely. Please don't tell anyone how barely.”",
+    winClean: "“Not one stack moved. I said I'd stand here, and I stood here.”",
     lose: "“I stood where I said I'd stand. It wasn't enough tonight.”",
   },
   elf: {
@@ -95,7 +98,7 @@ export function openingLine(hero: HeroId, night: NightId): string {
 }
 
 /** "Mynxi: “…”" for the end cards. */
-export const winLine = (hero: HeroId, map?: MapId) =>
-  `${KEEPER_NAMES[hero].short}: ${hero === "elf" && map === "stacks" ? ELF_LINES.mynxiWin : KEEPER_VOICE[hero].win}`;
+export const winLine = (hero: HeroId, map?: MapId, clean = false) =>
+  `${KEEPER_NAMES[hero].short}: ${hero === "elf" && map === "stacks" ? ELF_LINES.mynxiWin : (clean && KEEPER_VOICE[hero].winClean) || KEEPER_VOICE[hero].win}`;
 export const loseLine = (hero: HeroId, map?: MapId) =>
   `${KEEPER_NAMES[hero].short}: ${hero === "elf" && map === "stacks" ? ELF_LINES.mynxiLose : KEEPER_VOICE[hero].lose}`;
