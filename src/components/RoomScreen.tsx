@@ -73,7 +73,7 @@ export function RoomScreen({
         </button>
         <button
           type="button"
-          className="mt-3 block w-full text-sm text-muted underline-offset-4 hover:text-parchment hover:underline"
+          className="mt-3 block w-full text-sm text-muted underline-offset-4 hover:text-parchment hover:underline touch:mt-1 touch:min-h-11"
           onClick={onBack}
         >
           {backLabel}

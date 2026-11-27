@@ -77,7 +77,7 @@ export function GameHeader({
   const gesture = onGesture;
   const toggleMute = onMute;
   return (
-    <header data-board-controls className={`flex items-center justify-between gap-2 border-b border-line px-2 py-2 sm:gap-3 sm:px-4 sm:py-3 ${wide ? "sm:px-6" : ""}`}>
+    <header data-board-controls className={`flex items-center justify-between gap-2 border-b border-line px-2 py-2 touch:py-1 sm:gap-3 sm:px-4 sm:py-3 ${wide ? "sm:px-6" : ""}`}>
       <div className={`flex min-w-0 items-center gap-2 ${inRun ? "max-lg:hidden" : ""}`}>
         {/* During a night the title needs the room the controls use, so it comes back only on wide screens. */}
         <BookOpen className={`size-5 shrink-0 text-gold ${inRun ? "hidden lg:block" : ""}`} aria-hidden="true" />
@@ -103,17 +103,17 @@ export function GameHeader({
           </span>
         ) : null}
       </div>
-      <div className={`flex min-w-0 items-center justify-end gap-1 text-sm max-[399px]:gap-0.5 sm:gap-2 ${wide ? "sm:gap-4" : ""}`}>
+      <div className={`flex min-w-0 items-center justify-end gap-1 text-sm touch:gap-2 sm:gap-2 ${wide ? "sm:gap-4" : ""}`}>
         {inRun ? (
           <>
-            <span className="flex shrink-0 items-center gap-1.5">
-              <Coins className={`text-gold max-[379px]:hidden ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
+            <span className="flex shrink-0 items-center gap-1.5 max-[399px]:gap-0.5">
+              <Coins className={`text-gold max-[399px]:size-3.5 ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
               <span className={`font-display leading-none font-semibold ${wide ? "text-2xl" : "text-lg"}`}>{hud.seeds}</span>
             </span>
             {/* Keeper readouts (Power, Hoard, Sisu…) wrap under the stacks on narrow screens instead of pushing the buttons off. */}
-            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0">
-              <span className="flex shrink-0 items-center gap-1.5">
-                <Heart className={`text-flesh max-[339px]:hidden ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
+            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0 max-[399px]:ml-1">
+              <span className="flex shrink-0 items-center gap-1.5 max-[399px]:gap-0.5">
+                <Heart className={`text-flesh max-[399px]:size-3.5 ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
                 <span className={`font-display leading-none font-semibold ${wide ? "text-2xl" : "text-lg"}`}>
                   {hud.lives}/{hud.maxLives}
                 </span>
@@ -166,14 +166,14 @@ export function GameHeader({
                 Absurdity {hud.absurdity}
               </span>
             ) : null}
-            <div className="flex shrink-0 items-center gap-1 max-[399px]:gap-0.5">
+            <div className="flex shrink-0 items-center gap-1 max-[399px]:gap-0.5 touch:gap-2 touch:max-[359px]:gap-1.5">
               {showPlace ? (
               <>
               <button
                 type="button"
                 aria-label="Slow down"
                 disabled={hud.speed <= 0.5}
-                className="grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
+                className="touch:hidden grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
                 onClick={() => {
                   gesture();
                   api.nudgeSpeed(-1);
@@ -184,7 +184,7 @@ export function GameHeader({
               <button
                 type="button"
                 aria-label={hud.paused ? "Resume" : "Pause"}
-                className="grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70"
+                className="touch-hit grid size-7 min-[400px]:size-8 touch:size-10 touch:max-[359px]:size-9 md:size-11 place-items-center rounded-lg border border-line/70"
                 onClick={() => {
                   gesture();
                   api.togglePause();
@@ -197,7 +197,7 @@ export function GameHeader({
                 type="button"
                 aria-label="Speed up"
                 disabled={hud.speed >= 3}
-                className="grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
+                className="touch:hidden grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
                 onClick={() => {
                   gesture();
                   api.nudgeSpeed(1);
@@ -205,7 +205,21 @@ export function GameHeader({
               >
                 +
               </button>
-              <span className="hidden w-8 text-center text-[0.8125rem] text-muted md:inline">{hud.paused ? "||" : `${hud.speed}×`}</span>
+              {/* Touch: one button steps the speed round (½× → 1× → 2× → 3× → ½×), away from Pause. */}
+              <button
+                type="button"
+                aria-label={`Game speed ${hud.speed}×, tap to change`}
+                className="touch-hit hidden size-10 max-[359px]:size-9 place-items-center rounded-lg border border-line/70 text-[0.8125rem] font-semibold touch:grid"
+                onClick={() => {
+                  gesture();
+                  if (hud.speed >= 3) {
+                    for (let i = 0; i < 4 && api.world.hud.speed > 0.5; i++) api.nudgeSpeed(-1);
+                  } else api.nudgeSpeed(1);
+                }}
+              >
+                {hud.speed === 0.5 ? "½×" : `${hud.speed}×`}
+              </button>
+              <span className="hidden w-8 text-center text-[0.8125rem] text-muted md:inline touch:hidden">{hud.paused ? "||" : `${hud.speed}×`}</span>
               </>
               ) : null}
               {menuable ? (
@@ -214,7 +228,7 @@ export function GameHeader({
                   aria-label="Menu"
                   aria-haspopup="dialog"
                   title="Menu (Esc)"
-                  className="grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70"
+                  className="touch-hit grid size-7 min-[400px]:size-8 touch:ml-2 touch:max-[359px]:ml-1 touch:size-10 touch:max-[359px]:size-9 md:size-11 place-items-center rounded-lg border border-line/70"
                   onClick={() => {
                     gesture();
                     api.openMenu();
@@ -230,7 +244,7 @@ export function GameHeader({
         ) : null}
         <button
           type="button"
-          className="grid size-7 min-[400px]:size-8 shrink-0 md:size-11 place-items-center rounded-xl border border-line bg-panel"
+          className={`touch-hit grid size-7 min-[400px]:size-8 shrink-0 touch:size-10 touch:max-[359px]:size-9 md:size-11 place-items-center rounded-xl border border-line bg-panel ${inRun ? "touch:hidden" : ""}`}
           aria-label={muted ? "Unmute" : "Mute"}
           onClick={toggleMute}
           title="Sound (M)"
@@ -251,7 +265,7 @@ function CheckoutButton({ api, onGesture }: { api: GameApi; onGesture: () => voi
       aria-label={`Checkout card, ${n} item${n === 1 ? "" : "s"}`}
       aria-haspopup="dialog"
       title="Checkout card (C)"
-      className="relative grid size-7 min-[400px]:size-8 shrink-0 place-items-center rounded-lg border border-line/70 hover:border-[#c6a15a] md:size-11"
+      className="touch-hit relative grid size-7 min-[400px]:size-8 shrink-0 touch:size-10 touch:max-[359px]:size-9 place-items-center rounded-lg border border-line/70 hover:border-[#c6a15a] md:size-11"
       onClick={() => {
         onGesture();
         api.openCheckout();
@@ -273,7 +287,10 @@ export function BuildFooter({
   onGesture,
   column = false,
   backRoom = null,
+  tools = null,
 }: {
+  /** Touch: the board's zoom button, at the end of the tab row. */
+  tools?: ReactNode;
   api: GameApi;
   onGesture: () => void;
   column?: boolean;
@@ -295,7 +312,8 @@ export function BuildFooter({
           : "flex shrink-0 flex-col gap-2 border-t border-line px-3 py-2.5 sm:px-4 sm:py-3"
       }
     >
-      <div className={backRoom ? "flex shrink-0 items-stretch gap-2" : "contents"}>
+      {/* Side column: Start wave (and the Back room) stay pinned at the top while the column scrolls. */}
+      <div className={column && backRoom ? "sticky top-0 z-10 -mt-3 flex shrink-0 items-stretch gap-2 bg-ink pt-3" : backRoom ? "flex shrink-0 items-stretch gap-2" : "contents"}>
       {phase === "combat" ? (
         <div className={`flex min-h-12 shrink-0 flex-col justify-center ${backRoom ? "min-w-0 flex-1" : ""}`}>
           <div className={`flex items-baseline justify-between gap-3 ${column ? "flex-wrap gap-y-0.5" : ""}`}>
@@ -327,14 +345,14 @@ export function BuildFooter({
           }}
         >
           {hud.night !== "endless" && hud.waveCount && hud.wave === hud.waveCount ? "Start the last wave" : `Start wave ${hud.wave}`}
-          <span className="ml-2 hidden text-[0.8125rem] font-normal opacity-70 sm:inline">Space</span>
+          <span data-keycap className="ml-2 hidden text-[0.8125rem] font-normal opacity-70 sm:inline">Space</span>
         </button>
       )}
       {backRoom}
       </div>
-      <div className={`flex items-center gap-2 ${column ? "shrink-0" : "h-7"}`}>
+      <div className={`flex items-center gap-2 ${column ? "shrink-0 flex-wrap" : "h-7 touch:h-11"}`}>
         {/* Narrow phones: the tabs tighten, and on the very narrowest the row scrolls on its own (never the page). */}
-        <div className={`flex gap-1 ${column ? "flex-wrap" : "min-w-0 overflow-x-auto"}`} role="tablist" aria-label="Cannon type">
+        <div className={`flex gap-1 ${column ? "flex-wrap" : "min-w-0 overflow-x-auto touch:pr-6 touch:[mask-image:linear-gradient(to_right,#000_calc(100%-1.5rem),transparent)]"}`} role="tablist" aria-label="Cannon type">
           {groupsFor(hud.hero).map((g) => {
             const on = groupOf(hud.build).id === g.id;
             return (
@@ -344,7 +362,7 @@ export function BuildFooter({
                 role="tab"
                 aria-selected={on}
                 title={`${g.name} (${g.key.toUpperCase()})`}
-                className={`h-7 shrink-0 rounded-md px-1.5 text-[0.8125rem] font-semibold min-[400px]:px-2 sm:px-2.5 ${on ? "bg-[#3a242c] text-gold ring-1 ring-[#c6a15a]" : "text-muted"}`}
+                className={`h-7 touch:h-11 touch:min-w-11 shrink-0 rounded-md px-1.5 text-[0.8125rem] font-semibold min-[400px]:px-2 sm:px-2.5 ${on ? "bg-[#3a242c] text-gold ring-1 ring-[#c6a15a]" : "text-muted"}`}
                 onClick={() => {
                   gesture();
                   api.dismissSelection();
@@ -352,12 +370,20 @@ export function BuildFooter({
                 }}
               >
                 {g.name}
-                <span className="ml-1 hidden opacity-60 sm:inline">{g.key.toUpperCase()}</span>
+                <span data-keycap className="ml-1 hidden opacity-60 sm:inline">{g.key.toUpperCase()}</span>
               </button>
             );
           })}
         </div>
+        {tools ? <div className="ml-auto shrink-0">{tools}</div> : null}
       </div>
+      {/* Touch: a waiting Dig find shows in the build bar, not only inside the Dig's own panel (a 6 px "!" on a phone). */}
+      {!selected && phase === "prep" && hud.digFinds > 0 && api.world.towers.some((t) => t.kind === "dig") ? (
+        <div className="hidden shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-[#e6c36a]/60 bg-[#e6c36a]/10 px-2 py-1 touch:flex">
+          <span className="text-[0.8125rem] font-semibold text-gold">Dig find ready{hud.digFinds > 1 ? ` (${hud.digFinds})` : ""}:</span>
+          <DigButtons api={api} onGesture={gesture} />
+        </div>
+      ) : null}
       {selected ? (
         <TowerInspector
           api={api}
@@ -366,7 +392,7 @@ export function BuildFooter({
           column={column}
         />
       ) : (
-        <div className={column ? "flex shrink-0 flex-col gap-1.5" : `grid h-[5.5rem] ${tabKinds(groupOf(hud.build), hud.map).length > 5 || (groupOf(hud.build).id === "keeper" && tabKinds(groupOf(hud.build), hud.map).length >= 4) ? "grid-cols-6" : "grid-cols-5"} gap-2`}>
+        <div className={column ? "flex shrink-0 flex-col gap-1.5" : `grid h-[5.5rem] ${tabKinds(groupOf(hud.build), hud.map).length > 5 || (groupOf(hud.build).id === "keeper" && tabKinds(groupOf(hud.build), hud.map).length >= 4) ? "grid-cols-6" : "grid-cols-5"} gap-2 max-[359px]:gap-1`}>
           {tabKinds(groupOf(hud.build), hud.map).map((id, slot) => {
             const placed = api.world.towers.length;
             const cost = Math.max(0, buildCost(hud.hero, placed, id, hud.builtKinds) - (hud.bookmark === "discount" ? 5 : 0));
@@ -404,7 +430,7 @@ export function BuildFooter({
                     ? `${TOWERS[id].name}: opens at keeper level ${needs}. ${TOWERS[id].blurb}`
                     : `${TOWERS[id].name} (${slot + 1}) · ${TYPE_INFO[TOWER_TYPE[id]].name}: ${TOWERS[id].blurb}\n${describeStats(id, read)}${whyText(read)}`
                 }
-                className={`relative min-w-0 rounded-lg border ${column ? "flex items-center gap-2.5 px-2 py-1.5 text-left" : "h-full px-1 py-1.5 text-center"} ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built || spent || waits || locked ? "opacity-55" : ""}`}
+                className={`relative min-w-0 rounded-lg border ${column ? "flex items-center gap-2.5 px-2 py-1.5 text-left" : "h-full px-1 py-1.5 text-center max-[359px]:px-0.5"} ${on ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"} ${hud.seeds < cost || built || spent || waits || locked ? "opacity-55" : ""}`}
                 onClick={() => {
                   gesture();
                   // Locked by a Grand Catalogue room: open the Catalogue there instead.
@@ -416,15 +442,15 @@ export function BuildFooter({
                   api.chooseBuild(id);
                 }}
               >
-                <span className={`absolute text-[0.6875rem] text-muted ${column ? "top-0.5 right-1.5" : "top-1 left-1.5 hidden sm:block"}`}>{slot + 1}</span>
+                <span data-keycap className={`absolute text-[0.6875rem] text-muted ${column ? "top-0.5 right-1.5" : "top-1 left-1.5 hidden sm:block"}`}>{slot + 1}</span>
                 <span className={`relative block ${column ? "size-10 shrink-0" : ""}`}>
                   <TowerIcon kind={id} className={`mx-auto block ${column ? "h-10 w-10" : "h-7 w-full"} ${locked ? "grayscale" : ""}`} />
                   {locked ? <Lock className="absolute top-1/2 left-1/2 size-4 -translate-x-1/2 -translate-y-1/2 text-gold" aria-hidden="true" /> : null}
                 </span>
                 <span className={column ? "block min-w-0 flex-1" : "contents"}>
-                <span className={`block truncate leading-tight font-semibold ${column ? "text-sm" : "mt-0.5 text-[0.8125rem]"}`}>{column ? TOWERS[id].name : SHORT_NAME[id]}</span>
-                <span className={`block truncate leading-tight text-parchment ${column ? "text-[0.8125rem]" : "text-[0.8125rem]"}`}><CardStat kind={id} read={read} /></span>
-                <span className={`block truncate leading-tight text-muted ${column ? "text-[0.8125rem]" : "text-[0.8125rem]"}`}>
+                <span className={`block truncate leading-tight font-semibold ${column ? "text-sm" : "mt-0.5 text-[0.8125rem] max-[359px]:text-xs max-[359px]:tracking-tight"}`}>{column ? TOWERS[id].name : SHORT_NAME[id]}</span>
+                <span className={`block truncate leading-tight text-parchment ${column ? "text-[0.8125rem]" : "text-[0.8125rem] max-[359px]:text-xs max-[359px]:tracking-tight"}`}><CardStat kind={id} read={read} /></span>
+                <span className={`block truncate leading-tight text-muted ${column ? "text-[0.8125rem]" : "text-[0.8125rem] max-[359px]:text-xs"}`}>
                   {goal ? "Locked" : vaelWait ? `${hud.fullyUpgraded}/${VAEL_VALUES.unlocks[step]} upgraded` : heavyWait ? `Wave ${HEAVY_WAVE}` : locked ? `Level ${needs}` : built ? "Built" : spent ? "Spent" : waits ? "Next wave" : cost === 0 ? "Free" : cost}
                   <span className="hidden sm:inline"> · {TOWERS[id].role}</span>
                 </span>
@@ -452,7 +478,8 @@ export function BuildFooter({
           ) : null}
         </div>
       )}
-      <p className={column ? "mt-auto shrink-0 text-[0.8125rem] text-muted" : "line-clamp-2 h-8 text-[0.8125rem] text-muted"}>{hud.log}</p>
+      {/* Short touch screens (an iPhone SE): one line of log, so the board keeps its height. */}
+      <p className={column ? "mt-auto shrink-0 text-[0.8125rem] text-muted" : "line-clamp-2 h-8 text-[0.8125rem] text-muted [@media(pointer:coarse)_and_(max-height:700px)]:line-clamp-1 [@media(pointer:coarse)_and_(max-height:700px)]:h-4"}>{hud.log}</p>
     </footer>
   );
 }
@@ -707,7 +734,7 @@ function AimMenu({ api, towerId, onGesture, compact = false }: { api: GameApi; t
         aria-haspopup="listbox"
         aria-expanded={open}
         title={`What it aims at among the fruit in reach. ${TARGET_HINT[aim.mode]} (A cycles it.)`}
-        className={`flex w-full items-center gap-1.5 rounded-md border border-[#c6a15a]/70 bg-[#1a1014] text-left hover:border-[#c6a15a] ${compact ? "h-7 px-2 text-[0.8125rem]" : "h-8 px-2.5 text-sm"}`}
+        className={`touch-hit flex w-full items-center gap-1.5 rounded-md border border-[#c6a15a]/70 bg-[#1a1014] text-left hover:border-[#c6a15a] ${compact ? "h-7 touch:h-9 px-2 text-[0.8125rem]" : "h-8 touch:h-9 px-2.5 text-sm"}`}
         onClick={() => {
           onGesture();
           setOpen((o) => !o);
@@ -731,7 +758,7 @@ function AimMenu({ api, towerId, onGesture, compact = false }: { api: GameApi; t
               <li key={mode} role="option" aria-selected={on}>
                 <button
                   type="button"
-                  className={`flex w-full items-start gap-2 px-3 py-1.5 text-left hover:bg-[#3a242c] ${on ? "bg-[#2c1b21]" : ""}`}
+                  className={`flex w-full items-start gap-2 px-3 py-1.5 touch:py-2.5 text-left hover:bg-[#3a242c] ${on ? "bg-[#2c1b21]" : ""}`}
                   onClick={() => {
                     onGesture();
                     api.setTarget(mode);
@@ -872,7 +899,7 @@ function DigButtons({ api, onGesture }: { api: GameApi; onGesture: () => void })
           type="button"
           title={f.title}
           disabled={f.off}
-          className="h-9 cursor-pointer rounded-lg border border-[#e6c36a] bg-[#e6c36a]/10 px-2 text-[0.8125rem] text-parchment disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-9 touch:h-11 cursor-pointer rounded-lg border border-[#e6c36a] bg-[#e6c36a]/10 px-2 text-[0.8125rem] text-parchment disabled:cursor-not-allowed disabled:opacity-40"
           onClick={() => {
             onGesture();
             tone(320, 0.08, "triangle", 0.04);
@@ -1013,7 +1040,7 @@ function TowerInspector({
           <button
             type="button"
             title="Back room (B): upgrades for every tower of this kind"
-            className="h-9 rounded-lg border border-[#c6a15a] px-3 text-sm"
+            className="touch-hit h-9 rounded-lg border border-[#c6a15a] px-3 text-sm"
             onClick={() => {
               onGesture();
               tone(200, 0.06, "triangle", 0.03);
@@ -1026,7 +1053,7 @@ function TowerInspector({
         <button
           type="button"
           title={armed ? "Tap again to sell: there's no undo" : "Sell (S)"}
-          className={`h-9 rounded-lg border border-flesh px-3 text-sm ${armed ? "bg-flesh font-semibold text-ink" : "text-flesh"}`}
+          className={`touch-hit h-9 rounded-lg border border-flesh px-3 text-sm ${armed ? "bg-flesh font-semibold text-ink" : "text-flesh"}`}
           onClick={() => {
             onGesture();
             if (!armed) return setSellArmed(tower.id);
@@ -1041,7 +1068,7 @@ function TowerInspector({
         type="button"
         aria-label="Close (Esc)"
         title="Close (Esc)"
-        className="absolute top-0 right-0 grid size-9 place-items-center text-muted"
+        className="touch-hit absolute top-0 right-0 grid size-9 place-items-center text-muted"
         onClick={() => {
           onGesture();
           api.dismissSelection();
@@ -1068,7 +1095,7 @@ function ObjectionButton({ api, onGesture }: { api: GameApi; onGesture: () => vo
       aria-label={ready ? `Objection! (O), ${hud.objections} left this wave` : `Objection! ${why}`}
       aria-disabled={!ready}
       title={ready ? `Objection! Throw back what's at the door (O). ${hud.objections} left this wave.` : why}
-      className={`relative grid h-7 min-[400px]:h-8 md:h-11 place-items-center rounded-lg border px-2 max-[399px]:px-1.5 text-[0.8125rem] font-semibold ${
+      className={`touch-hit relative grid h-7 min-[400px]:h-8 touch:h-10 touch:max-[359px]:h-9 md:h-11 place-items-center rounded-lg border px-2 max-[399px]:px-1.5 text-[0.8125rem] font-semibold ${
         ready ? "border-[#e6c36a] bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-ink" : "border-line/70 text-muted opacity-50"
       }`}
       onClick={() => {

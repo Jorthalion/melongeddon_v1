@@ -145,7 +145,7 @@ export function ComingUpBar({ api }: { api: GameApi }) {
                   type="button"
                   aria-expanded={open === i}
                   title={`${describeEnemy(fruitFromGroup(g), api.world).name} ×${g.count}${g.door ? ` · ${DOOR_NAME[g.door]}` : ""}${g.exit ? ` · out by the ${EXIT_NAME[g.exit]}` : ""}${marks.length ? ` · ${marks.map((m) => m.text).join(", ")}` : ""}`}
-                  className={`flex items-center gap-1 rounded-md border px-1 py-0.5 ${g.boss ? "border-gold bg-[#3a242c]" : open === i ? "border-[#c6a15a] bg-[#2c1b21]" : "border-line/70 bg-panel/70"} hover:border-[#c6a15a]`}
+                  className={`touch-hit flex items-center gap-1 rounded-md border px-1 py-0.5 touch:min-h-9 ${g.boss ? "border-gold bg-[#3a242c]" : open === i ? "border-[#c6a15a] bg-[#2c1b21]" : "border-line/70 bg-panel/70"} hover:border-[#c6a15a]`}
                   onClick={() => setOpen(open === i ? null : i)}
                   onPointerEnter={(e) => {
                     if (e.pointerType === "mouse") setOpen(i);

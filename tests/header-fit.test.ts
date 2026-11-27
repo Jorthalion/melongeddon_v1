@@ -17,7 +17,7 @@ test("top bar buttons stay small until there's room for the big ones", () => {
   const h = header();
   assert.ok(!/sm:size-11|sm:h-11/.test(h), "a header button grows at sm (640 px) again");
   assert.match(h, /md:size-11/);
-  assert.match(src("GameHUD.tsx"), /h-7 min-\[400px\]:h-8 md:h-11[^"`]*rounded-lg border px-2/, "the Objection button keeps the header's sizes");
+  assert.match(src("GameHUD.tsx"), /h-7 min-\[400px\]:h-8 (?:touch:h-10 touch:max-\[359px\]:h-9 )?md:h-11[^"`]*rounded-lg border px-2/, "the Objection button keeps the header's sizes");
 });
 
 test("during a night the game title only shows on wide screens", () => {
@@ -29,11 +29,12 @@ test("during a night the game title only shows on wide screens", () => {
 test("keeper readouts wrap under the stacks instead of pushing the buttons off", () => {
   const h = header();
   assert.match(h, /flex flex-wrap items-center gap-x-1\.5/);
-  assert.match(h, /flex shrink-0 items-center gap-1(?: max-\[399px\]:gap-0\.5)?">\s*\{showPlace/, "the button group must not shrink");
+  assert.match(h, /flex shrink-0 items-center gap-1(?: max-\[399px\]:gap-0\.5)?(?: touch:gap-2 touch:max-\[359px\]:gap-1\.5)?">\s*\{showPlace/, "the button group must not shrink");
 });
 
 test("the build tabs scroll on their own on the narrowest phones, never the page", () => {
-  assert.match(src("GameHUD.tsx"), /"min-w-0 overflow-x-auto"\}`\} role="tablist"/);
+  // Touch screens also fade the row's right edge, so a tab past it shows the row scrolls.
+  assert.match(src("GameHUD.tsx"), /"min-w-0 overflow-x-auto(?: touch:pr-6 touch:\[mask-image:[^"]*)?"\}`\} role="tablist"/);
 });
 
 test("night and room aren't repeated when the room has the night's name", () => {

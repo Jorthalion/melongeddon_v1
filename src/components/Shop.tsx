@@ -167,7 +167,7 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
       type="button"
       title={`${TOWERS[k].name}${(hud.fitted[k]?.length ?? 0) ? ` · ${hud.fitted[k]!.length} upgrade${hud.fitted[k]!.length > 1 ? "s" : ""}` : ""}`}
       aria-pressed={k === kind}
-      className={`relative size-10 shrink-0 rounded-lg border p-0.5 ${k === kind ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"}`}
+      className={`relative size-10 touch:size-11 shrink-0 rounded-lg border p-0.5 ${k === kind ? "border-[#c6a15a] bg-[#3a242c]" : "border-line/70 bg-panel"}`}
       onClick={() => {
         onGesture();
         api.shopKind(k);
@@ -194,7 +194,7 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
       className={
         docked
           ? "flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-[#c6a15a]/60 bg-[#1c1216]"
-          : "absolute inset-x-0 bottom-0 z-10 flex max-h-[58%] flex-col overflow-hidden rounded-t-xl border-t border-[#c6a15a]/60 bg-[#1c1216]/97 shadow-2xl sm:inset-x-auto sm:inset-y-0 sm:right-3 sm:max-h-none sm:w-[20rem] sm:max-w-[calc(100%-1.5rem)] sm:rounded-t-none sm:rounded-r-xl sm:border-t-0 sm:border-l"
+          : "absolute inset-x-0 bottom-0 z-10 flex max-h-[58%] touch:top-0 touch:max-h-none flex-col overflow-hidden rounded-t-xl border-t border-[#c6a15a]/60 bg-[#1c1216]/97 shadow-2xl sm:inset-x-auto sm:inset-y-0 sm:right-3 sm:max-h-none sm:w-[20rem] sm:max-w-[calc(100%-1.5rem)] sm:rounded-t-none sm:rounded-r-xl sm:border-t-0 sm:border-l"
       }
     >
       <div className="flex items-start gap-2 border-b border-line/60 px-3 py-2.5">
@@ -205,7 +205,7 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
         <button
           type="button"
           title="Close (B or Esc)"
-          className="grid size-8 shrink-0 place-items-center rounded-lg border border-line text-muted"
+          className="grid size-8 touch:size-11 shrink-0 place-items-center rounded-lg border border-line text-muted"
           onClick={() => {
             onGesture();
             hoverMod(null);
@@ -217,7 +217,11 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
       </div>
 
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 break-words" onScroll={() => hovered && hoverMod(null)}>
-        <div className="flex flex-col gap-1">
+        {/* Touch: every kind in one strip at the top, so the upgrades you buy come right under it. */}
+        <div className="-mx-3 hidden gap-1.5 overflow-x-auto px-3 pt-1 pb-2 touch:flex" role="group" aria-label="Tower kinds">
+          {tabs.flatMap((g) => g.kinds).map(chip)}
+        </div>
+        <div className="flex flex-col gap-1 touch:hidden">
           {tabs.map((g) => {
             const isOpen = open === g.id;
             const onFloor = g.kinds.reduce((n, k) => n + built(k), 0);
@@ -242,7 +246,7 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
           })}
         </div>
 
-        <div className="mt-3 flex items-center gap-2 border-t border-line/60 pt-2.5">
+        <div className="mt-3 flex items-center gap-2 border-t border-line/60 pt-2.5 touch:mt-0">
           <TowerIcon kind={kind} className="size-9 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="font-display text-base leading-tight font-semibold">{TOWERS[kind].name}</p>

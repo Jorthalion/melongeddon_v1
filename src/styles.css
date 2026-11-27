@@ -3,6 +3,11 @@
 @import "@fontsource-variable/outfit";
 @import "tailwindcss";
 
+/* Touch screens (phones, tablets): the phone fixes key off this, so desktop never changes. */
+@custom-variant touch (@media (pointer: coarse));
+/* A phone on its side: short, wide and touch. */
+@custom-variant phoneland (@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px));
+
 @theme {
   --color-ink: #140e12;
   --color-panel: #2a1c22;
@@ -116,5 +121,27 @@
   * {
     scrollbar-color: #c6a15a #1d1418;
     scrollbar-width: thin;
+  }
+}
+
+/* Touch screens: small buttons get a hit area 4 px bigger on every side (keep 8 px between them). */
+@media (pointer: coarse) {
+  .touch-hit:not(.absolute):not(.fixed) {
+    position: relative;
+  }
+  .touch-hit::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
+  /* Keyboard hints (Space, Q-Y, 1-5, B…) mean nothing without a keyboard. */
+  [data-keycap],
+  kbd {
+    display: none !important;
+  }
+  /* No text under 12 px on a phone. */
+  .text-\[0\.625rem\],
+  .text-\[0\.6875rem\] {
+    font-size: 0.75rem !important;
   }
 }

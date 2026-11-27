@@ -43,16 +43,16 @@ export function CardOverlay({
   const hud = api.world.hud;
   return (
     // While the pause menu sits on top, the card underneath is inert: one modal dialog at a time.
-    <div className="absolute inset-0 flex items-center justify-center bg-ink/75 p-4" inert={hud.menu != null || hud.checkout}>
-      <Dialog key={hudPhase} labelledBy="card-title" className="max-h-full w-full max-w-md overflow-auto rounded-xl border border-line bg-panel p-5 outline-none">
+    <div className="absolute inset-0 flex items-center justify-center bg-ink/75 p-4 phoneland:p-2" inert={hud.menu != null || hud.checkout}>
+      <Dialog key={hudPhase} labelledBy="card-title" className="max-h-full w-full max-w-md overflow-auto rounded-xl border border-line bg-panel p-5 outline-none phoneland:max-w-3xl phoneland:p-3">
         {hudPhase === "upgrade" ? (
           <>
             <div className="flex items-baseline justify-between gap-3">
-              <h2 id="card-title" className="font-display text-2xl font-semibold">Between the waves</h2>
+              <h2 id="card-title" className="font-display text-2xl font-semibold phoneland:text-xl">Between the waves</h2>
               {/* Check what's already checked out before choosing (C). */}
               <button
                 type="button"
-                className="shrink-0 text-sm text-gold underline decoration-gold/50 underline-offset-2 hover:decoration-gold"
+                className="shrink-0 text-sm text-gold underline decoration-gold/50 underline-offset-2 hover:decoration-gold touch:-my-3 touch:min-h-11 touch:px-2"
                 title="Your checkout card (C)"
                 onClick={() => {
                   onGesture();
@@ -79,7 +79,8 @@ export function CardOverlay({
                     ? "The last pick opened this shelf. It lasts the rest of the run."
                     : `${KEEPER_NAMES[hud.hero ?? "mynxi"].short} picks first. It lasts the rest of the run.`}
             </p>
-            <div className="mt-4 flex flex-col gap-2">
+            {/* A phone on its side: the choices side by side, so none is cut off below the fold. */}
+            <div className="mt-4 flex flex-col gap-2 phoneland:mt-2 phoneland:grid phoneland:grid-cols-3">
               {hud.offer.map((u, i) => {
                 const id = u.id as UpgradeId;
                 const own = isKeeperUpgrade(hud.hero, id);
@@ -87,14 +88,16 @@ export function CardOverlay({
                   <button
                     key={u.id}
                     type="button"
-                    className={`relative flex min-h-[4.5rem] items-center gap-3 rounded-xl border bg-panel-2 py-3 pr-9 pl-3 text-left outline-none hover:border-[#c6a15a] focus-visible:border-[#c6a15a] focus-visible:ring-1 focus-visible:ring-[#c6a15a] ${own ? "border-[#c6a15a]" : "border-line"}`}
+                    className={`relative flex min-h-[4.5rem] items-center gap-3 rounded-xl border bg-panel-2 py-3 pr-9 pl-3 text-left phoneland:items-start phoneland:py-2 phoneland:pr-3 outline-none hover:border-[#c6a15a] focus-visible:border-[#c6a15a] focus-visible:ring-1 focus-visible:ring-[#c6a15a] ${own ? "border-[#c6a15a]" : "border-line"}`}
                     onClick={() => {
                       onGesture();
                       tone(360, 0.09, "triangle", 0.04);
                       api.pickUpgrade(id);
                     }}
                   >
-                    <UpgradeMark id={id} />
+                    <span className="shrink-0 phoneland:hidden">
+                      <UpgradeMark id={id} />
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                         <span className="font-semibold">{u.name}</span>
@@ -106,7 +109,7 @@ export function CardOverlay({
                       <span className="mt-1 block text-sm text-muted">{u.blurb}</span>
                     </span>
                     {/* The hotkey: a keycap in the corner, so it doesn't read as a step number. */}
-                    <kbd className="absolute top-2 right-2 hidden min-w-[1.25rem] rounded-[4px] border border-b-2 border-line bg-ink/40 px-1 text-center font-sans text-[0.625rem] leading-4 text-muted sm:block">
+                    <kbd data-keycap className="absolute top-2 right-2 hidden min-w-[1.25rem] rounded-[4px] border border-b-2 border-line bg-ink/40 px-1 text-center font-sans text-[0.625rem] leading-4 text-muted sm:block">
                       {i + 1}
                     </kbd>
                     {/* Dr. Samodovol's extra book: a real upgrade from further along the shelves, marked as his. */}
@@ -141,7 +144,7 @@ export function CardOverlay({
                 api.prepareFinale();
               }}
             >
-              Get ready first <span className="ml-1 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
+              Get ready first <span data-keycap className="ml-1 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
             </button>
             <button
               type="button"
@@ -247,7 +250,7 @@ function EndCard({
         onClick={onAction}
       >
         {action}
-        <span className="ml-2 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
+        <span data-keycap className="ml-2 hidden text-xs font-normal opacity-70 sm:inline">Enter</span>
       </button>
       {more.length ? (
         <div className={`mt-2 grid gap-2 ${more.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
