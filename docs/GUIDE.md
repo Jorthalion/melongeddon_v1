@@ -966,7 +966,7 @@ If you played before the Catalogue existed, nothing is lost: on the first load e
 - **Overflow Master**: Win the Overflow without losing a stack to the chute.
 - **Back Room Ban**: Win a story night without buying a fitting.
 - **Still Standing**: Win a story night after dropping to 1 stack.
-- **Chaos Librarian**: Win the Overflow with every late slip on.
+- **Chaos Librarian**: Win the Overflow with three late slips on (the most the desk will stamp).
 - **Perfect Night**: Win on Melongeddon or harder with no stack lost, nothing absorbed and no tower sold.
 
 **The Workshop** (14)

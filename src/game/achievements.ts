@@ -6,7 +6,7 @@
  */
 import { ARMOURS, baseMap, DIFFICULTIES, HEROES, KEEPER_TOWERS, armourFrom, type ArmourId, type Difficulty, type DoorId, type ExitId, type HeroId, type MapId, type NightId, type TowerKind } from "./rules.ts";
 import { PICKABLE_MAPS, type MetaStats } from "./meta.ts";
-import { SLIPS, type SlipId } from "./slips.ts";
+import { MAX_SLIPS, SLIPS, type SlipId } from "./slips.ts";
 import { DEFAULT_COSMETICS, ROOM_IDS, START_ROOMS, legacyRooms, type Cosmetics, type RoomId } from "./catalogue.ts";
 
 /** What happened in the night being played. Reset at the start of every run; never saved. */
@@ -412,10 +412,10 @@ const LIST: Array<Omit<Achievement, "tier">> = [
   {
     id: "all-slips",
     name: "Chaos Librarian",
-    blurb: "Win the Overflow with every late slip on.",
+    blurb: "Win the Overflow with three late slips on (the most the desk will stamp).",
     shelf: "reference",
-    // TODO: impossible today. There are five late slips and MAX_SLIPS lets you take three. The rule is kept as written.
-    check: (c) => c.won && c.night === "overflow" && SLIPS.every((s) => c.slips.includes(s.id)),
+    // It used to ask for all five slips, but only MAX_SLIPS (three) can be taken, so it could never be earned.
+    check: (c) => c.won && c.night === "overflow" && new Set(c.slips.filter((s) => SLIPS.some((x) => x.id === s))).size >= MAX_SLIPS,
   },
   {
     id: "perfect",

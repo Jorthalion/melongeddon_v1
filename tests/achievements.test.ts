@@ -204,8 +204,9 @@ test("Reference: each one passes on a clean night and just misses on a close one
   assert.ok(!passes("back-room-ban", ctx({ log: { backRoomBuys: 1 } })));
   assert.ok(passes("still-standing", ctx({ log: { minStacks: 1 } })));
   assert.ok(!passes("still-standing", ctx({ log: { minStacks: 2 } })));
-  assert.ok(!passes("all-slips", ctx({ night: "overflow", slips: ["heavy", "damp", "karl"] })), "TODO: only three slips can be taken");
-  assert.ok(passes("all-slips", ctx({ night: "overflow", slips: ["heavy", "damp", "norefund", "short", "karl"] })));
+  assert.ok(passes("all-slips", ctx({ night: "overflow", slips: ["heavy", "damp", "karl"] })), "three slips, the most that can be taken");
+  assert.ok(!passes("all-slips", ctx({ night: "overflow", slips: ["heavy", "damp"] })), "two isn't enough");
+  assert.ok(!passes("all-slips", ctx({ night: "midnight", slips: ["heavy", "damp", "karl"] })), "the Overflow only");
   assert.ok(passes("perfect", ctx({ difficulty: "hard" })));
   assert.ok(!passes("perfect", ctx({ difficulty: "hard", log: { sold: 1 } })));
   assert.ok(!passes("perfect", ctx({ difficulty: "hard", log: { absorbed: 1 } })), "an absorb counts");
