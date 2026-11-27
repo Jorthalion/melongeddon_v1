@@ -25,6 +25,8 @@ export const PROGRESS_KEYS = [
   "melongeddon-best-wave",
   "melongeddon-endless-best",
   "melongeddon-guide",
+  // A night in play, phones only (see saveRun in engine.ts). Cleared with the rest on a reset.
+  "melongeddon-run",
 ] as const;
 const JSON_KEYS = ["melongeddon-meta", "melongeddon-keepers", "melongeddon-setup"];
 

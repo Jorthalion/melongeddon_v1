@@ -51,3 +51,12 @@ export function watchInput() {
     true,
   );
 }
+
+/** A touch screen is the main pointer (phones, tablets). Phone-only fixes key off this, so desktop never changes. */
+export function coarsePointer(): boolean {
+  try {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+}

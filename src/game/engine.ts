@@ -1095,6 +1095,65 @@ export interface WorldOptions {
   siegeOpen?: boolean;
 }
 
+/** A night in play saved by `saveRun` (phones: so a reload, or the phone dropping the tab, doesn't lose it). */
+export const RUN_KEY = "melongeddon-run";
+/** Bump when the saved night's layout changes: an older one is then dropped, not misread. */
+export const RUN_SAVE_VERSION = 1;
+/** The phases a night can be saved in. */
+const RUN_PHASES: Phase[] = ["prep", "combat", "upgrade", "consequence"];
+/** Progress the game saves as it goes: a resumed night keeps the stored values, not the ones in the snapshot. */
+const RUN_KEEP_HUD = [
+  "best", "endlessBest", "unlocked", "maps", "keepers", "shelves", "ledger", "rooms", "fragments", "fragmentsEarned",
+  "lockedKeepers", "lockedTowers", "cosmetics", "guideDone", "dev", "siegeOpen", "catalogueNote", "saved", "setupNote", "speed",
+] as const satisfies ReadonlyArray<keyof Hud>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RunVars = Record<string, any>;
+
+/** JSON with Sets, Maps and non-finite numbers kept. */
+export function encodeRun(value: unknown): string {
+  return JSON.stringify(value, function (this: Record<string, unknown>, key, v) {
+    const raw = this[key];
+    if (raw instanceof Set) return { __set: [...raw] };
+    if (raw instanceof Map) return { __map: [...raw] };
+    if (typeof raw === "number" && !Number.isFinite(raw)) return { __num: String(raw) };
+    return v;
+  });
+}
+
+/** Read a saved night (null if it isn't one this build can use). */
+export function decodeRun(raw: string): { v: number; world: Record<string, unknown> & { hud: Hud }; vars: RunVars } | null {
+  try {
+    const snap = JSON.parse(raw, (_key, v) => {
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        if (Array.isArray(v.__set) && Object.keys(v).length === 1) return new Set(v.__set);
+        if (Array.isArray(v.__map) && Object.keys(v).length === 1) return new Map(v.__map);
+        if (typeof v.__num === "string" && Object.keys(v).length === 1) return Number(v.__num);
+      }
+      return v;
+    });
+    if (!snap || snap.v !== RUN_SAVE_VERSION || !snap.world?.hud || !snap.vars) return null;
+    if (!RUN_PHASES.includes(snap.world.hud.phase) || !Array.isArray(snap.world.towers)) return null;
+    return snap;
+  } catch {
+    return null;
+  }
+}
+
+/** What the Title says about a saved night ("Resume wave 4"), or null if there's none it can use. */
+export function runSummary(raw: string | null): { wave: number; waveCount: number; night: NightId; hero: HeroId; seeds: number; lives: number; maxLives: number } | null {
+  if (!raw) return null;
+  const snap = decodeRun(raw);
+  const h = snap?.world.hud;
+  if (!h || !h.hero) return null;
+  return { wave: h.wave, waveCount: h.waveCount, night: h.night, hero: h.hero, seeds: h.seeds, lives: h.lives, maxLives: h.maxLives };
+}
+
+function refill(target: Set<unknown> | Map<unknown, unknown>, src: unknown) {
+  target.clear();
+  if (target instanceof Set && src instanceof Set) for (const x of src) target.add(x);
+  else if (target instanceof Map && src instanceof Map) for (const [k, v] of src) target.set(k, v);
+}
+
 export function createWorld(
   onChange: () => void,
   options: WorldOptions = {},
@@ -1177,6 +1236,13 @@ export function createWorld(
   setupPage: (page: "who" | "night") => void;
   /** Title: start the saved setup (or the defaults on a first visit). */
   continueRun: () => void;
+  /**
+   * The night in play as a string (board, towers, fruit, seeds, waves and the engine's own counters), or null
+   * outside a night (and in the tutorial). Phones keep it so a reload doesn't lose the night (`resumeRun`).
+   */
+  saveRun: () => string | null;
+  /** Title: pick up a night from `saveRun`. A wave comes back paused. False if the save can't be read. */
+  resumeRun: (raw: string) => boolean;
   /** Setup → Title. */
   backToTitle: () => void;
   /** Intro → Setup, keeping the choices. */
@@ -6833,6 +6899,95 @@ export function createWorld(
       }
       world.hud.hero = hero;
       notify();
+    },
+    saveRun() {
+      const h = world.hud;
+      if (!RUN_PHASES.includes(h.phase) || h.guide != null || h.tutorial || nightDone || !h.hero) return null;
+      const { sfx: _sfx, hover: _hover, ...rest } = world;
+      const vars: RunVars = {
+        nextId, cleared, waveLost, shortcutNoted, clock, queue, bellRushed, drops, fought, absurdDrops, stillBuilt, prevPick,
+        tally, credit, queueCursor, spawnClock, karlReward, lecture, lectureNow, archive, archiveNow, doctorCarry, dmgAtWave,
+        reached, absorbed, materialNoted, windUsed, goldenUsed, towerKinds, lastMode, promptNext, objectedWave, objectedNight,
+        waterDeep, waterStart, drainPlugged, jamNext, deathVia, shardsFlying,
+      };
+      try {
+        return encodeRun({ v: RUN_SAVE_VERSION, world: rest, vars });
+      } catch {
+        return null;
+      }
+    },
+    resumeRun(raw: string) {
+      if (world.hud.phase !== "coldopen") return false;
+      const snap = decodeRun(raw);
+      if (!snap) return false;
+      const saved = snap.world as unknown as World;
+      const hero = saved.hud.hero;
+      if (!hero || !KEEPER_NAMES[hero] || world.hud.lockedKeepers.includes(hero)) return false;
+      // Progress (XP, rooms, fragments, achievements, records) is saved as it happens: keep the stored one.
+      const keep: Partial<Hud> = {};
+      for (const k of RUN_KEEP_HUD) (keep as Record<string, unknown>)[k] = world.hud[k];
+      const reduced = world.reduced;
+      Object.assign(world, saved);
+      world.sfx = [];
+      world.hover = null;
+      world.reduced = reduced;
+      world.hud = {
+        ...world.hud,
+        ...keep,
+        menu: null,
+        checkout: false,
+        workshop: null,
+        // A wave comes back paused, so the player has a moment to look first.
+        paused: saved.hud.phase === "combat" ? true : saved.hud.paused,
+      };
+      const v = snap.vars as RunVars;
+      nextId = v.nextId;
+      cleared = v.cleared;
+      waveLost = v.waveLost;
+      shortcutNoted = v.shortcutNoted;
+      clock = v.clock;
+      queue = v.queue;
+      bellRushed = v.bellRushed;
+      drops = v.drops;
+      refill(fought, v.fought);
+      absurdDrops = v.absurdDrops;
+      stillBuilt = v.stillBuilt;
+      prevPick = v.prevPick;
+      refill(tally, v.tally);
+      credit = v.credit;
+      queueCursor = v.queueCursor;
+      spawnClock = v.spawnClock;
+      karlReward = v.karlReward;
+      pausedBeforeCheckout = false;
+      lecture = v.lecture;
+      lectureNow = v.lectureNow;
+      refill(archive, v.archive);
+      archiveNow = v.archiveNow;
+      doctorCarry = v.doctorCarry;
+      refill(dmgAtWave, v.dmgAtWave);
+      refill(reached, v.reached);
+      absorbed = v.absorbed;
+      materialNoted = v.materialNoted;
+      windUsed = v.windUsed;
+      goldenUsed = v.goldenUsed;
+      refill(towerKinds, v.towerKinds);
+      nightDone = false;
+      lastMode = v.lastMode;
+      promptNext = v.promptNext;
+      objectedWave = v.objectedWave;
+      objectedNight = v.objectedNight;
+      waterDeep = v.waterDeep;
+      waterStart = v.waterStart;
+      drainPlugged = v.drainPlugged;
+      refill(jamNext, v.jamNext);
+      deathVia = v.deathVia;
+      shardsFlying = v.shardsFlying;
+      legCache = null;
+      // The perks the night started with (a level reached tonight only counts from the next night).
+      fx = perkFx(hero, { ...world.hud.keepers[hero], xp: world.hud.xpStart });
+      world.hud.log = `Back where you were: wave ${world.hud.wave}.`;
+      notify();
+      return true;
     },
     continueRun() {
       if (world.hud.phase !== "coldopen") return;

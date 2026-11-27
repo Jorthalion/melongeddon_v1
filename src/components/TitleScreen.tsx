@@ -21,7 +21,10 @@ export function TitleScreen({
   onQuit,
   guide,
   onTutorial,
+  resume,
 }: {
+  /** Phones: a night that was in play when the page went away (a reload, or the phone dropping the tab). */
+  resume?: { label: string; detail: string; onResume: () => void };
   settings: ReactNode;
   /** The Grand Catalogue (rooms and shelves), shown from the menu. */
   catalogue: ReactNode;
@@ -89,9 +92,17 @@ export function TitleScreen({
       <div className="absolute top-[43%] left-1/2 w-[min(20.5rem,74vw)] -translate-x-1/2">
         {view === "menu" ? (
           <div ref={menuRef} className="flex flex-col gap-2.5" role="group" aria-label="Main menu" onKeyDown={onMenuKey}>
+            {resume ? (
+              <>
+                <MenuButton gold ref={startRef} onClick={resume.onResume} onHint={hintFor("Pick the night up where you left it.")}>
+                  {resume.label}
+                </MenuButton>
+                <p className="-mt-1 rounded bg-black/55 px-2 py-1 text-center text-xs leading-snug text-[#f4ead8]">{resume.detail}</p>
+              </>
+            ) : null}
             <MenuButton
-              gold
-              ref={startRef}
+              gold={!resume}
+              ref={resume ? undefined : startRef}
               onClick={onStart}
               onHint={hintFor(
                 guide
@@ -101,7 +112,7 @@ export function TitleScreen({
                     : "Play right away with the setup shown just below.",
               )}
             >
-              {saved ? "Continue" : "Start"}
+              {resume ? "Start it fresh" : saved ? "Continue" : "Start"}
             </MenuButton>
             <p className="-mt-1 rounded bg-black/55 px-2 py-1 text-center text-xs leading-snug text-[#f4ead8]">
               {summary}

@@ -14,3 +14,11 @@ export function save(key: string, value: string) {
     /* settings just won't persist */
   }
 }
+
+export function drop(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* nothing was saved */
+  }
+}

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { BOARDS, KEEPER_NAMES, createWorld, stepWorld } from "@/game/engine";
+import { BOARDS, KEEPER_NAMES, RUN_KEY, createWorld, runSummary, stepWorld } from "@/game/engine";
+import { coarsePointer } from "@/lib/inputMode";
+import { drop, load, save } from "@/lib/storage";
 import { drawWorld } from "@/game/draw";
 import { isMusicOn, isMuted, playSfx, setMusicMode, setMusicOn, setMuted, tone, unlockAudio } from "@/game/audio";
 import { useHotkeys } from "@/components/hotkeys";
@@ -29,6 +31,8 @@ function fitBoard(w: number, h: number, bw: number, bh: number) {
   const scale = Math.max(0.0001, Math.min(w / bw, h / bh));
   return { scale, x: (w - bw * scale) / 2, y: (h - bh * scale) / 2 };
 }
+
+const phase0 = (p: string) => p === "coldopen";
 
 export function MelonGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -171,6 +175,43 @@ export function MelonGame() {
     window.addEventListener("beforeunload", onLeave);
     return () => window.removeEventListener("beforeunload", onLeave);
   }, [hud.phase]);
+
+  // Phones: keep the night in play, so a reload (or the phone dropping the tab while another app is open)
+  // doesn't lose it. Saved at every new wave or card and whenever the page is hidden; dropped when the night
+  // ends or another one starts. Desktop keeps its leave prompt instead.
+  const [savedRun, setSavedRun] = useState(() => (coarsePointer() ? load(RUN_KEY) : null));
+  const lastPhase = useRef(hud.phase);
+  useEffect(() => {
+    if (!coarsePointer()) return;
+    const p = hud.phase;
+    const was = lastPhase.current;
+    lastPhase.current = p;
+    const over = p === "victory" || p === "defeat" || p === "poster" || p === "select" || (p === "coldopen" && was !== "coldopen");
+    if (over) {
+      drop(RUN_KEY);
+      setSavedRun(null);
+      return;
+    }
+    const raw = api.saveRun();
+    if (raw) save(RUN_KEY, raw);
+  }, [hud.phase, hud.wave, api]);
+  useEffect(() => {
+    if (!coarsePointer()) return;
+    const keep = () => {
+      const raw = api.saveRun();
+      if (raw) save(RUN_KEY, raw);
+    };
+    const onHide = () => {
+      if (document.visibilityState === "hidden") keep();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", keep);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", keep);
+    };
+  }, [api]);
+  const resumable = phase0(hud.phase) ? runSummary(savedRun) : null;
 
   // Browser / phone Back steps back one screen instead of leaving the site. Away from the Title
   // the page keeps one extra history entry; each Back uses it up, does the in-game back step,
@@ -352,6 +393,22 @@ export function MelonGame() {
               : "Your first night is Mynxi's tutorial: a few short lessons, then the full setup opens."
           }
           note={hud.setupNote}
+          resume={
+            resumable
+              ? {
+                  label: resumable.night !== "endless" ? `Resume wave ${resumable.wave} of ${resumable.waveCount}` : `Resume wave ${resumable.wave}`,
+                  detail: `${KEEPER_NAMES[resumable.hero].name}: ${resumable.seeds} seeds, ${resumable.lives}/${resumable.maxLives} stacks.`,
+                  onResume: () => {
+                    gesture();
+                    tone(220, 0.08, "triangle", 0.04);
+                    if (!savedRun || !api.resumeRun(savedRun)) {
+                      drop(RUN_KEY);
+                      setSavedRun(null);
+                    }
+                  },
+                }
+              : undefined
+          }
           onStart={() => {
             gesture();
             tone(220, 0.08, "triangle", 0.04);
