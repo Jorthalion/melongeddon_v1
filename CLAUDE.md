@@ -29,7 +29,7 @@ If the folder path is very long, `npm run installer` can fail in NSIS ("could no
 
 - `src/game/rules.ts`: every number and definition (towers, keepers, upgrades, `PICKS`, `DIFFICULTIES`, boards). `engine.ts` runs the game and re-exports rules.
 - `src/components/`: the React screens (HUD, card picker, setup, back room, Mynxi's tutorial).
-- `scripts/sim*.ts`: the headless simulator. `sim-human.ts` is the "human bot", the reference player for balance.
+- `scripts/sim*.ts`: the headless simulator. `sim-human.ts` is the "human bot", the reference player for balance. **`docs/HUMAN_BOT.md` is the how-to for running it** (setup, flags, scenarios, reading reports).
 - `scripts/new-player.ts`: a first-time player in a real browser (playwright-core with installed Chrome) that reports where newcomers get stuck.
 - When rules change, update the README, `docs/GUIDE.md` and `public/how-to-play.html` too.
 
