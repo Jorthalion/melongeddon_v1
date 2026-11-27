@@ -17,7 +17,7 @@
     "sim:scenario": "node --disable-warning=ExperimentalWarning scripts/sim-scenario.ts",
     "sim:abuse": "node --disable-warning=ExperimentalWarning scripts/sim-abuse.ts",
     "sim:newplayer": "node --disable-warning=ExperimentalWarning scripts/new-player.ts",
-    "test": "node --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\"",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\"",
     "package": "npm run build && node --disable-warning=ExperimentalWarning scripts/package-itch.ts",
     "app": "npm run build && electron .",
     "installer": "npm run build && electron-builder --win --publish never",
