@@ -145,10 +145,11 @@ const TIPS: Array<{ id: string; mood: Mood; title: string; text: string; when: (
 ];
 
 /**
- * `docked` (phones): the box sits in the layout above the board instead of over it, so the board
+ * The box sits in the layout above the board instead of over it, so the board (and any card)
  * shrinks to fit below and the carpet stays in sight while a lesson waits for a tap.
+ * `small` (phones): a smaller face and a narrower box.
  */
-export function MynxiTutor({ api, onGesture, docked = false }: { api: GameApi; onGesture: () => void; docked?: boolean }) {
+export function MynxiTutor({ api, onGesture, small = false }: { api: GameApi; onGesture: () => void; small?: boolean }) {
   const hud = api.world.hud;
   const seen = useRef(new Set<string>());
   const [, setTick] = useState(0);
@@ -164,22 +165,16 @@ export function MynxiTutor({ api, onGesture, docked = false }: { api: GameApi; o
   const at = step ? GUIDE_STEPS.indexOf(step) : -1;
 
   return (
-    <div
-      className={
-        docked
-          ? "relative z-30 flex shrink-0 justify-center px-2 pb-1.5"
-          : "pointer-events-none absolute inset-x-0 top-[3.75rem] z-30 flex justify-center px-3"
-      }
-    >
+    <div className={`relative z-30 flex shrink-0 justify-center ${small ? "px-2 pb-1.5" : "px-3 pb-2"}`}>
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-xl border border-[#c6a15a]/80 bg-[#140c10]/95 p-3 shadow-[0_8px_28px_rgba(0,0,0,0.55)]"
+        className={`flex w-full ${small ? "max-w-lg" : "max-w-2xl"} items-start gap-3 rounded-xl border border-[#c6a15a]/80 bg-[#140c10]/95 p-3 shadow-[0_8px_28px_rgba(0,0,0,0.55)]`}
       >
         <img
           src={FACE[line.mood]}
           alt="Mynxi"
-          className={`${docked ? "size-12" : "size-16 sm:size-20"} shrink-0 rounded-lg border border-[#c6a15a]/60 object-cover object-[center_18%]`}
+          className={`${small ? "size-12" : "size-16"} shrink-0 rounded-lg border border-[#c6a15a]/60 object-cover object-[center_18%]`}
         />
         <div className="min-w-0 flex-1">
           <p className="text-[0.6875rem] tracking-[0.22em] text-gold uppercase">

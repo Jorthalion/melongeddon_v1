@@ -36,11 +36,15 @@ test("phones: the back room button leaves the board for the build bar", () => {
   assert.match(game, /backRoom=\{narrow[^}]*<BackRoomTab[^>]*compact/);
 });
 
-test("Mynxi's lesson card starts below the Coming up bar", () => {
+test("Mynxi's lesson card sits above the board, never over it or the Coming up bar", () => {
   const tutor = src("MynxiTutor.tsx");
-  const m = tutor.match(/absolute inset-x-0 top-\[(\d+(?:\.\d+)?)rem\]/);
-  assert.ok(m, "Mynxi's card lost its offset");
-  const layout = readFileSync(new URL("../src/lib/layout.ts", import.meta.url), "utf8");
-  const bar = Number(layout.match(/BAR_REM = ([\d.]+)/)![1]);
-  assert.ok(Number(m[1]) >= bar, `${m[1]} rem is inside the ${bar} rem bar`);
+  assert.ok(!/absolute/.test(tutor), "Mynxi's card floats over the board again");
+  const game = src("MelonGame.tsx");
+  const bar = game.indexOf("<ComingUpBar");
+  const box = game.indexOf("<MynxiTutor");
+  const canvas = game.indexOf("<canvas");
+  assert.ok(bar >= 0 && box > bar && canvas > box, "order: Coming up bar, Mynxi, board");
+  assert.equal(game.split("<MynxiTutor").length, 2, "one place for Mynxi's card");
+  // The between-wave card shares the board's box, so it starts below Mynxi too.
+  assert.ok(game.indexOf("<CardOverlay") > canvas);
 });
