@@ -78,9 +78,10 @@ export function GameHeader({
   const toggleMute = onMute;
   return (
     <header data-board-controls className={`flex items-center justify-between gap-2 border-b border-line px-2 py-2 sm:gap-3 sm:px-4 sm:py-3 ${wide ? "sm:px-6" : ""}`}>
-      <div className="flex items-center gap-2">
-        <BookOpen className={`size-5 text-gold ${inRun ? "hidden sm:block" : ""}`} aria-hidden="true" />
-        <div className={inRun ? "hidden sm:block" : ""}>
+      <div className={`flex min-w-0 items-center gap-2 ${inRun ? "max-lg:hidden" : ""}`}>
+        {/* During a night the title needs the room the controls use, so it comes back only on wide screens. */}
+        <BookOpen className={`size-5 shrink-0 text-gold ${inRun ? "hidden lg:block" : ""}`} aria-hidden="true" />
+        <div className={`min-w-0 ${inRun ? "hidden lg:block" : ""}`}>
           <p className="font-display text-lg leading-none font-semibold">Melongeddon</p>
           <p className="text-[0.8125rem] text-muted">
             {phase === "coldopen"
@@ -95,24 +96,27 @@ export function GameHeader({
         </div>
         {hud.dev ? (
           <span
-            className={`rounded border border-[#6fc6ef]/70 px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-[0.18em] text-[#6fc6ef] ${inRun ? "hidden sm:inline" : ""}`}
+            className={`rounded border border-[#6fc6ef]/70 px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-[0.18em] text-[#6fc6ef] ${inRun ? "hidden lg:inline" : ""}`}
             title="Developer mode: everything unlocked, nothing saved to your progress"
           >
             DEV
           </span>
         ) : null}
       </div>
-      <div className={`flex items-center justify-end gap-1 text-sm sm:gap-2 ${wide ? "sm:gap-4" : ""}`}>
+      <div className={`flex min-w-0 items-center justify-end gap-1 text-sm max-[399px]:gap-0.5 sm:gap-2 ${wide ? "sm:gap-4" : ""}`}>
         {inRun ? (
           <>
-            <span className="flex items-center gap-1.5">
-              <Coins className={`text-gold ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
+            <span className="flex shrink-0 items-center gap-1.5">
+              <Coins className={`text-gold max-[379px]:hidden ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
               <span className={`font-display leading-none font-semibold ${wide ? "text-2xl" : "text-lg"}`}>{hud.seeds}</span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <Heart className={`text-flesh ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
-              <span className={`font-display leading-none font-semibold ${wide ? "text-2xl" : "text-lg"}`}>
-                {hud.lives}/{hud.maxLives}
+            {/* Keeper readouts (Power, Hoard, Sisu…) wrap under the stacks on narrow screens instead of pushing the buttons off. */}
+            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0">
+              <span className="flex shrink-0 items-center gap-1.5">
+                <Heart className={`text-flesh max-[339px]:hidden ${wide ? "size-6" : "size-5"}`} aria-hidden="true" />
+                <span className={`font-display leading-none font-semibold ${wide ? "text-2xl" : "text-lg"}`}>
+                  {hud.lives}/{hud.maxLives}
+                </span>
               </span>
               {hud.golden > 0 ? (
                 <span
@@ -156,20 +160,20 @@ export function GameHeader({
             {menuable ? <CheckoutButton api={api} onGesture={gesture} /> : null}
             {hud.night === "overflow" ? (
               <span
-                className="hidden text-[0.8125rem] text-muted sm:inline"
+                className="hidden text-[0.8125rem] whitespace-nowrap text-muted md:inline"
                 title="Absurdity: rises with every fruit popped tonight. In the Overflow's last two waves, every 25 Absurdity sends one more shelled melon up the chute."
               >
                 Absurdity {hud.absurdity}
               </span>
             ) : null}
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1 max-[399px]:gap-0.5">
               {showPlace ? (
               <>
               <button
                 type="button"
                 aria-label="Slow down"
                 disabled={hud.speed <= 0.5}
-                className="grid size-8 sm:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
+                className="grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
                 onClick={() => {
                   gesture();
                   api.nudgeSpeed(-1);
@@ -180,7 +184,7 @@ export function GameHeader({
               <button
                 type="button"
                 aria-label={hud.paused ? "Resume" : "Pause"}
-                className="grid size-8 sm:size-11 place-items-center rounded-lg border border-line/70"
+                className="grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70"
                 onClick={() => {
                   gesture();
                   api.togglePause();
@@ -193,7 +197,7 @@ export function GameHeader({
                 type="button"
                 aria-label="Speed up"
                 disabled={hud.speed >= 3}
-                className="grid size-8 sm:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
+                className="grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70 text-lg disabled:opacity-40"
                 onClick={() => {
                   gesture();
                   api.nudgeSpeed(1);
@@ -201,7 +205,7 @@ export function GameHeader({
               >
                 +
               </button>
-              <span className="hidden w-8 text-center text-[0.8125rem] text-muted sm:inline">{hud.paused ? "||" : `${hud.speed}×`}</span>
+              <span className="hidden w-8 text-center text-[0.8125rem] text-muted md:inline">{hud.paused ? "||" : `${hud.speed}×`}</span>
               </>
               ) : null}
               {menuable ? (
@@ -210,7 +214,7 @@ export function GameHeader({
                   aria-label="Menu"
                   aria-haspopup="dialog"
                   title="Menu (Esc)"
-                  className="grid size-8 sm:size-11 place-items-center rounded-lg border border-line/70"
+                  className="grid size-7 min-[400px]:size-8 md:size-11 place-items-center rounded-lg border border-line/70"
                   onClick={() => {
                     gesture();
                     api.openMenu();
@@ -226,7 +230,7 @@ export function GameHeader({
         ) : null}
         <button
           type="button"
-          className="grid size-8 sm:size-11 place-items-center rounded-xl border border-line bg-panel"
+          className="grid size-7 min-[400px]:size-8 shrink-0 md:size-11 place-items-center rounded-xl border border-line bg-panel"
           aria-label={muted ? "Unmute" : "Mute"}
           onClick={toggleMute}
           title="Sound (M)"
@@ -247,7 +251,7 @@ function CheckoutButton({ api, onGesture }: { api: GameApi; onGesture: () => voi
       aria-label={`Checkout card, ${n} item${n === 1 ? "" : "s"}`}
       aria-haspopup="dialog"
       title="Checkout card (C)"
-      className="relative grid size-8 place-items-center rounded-lg border border-line/70 hover:border-[#c6a15a] sm:size-11"
+      className="relative grid size-7 min-[400px]:size-8 shrink-0 place-items-center rounded-lg border border-line/70 hover:border-[#c6a15a] md:size-11"
       onClick={() => {
         onGesture();
         api.openCheckout();
@@ -295,10 +299,11 @@ export function BuildFooter({
       {phase === "combat" ? (
         <div className={`flex min-h-12 shrink-0 flex-col justify-center ${backRoom ? "min-w-0 flex-1" : ""}`}>
           <div className={`flex items-baseline justify-between gap-3 ${column ? "flex-wrap gap-y-0.5" : ""}`}>
-            <p className="font-display text-lg leading-none font-semibold">
+            {/* The wave count stays on one line; on a phone the wave's name gives way first. */}
+            <p className="shrink-0 font-display text-lg leading-none font-semibold whitespace-nowrap">
               {hud.waveCount ? `Wave ${Math.min(hud.wave, hud.waveCount)}/${hud.waveCount}` : `Wave ${hud.wave}`}
             </p>
-            <p className="min-w-0 truncate text-sm text-muted">{hud.waveName}</p>
+            <p className="min-w-0 flex-1 truncate text-center text-sm text-muted">{hud.waveName}</p>
             <p className="shrink-0 text-sm">{hud.left} remaining</p>
             {hud.map === "basement" ? <WaterGauge level={hud.water} plugged={hud.plugged} /> : null}
           </div>
@@ -328,7 +333,8 @@ export function BuildFooter({
       {backRoom}
       </div>
       <div className={`flex items-center gap-2 ${column ? "shrink-0" : "h-7"}`}>
-        <div className={`flex gap-1 ${column ? "flex-wrap" : "shrink-0"}`} role="tablist" aria-label="Cannon type">
+        {/* Narrow phones: the tabs tighten, and on the very narrowest the row scrolls on its own (never the page). */}
+        <div className={`flex gap-1 ${column ? "flex-wrap" : "min-w-0 overflow-x-auto"}`} role="tablist" aria-label="Cannon type">
           {groupsFor(hud.hero).map((g) => {
             const on = groupOf(hud.build).id === g.id;
             return (
@@ -338,7 +344,7 @@ export function BuildFooter({
                 role="tab"
                 aria-selected={on}
                 title={`${g.name} (${g.key.toUpperCase()})`}
-                className={`h-7 rounded-md px-2 text-[0.8125rem] font-semibold sm:px-2.5 ${on ? "bg-[#3a242c] text-gold ring-1 ring-[#c6a15a]" : "text-muted"}`}
+                className={`h-7 shrink-0 rounded-md px-1.5 text-[0.8125rem] font-semibold min-[400px]:px-2 sm:px-2.5 ${on ? "bg-[#3a242c] text-gold ring-1 ring-[#c6a15a]" : "text-muted"}`}
                 onClick={() => {
                   gesture();
                   api.dismissSelection();
@@ -1062,7 +1068,7 @@ function ObjectionButton({ api, onGesture }: { api: GameApi; onGesture: () => vo
       aria-label={ready ? `Objection! (O), ${hud.objections} left this wave` : `Objection! ${why}`}
       aria-disabled={!ready}
       title={ready ? `Objection! Throw back what's at the door (O). ${hud.objections} left this wave.` : why}
-      className={`relative grid h-8 sm:h-11 place-items-center rounded-lg border px-2 text-[0.8125rem] font-semibold ${
+      className={`relative grid h-7 min-[400px]:h-8 md:h-11 place-items-center rounded-lg border px-2 max-[399px]:px-1.5 text-[0.8125rem] font-semibold ${
         ready ? "border-[#e6c36a] bg-[linear-gradient(180deg,#d4b06a_0%,#8d6730_100%)] text-ink" : "border-line/70 text-muted opacity-50"
       }`}
       onClick={() => {
@@ -1072,7 +1078,7 @@ function ObjectionButton({ api, onGesture }: { api: GameApi; onGesture: () => vo
     >
       <span className="flex items-center gap-1">
         <Gavel className="size-4" />
-        <span className="hidden sm:inline">{spent ? "Spent" : "Objection!"}</span>
+        <span className="hidden md:inline">{spent ? "Spent" : "Objection!"}</span>
       </span>
       {hud.objections > 1 && hud.phase === "combat" ? (
         <span className="absolute -top-1.5 -right-1.5 rounded-full bg-ink px-1 text-[0.625rem] leading-4 text-gold">×{hud.objections}</span>

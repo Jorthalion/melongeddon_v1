@@ -1,15 +1,22 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
-/** After a build: write dist/precache.json (every file, for the offline cache) and stamp dist/sw.js with a build id. */
+/**
+ * After a build: write precache.json (every file, for the offline cache) into the output folder and stamp its
+ * sw.js with a build id. The folder is the one Vite built into (dist, or whatever --outDir says), so a build
+ * elsewhere never leaves an unstamped sw.js behind or rewrites dist's list.
+ */
 function offlineCache(): Plugin {
+  let dist = fileURLToPath(new URL("./dist", import.meta.url));
   return {
     name: "melongeddon-offline-cache",
     apply: "build",
+    configResolved(config) {
+      dist = resolve(config.root, config.build.outDir);
+    },
     closeBundle() {
-      const dist = fileURLToPath(new URL("./dist", import.meta.url));
       const walk = (dir: string): string[] =>
         readdirSync(dir).flatMap((name) => {
           const full = join(dir, name);

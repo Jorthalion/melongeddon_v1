@@ -37,7 +37,8 @@ export function CheckoutPanel({ api, onGesture }: { api: GameApi; onGesture: () 
   const empty = !card.groups.some((g) => g.id === "cards");
 
   return (
-    <div className="absolute inset-0 z-30 flex items-end bg-ink/60 sm:items-stretch sm:justify-end" onClick={close}>
+    // overflow-hidden: the card slides in from off the edge, which mustn't make the page scroll sideways meanwhile.
+    <div className="absolute inset-0 z-30 flex items-end overflow-hidden bg-ink/60 sm:items-stretch sm:justify-end" onClick={close}>
       <Dialog
         labelledBy="checkout-title"
         className="checkout-slide relative flex max-h-[85%] w-full flex-col overflow-hidden rounded-t-md border border-[#d7b56a]/70 shadow-[0_0_0_1px_rgba(215,181,106,0.22),0_-8px_30px_rgba(0,0,0,0.45)] outline-none sm:m-3 sm:max-h-none sm:w-[24rem] sm:rounded-md"

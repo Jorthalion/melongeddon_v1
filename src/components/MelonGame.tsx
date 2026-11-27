@@ -236,14 +236,18 @@ export function MelonGame() {
   // Wide screens: the build bar becomes a left column and the back room docks on the right.
   const layout = layoutFor(box.w, box.h, api.world.w, api.world.h, box.rem);
   const wide = layout.mode === "wide" && showPlace;
+  /** Short landscape screens (a phone on its side): the build column on the left, the back room stays a tab on the board. */
+  const side = layout.mode === "side" && showPlace;
+  /** The build bar is a left column (wide and side layouts). */
+  const column = wide || side;
   /** Phones: the back room button and the tips go in the bottom area, off the board. */
-  const narrow = !wide && box.w < NARROW_PX;
+  const narrow = !column && box.w < NARROW_PX;
   /** Mynxi's tutorial: above the board and any card (never over them), hidden under the pause menu. */
   const tutorOn = phase !== "coldopen" && phase !== "select" && phase !== "poster" && !hud.menu;
   // The tips have one place, never over the board or the Coming up bar (see TipCard).
   const tipDock = (where: string, fit: "full" | "line") => (
     <TipFit.Provider value={fit}>
-      <div data-tip-dock={where} className={`flex shrink-0 flex-col gap-1.5 empty:hidden ${where === "side" ? "pb-2" : where === "bottom" ? "px-3 pt-1.5" : "pb-1.5"}`}>
+      <div data-tip-dock={where} className={`relative z-20 flex shrink-0 flex-col gap-1.5 empty:hidden ${where === "side" ? "pb-2" : where === "bottom" ? "px-3 pt-1.5" : "pb-1.5"}`}>
         <Tips api={api} tutorial={!hud.tutorial && !hud.guide} />
       </div>
     </TipFit.Provider>
@@ -264,16 +268,20 @@ export function MelonGame() {
 
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
-      {wide ? (
+      {column ? (
         <aside aria-label="Build" className="flex min-h-0 shrink-0 flex-col" style={{ width: layout.left }}>
+          {/* Short landscape screens: Mynxi's box heads the build column, so the board keeps all its height. */}
+          {side && tutorOn ? <div key={hud.guide ?? "tips"} className="max-h-[55%] shrink-0 overflow-y-auto pt-2"><MynxiTutor api={api} onGesture={gesture} small /></div> : null}
+          {/* Side layout: the tips also head the build column (capped, scrolling), never the board column. */}
+          {side ? <div className="max-h-[40%] shrink-0 overflow-y-auto px-3 pt-2">{tipDock("side", "line")}</div> : null}
           <BuildFooter api={api} onGesture={gesture} column />
         </aside>
       ) : null}
-      <div data-board-controls className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${wide ? "py-3" : "sm:px-3"}`}>
+      <div data-board-controls className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${column ? "py-3" : "sm:px-3"}`}>
         {showPlace ? <ComingUpBar api={api} /> : null}
-        {showPlace && !wide && !narrow ? tipDock("top", "line") : null}
+        {showPlace && !column && !narrow ? tipDock("top", "line") : null}
         {/* Mynxi's box goes above the board, not over it: the board (and any card) shrinks to fit below. */}
-        {tutorOn ? <MynxiTutor api={api} onGesture={gesture} small={narrow} /> : null}
+        {tutorOn && !side ? <MynxiTutor api={api} onGesture={gesture} small={narrow} /> : null}
         <div className="relative flex min-h-0 flex-1 flex-col">
         <canvas
           ref={canvasRef}
@@ -289,8 +297,8 @@ export function MelonGame() {
               const d = Math.hypot(f.x - p.x, f.y - p.y);
               if (d <= f.r + 8 && (!near || d < near.d)) near = { id: f.id, d };
             }
-            const box = e.currentTarget.closest("[data-board-controls]")!.getBoundingClientRect();
-            setFoe(near ? { id: near.id, x: e.clientX - box.left, y: e.clientY - box.top } : null);
+            const box = e.currentTarget.parentElement!.getBoundingClientRect();
+            setFoe(near ? { id: near.id, x: e.clientX - box.left, y: e.clientY - box.top, w: box.width } : null);
           }}
           onPointerLeave={() => setFoe(null)}
           onPointerDown={(e) => {
@@ -322,7 +330,7 @@ export function MelonGame() {
       </div>
 
       {showPlace && narrow ? tipDock("bottom", "line") : null}
-      {showPlace && !wide ? (
+      {showPlace && !column ? (
         <BuildFooter
           api={api}
           onGesture={gesture}

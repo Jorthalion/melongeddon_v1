@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { BOARDS, DEV_SEEDS } from "@/game/engine";
+import { DEV_SEEDS } from "@/game/engine";
 import { Dialog } from "@/components/Dialog";
 import { SettingsPanel } from "@/components/SettingsPanel";
-import { MenuButton, NIGHT_LABEL, type GameApi } from "@/components/ui";
+import { MenuButton, nightAndRoom, type GameApi } from "@/components/ui";
 
 /** Resume / Settings / Restart night / Leave to title. Restart and Leave ask first. */
 export function PauseMenu({
@@ -36,7 +36,7 @@ export function PauseMenu({
           <>
             <p id="pause-title" className="font-display text-2xl font-semibold text-[#f6e7b4]">Paused</p>
             <p className="mt-1 text-sm text-muted">
-              {NIGHT_LABEL[hud.night]} · {BOARDS[hud.map].name} · {wave}
+              {nightAndRoom(hud)} · {wave}
             </p>
             <div className="mt-4 flex flex-col gap-2.5">
               <MenuButton gold onClick={() => { onGesture(); api.closeMenu(); }}>

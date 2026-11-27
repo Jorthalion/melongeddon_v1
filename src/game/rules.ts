@@ -1814,6 +1814,11 @@ export function refundFor(kind: TowerKind, paid: number) {
 export function theName(name: string) {
   return /^The /.test(name) ? name : `the ${name}`;
 }
+/** The same, to start a sentence: "The Melon cannon", "The Post" (never "The The Post"). */
+export function TheName(name: string) {
+  const n = theName(name);
+  return n[0].toUpperCase() + n.slice(1);
+}
 
 export function sellValue(paid: number) {
   return Math.round((paid * SELL_PERCENT) / 100); // integer math: 45 * 0.7 would round to 31

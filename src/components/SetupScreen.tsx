@@ -42,7 +42,7 @@ const FRAME: Record<CardFrame, string> = {
 };
 
 /**
- * New night, in two pages. "Who": seven faces and the chosen keeper's one line and every tower only they can build.
+ * New night, in two pages. "Who": eight faces and the chosen keeper's one line and every tower only they can build.
  * "The night": night, room (or late slips), difficulty, bookmark, and perks once the keeper has any.
  */
 export function SetupScreen({

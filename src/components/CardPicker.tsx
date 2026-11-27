@@ -187,7 +187,8 @@ export function CardOverlay({
             body={
               hud.night === "endless"
                 ? `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your endless best is ${hud.endlessBest}. ${loseLine(hud.hero ?? "mynxi", hud.map)}`
-                : `You cleared ${hud.best} wave${hud.best === 1 ? "" : "s"} at best. ${loseLine(hud.hero ?? "mynxi", hud.map)}`
+                : // This night's waves, then the record (hud.best is across every night).
+                  `You held ${hud.wave - 1} wave${hud.wave === 2 ? "" : "s"}. Your best is ${hud.best}. ${loseLine(hud.hero ?? "mynxi", hud.map)}`
             }
             action="Try again"
             unlocks={hud.newUnlocks}

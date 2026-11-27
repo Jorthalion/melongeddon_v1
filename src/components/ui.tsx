@@ -11,10 +11,16 @@ export interface ScreenProps {
 }
 
 export const NIGHT_LABEL: Record<Hud["night"], string> = { midnight: "Midnight", overflow: "The Overflow", siege: "The Siege", endless: "Endless" };
+/** "Midnight · The Stacks"; just "The Overflow" when the room has the night's own name. */
+export function nightAndRoom(hud: Pick<Hud, "night" | "map">) {
+  const night = NIGHT_LABEL[hud.night];
+  const room = BOARDS[hud.map].name;
+  return room === night ? night : `${night} · ${room}`;
+}
 /** One line for the Title's Continue: night, map, keeper, difficulty, bookmark. */
 export function setupSummary(hud: Hud) {
   const level = DIFFICULTIES.find((d) => d.id === hud.difficulty)?.name ?? "";
-  const parts = [NIGHT_LABEL[hud.night], BOARDS[hud.map].name, KEEPER_NAMES[hud.hero ?? "mynxi"].name, `${level} difficulty`];
+  const parts = [nightAndRoom(hud), KEEPER_NAMES[hud.hero ?? "mynxi"].name, `${level} difficulty`];
   if (hud.bookmark) parts.push(BOOKMARK[hud.bookmark].name);
   return parts.join(" · ");
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Crown, Droplet, TriangleAlert } from "lucide-react";
 import { BOARDS, deepWave, DOOR_LETTER, DOOR_NAME, EXIT_COLOR, EXIT_NAME, NATIVE_INFO, exitCostText, type WaveGroup } from "@/game/engine";
 import { describeEnemy, fruitFromGroup } from "@/game/enemyInfo";
+import { chipsFor, type Chip } from "@/game/chips";
 import { COUNTERS, countersFor, unanswered, type BuildInfo } from "@/game/counters";
 import { enemySpriteSrc } from "@/game/draw";
 import { EnemyCardBody } from "@/components/EnemyCard";
@@ -42,7 +43,7 @@ function ChipPicture({ src, kind }: { src: string; kind: string }) {
 }
 
 /** A group's modifier badges: the marks the board draws on fruit, as short labels. */
-function badges(g: WaveGroup): Array<{ text: string; title: string; tone: string }> {
+function badges(g: WaveGroup | Chip): Array<{ text: string; title: string; tone: string }> {
   const out: Array<{ text: string; title: string; tone: string }> = [];
   if (g.guard === "rind") out.push({ text: "shell", title: "Shell: soaks the first 3 hits, then cracks", tone: "#f3e2c4" });
   if (g.guard === "husk") out.push({ text: "husk", title: "Husk: freeze, slows and the Bell don't work", tone: "#e6c36a" });
@@ -55,6 +56,7 @@ function badges(g: WaveGroup): Array<{ text: string; title: string; tone: string
   if (g.chute) out.push({ text: "↩ chute", title: "Up the chute: comes in at the door and walks back", tone: "#8fbcd8" });
   if (g.siege === "para") out.push({ text: "drop", title: "Paratrooper: lands on a drop point halfway", tone: "#d8c9a8" });
   if (g.siege === "boxed") out.push({ text: "box", title: "Box Cat: aimed shots can't target it", tone: "#d8b98a" });
+  if ("mixed" in g && g.mixed) out.push({ text: "mixed", title: "Mixed in among the others, not in one bunch", tone: "#c4aa96" });
   if (g.native) out.push({ text: "room", title: `${NATIVE_INFO[g.native].name}: this room's own fruit`, tone: "#8fdc6a" });
   if (g.mini) out.push({ text: "mini", title: "Mini-boss: much less health than the finale's", tone: "#e6c36a" });
   return out;
@@ -62,9 +64,10 @@ function badges(g: WaveGroup): Array<{ text: string; title: string; tone: string
 
 /**
  * The Coming up bar: a slim strip over the board. Between waves, the next wave; during one, what's still to
- * come. One chip per group of identical enemies, in spawn order (tap or hover for the enemy card), threat
- * pips against tonight's other waves, up to three warnings, and a gentle line when nothing you've built
- * answers something in it. Never pauses the game or takes focus from the board.
+ * come. One chip per kind of identical enemy, in order of first arrival ("mixed" when they're spread through
+ * the wave; tap or hover for the enemy card), threat pips against tonight's other waves, up to three
+ * warnings, and a gentle line when nothing you've built answers something in it. Never pauses the game or
+ * takes focus from the board.
  */
 export function ComingUpBar({ api }: { api: GameApi }) {
   const hud = api.world.hud;
@@ -105,6 +108,7 @@ export function ComingUpBar({ api }: { api: GameApi }) {
   if (!on) return null;
   const preview = api.comingUp();
   const between = hud.phase !== "combat";
+  const chips = chipsFor(preview.groups);
   if (!preview.groups.length && !between) return null;
 
   // "Your towers don't answer…": between waves only, not in the tutorial's first two waves.
@@ -115,7 +119,7 @@ export function ComingUpBar({ api }: { api: GameApi }) {
   const missing = between && !quiet && api.world.towers.length > 0 ? unanswered(needs, build) : [];
 
   return (
-    <div ref={box} data-board-controls className="relative z-10 shrink-0 border-b border-line/60 bg-ink/85 px-2 py-1 text-[0.8125rem]">
+    <div ref={box} data-board-controls className="relative z-20 shrink-0 border-b border-line/60 bg-ink/85 px-2 py-1 text-[0.8125rem]">
       <div className="flex items-center gap-2">
         <p className="shrink-0 text-[0.6875rem] leading-tight tracking-[0.14em] text-gold uppercase">
           {between ? `Next · wave ${preview.index + 1}` : "Still to come"}
@@ -132,7 +136,7 @@ export function ComingUpBar({ api }: { api: GameApi }) {
           </span>
         ) : null}
         <ul className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-0.5" aria-label="Enemies coming">
-          {preview.groups.map((g, i) => {
+          {chips.map((g, i) => {
             const marks = badges(g);
             const src = enemySpriteSrc(g);
             return (
@@ -218,15 +222,15 @@ export function ComingUpBar({ api }: { api: GameApi }) {
           ) : null}
         </div>
       ) : null}
-      {open != null && preview.groups[open] ? (
-        <div role="tooltip" className="absolute top-full left-2 z-30 mt-1 w-[17rem] rounded-lg border border-[#c6a15a]/70 bg-ink/95 px-3 py-2 text-left shadow-xl">
-          <EnemyCardBody info={describeEnemy(fruitFromGroup(preview.groups[open]), api.world)} preview />
+      {open != null && chips[open] ? (
+        <div role="tooltip" className="absolute top-full left-2 z-30 mt-1 w-[17rem] max-w-[calc(100%-1rem)] rounded-lg border border-[#c6a15a]/70 bg-ink/95 px-3 py-2 text-left shadow-xl">
+          <EnemyCardBody info={describeEnemy(fruitFromGroup(chips[open]), api.world)} preview />
           <p className="mt-1.5 text-[0.8125rem] text-muted">
-            ×{preview.groups[open].count} {between ? "next wave" : "still to come"}
+            ×{chips[open].count} {between ? "next wave" : "still to come"}
             {BOARDS[hud.map].hp && BOARDS[hud.map].hp !== 1 ? " · this room's health included" : ""}
           </p>
           {(() => {
-            const exitId = preview.groups[open].exit;
+            const exitId = chips[open].exit;
             const exit = exitId ? BOARDS[hud.map].exits?.find((x) => x.id === exitId) : undefined;
             return exit ? (
               <p className="mt-1 flex items-center gap-1.5 text-[0.8125rem] text-parchment">

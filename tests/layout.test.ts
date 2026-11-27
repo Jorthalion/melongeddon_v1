@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PREF_KEYS } from "../src/lib/saves.ts";
-import { LEFT_REM, RIGHT_REM, UI_SIZE_KEY, autoRootPx, layoutFor, readUiSize, rootFontFor, writeUiSize } from "../src/lib/layout.ts";
+import { LEFT_REM, RIGHT_REM, SIDE_LEFT_SHARE, UI_SIZE_KEY, autoRootPx, layoutFor, readUiSize, rootFontFor, writeUiSize } from "../src/lib/layout.ts";
 
 // Boards in world px: The Stacks (16 × 10) and the Great Hall (22 × 14), 48 px a tile.
 const STACKS = [768, 480] as const;
@@ -29,8 +29,23 @@ test("layoutFor: phones and tablets keep the normal layout", () => {
   for (const board of [STACKS, HALL]) {
     assert.equal(mode(375, 812, board).mode, "normal");
     assert.equal(mode(768, 1024, board).mode, "normal");
-    assert.equal(mode(812, 375, board).mode, "normal", "a phone on its side");
+    assert.equal(mode(1024, 768, board).mode, "normal", "a tablet on its side");
   }
+});
+
+test("layoutFor: a phone on its side gets the side layout (build column left, no back-room column)", () => {
+  // Under the normal layout's build bar there was no height left: at 812 × 375 the Stacks was drawn 24 px wide.
+  for (const [vw, vh] of [[812, 375], [844, 390], [667, 375], [740, 360], [915, 412]])
+    for (const board of [STACKS, HALL]) {
+      const l = mode(vw, vh, board);
+      assert.equal(l.mode, "side", `${vw}×${vh}, ${board[0]}×${board[1]}`);
+      assert.equal(l.left, Math.min(LEFT_REM * box(vw, vh).rem, Math.round(vw * SIDE_LEFT_SHARE)));
+      assert.equal(l.right, 0);
+      assert.ok(l.sideBoard > 3 * l.normalBoard, `${vw}×${vh}: side ${l.sideBoard} vs normal ${l.normalBoard}`);
+    }
+  // Portrait screens never take it, however short.
+  assert.notEqual(mode(390, 640, STACKS).mode, "side");
+  assert.notEqual(mode(600, 700, STACKS).mode, "side");
 });
 
 test("layoutFor: big wide screens switch to the wide layout, with the two columns", () => {

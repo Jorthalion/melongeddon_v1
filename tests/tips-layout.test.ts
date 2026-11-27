@@ -41,10 +41,25 @@ test("Mynxi's lesson card sits above the board, never over it or the Coming up b
   assert.ok(!/absolute/.test(tutor), "Mynxi's card floats over the board again");
   const game = src("MelonGame.tsx");
   const bar = game.indexOf("<ComingUpBar");
-  const box = game.indexOf("<MynxiTutor");
+  const box = game.lastIndexOf("<MynxiTutor");
   const canvas = game.indexOf("<canvas");
   assert.ok(bar >= 0 && box > bar && canvas > box, "order: Coming up bar, Mynxi, board");
-  assert.equal(game.split("<MynxiTutor").length, 2, "one place for Mynxi's card");
+  // Two places, never both: over the board column normally, at the head of the build column on short
+  // landscape screens (the side layout), where the board column has no height to spare.
+  assert.equal(game.split("<MynxiTutor").length, 3);
+  // Capped and scrollable there, so a long lesson never pushes its Next button off a short screen.
+  // Keyed on the lesson, so each new lesson starts scrolled to the top.
+  assert.match(game, /\{side && tutorOn \? <div key=\{hud\.guide \?\? "tips"\} className="max-h-\[55%\] shrink-0 overflow-y-auto pt-2"><MynxiTutor/);
+  assert.match(game, /\{tutorOn && !side \? <MynxiTutor/);
+  assert.ok(game.indexOf("<MynxiTutor") < game.indexOf("<BuildFooter api={api} onGesture={gesture} column />"), "in the build column, above the build bar");
   // The between-wave card shares the board's box, so it starts below Mynxi too.
   assert.ok(game.indexOf("<CardOverlay") > canvas);
+});
+
+test("side layout (a phone on its side): the tips head the build column, not the board column", () => {
+  const game = src("MelonGame.tsx");
+  assert.match(game, /\{side \? <div className="max-h-\[40%\] shrink-0 overflow-y-auto px-3 pt-2">\{tipDock\("side", "line"\)\}<\/div> : null\}/);
+  assert.match(game, /\{showPlace && !column && !narrow \? tipDock\("top", "line"\) : null\}/);
+  // The Back room tab never overhangs a short board.
+  assert.match(src("Shop.tsx"), /absolute top-1\/2 right-0 z-10 flex max-h-\[calc\(100%-0\.5rem\)\]/);
 });

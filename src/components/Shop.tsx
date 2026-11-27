@@ -134,7 +134,7 @@ export function BackRoomTab({ api, onGesture, docked = false, compact = false }:
         type="button"
         data-board-controls
         title="Back room (B): upgrade every tower of a kind"
-        className="absolute top-1/2 right-0 z-10 flex -translate-y-1/2 flex-col items-center gap-2.5 rounded-l-xl border border-r-0 border-[#c6a15a] bg-[#2c1a20]/95 px-3 py-6 text-gold shadow-[0_0_14px_rgba(198,161,90,0.35)] hover:bg-[#3a242c] sm:right-3"
+        className="absolute top-1/2 right-0 z-10 flex max-h-[calc(100%-0.5rem)] -translate-y-1/2 flex-col items-center gap-2.5 overflow-hidden rounded-l-xl border border-r-0 border-[#c6a15a] bg-[#2c1a20]/95 px-3 py-6 text-gold shadow-[0_0_14px_rgba(198,161,90,0.35)] hover:bg-[#3a242c] sm:right-3"
         onClick={() => {
           onGesture();
           tone(200, 0.06, "triangle", 0.03);

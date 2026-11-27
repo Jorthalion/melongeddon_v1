@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import { describeEnemy, type EnemyInfo } from "@/game/enemyInfo";
 import { effectColor } from "@/game/drawStatus";
 import type { GameApi } from "@/components/ui";
+import { shortNumber } from "@/lib/format";
 
 /** The fruit under the mouse, and where the mouse is inside the board area (CSS px). */
 export interface EnemyHover {
   id: number;
   x: number;
   y: number;
+  /** The width of the area the card is placed in (CSS px), measured when the mouse moved. */
+  w?: number;
 }
 
 /** The card's contents: name, health, what it is, what's on it now, and what beats it. Shared with the Coming up bar. */
@@ -16,7 +19,7 @@ export function EnemyCardBody({ info, preview = false }: { info: EnemyInfo; prev
     <>
       <p className="flex items-baseline justify-between gap-2">
         <span className="font-display text-base leading-tight font-semibold text-gold">{info.name}</span>
-        <span className="shrink-0 text-[0.8125rem] text-parchment">{preview ? `${info.maxHp} health` : `${info.hp} / ${info.maxHp}`}</span>
+        <span className="shrink-0 text-[0.8125rem] text-parchment">{preview ? `${shortNumber(info.maxHp)} health` : `${shortNumber(info.hp)} / ${shortNumber(info.maxHp)}`}</span>
       </p>
       {preview ? null : (
         <div className="mt-1 h-1 overflow-hidden rounded-full bg-panel-2">
@@ -75,13 +78,18 @@ export function EnemyCard({ api, hover, boxW }: { api: GameApi; hover: EnemyHove
   const e = api.world.enemies.find((f) => f.id === hover.id && f.hp > 0);
   if (!e) return null;
   const info = describeEnemy(e, api.world);
-  // Keep the card on the board: flip to the left of the mouse near the right edge.
-  const flip = hover.x > boxW - 300;
+  // Keep the card on the board: flip to the left of the mouse near the right edge, and never past either
+  // edge (on a narrow board the flipped card used to start off the left side).
+  const areaW = hover.w ?? boxW;
+  // 17rem, but never wider than the area (big interface sizes on a small screen).
+  const cardW = Math.min(17 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16), areaW - 16);
+  const flip = hover.x > areaW - cardW - 28;
+  const left = Math.max(8, Math.min(flip ? hover.x - 16 - cardW : hover.x + 16, areaW - cardW - 8));
   return (
     <div
       role="tooltip"
-      className="pointer-events-none absolute z-20 w-[17rem] rounded-lg border border-[#c6a15a]/70 bg-ink/95 px-3 py-2 text-left shadow-xl"
-      style={{ left: flip ? undefined : hover.x + 16, right: flip ? boxW - hover.x + 16 : undefined, top: Math.max(8, hover.y - 12) }}
+      className="pointer-events-none absolute z-20 w-[17rem] max-w-[calc(100%-1rem)] rounded-lg border border-[#c6a15a]/70 bg-ink/95 px-3 py-2 text-left shadow-xl"
+      style={{ left, top: Math.max(8, hover.y - 12) }}
     >
       <EnemyCardBody info={info} />
     </div>

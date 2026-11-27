@@ -198,7 +198,7 @@ Build cannons on the open **floor** beside the carpet: never on the carpet itsel
    - **Settings** has sound, music, game speed, reduce motion, "Show tips again" and **Developer mode** (see below).
    - **Install app** appears when your browser can install the game; **Quit** appears in the desktop app.
 2. **Setup (New night)** has two pages.
-   - **Who holds the stacks?** Seven faces (keys `1`–`7`). Tap one to see that keeper's one line (the thing you'll feel on wave one) and every tower only they can build, with its cost (the signature first; locked ones show a padlock and the Grand Catalogue room that opens them). Keepers whose room isn't restored yet are dimmed with a padlock and "Unlock: <Room>"; tapping one opens the Grand Catalogue at that room. Under the faces, **N fragments, Grand Catalogue** opens the Catalogue right there. The **Lv** badge is their level (see [Keepers](#keepers)). Press **Next: the night** (`Enter`).
+   - **Who holds the stacks?** Eight faces (keys `1`–`8`). Tap one to see that keeper's one line (the thing you'll feel on wave one) and every tower only they can build, with its cost (the signature first; locked ones show a padlock and the Grand Catalogue room that opens them). Keepers whose room isn't restored yet are dimmed with a padlock and "Unlock: <Room>"; tapping one opens the Grand Catalogue at that room. Under the faces, **N fragments, Grand Catalogue** opens the Catalogue right there. The **Lv** badge is their level (see [Keepers](#keepers)). Press **Next: the night** (`Enter`).
    - **The night**, with your keeper's face in the corner (tap it, or press `Esc`, to change keeper):
      - **Night**: Midnight (night one), The Overflow (night two), The Siege (night three; open once you've won the Overflow) or Endless.
      - **Room**: the map. More unlock as you play. On the Overflow, you choose **late slips** instead (see [Late slips](#late-slips)). The Siege is always in the Courtyard.
@@ -224,7 +224,7 @@ Press **Next** when she's just talking. When she asks you to do something, the w
 
 Played before? Press **Skip** on her box, or **Skip the guide** on the title screen. If you already had progress from an older version, the tutorial is skipped for you. Play it again any time with **Tutorial** on the title screen.
 
-After the guide, the next waves show short tips. They never sit on the board: on a computer they go in a line under the **Coming up** bar (tap **more** for the whole tip), in the right-hand column on a wide screen, and above the build bar on a phone. Bring them back any time with **Settings → Show tips again**.
+After the guide, the next waves show short tips. They never sit on the board: on a computer they go in a line under the **Coming up** bar (tap **more** for the whole tip), in the right-hand column on a wide screen, and above the build bar on a phone. On a phone turned on its side, the build bar becomes a column on the left, with the tips at its top, so the board keeps its height. Bring them back any time with **Settings → Show tips again**.
 
 ## The screen
 
@@ -248,7 +248,7 @@ After the guide, the next waves show short tips. They never sit on the board: on
 | Action | Mouse / touch | Keyboard |
 |---|---|---|
 | Build | Pick a cannon in the build bar, tap the floor | `1`–`5` pick a cannon, then click |
-| Switch build tab | Tap the tab | `Q` Damage · `W` Control · `E` Support · `R` Keeper · `T` Trick |
+| Switch build tab | Tap the tab | `Q` Damage · `W` Control · `E` Support · `R` Keeper · `T` Trick · `Y` Heavy |
 | Select a cannon | Tap it (tap again to deselect) | `Esc` deselects |
 | Sell | **Sell** in the inspector (refunds 70% of what you spent on it) | `S` |
 | Change what a cannon aims at | **‹ ›** beside "Aims:" in the inspector | `A` (with it selected) |
@@ -269,7 +269,7 @@ The **pause menu** has **Resume**, **Settings**, **Restart night** and **Leave t
 
 Mynxi, Vaelithra and Sir Michael are open from the start. The others open with a [Grand Catalogue](#grand-catalogue) room: the **Legal Elf** with The Mezzanine, **Ooze Clues** with Rare Books, **Dr. Samodovol** with The Archive, **Quackarot** with The Great Hall, and **Asser Mälkki** with The Reading Room.
 
-Each keeper changes your start and has a **signature tower** that only they can build. It's on the **Keeper** tab (`R`), and you can have one on the board at a time. Four keepers have more keeper towers on the same tab (the Legal Elf has three), and you can have one of each:
+Each keeper changes your start and has a **signature tower** that only they can build. It's on the **Keeper** tab (`R`), and you can have one on the board at a time. Every keeper but Asser has more keeper towers on the same tab (the Legal Elf has three), and you can have one of each:
 
 - **Mynxi's Reserve Desk** (30 seeds). Locked at first: **restore The Archive** in the Grand Catalogue to open it. It has no shot, and it must be built right beside the carpet. After every wave you survive it banks 8 seeds (the gold tag above it shows how much). Sell it to collect the bank plus the usual refund, or win the night and it pays out on its own. But if a **melon walks past the desk** (comes within about a tile of it), the melon eats the whole bank. Corn and pumpkins leave it alone. Put it beside the last stretch of carpet, behind your cannons, where few melons ever get to. On the Overflow, remember that fruit come up the chute at the door end, so that stretch isn't safe there.
 - **Vaelithra's later towers open during the night.** A **fully upgraded tower** is one whose kind has every back-room upgrade bought tonight (kinds with none, and the Copycat, don't count). With **2** of them on the board **Unstoppered** opens, with **4** **the Underlings**, with **6** **the Nexus Spire**. Once open, a tower stays open for the night, even if you sell towers; the next night starts locked again. A locked card shows the count ("2/4 upgraded").
@@ -454,7 +454,7 @@ A Finnish fantasy author dropped into a medieval world, knighted for his size an
 | **Damage** (`Q`) | Melon cannon, Pumpkin mortar, Seed Spitter, Shelf Ballista, Long Reader |
 | **Control** (`W`) | Still, Fire cannon, Freeze cannon, Shush Bell, Fly Hive |
 | **Support** (`E`) | Reading Lamp, Ink Well, Peeler, Bookworm, Compost Heap (and the Sump Pump, on the Flooded Basement only) |
-| **Keeper** (`R`) | Your keeper's own towers (the Legal Elf has two) |
+| **Keeper** (`R`) | Your keeper's own towers (the Legal Elf has three) |
 | **Trick** (`T`) | Boomerang Bookend, Orrery, Paper Plane, Serpent Quill, Rolling Globe: curved shots that pass through fruit. Each opens at a keeper level (below) |
 | **Heavy** (`Y`) | Printing Press, Pipe Organ, Brass Telescope: expensive cannons that each do two jobs |
 

@@ -76,12 +76,22 @@ export const WIDE_PAD_REM = 1.5;
 /** The wide layout may give a board this many CSS px narrower than the normal one and still be chosen. */
 export const WIDE_SLACK_PX = 4;
 
+/** The side layout must beat the normal board by 30% plus this much (CSS px) to be chosen. */
+export const SIDE_GAIN_PX = 20;
+/** The side layout's build column is LEFT_REM wide, but never more than this share of the screen (big interface sizes). */
+export const SIDE_LEFT_SHARE = 0.42;
+
 /**
  * Which layout fits a `boxW` × `boxH` area (everything under the top bar, in CSS px) for a
  * `boardW` × `boardH` board (world px). It works out the board's drawn width in both layouts — the
  * normal one (the board above the build bar) and the wide one (the build bar in a left column, the
  * back room docked on the right) — and picks the wide one only if its board is at least as big
  * (within WIDE_SLACK_PX). Never on screens under WIDE_MIN_PX wide.
+ *
+ * Short landscape screens under WIDE_MIN_PX (a phone on its side, a small window) get the side layout:
+ * the build column on the left, no back-room column (the back room stays a tab on the board). Under
+ * the normal layout's build bar they had no height left for the board at all (812 × 375: a board
+ * 24 px wide), so it's chosen when it draws the board at least 30% bigger (plus SIDE_GAIN_PX).
  */
 export function layoutFor(boxW: number, boxH: number, boardW: number, boardH: number, remPx: number) {
   const footer = FOOTER_REM * remPx;
@@ -93,14 +103,19 @@ export function layoutFor(boxW: number, boxH: number, boardW: number, boardH: nu
   const sideH = Math.max(1, boxH - (WIDE_PAD_REM + BAR_REM) * remPx);
   const wideBoard = boardW * Math.min(sideW / boardW, sideH / boardH);
   const wide = boxW >= WIDE_MIN_PX && wideBoard >= normalBoard - WIDE_SLACK_PX;
+  const sideLeft = Math.min(LEFT_REM * remPx, Math.round(boxW * SIDE_LEFT_SHARE));
+  const leftW = Math.max(1, boxW - sideLeft);
+  const sideBoard = boardW * Math.min(leftW / boardW, sideH / boardH);
+  const side = !wide && boxW < WIDE_MIN_PX && boxW > boxH && sideBoard >= normalBoard * 1.3 + SIDE_GAIN_PX;
   return {
-    mode: wide ? ("wide" as const) : ("normal" as const),
+    mode: wide ? ("wide" as const) : side ? ("side" as const) : ("normal" as const),
     /** Empty space each side of the board in the normal layout (CSS px). */
     margin,
     /** The board's drawn width in each layout (CSS px). */
     normalBoard,
     wideBoard,
-    left: wide ? LEFT_REM * remPx : 0,
+    sideBoard,
+    left: wide ? LEFT_REM * remPx : side ? sideLeft : 0,
     right: wide ? RIGHT_REM * remPx : 0,
   };
 }

@@ -136,7 +136,8 @@ export function ArmourIntro({
                 title={open ? text.look : `Opens at Sir Michael's level ${ARMOUR_LEVEL[armour]}`}
                 onClick={() => open && setPicked(armour)}
                 className={[
-                  "group relative flex items-center gap-3 rounded-xl border-2 px-3 py-2 text-left transition duration-150 lg:flex-col lg:items-center lg:text-center",
+                  // min-w-0 and the phone stack: "Dragonscale Mail" spilled out of its card on 320–390 px phones.
+                  "group relative flex min-w-0 items-center gap-3 rounded-xl border-2 px-3 py-2 text-left transition duration-150 max-sm:flex-col max-sm:items-start max-sm:gap-1 lg:flex-col lg:items-center lg:text-center",
                   "[@media(max-height:520px)]:py-1 lg:[@media(max-height:520px)]:flex-row lg:[@media(max-height:520px)]:text-left",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold",
                   !open
@@ -152,7 +153,7 @@ export function ArmourIntro({
                 <span className="shrink-0 transition group-hover:scale-110">
                   <ArmourMark armour={armour} />
                 </span>
-                <span className="min-w-0">
+                <span className="min-w-0 [overflow-wrap:anywhere]">
                   <span className="block font-display text-lg leading-tight font-semibold text-parchment">{text.name}</span>
                   <span className="block text-xs text-parchment/60 italic [@media(max-height:520px)]:hidden">“{text.said}”</span>
                   {open ? (

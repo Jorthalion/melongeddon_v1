@@ -12,7 +12,7 @@ import {
   carpetLegs, legOf, legsTouching, bindLeg, besideCarpet, VERGE_NOTE, DEFAULT_TARGET, TARGET_LABEL, type TargetMode, COPY_STEP_KINDS, COPY_HEAVY_KINDS, canCopy,
   FLOOR, floorTiles, floorPace, type FloorTile, COMBO, AFFLICT, TRICKS, hiveCrowd, fittingName, ballistaPierce,
   NATIVES, NATIVE_INFO, waveQueue, trimSpawns, assignNatives, type NativeId, type QueueItem,
-  SIEGE, type SiegeVariant, DOCTOR, type DigFind, theName,
+  SIEGE, type SiegeVariant, DOCTOR, type DigFind, theName, TheName,
 } from "./rules.ts";
 import { GUIDE_KEY } from "../lib/saves.ts";
 import { ELF_LINES, KEEPER_VOICE, loseLine, openingLine } from "./keeperVoice.ts";
@@ -6034,7 +6034,7 @@ export function createWorld(
       const buildKind = world.hud.build;
       if (levelLocked(buildKind)) {
         const who = world.hud.hero ? KEEPER_NAMES[world.hud.hero].name : "Your keeper";
-        world.hud.log = `The ${TOWERS[buildKind].name} opens when ${who} reaches level ${TRICK_LEVEL[buildKind]}.`;
+        world.hud.log = `${TheName(TOWERS[buildKind].name)} opens when ${who} reaches level ${TRICK_LEVEL[buildKind]}.`;
         notify();
         return;
       }
@@ -6049,7 +6049,7 @@ export function createWorld(
         return;
       }
       if (goalLocked(buildKind)) {
-        world.hud.log = `The ${TOWERS[buildKind].name} is locked. To open it: ${TOWER_GOALS[buildKind]?.goal}`;
+        world.hud.log = `${TheName(TOWERS[buildKind].name)} is locked. To open it: ${TOWER_GOALS[buildKind]?.goal}`;
         notify();
         return;
       }
@@ -6059,7 +6059,7 @@ export function createWorld(
             ? "The Post has to stand beside a straight."
             : buildKind === "dig"
             ? "The Dig needs quiet ground: not right beside the carpet."
-            : `The ${TOWERS[buildKind].name} goes right beside the carpet.`;
+            : `${TheName(TOWERS[buildKind].name)} goes right beside the carpet.`;
         notify();
         return;
       }
@@ -6135,7 +6135,7 @@ export function createWorld(
         const back = prevPick !== buildKind && pickable(prevPick) ? prevPick : "melon";
         if (back !== buildKind) {
           world.hud.build = back;
-          world.hud.log += ` The ${TOWERS[back].name} is picked again.`;
+          world.hud.log += ` ${TheName(TOWERS[back].name)} is picked again.`;
         }
       }
       // Vaelithra: a tower that tips her ladder says so after the usual line.
