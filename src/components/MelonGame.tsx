@@ -35,8 +35,10 @@ function fitBoard(w: number, h: number, bw: number, bh: number) {
 
 /** Touch screens can zoom the board (pinch, or the zoom button): this far in at most. */
 const MAX_ZOOM = 3;
-/** The zoom button shows only if filling the box makes tiles at least this much bigger. */
-const FILL_GAIN = 1.15;
+/** The zoom button goes at least this far in (or far enough to fill the board's box, if that's more). */
+const ZOOM_STEP = 1.8;
+/** Touch screens draw the board at most this many backing pixels per CSS px (see the frame loop). */
+const TOUCH_DPR = 2;
 /** A touch that moves further than this (CSS px) is a pan, not a tap. */
 const TAP_SLOP = 10;
 
@@ -132,6 +134,7 @@ export function MelonGame() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     let raf = 0;
+    const touchScreen = coarsePointer();
     let last = performance.now();
     let acc = 0;
     const frame = (now: number) => {
@@ -157,7 +160,9 @@ export function MelonGame() {
       const rect = canvas.getBoundingClientRect();
       // The backing store follows the board's real on-screen size, so sprites stay sharp on 4K screens
       // (capped at about 4096 px wide for performance).
-      const dpr = Math.max(0.5, Math.min(window.devicePixelRatio || 1, 4096 / Math.max(1, rect.width)));
+      // Touch screens cap it at 2: phones report 2.6-4.5, and drawing a 412 px board 1080+ px wide every frame
+      // halved the frame rate on a mid-range phone for detail nobody can see at that size.
+      const dpr = Math.max(0.5, Math.min(window.devicePixelRatio || 1, touchScreen ? TOUCH_DPR : Infinity, 4096 / Math.max(1, rect.width)));
       const bw = Math.max(1, Math.round(rect.width * dpr));
       const bh = Math.max(1, Math.round(rect.height * dpr));
       if (canvas.width !== bw || canvas.height !== bh) {
@@ -413,7 +418,7 @@ export function MelonGame() {
     }
   }, [catalogueAt, api]);
   // Wide screens: the build bar becomes a left column and the back room docks on the right.
-  const layout = layoutFor(box.w, box.h, api.world.w, api.world.h, box.rem);
+  const layout = layoutFor(box.w, box.h, api.world.w, api.world.h, box.rem, coarse);
   const wide = layout.mode === "wide" && showPlace;
   /** Short landscape screens (a phone on its side): the build column on the left, the back room stays a tab on the board. */
   const side = layout.mode === "side" && showPlace;
@@ -431,6 +436,27 @@ export function MelonGame() {
       </div>
     </TipFit.Provider>
   );
+
+  // Touch: the zoom button sits at the end of the build bar's tab row, off the board.
+  const zoomButton = showPlace && !hud.menu && coarse ? (
+          <button
+            type="button"
+            aria-label={zoomed ? "Show the whole board" : "Zoom the board in"}
+            aria-pressed={zoomed}
+            className="grid size-11 shrink-0 place-items-center rounded-lg border border-line/70 text-parchment"
+            onClick={() => {
+              gesture();
+              if (zoomed) setZoom(1);
+              else {
+                viewRef.current.cx = api.world.w / 2;
+                viewRef.current.cy = api.world.h / 2;
+                setZoom(Math.max(ZOOM_STEP, fillGain));
+              }
+            }}
+          >
+            {zoomed ? <ZoomOut className="size-5" aria-hidden="true" /> : <ZoomIn className="size-5" aria-hidden="true" />}
+          </button>
+  ) : null;
 
   return (
     <main className="relative flex h-dvh flex-col bg-ink text-parchment">
@@ -453,10 +479,16 @@ export function MelonGame() {
           {side && tutorOn ? <div key={hud.guide ?? "tips"} className="max-h-[55%] shrink-0 overflow-y-auto pt-2"><MynxiTutor api={api} onGesture={gesture} small /></div> : null}
           {/* Side layout: the tips also head the build column (capped, scrolling), never the board column. */}
           {side ? <div className="max-h-[40%] shrink-0 overflow-y-auto px-3 pt-2">{tipDock("side", "line")}</div> : null}
-          <BuildFooter api={api} onGesture={gesture} column />
+          <BuildFooter
+            api={api}
+            onGesture={gesture}
+            column
+            tools={zoomButton}
+            backRoom={side && !hud.menu && (phase === "prep" || phase === "combat") ? <BackRoomTab api={api} onGesture={gesture} compact /> : null}
+          />
         </aside>
       ) : null}
-      <div data-board-controls className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${column ? "py-3" : "sm:px-3"}`}>
+      <div data-board-controls className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${column ? "py-3 touch:py-1.5" : "sm:px-3"}`}>
         {showPlace ? <ComingUpBar api={api} /> : null}
         {showPlace && !column && !narrow ? tipDock("top", "line") : null}
         {/* Mynxi's box goes above the board, not over it: the board (and any card) shrinks to fit below. */}
@@ -495,32 +527,13 @@ export function MelonGame() {
             if (e.pointerType === "touch") touchUp(e, false);
           }}
         />
-        {showPlace && !hud.menu && coarse && (zoomed || fillGain >= FILL_GAIN) ? (
-          <button
-            type="button"
-            aria-label={zoomed ? "Show the whole board" : "Zoom the board in"}
-            aria-pressed={zoomed}
-            className="absolute bottom-2 left-2 z-10 grid size-11 place-items-center rounded-full border border-line bg-ink/85 text-parchment shadow-lg"
-            onClick={() => {
-              gesture();
-              if (zoomed) setZoom(1);
-              else {
-                viewRef.current.cx = api.world.w / 2;
-                viewRef.current.cy = api.world.h / 2;
-                setZoom(fillGain);
-              }
-            }}
-          >
-            {zoomed ? <ZoomOut className="size-5" aria-hidden="true" /> : <ZoomIn className="size-5" aria-hidden="true" />}
-          </button>
-        ) : null}
         {foe && showPlace && !hud.menu ? <EnemyCard api={api} hover={foe} boxW={box.w - layout.left - layout.right} /> : null}
         {hud.paused && !hud.menu && !hud.checkout && showPlace ? (
           <div className="pointer-events-none absolute inset-3 grid place-items-center">
             <p className="rounded-xl border border-line bg-ink/80 px-4 py-2 font-display text-xl">Paused</p>
           </div>
         ) : null}
-        {(phase === "prep" || phase === "combat") && !hud.menu && !wide && (!narrow || hud.workshop != null) ? <BackRoomTab api={api} onGesture={gesture} /> : null}
+        {(phase === "prep" || phase === "combat") && !hud.menu && !wide && (!(narrow || side) || hud.workshop != null) ? <BackRoomTab api={api} onGesture={gesture} /> : null}
         {phase === "select" ? <SetupScreen api={api} onGesture={gesture} /> : null}
         {phase !== "combat" && phase !== "prep" && phase !== "select" && phase !== "coldopen" && phase !== "poster" ? (
           <CardOverlay hudPhase={phase} api={api} onGesture={gesture} />
@@ -540,6 +553,7 @@ export function MelonGame() {
         <BuildFooter
           api={api}
           onGesture={gesture}
+          tools={zoomButton}
           backRoom={narrow && !hud.menu && (phase === "prep" || phase === "combat") ? <BackRoomTab api={api} onGesture={gesture} compact /> : null}
         />
       ) : null}

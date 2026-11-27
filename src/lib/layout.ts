@@ -80,6 +80,8 @@ export const WIDE_SLACK_PX = 4;
 export const SIDE_GAIN_PX = 20;
 /** The side layout's build column is LEFT_REM wide, but never more than this share of the screen (big interface sizes). */
 export const SIDE_LEFT_SHARE = 0.42;
+/** Touch screens (a phone on its side): a narrower build column, so the board column has room to zoom (see MelonGame). */
+export const SIDE_LEFT_SHARE_TOUCH = 0.32;
 
 /**
  * Which layout fits a `boxW` × `boxH` area (everything under the top bar, in CSS px) for a
@@ -93,7 +95,7 @@ export const SIDE_LEFT_SHARE = 0.42;
  * the normal layout's build bar they had no height left for the board at all (812 × 375: a board
  * 24 px wide), so it's chosen when it draws the board at least 30% bigger (plus SIDE_GAIN_PX).
  */
-export function layoutFor(boxW: number, boxH: number, boardW: number, boardH: number, remPx: number) {
+export function layoutFor(boxW: number, boxH: number, boardW: number, boardH: number, remPx: number, touch = false) {
   const footer = FOOTER_REM * remPx;
   const h = Math.max(1, boxH - footer - BAR_REM * remPx);
   const scale = Math.min(boxW / boardW, h / boardH);
@@ -103,7 +105,7 @@ export function layoutFor(boxW: number, boxH: number, boardW: number, boardH: nu
   const sideH = Math.max(1, boxH - (WIDE_PAD_REM + BAR_REM) * remPx);
   const wideBoard = boardW * Math.min(sideW / boardW, sideH / boardH);
   const wide = boxW >= WIDE_MIN_PX && wideBoard >= normalBoard - WIDE_SLACK_PX;
-  const sideLeft = Math.min(LEFT_REM * remPx, Math.round(boxW * SIDE_LEFT_SHARE));
+  const sideLeft = Math.min(LEFT_REM * remPx, Math.round(boxW * (touch ? SIDE_LEFT_SHARE_TOUCH : SIDE_LEFT_SHARE)));
   const leftW = Math.max(1, boxW - sideLeft);
   const sideBoard = boardW * Math.min(leftW / boardW, sideH / boardH);
   const side = !wide && boxW < WIDE_MIN_PX && boxW > boxH && sideBoard >= normalBoard * 1.3 + SIDE_GAIN_PX;

@@ -32,8 +32,10 @@ test("the tip dock comes after the Coming up bar and before the board; phones do
 
 test("phones: the back room button leaves the board for the build bar", () => {
   const game = src("MelonGame.tsx");
-  assert.match(game, /!wide && \(!narrow \|\| hud\.workshop != null\) \? <BackRoomTab/);
+  assert.match(game, /!wide && \(!\(narrow \|\| side\) \|\| hud\.workshop != null\) \? <BackRoomTab/);
   assert.match(game, /backRoom=\{narrow[^}]*<BackRoomTab[^>]*compact/);
+  // A phone on its side too: the button heads the build column instead of covering the board's right edge.
+  assert.match(game, /backRoom=\{side[^}]*<BackRoomTab[^>]*compact/);
 });
 
 test("Mynxi's lesson card sits above the board, never over it or the Coming up bar", () => {
@@ -51,7 +53,7 @@ test("Mynxi's lesson card sits above the board, never over it or the Coming up b
   // Keyed on the lesson, so each new lesson starts scrolled to the top.
   assert.match(game, /\{side && tutorOn \? <div key=\{hud\.guide \?\? "tips"\} className="max-h-\[55%\] shrink-0 overflow-y-auto pt-2"><MynxiTutor/);
   assert.match(game, /\{tutorOn && !side \? <MynxiTutor/);
-  assert.ok(game.indexOf("<MynxiTutor") < game.indexOf("<BuildFooter api={api} onGesture={gesture} column />"), "in the build column, above the build bar");
+  assert.ok(game.indexOf("<MynxiTutor") < game.indexOf("<BuildFooter\n            api={api}\n            onGesture={gesture}\n            column\n"), "in the build column, above the build bar");
   // The between-wave card shares the board's box, so it starts below Mynxi too.
   assert.ok(game.indexOf("<CardOverlay") > canvas);
 });
