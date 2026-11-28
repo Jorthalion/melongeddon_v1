@@ -225,6 +225,10 @@ It still covers the board in portrait (all 160 tiles), on purpose. It's a betwee
 
 **Files:** `src/game/achievements.ts`, `tests/achievements.test.ts`, README.md, `docs/GUIDE.md`, `public/how-to-play.html`.
 
+### 1b. A Freeze cannon could hold the last fruit frozen forever (soft-lock): fixed
+
+**What changed.** Every Freeze hit topped a running freeze back up to 1.45 s, so a cannon firing faster than that held one fruit for good. New rule `THAW` in `rules.ts`: one unbroken freeze lasts at most `THAW.hold` (3 s), however many hits top it up. Then the fruit can't freeze again until it has walked `THAW.walk` (0.8 s). Hits while it thaws still land and add frost. A single hit still holds its full time (0.6–2.8 s), and "First, not affected" aiming skips a thawing fruit. Stuns, sleep and Basement ice don't count. This is an engine bug, so it applies on every device. **Files:** `src/game/rules.ts`, `src/game/engine.ts`, `tests/freeze-stall.test.ts`. **Checked:** the new test fails before the fix (on the Greenhouse with a hit every 0.2 s, the fruit moved 8 px in 30 s) and passes after. A second test checks that one hit still holds 1.45 s. A human-bot balance run with and without the rule (`--set THAW.hold=999 --set THAW.walk=0`) was still running at commit time.
+
 ---
 
 ## For the phone bot and other harnesses

@@ -1,6 +1,6 @@
 import {
   CELL, BOARDS, baseMap, withLayouts, takesShortcut, boardSize, CANNON_UPGRADES, DIFFICULTIES, STATS, TOWERS, UPGRADES, WAVES, WAVE_COUNT, nightLength, carpetInReach, reachShape,
-  BALANCE, DROWSY, PICKS, canTake, isTowerPick, softenSlow, flyMiss, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
+  BALANCE, DROWSY, THAW, PICKS, canTake, isTowerPick, softenSlow, flyMiss, stacksWord, buildBoard, buildCost, killReward, hpScaleFor, difficultyHp, buildOffer, CANNON, GLOBAL_RANGE, PASSIVE, HEAVY_WAVE, HEAVY_SEEDS, nextBeat, fittingsFor, refundFor, shopPrice, towerReadout, waveAt,
   type Difficulty, type EnemyKind, type Guard, type HeroId, type MapId,
   type ModId, type NightId, type Phase, type SpawnSpec, type TowerKind, type UpgradeDef, type UpgradeId,
   HEROES, KEEPER_NAMES, KEEPER_START, SIGNATURE, KEEPER_TOWERS, isSignature, TOWER_TYPE, groupOf, TRICK_LEVEL, shelfCells,
@@ -217,6 +217,9 @@ interface Enemy {
   /** Vaelithra: hits taken while drowsy (the third puts it to sleep), and seconds before it can nod off again. */
   dozeHits?: number;
   restT?: number;
+  /** Ice can't hold it for good (THAW): seconds held in this freeze so far, and seconds of walking left before it can freeze again. */
+  iceHeld?: number;
+  thawT?: number;
   /** Vaelithra: a Nightmare went off this sleep; a report is filed (seconds left); Fumes' next doze hit. */
   nightmared?: boolean;
   reportT?: number;
@@ -306,7 +309,7 @@ const standingIn = (e: Enemy, pools: Pool[], is: (p: Pool) => boolean) => pools.
  */
 export const FRESH_TEST: Partial<Record<TowerKind, (e: Enemy, pools: Pool[], tower: Tower) => boolean>> = {
   fire: (e, pools) => !standingIn(e, pools, (p) => p.hot),
-  freeze: (e) => e.freeze <= 0 && (e.stomped ?? 0) <= 0 && (e.halt ?? 0) <= 0,
+  freeze: (e) => e.freeze <= 0 && (e.stomped ?? 0) <= 0 && (e.halt ?? 0) <= 0 && (e.thawT ?? 0) <= 0,
   still: (e, pools) => !standingIn(e, pools, (p) => !p.hot && !p.toxic && !p.honey),
   ink: (e) => (e.ink ?? 0) <= 0.5,
   // Pumpkins and Karl, and (status combos) anything with three stingers in it.
@@ -4052,13 +4055,20 @@ export function createWorld(
     const cap = n <= COMBO.chillHit ? Math.min(frostCap(e), Math.max(was, COMBO.chillCap)) : frostCap(e);
     e.frost = Math.min(cap, was + n);
     e.frostT = drainTime(e);
-    if (e.frost >= COMBO.frostMax && was < COMBO.frostMax) {
+    // Just thawed (THAW): the meter can fill, but it doesn't freeze solid again yet.
+    if (e.frost >= COMBO.frostMax && was < COMBO.frostMax && (e.thawT ?? 0) <= 0) {
       // Frozen solid for today's freeze time, then back to two (see the tick).
       const hold = (e.boss ? 0.6 : 1.45) * (e.guard === "damp" ? 1.4 : 1);
-      e.freeze = Math.max(e.freeze, hold);
+      e.freeze = Math.max(e.freeze, iceRoom(e, hold));
       e.stunBy = undefined;
       douse(e);
     }
+  };
+  /** How long a new freeze may hold it: no freeze lasts past THAW.hold in all, however often it's topped up. */
+  const iceRoom = (e: Enemy, hold: number) => {
+    if (e.freeze > 0 && !e.stunBy) return Math.min(hold, THAW.hold - (e.iceHeld ?? 0));
+    e.iceHeld = 0;
+    return hold;
   };
   /** Asleep (Vaelithra's sleeping draught): stopped, and not by ice. */
   const sleeping = (e: Enemy) => e.freeze > 0 && e.stunBy === "sleep";
@@ -4611,9 +4621,12 @@ export function createWorld(
       else e.chill = Math.max(e.chill, shot.chill);
     }
     if (shot.element === "fire") addFire(e.x, e.y, shot.fireLife, shot.fireBurn);
-    if (shot.element === "ice" && e.guard !== "husk") {
+    // Just thawed (THAW): the hit still lands and adds frost, but the fruit isn't frozen again yet.
+    if (shot.element === "ice" && e.guard !== "husk" && (e.thawT ?? 0) > 0) {
+      if (COMBO.on) addFrost(e, fitted("freeze", "deepfreeze") ? COMBO.deepFreezeHit : COMBO.freezeHit);
+    } else if (shot.element === "ice" && e.guard !== "husk") {
       const hold = (e.boss ? 0.6 : 1.45) + shot.freezeExtra;
-      e.freeze = Math.max(e.freeze, e.guard === "damp" ? hold * 1.4 : hold);
+      e.freeze = Math.max(e.freeze, iceRoom(e, e.guard === "damp" ? hold * 1.4 : hold));
       e.stunBy = undefined;
       float(e.x, e.y - 18, "frozen", "#d5e4ee");
       // The Flooded Basement: a Freeze hit on a fruit in water freezes the water round it.
@@ -5229,6 +5242,10 @@ export function createWorld(
       if (e.freeze > 0) {
         e.freeze -= dt;
         slow = 0;
+        // Ice (not a sleep or a stun): count how long it's held, and when it wears off, a moment's walk before it can freeze again.
+        if (!e.stunBy) e.iceHeld = (e.iceHeld ?? 0) + dt;
+        if (e.freeze <= 0 && !e.stunBy) e.thawT = THAW.walk;
+        if (e.freeze <= 0) e.iceHeld = 0;
       }
       if ((e.iced ?? 0) > 0) e.iced = Math.max(0, (e.iced ?? 0) - dt);
       // Frost: 1 stack slows a little, 2 slow hard, 3 is frozen solid (back to 2 when the freeze runs out).
@@ -5275,6 +5292,8 @@ export function createWorld(
         e.driven = 0;
         slow = 1;
       }
+      // The thaw only counts down while it walks, so nothing else holding it can use it up.
+      if ((e.thawT ?? 0) > 0 && slow > 0) e.thawT = Math.max(0, (e.thawT ?? 0) - dt);
       e.slow = slow;
       credit = dotBy ?? null;
       if (dot) hurt(e, null, dot * dt, 0, "pulp");

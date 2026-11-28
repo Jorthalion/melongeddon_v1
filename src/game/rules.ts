@@ -1170,6 +1170,17 @@ export const DOCTOR = {
 /** The Archaeological Dig's three finds, in the order the inspector shows them. */
 export type DigFind = "stacks" | "seeds" | "mark";
 
+/**
+ * Ice can't hold a fruit for good. Without this, a Freeze cannon that fired faster than its hold kept topping one
+ * fruit's freeze up, and a wave whose last fruit no damage reached never ended (phone bot, issue 1b).
+ * `hold`: the longest one unbroken freeze lasts (s), however many hits top it up (a single hit holds 0.6–2.8 s).
+ * `walk`: then it can't be frozen again until it has walked this long (s); time held by anything else doesn't count.
+ */
+export const THAW = {
+  hold: 3,
+  walk: 0.8,
+};
+
 export const DROWSY = {
   /** Seconds a hit keeps it drowsy (the Cold Hands perk stretches it), and its pace while drowsy. */
   time: 1.4,
